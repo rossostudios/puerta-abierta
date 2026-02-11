@@ -343,6 +343,11 @@ class CreateMarketplaceListingInput(BaseModel):
     country_code: str = "PY"
     currency: str = "PYG"
     application_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    gallery_image_urls: list[str] = Field(default_factory=list)
+    bedrooms: Optional[int] = Field(default=None, ge=0)
+    bathrooms: Optional[float] = Field(default=None, ge=0)
+    square_meters: Optional[float] = Field(default=None, ge=0)
     fee_lines: list[FeeLineInput] = Field(default_factory=list)
 
 
@@ -360,6 +365,11 @@ class UpdateMarketplaceListingInput(BaseModel):
     country_code: Optional[str] = None
     currency: Optional[str] = None
     application_url: Optional[str] = None
+    cover_image_url: Optional[str] = None
+    gallery_image_urls: Optional[list[str]] = None
+    bedrooms: Optional[int] = Field(default=None, ge=0)
+    bathrooms: Optional[float] = Field(default=None, ge=0)
+    square_meters: Optional[float] = Field(default=None, ge=0)
     is_published: Optional[bool] = None
     fee_lines: Optional[list[FeeLineInput]] = None
 

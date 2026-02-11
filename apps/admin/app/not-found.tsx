@@ -29,7 +29,10 @@ export default async function NotFound() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link className={cn(buttonVariants({ variant: "outline" }))} href="/">
+          <Link
+            className={cn(buttonVariants({ variant: "outline" }))}
+            href="/app"
+          >
             {isEn ? "Back to dashboard" : "Volver al panel"}
           </Link>
         </CardContent>

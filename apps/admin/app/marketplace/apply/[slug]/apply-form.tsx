@@ -155,8 +155,8 @@ export function MarketplaceApplyForm({
         <CardTitle>{isEn ? "Apply" : "Aplicar"}</CardTitle>
         <CardDescription>
           {isEn
-            ? "All fields are used for qualification and direct follow-up."
-            : "Todos los campos se usan para calificación y seguimiento directo."}
+            ? "Complete this form for qualification and direct follow-up."
+            : "Completa este formulario para calificación y seguimiento directo."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -298,15 +298,23 @@ export function MarketplaceApplyForm({
           ) : null}
 
           {successId ? (
-            <p className="text-emerald-700 text-sm dark:text-emerald-300">
-              {isEn
-                ? "Application submitted successfully."
-                : "Aplicación enviada correctamente."}{" "}
-              <span className="font-mono">{successId}</span>
-            </p>
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+              <p className="font-medium text-emerald-700 dark:text-emerald-300">
+                {isEn
+                  ? "Application submitted successfully."
+                  : "Aplicación enviada correctamente."}
+              </p>
+              <p className="mt-1 text-emerald-700/90 text-xs dark:text-emerald-300/90">
+                ID: <span className="font-mono">{successId}</span>
+              </p>
+            </div>
           ) : null}
 
-          <Button disabled={isSubmitting} type="submit">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={isSubmitting}
+            type="submit"
+          >
             {isSubmitting
               ? isEn
                 ? "Submitting..."

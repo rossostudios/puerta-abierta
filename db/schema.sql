@@ -579,6 +579,11 @@ CREATE TABLE marketplace_listings (
   is_published boolean NOT NULL DEFAULT false,
   published_at timestamptz,
   application_url text,
+  cover_image_url text,
+  gallery_image_urls jsonb NOT NULL DEFAULT '[]'::jsonb,
+  bedrooms smallint CHECK (bedrooms >= 0),
+  bathrooms numeric(4, 1) CHECK (bathrooms >= 0),
+  square_meters numeric(8, 2) CHECK (square_meters >= 0),
   created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()

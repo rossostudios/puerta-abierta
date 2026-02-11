@@ -140,7 +140,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "sm" })
                   )}
-                  href="/"
+                  href="/app"
                 >
                   {isEn ? "Back to dashboard" : "Volver al panel"}
                 </Link>
@@ -388,7 +388,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
               className={cn(
                 buttonVariants({ variant: "secondary", size: "sm" })
               )}
-              href="/"
+              href="/app"
             >
               {isEn ? "Back to dashboard" : "Volver al panel"}
             </Link>

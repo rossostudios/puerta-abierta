@@ -43,11 +43,13 @@ function humanizeSegment(value: string): string {
 function buildCrumbs(pathname: string, locale: Locale): Crumb[] {
   const isEn = locale === "en-US";
   const parts = pathname.split("/").filter(Boolean);
-  if (parts.length === 0) {
+  if (parts.length === 0 || (parts.length === 1 && parts[0] === "app")) {
     return [{ label: isEn ? "Dashboard" : "Panel", current: true }];
   }
 
-  const crumbs: Crumb[] = [{ label: isEn ? "Dashboard" : "Panel", href: "/" }];
+  const crumbs: Crumb[] = [
+    { label: isEn ? "Dashboard" : "Panel", href: "/app" },
+  ];
 
   if (parts[0] === "setup") {
     crumbs.push({ label: isEn ? "Setup" : "Configuración", current: true });

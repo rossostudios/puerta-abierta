@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -26,6 +26,70 @@ from app.services.table_service import create_row, get_row, list_rows, update_ro
 router = APIRouter(tags=["Marketplace"])
 
 MARKETPLACE_EDIT_ROLES = {"owner_admin", "operator"}
+MAX_GALLERY_IMAGES = 8
+
+
+def _normalize_whatsapp_phone(value: Optional[str]) -> Optional[str]:
+    if not value or not isinstance(value, str):
+        return None
+    digits = "".join(char for char in value if char.isdigit())
+    return digits or None
+
+
+def _whatsapp_contact_url() -> Optional[str]:
+    normalized = _normalize_whatsapp_phone(settings.marketplace_whatsapp_phone_e164)
+    if not normalized:
+        return None
+    return f"https://wa.me/{normalized}"
+
+
+def _normalize_gallery_urls(value: object, *, strict: bool) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        if strict:
+            raise HTTPException(status_code=400, detail="gallery_image_urls must be an array.")
+        return []
+
+    cleaned: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        candidate = item.strip()
+        if not candidate:
+            continue
+        cleaned.append(candidate)
+
+    if len(cleaned) > MAX_GALLERY_IMAGES:
+        if not strict:
+            return cleaned[:MAX_GALLERY_IMAGES]
+        raise HTTPException(
+            status_code=400,
+            detail=f"gallery_image_urls supports up to {MAX_GALLERY_IMAGES} items.",
+        )
+    return cleaned
+
+
+def _sanitize_listing_payload(patch: dict, *, require_cover: bool) -> dict:
+    normalized = dict(patch)
+
+    if "gallery_image_urls" in normalized:
+        gallery_urls = _normalize_gallery_urls(
+            normalized.get("gallery_image_urls"),
+            strict=True,
+        )
+        normalized["gallery_image_urls"] = gallery_urls
+
+    cover_image = normalized.get("cover_image_url")
+    if isinstance(cover_image, str):
+        normalized["cover_image_url"] = cover_image.strip() or None
+
+    if require_cover and not normalized.get("cover_image_url"):
+        raise HTTPException(
+            status_code=400,
+            detail="cover_image_url is required before publishing marketplace listings.",
+        )
+    return normalized
 
 
 def _replace_fee_lines(org_id: str, marketplace_listing_id: str, lines: list[dict]) -> list[dict]:
@@ -158,12 +222,14 @@ def _attach_fee_lines(rows: list[dict]) -> list[dict]:
 
 
 def _assert_publishable(row: dict) -> None:
-    if not settings.transparent_pricing_required:
-        return
-
     row_id = str(row.get("id") or "")
     if not row_id:
         raise HTTPException(status_code=400, detail="Invalid marketplace listing id.")
+
+    _sanitize_listing_payload(row, require_cover=True)
+
+    if not settings.transparent_pricing_required:
+        return
 
     lines = list_rows(
         "marketplace_listing_fee_lines",
@@ -211,6 +277,7 @@ def create_marketplace_listing(
     assert_org_role(user_id, payload.organization_id, MARKETPLACE_EDIT_ROLES)
 
     listing_payload = payload.model_dump(exclude={"fee_lines"}, exclude_none=True)
+    listing_payload = _sanitize_listing_payload(listing_payload, require_cover=False)
     listing_payload["created_by_user_id"] = user_id
 
     if listing_payload.get("listing_id"):
@@ -224,6 +291,12 @@ def create_marketplace_listing(
             raise HTTPException(status_code=400, detail="unit_id does not belong to this organization.")
         if not listing_payload.get("property_id") and isinstance(unit.get("property_id"), str):
             listing_payload["property_id"] = unit.get("property_id")
+        if listing_payload.get("bedrooms") is None:
+            listing_payload["bedrooms"] = unit.get("bedrooms")
+        if listing_payload.get("bathrooms") is None:
+            listing_payload["bathrooms"] = unit.get("bathrooms")
+        if listing_payload.get("square_meters") is None:
+            listing_payload["square_meters"] = unit.get("square_meters")
 
     if listing_payload.get("property_id"):
         prop = get_row("properties", listing_payload["property_id"])
@@ -275,6 +348,7 @@ def update_marketplace_listing(
     assert_org_role(user_id, org_id, MARKETPLACE_EDIT_ROLES)
 
     patch = payload.model_dump(exclude_none=True, exclude={"fee_lines"})
+    patch = _sanitize_listing_payload(patch, require_cover=False)
 
     if patch.get("listing_id"):
         listing = get_row("listings", patch["listing_id"])
@@ -287,6 +361,12 @@ def update_marketplace_listing(
             raise HTTPException(status_code=400, detail="unit_id does not belong to this organization.")
         if not patch.get("property_id") and isinstance(unit.get("property_id"), str):
             patch["property_id"] = unit.get("property_id")
+        if "bedrooms" not in patch:
+            patch["bedrooms"] = unit.get("bedrooms")
+        if "bathrooms" not in patch:
+            patch["bathrooms"] = unit.get("bathrooms")
+        if "square_meters" not in patch:
+            patch["square_meters"] = unit.get("square_meters")
 
     if patch.get("property_id"):
         prop = get_row("properties", patch["property_id"])
@@ -366,6 +446,15 @@ def _public_shape(row: dict) -> dict:
         "country_code": row.get("country_code"),
         "currency": row.get("currency"),
         "application_url": row.get("application_url"),
+        "cover_image_url": row.get("cover_image_url"),
+        "gallery_image_urls": _normalize_gallery_urls(
+            row.get("gallery_image_urls"),
+            strict=False,
+        ),
+        "bedrooms": row.get("bedrooms"),
+        "bathrooms": row.get("bathrooms"),
+        "square_meters": row.get("square_meters"),
+        "whatsapp_contact_url": _whatsapp_contact_url(),
         "published_at": row.get("published_at"),
         "total_move_in": row.get("total_move_in"),
         "monthly_recurring_total": row.get("monthly_recurring_total"),
@@ -377,10 +466,17 @@ def _public_shape(row: dict) -> dict:
 
 @router.get("/public/marketplace/listings")
 def list_public_marketplace_listings(
-    city: Optional[str] = Query(None),
-    q: Optional[str] = Query(None),
-    org_id: Optional[str] = Query(None),
-    limit: int = Query(60, ge=1, le=200),
+    city: Annotated[Optional[str], Query(max_length=120)] = None,
+    neighborhood: Annotated[Optional[str], Query(max_length=120)] = None,
+    q: Annotated[Optional[str], Query(max_length=200)] = None,
+    min_monthly: Annotated[Optional[float], Query(ge=0)] = None,
+    max_monthly: Annotated[Optional[float], Query(ge=0)] = None,
+    min_move_in: Annotated[Optional[float], Query(ge=0)] = None,
+    max_move_in: Annotated[Optional[float], Query(ge=0)] = None,
+    min_bedrooms: Annotated[Optional[int], Query(ge=0)] = None,
+    min_bathrooms: Annotated[Optional[float], Query(ge=0)] = None,
+    org_id: Annotated[Optional[str], Query(max_length=80)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 60,
 ) -> dict:
     ensure_marketplace_public_enabled()
 
@@ -395,10 +491,19 @@ def list_public_marketplace_listings(
         order_by="published_at",
         ascending=False,
     )
+    rows = _attach_fee_lines(rows)
 
     if city:
         expected = city.strip().lower()
         rows = [row for row in rows if str(row.get("city") or "").strip().lower() == expected]
+
+    if neighborhood:
+        expected = neighborhood.strip().lower()
+        rows = [
+            row
+            for row in rows
+            if expected in str(row.get("neighborhood") or "").strip().lower()
+        ]
 
     if q:
         needle = q.strip().lower()
@@ -408,9 +513,28 @@ def list_public_marketplace_listings(
             if needle in str(row.get("title") or "").lower()
             or needle in str(row.get("summary") or "").lower()
             or needle in str(row.get("neighborhood") or "").lower()
+            or needle in str(row.get("description") or "").lower()
         ]
 
-    shaped = [_public_shape(row) for row in _attach_fee_lines(rows)]
+    if min_monthly is not None:
+        rows = [row for row in rows if float(row.get("monthly_recurring_total", 0) or 0) >= min_monthly]
+
+    if max_monthly is not None:
+        rows = [row for row in rows if float(row.get("monthly_recurring_total", 0) or 0) <= max_monthly]
+
+    if min_move_in is not None:
+        rows = [row for row in rows if float(row.get("total_move_in", 0) or 0) >= min_move_in]
+
+    if max_move_in is not None:
+        rows = [row for row in rows if float(row.get("total_move_in", 0) or 0) <= max_move_in]
+
+    if min_bedrooms is not None:
+        rows = [row for row in rows if int(row.get("bedrooms", 0) or 0) >= min_bedrooms]
+
+    if min_bathrooms is not None:
+        rows = [row for row in rows if float(row.get("bathrooms", 0) or 0) >= min_bathrooms]
+
+    shaped = [_public_shape(row) for row in rows]
     return {"data": shaped}
 
 
@@ -454,6 +578,27 @@ def start_public_marketplace_application(slug: str) -> dict:
         payload={"listing_slug": slug, "marketplace_listing_id": listing.get("id")},
     )
     return {"ok": True}
+
+
+@router.post("/public/marketplace/listings/{slug}/contact-whatsapp")
+def track_public_marketplace_whatsapp_contact(slug: str) -> dict:
+    ensure_marketplace_public_enabled()
+
+    rows = list_rows(
+        "marketplace_listings",
+        {"public_slug": slug, "is_published": True},
+        limit=1,
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Public marketplace listing not found.")
+
+    listing = rows[0]
+    write_analytics_event(
+        organization_id=listing.get("organization_id"),
+        event_type="contact_whatsapp",
+        payload={"listing_slug": slug, "marketplace_listing_id": listing.get("id")},
+    )
+    return {"ok": True, "whatsapp_contact_url": _whatsapp_contact_url()}
 
 
 @router.post("/public/marketplace/applications", status_code=201)

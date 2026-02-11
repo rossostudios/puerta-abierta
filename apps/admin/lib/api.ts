@@ -213,7 +213,14 @@ export function deleteJson(path: string): Promise<unknown> {
 
 export function fetchPublicMarketplaceListings(params?: {
   city?: string;
+  neighborhood?: string;
   q?: string;
+  minMonthly?: number;
+  maxMonthly?: number;
+  minMoveIn?: number;
+  maxMoveIn?: number;
+  minBedrooms?: number;
+  minBathrooms?: number;
   orgId?: string;
   limit?: number;
 }): Promise<{ data?: Record<string, unknown>[] }> {
@@ -221,7 +228,14 @@ export function fetchPublicMarketplaceListings(params?: {
     "/public/marketplace/listings",
     {
       city: params?.city,
+      neighborhood: params?.neighborhood,
       q: params?.q,
+      min_monthly: params?.minMonthly,
+      max_monthly: params?.maxMonthly,
+      min_move_in: params?.minMoveIn,
+      max_move_in: params?.maxMoveIn,
+      min_bedrooms: params?.minBedrooms,
+      min_bathrooms: params?.minBathrooms,
       org_id: params?.orgId,
       limit: params?.limit ?? 60,
     }

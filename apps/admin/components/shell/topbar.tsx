@@ -61,7 +61,7 @@ export function Topbar({
           ) : null}
 
           <div className="min-w-0">
-            {pathname === "/" ? (
+            {pathname === "/app" ? (
               <h2 className="truncate font-semibold text-[1.05rem] tracking-tight md:text-[1.1rem] lg:text-[1.18rem]">
                 {isEn ? "Dashboard" : "Panel"}
               </h2>

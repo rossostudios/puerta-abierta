@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     docs_enabled: bool = True
     dev_auth_overrides_enabled: bool = True
     marketplace_public_enabled: bool = True
+    marketplace_whatsapp_phone_e164: Optional[str] = None
     transparent_pricing_required: bool = True
     applications_pipeline_enabled: bool = True
     lease_collections_enabled: bool = True

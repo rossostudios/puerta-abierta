@@ -104,7 +104,7 @@ export default async function ModulePage({
               </Badge>
               <Link
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                href="/"
+                href="/app"
               >
                 <Icon icon={ArrowLeft01Icon} size={16} />
                 {isEn ? "Back to dashboard" : "Volver al panel"}
@@ -211,7 +211,7 @@ export default async function ModulePage({
               </Badge>
               <Link
                 className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                href="/"
+                href="/app"
               >
                 <Icon icon={ArrowLeft01Icon} size={16} />
                 {isEn ? "Back to dashboard" : "Volver al panel"}
@@ -320,7 +320,7 @@ export default async function ModulePage({
             </Badge>
             <Link
               className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              href="/"
+              href="/app"
             >
               <Icon icon={ArrowLeft01Icon} size={16} />
               {isEn ? "Back to dashboard" : "Volver al panel"}

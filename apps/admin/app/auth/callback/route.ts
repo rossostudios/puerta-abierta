@@ -5,9 +5,9 @@ import { NextResponse } from "next/server";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/config";
 
 function safeNextPath(value: string | null): string {
-  if (!value) return "/";
+  if (!value) return "/app";
   if (value.startsWith("/")) return value;
-  return "/";
+  return "/app";
 }
 
 export async function GET(request: Request) {

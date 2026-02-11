@@ -32,7 +32,7 @@ export default function SignupPage() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
+  const next = searchParams.get("next") ?? "/app";
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");

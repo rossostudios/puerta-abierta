@@ -119,7 +119,7 @@ const SECTIONS: SectionDef[] = [
     },
     routeLinks: [
       {
-        href: "/",
+        href: "/app",
         icon: GridViewIcon,
         label: {
           "es-PY": "Panel",
@@ -216,7 +216,7 @@ const SECTIONS: SectionDef[] = [
 ];
 
 function isRouteActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
+  if (href === "/app") return pathname === "/app";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 

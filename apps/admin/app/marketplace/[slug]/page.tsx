@@ -1,15 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 
+import { ListingGallery } from "@/components/marketplace/listing-gallery";
+import {
+  asNumber,
+  asOptionalNumber,
+  asText,
+} from "@/components/marketplace/marketplace-types";
+import { PublicFooter } from "@/components/marketplace/public-footer";
+import { PublicHeader } from "@/components/marketplace/public-header";
+import { WhatsAppContactButton } from "@/components/marketplace/whatsapp-contact-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchPublicMarketplaceListing } from "@/lib/api";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -19,13 +24,56 @@ type MarketplaceListingPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-function asText(value: unknown): string {
-  return typeof value === "string" ? value : "";
+async function resolveListing(slug: string): Promise<Record<string, unknown>> {
+  try {
+    return await fetchPublicMarketplaceListing(slug);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("(404)")) {
+      notFound();
+    }
+    throw err;
+  }
 }
 
-function asNumber(value: unknown): number {
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
+function specsText(
+  listing: Record<string, unknown>,
+  locale: "es-PY" | "en-US"
+): string {
+  const isEn = locale === "en-US";
+  const bedrooms = asOptionalNumber(listing.bedrooms);
+  const bathrooms = asOptionalNumber(listing.bathrooms);
+  const squareMeters = asOptionalNumber(listing.square_meters);
+  const parts: string[] = [];
+
+  if (bedrooms !== null)
+    parts.push(`${bedrooms} ${isEn ? "bedrooms" : "habitaciones"}`);
+  if (bathrooms !== null)
+    parts.push(`${bathrooms} ${isEn ? "bathrooms" : "baños"}`);
+  if (squareMeters !== null) parts.push(`${squareMeters} m²`);
+
+  return parts.join(" · ");
+}
+
+export async function generateMetadata({
+  params,
+}: MarketplaceListingPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const listing = await resolveListing(slug);
+    const title = asText(listing.title) || "Marketplace listing";
+    const summary = asText(listing.summary);
+    return {
+      title: `${title} | Puerta Abierta`,
+      description:
+        summary ||
+        "Anuncio de alquiler de largo plazo con desglose transparente de costos.",
+    };
+  } catch {
+    return {
+      title: "Marketplace listing | Puerta Abierta",
+    };
+  }
 }
 
 export default async function MarketplaceListingPage({
@@ -36,27 +84,22 @@ export default async function MarketplaceListingPage({
   const defaultOrgId = process.env.NEXT_PUBLIC_DEFAULT_ORG_ID?.trim();
   const { slug } = await params;
 
-  let listing: Record<string, unknown>;
-  try {
-    listing = await fetchPublicMarketplaceListing(slug);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("(404)")) {
-      notFound();
-    }
-    throw err;
-  }
-
-  const title = asText(listing.title);
+  const listing = await resolveListing(slug);
   const listingOrgId = asText(listing.organization_id);
   if (defaultOrgId && listingOrgId && listingOrgId !== defaultOrgId) {
     notFound();
   }
-  const description = asText(listing.description);
+
+  const title = asText(listing.title) || (isEn ? "Listing" : "Anuncio");
   const summary = asText(listing.summary);
-  const city = asText(listing.city);
+  const description = asText(listing.description);
+  const city = asText(listing.city) || "Asuncion";
   const neighborhood = asText(listing.neighborhood);
   const currency = asText(listing.currency) || "PYG";
+  const coverImageUrl = asText(listing.cover_image_url);
+  const galleryImageUrls = Array.isArray(listing.gallery_image_urls)
+    ? listing.gallery_image_urls
+    : [];
   const totalMoveIn = formatCurrency(
     asNumber(listing.total_move_in),
     currency,
@@ -67,88 +110,80 @@ export default async function MarketplaceListingPage({
     currency,
     locale
   );
-
   const feeLines = Array.isArray(listing.fee_lines)
     ? (listing.fee_lines as Record<string, unknown>[])
     : [];
+  const specs = specsText(listing, locale);
+  const whatsappUrl = asText(listing.whatsapp_contact_url);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Residence",
+    name: title,
+    description: summary || description,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: city,
+      addressRegion: neighborhood || undefined,
+      addressCountry: "PY",
+    },
+    image: [coverImageUrl, ...galleryImageUrls].filter(Boolean),
+  };
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-6 md:p-10">
-      <header className="space-y-3">
-        <Link
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-          href="/marketplace"
-        >
-          {isEn ? "Back to marketplace" : "Volver al marketplace"}
-        </Link>
+    <div className="pa-marketplace-root min-h-dvh bg-background">
+      <PublicHeader locale={locale} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{city || "Asuncion"}</Badge>
-          {neighborhood ? (
-            <Badge variant="outline">{neighborhood}</Badge>
+      <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+        <header className="space-y-3">
+          <Link
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+            href="/marketplace"
+          >
+            {isEn ? "Back to marketplace" : "Volver al marketplace"}
+          </Link>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="secondary">{city}</Badge>
+            {neighborhood ? (
+              <Badge variant="outline">{neighborhood}</Badge>
+            ) : null}
+          </div>
+
+          <h1 className="font-semibold text-3xl tracking-tight sm:text-4xl">
+            {title}
+          </h1>
+          {summary ? (
+            <p className="max-w-3xl text-muted-foreground">{summary}</p>
           ) : null}
-        </div>
+          {specs ? (
+            <p className="text-muted-foreground text-sm">{specs}</p>
+          ) : null}
+        </header>
 
-        <h1 className="font-semibold text-3xl tracking-tight">{title}</h1>
-        {summary ? <p className="text-muted-foreground">{summary}</p> : null}
-      </header>
+        <ListingGallery
+          coverImageUrl={coverImageUrl}
+          galleryImageUrls={galleryImageUrls}
+          title={title}
+        />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>
-              {isEn ? "Move-in cost" : "Costo total de ingreso"}
-            </CardTitle>
-            <CardDescription>
-              {isEn
-                ? "Canonical totals calculated by backend."
-                : "Totales canónicos calculados por backend."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="font-semibold text-2xl">{totalMoveIn}</p>
-            <p className="text-muted-foreground text-sm">
-              {isEn ? "Monthly recurring" : "Mensual recurrente"}: {recurring}
-            </p>
-            <Link
-              className={cn(
-                buttonVariants({ variant: "default", size: "sm" }),
-                "mt-3 w-full"
-              )}
-              href={`/marketplace/apply/${encodeURIComponent(slug)}`}
-            >
-              {isEn ? "Apply now" : "Aplicar ahora"}
-            </Link>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>
-              {isEn ? "Transparent fee breakdown" : "Desglose transparente"}
-            </CardTitle>
-            <CardDescription>
-              {isEn
-                ? "Every fee line required before publish."
-                : "Cada línea obligatoria requerida antes de publicar."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {feeLines.map((line, index) => (
+        <section className="grid gap-4 lg:grid-cols-[1.8fr_1fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {isEn ? "Transparent fee breakdown" : "Desglose transparente"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {feeLines.map((line) => (
                 <div
-                  className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                  key={`${asText(line.fee_type)}-${index}`}
+                  className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm"
+                  key={`${asText(line.fee_type)}-${asText(line.label)}-${asNumber(line.amount)}`}
                 >
-                  <div className="space-y-0.5">
+                  <div>
                     <p className="font-medium">{asText(line.label)}</p>
                     <p className="text-muted-foreground text-xs">
                       {humanizeKey(asText(line.fee_type))}
-                      {line.is_recurring
-                        ? isEn
-                          ? " · recurring"
-                          : " · recurrente"
-                        : ""}
                     </p>
                   </div>
                   <p className="font-medium">
@@ -156,32 +191,77 @@ export default async function MarketplaceListingPage({
                   </p>
                 </div>
               ))}
-              {feeLines.length ? null : (
+              {feeLines.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   {isEn
                     ? "No fee lines configured yet."
                     : "Todavía no hay líneas de costo configuradas."}
                 </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+              ) : null}
+            </CardContent>
+          </Card>
 
-      {description ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isEn ? "Listing details" : "Detalles del anuncio"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">
-              {description}
-            </p>
-          </CardContent>
-        </Card>
-      ) : null}
-    </main>
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {isEn ? "Move-in summary" : "Resumen de ingreso"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-xl border border-border/70 bg-muted/20 px-3 py-2.5">
+                <p className="text-muted-foreground text-xs uppercase tracking-wide">
+                  {isEn ? "Total move-in" : "Costo total de ingreso"}
+                </p>
+                <p className="font-semibold text-2xl">{totalMoveIn}</p>
+                <p className="text-muted-foreground text-xs">
+                  {isEn ? "Monthly recurring" : "Mensual recurrente"}:{" "}
+                  {recurring}
+                </p>
+              </div>
+
+              <Link
+                className={cn(
+                  buttonVariants({ variant: "default", size: "sm" }),
+                  "w-full"
+                )}
+                href={`/marketplace/apply/${encodeURIComponent(slug)}`}
+              >
+                {isEn ? "Apply now" : "Aplicar ahora"}
+              </Link>
+
+              {whatsappUrl ? (
+                <WhatsAppContactButton
+                  label={
+                    isEn ? "Contact via WhatsApp" : "Contactar por WhatsApp"
+                  }
+                  listingSlug={slug}
+                  whatsappUrl={whatsappUrl}
+                />
+              ) : null}
+            </CardContent>
+          </Card>
+        </section>
+
+        {description ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {isEn ? "Listing details" : "Detalles del anuncio"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                {description}
+              </p>
+            </CardContent>
+          </Card>
+        ) : null}
+      </main>
+
+      <Script id="marketplace-listing-jsonld" type="application/ld+json">
+        {JSON.stringify(jsonLd)}
+      </Script>
+      <PublicFooter locale={locale} />
+    </div>
   );
 }

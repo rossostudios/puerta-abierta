@@ -93,7 +93,7 @@ export async function createCollectionAction(formData: FormData) {
     await postJson("/collections", payload);
     revalidatePath("/module/collections");
     revalidatePath("/module/leases");
-    revalidatePath("/");
+    revalidatePath("/app");
     redirect(withParams(next, { success: "collection-created" }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -130,7 +130,7 @@ export async function markCollectionPaidAction(formData: FormData) {
     );
     revalidatePath("/module/collections");
     revalidatePath("/module/leases");
-    revalidatePath("/");
+    revalidatePath("/app");
     redirect(withParams(next, { success: "collection-marked-paid" }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

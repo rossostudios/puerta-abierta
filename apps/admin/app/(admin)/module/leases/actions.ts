@@ -117,7 +117,7 @@ export async function createLeaseAction(formData: FormData) {
     await postJson("/leases", payload);
     revalidatePath("/module/leases");
     revalidatePath("/module/collections");
-    revalidatePath("/");
+    revalidatePath("/app");
     redirect(withParams(next, { success: "lease-created" }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -144,7 +144,7 @@ export async function setLeaseStatusAction(formData: FormData) {
     });
     revalidatePath("/module/leases");
     revalidatePath("/module/collections");
-    revalidatePath("/");
+    revalidatePath("/app");
     redirect(withParams(next, { success: "lease-status-updated" }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

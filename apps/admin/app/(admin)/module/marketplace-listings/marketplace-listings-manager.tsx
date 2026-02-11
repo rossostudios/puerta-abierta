@@ -73,6 +73,13 @@ export function MarketplaceListingsManager({
         total_move_in: asNumber(row.total_move_in),
         monthly_recurring_total: asNumber(row.monthly_recurring_total),
         currency: asString(row.currency).trim().toUpperCase() || "PYG",
+        cover_image_url: asString(row.cover_image_url).trim() || null,
+        gallery_image_urls: Array.isArray(row.gallery_image_urls)
+          ? row.gallery_image_urls
+          : [],
+        bedrooms: asNumber(row.bedrooms),
+        bathrooms: asNumber(row.bathrooms),
+        square_meters: asNumber(row.square_meters),
         missing_required_fee_lines: Array.isArray(
           row.missing_required_fee_lines
         )
@@ -108,6 +115,47 @@ export function MarketplaceListingsManager({
       {
         accessorKey: "public_slug",
         header: "Slug",
+      },
+      {
+        accessorKey: "cover_image_url",
+        header: isEn ? "Media" : "Media",
+        cell: ({ row }) => {
+          const cover = asString(row.original.cover_image_url);
+          const gallery = Array.isArray(row.original.gallery_image_urls)
+            ? row.original.gallery_image_urls
+            : [];
+          return (
+            <div className="space-y-1">
+              <Badge variant={cover ? "secondary" : "outline"}>
+                {cover
+                  ? isEn
+                    ? "Cover image"
+                    : "Imagen portada"
+                  : isEn
+                    ? "No cover"
+                    : "Sin portada"}
+              </Badge>
+              <p className="text-muted-foreground text-xs">
+                {isEn ? "Gallery items" : "Items galería"}: {gallery.length}
+              </p>
+            </div>
+          );
+        },
+      },
+      {
+        accessorKey: "bedrooms",
+        header: isEn ? "Specs" : "Specs",
+        cell: ({ row }) => {
+          const beds = asNumber(row.original.bedrooms);
+          const baths = asNumber(row.original.bathrooms);
+          const sqm = asNumber(row.original.square_meters);
+          return (
+            <p className="text-sm">
+              {beds} {isEn ? "bed" : "hab"} · {baths} {isEn ? "bath" : "baño"} ·{" "}
+              {sqm} m²
+            </p>
+          );
+        },
       },
       {
         accessorKey: "is_published",
@@ -323,6 +371,43 @@ export function MarketplaceListingsManager({
                 <option value="PYG">PYG</option>
                 <option value="USD">USD</option>
               </Select>
+            </label>
+
+            <label className="space-y-1 text-sm md:col-span-2">
+              <span>{isEn ? "Cover image URL" : "URL imagen de portada"}</span>
+              <Input
+                name="cover_image_url"
+                placeholder="https://.../cover.jpg"
+                type="url"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm md:col-span-2">
+              <span>
+                {isEn
+                  ? "Gallery image URLs (one per line)"
+                  : "URLs galería (una por línea)"}
+              </span>
+              <textarea
+                className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                name="gallery_image_urls"
+                placeholder={"https://.../1.jpg\nhttps://.../2.jpg"}
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Bedrooms" : "Habitaciones"}</span>
+              <Input min={0} name="bedrooms" type="number" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Bathrooms" : "Baños"}</span>
+              <Input min={0} name="bathrooms" step="0.5" type="number" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Area (m²)" : "Área (m²)"}</span>
+              <Input min={0} name="square_meters" step="0.01" type="number" />
             </label>
 
             <label className="space-y-1 text-sm md:col-span-2">

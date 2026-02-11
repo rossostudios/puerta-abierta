@@ -34,8 +34,9 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Puerta Abierta Admin",
-  description: "Consola operativa para alquileres temporarios en Paraguay",
+  title: "Puerta Abierta",
+  description:
+    "Marketplace y sistema operativo para alquileres de largo plazo en Paraguay.",
 };
 
 export default async function RootLayout({

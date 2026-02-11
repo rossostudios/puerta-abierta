@@ -46,6 +46,12 @@
   --shell-active: #e8eef8;
   --shell-active-border: #c9d9f1;
   --shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --marketplace-surface: #fcfcfd;
+  --marketplace-surface-muted: #f5f6f8;
+  --marketplace-hero-glow: #e9f2ff;
+  --marketplace-shell-shadow: 0 20px 48px rgba(15, 23, 42, 0.06);
+  --marketplace-map-road: rgba(146, 162, 188, 0.24);
+  --marketplace-map-road-strong: rgba(113, 130, 160, 0.25);
 }
 
 .dark {
@@ -88,6 +94,12 @@
   --shell-surface-muted: #2c2c2e;
   --shell-active: #123357;
   --shell-active-border: #1f5187;
+  --marketplace-surface: #101011;
+  --marketplace-surface-muted: #1a1b1d;
+  --marketplace-hero-glow: #10233d;
+  --marketplace-shell-shadow: 0 20px 48px rgba(0, 0, 0, 0.36);
+  --marketplace-map-road: rgba(160, 179, 207, 0.22);
+  --marketplace-map-road-strong: rgba(123, 145, 179, 0.24);
 }
 
 @theme inline {
@@ -160,6 +172,81 @@
 
   .pa-admin-shell-root {
     background: var(--background);
+  }
+
+  .pa-marketplace-root {
+    background: var(--marketplace-surface);
+  }
+
+  .pa-marketplace-panel {
+    background: var(--marketplace-surface-muted);
+  }
+
+  .pa-marketplace-shell {
+    background: color-mix(in srgb, var(--marketplace-surface) 80%, #ffffff);
+    box-shadow: var(--marketplace-shell-shadow);
+  }
+
+  .pa-marketplace-map {
+    background:
+      radial-gradient(
+        circle at 16% 24%,
+        rgba(132, 158, 192, 0.32) 0%,
+        rgba(132, 158, 192, 0.1) 34%,
+        transparent 56%
+      ),
+      radial-gradient(
+        circle at 78% 32%,
+        rgba(121, 152, 191, 0.3) 0%,
+        rgba(121, 152, 191, 0.12) 30%,
+        transparent 52%
+      ),
+      linear-gradient(
+        155deg,
+        rgba(255, 255, 255, 0.86),
+        rgba(240, 244, 249, 0.95)
+      );
+    isolation: isolate;
+  }
+
+  .pa-marketplace-map::before,
+  .pa-marketplace-map::after {
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+  }
+
+  .pa-marketplace-map::before {
+    background-image:
+      repeating-linear-gradient(
+        34deg,
+        transparent 0,
+        transparent 58px,
+        var(--marketplace-map-road) 58px,
+        var(--marketplace-map-road) 62px
+      ),
+      repeating-linear-gradient(
+        112deg,
+        transparent 0,
+        transparent 72px,
+        var(--marketplace-map-road) 72px,
+        var(--marketplace-map-road) 76px
+      );
+    opacity: 0.58;
+    z-index: -2;
+  }
+
+  .pa-marketplace-map::after {
+    background-image: repeating-linear-gradient(
+      18deg,
+      transparent 0,
+      transparent 140px,
+      var(--marketplace-map-road-strong) 140px,
+      var(--marketplace-map-road-strong) 148px
+    );
+    opacity: 0.55;
+    z-index: -1;
   }
 
   .pa-admin-shell-root [data-shell-mode] {

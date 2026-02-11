@@ -124,7 +124,7 @@ export async function OrgAccessChanged({
             </Link>
             <Link
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-              href="/"
+              href="/app"
             >
               {isEn ? "Back to dashboard" : "Volver al panel"}
             </Link>

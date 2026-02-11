@@ -5,8 +5,27 @@ import { redirect } from "next/navigation";
 
 import { patchJson, postJson } from "@/lib/api";
 
+const NEWLINE_SPLIT_REGEX = /\r?\n/;
+
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function toOptionalNumber(value: FormDataEntryValue | null): number | null {
+  const normalized = toStringValue(value);
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
+
+function parseGalleryImageUrls(value: FormDataEntryValue | null): string[] {
+  const text = toStringValue(value);
+  if (!text) return [];
+  return text
+    .split(NEWLINE_SPLIT_REGEX)
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function normalizeNext(path: string, fallback: string): string {
@@ -72,6 +91,13 @@ export async function createMarketplaceListingAction(formData: FormData) {
   const summary = toStringValue(formData.get("summary"));
   const description = toStringValue(formData.get("description"));
   const neighborhood = toStringValue(formData.get("neighborhood"));
+  const cover_image_url = toStringValue(formData.get("cover_image_url"));
+  const gallery_image_urls = parseGalleryImageUrls(
+    formData.get("gallery_image_urls")
+  );
+  const bedrooms = toOptionalNumber(formData.get("bedrooms"));
+  const bathrooms = toOptionalNumber(formData.get("bathrooms"));
+  const square_meters = toOptionalNumber(formData.get("square_meters"));
   const pricing_template_id = toStringValue(
     formData.get("pricing_template_id")
   );
@@ -81,6 +107,12 @@ export async function createMarketplaceListingAction(formData: FormData) {
   if (summary) payload.summary = summary;
   if (description) payload.description = description;
   if (neighborhood) payload.neighborhood = neighborhood;
+  if (cover_image_url) payload.cover_image_url = cover_image_url;
+  if (gallery_image_urls.length)
+    payload.gallery_image_urls = gallery_image_urls;
+  if (bedrooms !== null) payload.bedrooms = bedrooms;
+  if (bathrooms !== null) payload.bathrooms = bathrooms;
+  if (square_meters !== null) payload.square_meters = square_meters;
   if (pricing_template_id) payload.pricing_template_id = pricing_template_id;
   if (property_id) payload.property_id = property_id;
   if (unit_id) payload.unit_id = unit_id;
