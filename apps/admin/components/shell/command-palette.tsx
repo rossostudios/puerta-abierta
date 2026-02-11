@@ -13,6 +13,7 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { useActiveLocale } from "@/lib/i18n/client";
 import { MODULES } from "@/lib/modules";
 import {
   getPins,
@@ -21,7 +22,6 @@ import {
   subscribeShortcuts,
 } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
-import { useActiveLocale } from "@/lib/i18n/client";
 
 type ActionItem = {
   key: string;
@@ -145,7 +145,9 @@ export function CommandPalette() {
   return (
     <>
       <Button
-        aria-label={isEn ? "Search or jump to... (Cmd+K)" : "Buscar o ir a... (Cmd+K)"}
+        aria-label={
+          isEn ? "Search or jump to... (Cmd+K)" : "Buscar o ir a... (Cmd+K)"
+        }
         className="flex w-full items-center justify-between gap-3 px-3 font-normal text-muted-foreground md:w-64"
         onClick={() => setOpen(true)}
         type="button"
@@ -157,7 +159,7 @@ export function CommandPalette() {
             {isEn ? "Search or jump to..." : "Buscar o ir a..."}
           </span>
         </span>
-        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono font-medium text-[10px] text-muted-foreground opacity-100 md:flex">
+        <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-medium font-mono text-[10px] text-muted-foreground opacity-100 md:flex">
           <span className="text-xs">⌘</span>K
         </kbd>
       </Button>

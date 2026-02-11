@@ -1,21 +1,13 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { type FormEvent, useState } from "react";
+import { usePathname } from "next/navigation";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { AppBreadcrumbs } from "@/components/shell/app-breadcrumbs";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { Input } from "@/components/ui/input";
 import type { Locale } from "@/lib/i18n";
-import {
-  findModuleByLabel,
-  getModuleLabel,
-  MODULE_BY_SLUG,
-  MODULES,
-} from "@/lib/modules";
 
 type TopbarProps = {
   orgId: string | null;
@@ -24,10 +16,7 @@ type TopbarProps = {
 
 export function Topbar({ orgId, locale }: TopbarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const isEn = locale === "en-US";
-
-
 
   return (
     <header className="border-b bg-background/80 px-4 py-3 backdrop-blur md:px-6">
@@ -42,7 +31,6 @@ export function Topbar({ orgId, locale }: TopbarProps) {
           )}
         </div>
         <div className="flex w-full min-w-0 flex-col gap-2 md:w-auto md:flex-row md:items-center">
-
           <div className="flex items-center gap-2">
             <CommandPalette />
             <ThemeToggle locale={locale} />

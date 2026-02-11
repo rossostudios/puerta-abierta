@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: str = "http://localhost:3000"
+    trusted_hosts: str = "localhost,127.0.0.1,*.vercel.app"
+    docs_enabled: bool = True
+    dev_auth_overrides_enabled: bool = True
 
     supabase_url: Optional[str] = None
     supabase_service_role_key: Optional[str] = None
@@ -23,6 +26,28 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [value.strip() for value in self.cors_origins.split(",") if value.strip()]
+
+    @property
+    def trusted_hosts_list(self) -> list[str]:
+        return [value.strip() for value in self.trusted_hosts.split(",") if value.strip()]
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.strip().lower() == "production"
+
+    @property
+    def docs_enabled_runtime(self) -> bool:
+        # Always disable docs in production.
+        if self.is_production:
+            return False
+        return self.docs_enabled
+
+    @property
+    def auth_dev_overrides_enabled(self) -> bool:
+        # Never allow local auth bypasses in production.
+        if self.is_production:
+            return False
+        return self.dev_auth_overrides_enabled
 
 
 @lru_cache

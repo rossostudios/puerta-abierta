@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClearOrgButton } from "@/components/shell/clear-org-button";
 import { UseOrgButton } from "@/components/shell/use-org-button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -13,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { fetchList, fetchOrganizations, getApiBaseUrl } from "@/lib/api";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
@@ -277,7 +277,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
                           <p className="truncate font-medium text-foreground text-sm">
                             {String(
                               org.name ??
-                              (isEn ? "Organization" : "Organización")
+                                (isEn ? "Organization" : "Organización")
                             )}
                           </p>
                           <p className="truncate font-mono text-[11px] text-muted-foreground">
@@ -314,7 +314,9 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
             <p className="break-words opacity-80">{message}</p>
             <p className="text-xs opacity-80">
               {isEn ? "Run" : "Ejecuta"}{" "}
-              <code className="rounded bg-muted px-1 py-0.5">cd apps/backend && npm start</code>{" "}
+              <code className="rounded bg-muted px-1 py-0.5">
+                cd apps/backend && npm start
+              </code>{" "}
               {isEn ? "then refresh." : "y luego actualiza."}
             </p>
           </AlertDescription>
@@ -411,9 +413,9 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
           </div>
 
           {properties.length === 0 &&
-            units.length === 0 &&
-            channels.length === 0 &&
-            listings.length === 0 ? (
+          units.length === 0 &&
+          channels.length === 0 &&
+          listings.length === 0 ? (
             <form
               action={seedDemoDataAction}
               className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/10 p-4 text-sm md:flex-row md:items-center md:justify-between"

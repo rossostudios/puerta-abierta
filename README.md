@@ -13,6 +13,7 @@ Supabase-first platform scaffold for short-term rental operations in Paraguay, w
 - `db/schema.sql`: Multi-tenant Postgres schema compatible with Supabase and Neon
 - `api/openapi.yaml`: Endpoint contract
 - `docs/PRD.md`: Product requirements
+- `docs/vercel-deploy.md`: Production/Vercel deployment checklist
 
 ## 1) Supabase Setup
 

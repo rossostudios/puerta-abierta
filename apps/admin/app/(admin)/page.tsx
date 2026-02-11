@@ -3,20 +3,15 @@ import {
   CalendarCheckIn01Icon,
   ChartIcon,
   File01Icon,
-  GridViewIcon,
   Home01Icon,
   Invoice01Icon,
   Task01Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-
+import { GettingStarted } from "@/components/dashboard/getting-started";
 import { DashboardInsights } from "@/components/dashboard/insights";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -34,10 +29,8 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getModuleDescription, getModuleLabel, MODULES } from "@/lib/modules";
-import { getRecents, type ShortcutItem, subscribeShortcuts } from "@/lib/shortcuts";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
-import { GettingStarted } from "@/components/dashboard/getting-started";
 
 function numberOrZero(value: unknown): number {
   const parsed = typeof value === "number" ? value : Number(value);
@@ -141,7 +134,6 @@ export default async function DashboardPage() {
   let reservations: unknown[] = [];
   let tasks: unknown[] = [];
   let units: unknown[] = [];
-  let revenues: Record<string, unknown> = {};
   let summary: Record<string, unknown> = {};
   let apiAvailable = true;
 
@@ -150,9 +142,7 @@ export default async function DashboardPage() {
   } catch (err) {
     const message = errorMessage(err);
     if (isOrgMembershipError(message)) {
-      return (
-        <OrgAccessChanged orgId={orgId} />
-      );
+      return <OrgAccessChanged orgId={orgId} />;
     }
     apiAvailable = false;
     orgAccessError = message;
@@ -160,12 +150,11 @@ export default async function DashboardPage() {
 
   if (apiAvailable) {
     try {
-      const [props, resas, taskRows, unitRows, statRows, summ] = await Promise.all([
+      const [props, resas, taskRows, unitRows, summ] = await Promise.all([
         safeList("/properties", orgId),
         safeList("/reservations", orgId),
         safeList("/tasks", orgId),
         safeList("/units", orgId),
-        safeReport("/reports/revenue-snapshot", orgId),
         safeReport("/reports/summary", orgId),
       ]);
 
@@ -173,7 +162,6 @@ export default async function DashboardPage() {
       reservations = resas;
       tasks = taskRows;
       units = unitRows;
-      revenues = statRows;
       summary = summ;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -199,12 +187,12 @@ export default async function DashboardPage() {
 
   const revenueSnapshot = apiAvailable
     ? {
-      periodLabel: isEn ? "This month" : "Este mes",
-      currency: "PYG",
-      gross: numberOrZero(summary.gross_revenue),
-      expenses: numberOrZero(summary.expenses),
-      net: numberOrZero(summary.net_payout),
-    }
+        periodLabel: isEn ? "This month" : "Este mes",
+        currency: "PYG",
+        gross: numberOrZero(summary.gross_revenue),
+        expenses: numberOrZero(summary.expenses),
+        net: numberOrZero(summary.net_payout),
+      }
     : null;
 
   const taskStatuses = countByStatus(tasks as unknown[], [
@@ -267,9 +255,7 @@ export default async function DashboardPage() {
               </code>
             </p>
             {orgAccessError ? (
-              <p className="break-words text-xs opacity-80">
-                {orgAccessError}
-              </p>
+              <p className="break-words text-xs opacity-80">{orgAccessError}</p>
             ) : null}
             <p className="text-xs opacity-80">
               {isEn ? (
@@ -308,25 +294,19 @@ export default async function DashboardPage() {
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <StatCard
-            helper={
-              isEn ? "Listed so far" : "Registradas hasta ahora"
-            }
+            helper={isEn ? "Listed so far" : "Registradas hasta ahora"}
             icon={Home01Icon}
             label={isEn ? "Properties" : "Propiedades"}
             value={String(properties.length)}
           />
           <StatCard
-            helper={
-              isEn ? "Recent bookings" : "Reservas recientes"
-            }
+            helper={isEn ? "Recent bookings" : "Reservas recientes"}
             icon={CalendarCheckIn01Icon}
             label={isEn ? "Reservations" : "Reservas"}
             value={String(reservations.length)}
           />
           <StatCard
-            helper={
-              isEn ? "Pending today" : "Pendientes hoy"
-            }
+            helper={isEn ? "Pending today" : "Pendientes hoy"}
             icon={Task01Icon}
             label={isEn ? "Open tasks" : "Tareas abiertas"}
             value={String(tasks.length)}
@@ -341,11 +321,7 @@ export default async function DashboardPage() {
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <StatCard
-            helper={
-              isEn
-                ? "Generated this period"
-                : "Generados este período"
-            }
+            helper={isEn ? "Generated this period" : "Generados este período"}
             icon={File01Icon}
             label={isEn ? "Portfolio" : "Portafolio"}
             value={String(properties.length)}
@@ -381,7 +357,7 @@ export default async function DashboardPage() {
       />
 
       {/* ── Module cards (mobile only) ──────────────────────── */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 lg:hidden">
+      <section className="grid gap-4 md:grid-cols-2 lg:hidden xl:grid-cols-3">
         {MODULES.map((module) => {
           const label = getModuleLabel(module, locale);
           const description = getModuleDescription(module, locale);

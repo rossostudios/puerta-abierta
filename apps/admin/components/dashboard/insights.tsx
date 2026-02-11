@@ -1,5 +1,7 @@
 "use client";
 
+import { ChartIcon, Task01Icon } from "@hugeicons/core-free-icons";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
@@ -11,7 +13,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -32,12 +33,6 @@ import { formatCurrency, humanizeKey } from "@/lib/format";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-
-import {
-  ChartIcon,
-  Task01Icon,
-} from "@hugeicons/core-free-icons";
-import Link from "next/link";
 
 export type RevenueSnapshot = {
   periodLabel: string;
@@ -232,9 +227,7 @@ export function DashboardInsights({
                   : "Los ingresos aparecerán aquí cuando registres tu primera reserva."
               }
               icon={ChartIcon}
-              title={
-                isEn ? "No revenue to show yet" : "Aún no hay ingresos"
-              }
+              title={isEn ? "No revenue to show yet" : "Aún no hay ingresos"}
             />
           )}
         </CardContent>

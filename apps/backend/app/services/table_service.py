@@ -3,10 +3,13 @@ from typing import Any, Optional
 
 from fastapi import HTTPException
 
+from app.core.config import settings
 from app.db.supabase import get_supabase_client
 
 
 def _handle_supabase_error(exc: Exception) -> HTTPException:
+    if settings.is_production:
+        return HTTPException(status_code=502, detail="Supabase request failed.")
     return HTTPException(status_code=502, detail=f"Supabase request failed: {exc}")
 
 

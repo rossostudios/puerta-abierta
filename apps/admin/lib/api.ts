@@ -2,6 +2,24 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+const DEFAULT_API_TIMEOUT_MS = 15_000;
+
+const parsedApiTimeoutMs = Number(
+  process.env.API_TIMEOUT_MS ?? DEFAULT_API_TIMEOUT_MS
+);
+const API_TIMEOUT_MS =
+  Number.isFinite(parsedApiTimeoutMs) && parsedApiTimeoutMs > 0
+    ? parsedApiTimeoutMs
+    : DEFAULT_API_TIMEOUT_MS;
+
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.NEXT_PUBLIC_API_BASE_URL
+) {
+  throw new Error(
+    "Missing NEXT_PUBLIC_API_BASE_URL in production. Set it in your deployment environment."
+  );
+}
 
 type QueryValue = string | number | boolean | undefined | null;
 
@@ -33,11 +51,18 @@ async function fetchJson<T>(
   init?: RequestInit
 ): Promise<T> {
   let response: Response;
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  const signal =
+    init?.signal && typeof AbortSignal.any === "function"
+      ? AbortSignal.any([init.signal, controller.signal])
+      : (init?.signal ?? controller.signal);
   try {
     const token = await getAccessToken();
     response = await fetch(buildUrl(path, query), {
       cache: "no-store",
       ...init,
+      signal,
       headers: {
         Accept: "application/json",
         ...(init?.headers ?? {}),
@@ -45,10 +70,17 @@ async function fetchJson<T>(
       },
     });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(
+        `API request timed out for ${path} after ${API_TIMEOUT_MS}ms.`
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(
       `API fetch failed for ${path}. Is the backend running at ${API_BASE_URL}? (${message})`
     );
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   if (!response.ok) {

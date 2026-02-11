@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  Archive01Icon,
-  Copy01Icon,
-  ExternalLink,
-  GridViewIcon,
-  InboxIcon,
-  MoreHorizontalIcon,
-  PinIcon,
-  Search01Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
+import { ExternalLink, InboxIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -132,12 +122,12 @@ function renderPrimitive(
               meta={
                 base
                   ? humanizeKey(
-                    base
-                      .split("/")
-                      .filter(Boolean)
-                      .pop()
-                      ?.replaceAll("-", "_") ?? ""
-                  )
+                      base
+                        .split("/")
+                        .filter(Boolean)
+                        .pop()
+                        ?.replaceAll("-", "_") ?? ""
+                    )
                   : undefined
               }
             >
@@ -384,7 +374,10 @@ export function ModuleTableCard({
               <EmptyState
                 action={
                   <Link
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
                     href="/setup"
                   >
                     {isEn ? "Open setup" : "Abrir configuración"}
@@ -396,7 +389,9 @@ export function ModuleTableCard({
                     : "Administra registros base guardados en Supabase. Usa el administrador para agregar, editar o cargar datos demo."
                 }
                 icon={InboxIcon}
-                title={isEn ? "No records found" : "No se encontraron registros"}
+                title={
+                  isEn ? "No records found" : "No se encontraron registros"
+                }
               />
             </div>
           )}

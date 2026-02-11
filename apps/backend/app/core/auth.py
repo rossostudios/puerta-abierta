@@ -22,8 +22,8 @@ def current_user_id(
     authorization: Annotated[Optional[str], Header()] = None,
     x_user_id: Annotated[Optional[str], Header()] = None,
 ) -> Optional[str]:
-    # Prefer explicit header overrides (useful for local scaffolding / tests).
-    if x_user_id:
+    # Allow explicit user overrides only outside production.
+    if settings.auth_dev_overrides_enabled and x_user_id:
         return x_user_id
 
     token = _bearer_token(authorization)
@@ -35,7 +35,9 @@ def current_user_id(
         except Exception:
             return None
 
-    return settings.default_user_id
+    if settings.auth_dev_overrides_enabled:
+        return settings.default_user_id
+    return None
 
 
 def current_supabase_user(
@@ -43,7 +45,7 @@ def current_supabase_user(
     x_user_id: Annotated[Optional[str], Header()] = None,
 ):
     # When an explicit user override is used we cannot fetch the Supabase user.
-    if x_user_id:
+    if settings.auth_dev_overrides_enabled and x_user_id:
         return None
 
     token = _bearer_token(authorization)

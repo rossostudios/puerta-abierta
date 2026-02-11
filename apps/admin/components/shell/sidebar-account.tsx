@@ -91,29 +91,14 @@ export function SidebarAccount({
 
   return (
     <div className="mt-5 border-sidebar-border border-t pt-4">
-      <details
-        className="relative"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            const details = e.currentTarget;
-            if (details.open) {
-              details.open = false;
-            }
-          }
-        }}
-      >
+      <details className="relative">
         <summary
-          aria-expanded="false"
           aria-haspopup="menu"
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
             "w-full list-none justify-start gap-2 px-2 py-2 [&::-webkit-details-marker]:hidden",
             collapsed ? "justify-center px-0" : ""
           )}
-          onClick={(e) => {
-            const details = e.currentTarget.parentElement as HTMLDetailsElement;
-            e.currentTarget.setAttribute("aria-expanded", (!details.open).toString());
-          }}
           title={label}
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-lg border bg-background/60 font-semibold text-primary">

@@ -15,7 +15,7 @@ function getSupabaseEnv(): { url: string | null; key: string | null } {
   return { url, key };
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { url: supabaseUrl, key: supabaseKey } = getSupabaseEnv();
   if (!(supabaseUrl && supabaseKey)) {
     // Allow the app to boot even if env isn't configured yet.
