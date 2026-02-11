@@ -90,18 +90,19 @@ export function SidebarAccount({
   const badge = initials(email);
 
   return (
-    <div className="mt-5 border-sidebar-border border-t pt-4">
+    <div className="mt-3 border-sidebar-border/70 border-t pt-3">
       <details className="relative">
         <summary
           aria-haspopup="menu"
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "w-full list-none justify-start gap-2 px-2 py-2 [&::-webkit-details-marker]:hidden",
+            "w-full list-none justify-start gap-2.5 rounded-2xl px-2.5 py-2.5 text-foreground/78 [&::-webkit-details-marker]:hidden",
+            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-foreground/4 hover:text-foreground",
             collapsed ? "justify-center px-0" : ""
           )}
           title={label}
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg border bg-background/60 font-semibold text-primary">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border/80 bg-background/90 font-semibold text-primary text-sm">
             {badge}
           </span>
           <span
@@ -110,8 +111,10 @@ export function SidebarAccount({
               collapsed ? "sr-only" : ""
             )}
           >
-            <span className="block truncate font-medium text-sm">{label}</span>
-            <span className="block truncate text-muted-foreground text-xs">
+            <span className="block truncate font-medium text-[13px] leading-5">
+              {label}
+            </span>
+            <span className="block truncate text-[11px] text-muted-foreground">
               {isEn ? "Account" : "Cuenta"}
             </span>
           </span>
@@ -124,7 +127,7 @@ export function SidebarAccount({
 
         <div
           className={cn(
-            "absolute bottom-12 z-30 rounded-lg border bg-popover p-1 shadow-lg",
+            "absolute bottom-12 z-30 rounded-2xl border border-sidebar-border/80 bg-popover/98 p-1.5 shadow-xl",
             collapsed ? "left-full ml-2 w-56" : "right-0 left-0"
           )}
         >

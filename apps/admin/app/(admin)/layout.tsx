@@ -10,7 +10,7 @@ export default async function AdminLayout({
   const locale = await getActiveLocale();
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-background">
+    <div className="pa-admin-shell-root h-[100dvh] overflow-hidden bg-background">
       <AdminShell locale={locale} orgId={orgId}>
         {children}
       </AdminShell>

@@ -8,6 +8,7 @@ from app.core.feature_flags import ensure_lease_collections_enabled
 from app.core.tenancy import assert_org_member, assert_org_role
 from app.schemas.domain import CreateLeaseInput, UpdateLeaseInput
 from app.services.audit import write_audit_log
+from app.services.lease_schedule import ensure_monthly_lease_schedule
 from app.services.table_service import create_row, get_row, list_rows, update_row
 
 router = APIRouter(tags=["Leases"])
@@ -123,7 +124,15 @@ def create_lease(payload: CreateLeaseInput, user_id: str = Depends(require_user_
     ensure_lease_collections_enabled()
     assert_org_role(user_id, payload.organization_id, LEASE_EDIT_ROLES)
 
-    lease_payload = payload.model_dump(exclude={"charges", "generate_first_collection", "first_collection_due_date"}, exclude_none=True)
+    lease_payload = payload.model_dump(
+        exclude={
+            "charges",
+            "generate_first_collection",
+            "first_collection_due_date",
+            "collection_schedule_months",
+        },
+        exclude_none=True,
+    )
     lease_payload["created_by_user_id"] = user_id
     lease_payload.update(_compute_totals(lease_payload))
 
@@ -141,20 +150,20 @@ def create_lease(payload: CreateLeaseInput, user_id: str = Depends(require_user_
         )
 
     first_collection = None
+    schedule_result = None
     if payload.generate_first_collection:
-        due_date = payload.first_collection_due_date or payload.starts_on
-        first_collection = create_row(
-            "collection_records",
-            {
-                "organization_id": payload.organization_id,
-                "lease_id": lease.get("id"),
-                "due_date": due_date,
-                "amount": lease_payload["monthly_recurring_total"],
-                "currency": payload.currency,
-                "status": "scheduled",
-                "created_by_user_id": user_id,
-            },
+        schedule_result = ensure_monthly_lease_schedule(
+            organization_id=payload.organization_id,
+            lease_id=str(lease.get("id") or ""),
+            starts_on=payload.starts_on,
+            first_collection_due_date=payload.first_collection_due_date,
+            ends_on=payload.ends_on,
+            collection_schedule_months=payload.collection_schedule_months,
+            amount=float(lease_payload["monthly_recurring_total"]),
+            currency=payload.currency,
+            created_by_user_id=user_id,
         )
+        first_collection = schedule_result.get("first_collection")
 
     write_audit_log(
         organization_id=payload.organization_id,
@@ -163,12 +172,20 @@ def create_lease(payload: CreateLeaseInput, user_id: str = Depends(require_user_
         entity_name="leases",
         entity_id=lease.get("id"),
         before_state=None,
-        after_state={"lease": lease, "first_collection": first_collection},
+        after_state={
+            "lease": lease,
+            "first_collection": first_collection,
+            "schedule_due_dates": (schedule_result or {}).get("due_dates", []),
+            "schedule_charges_created": len((schedule_result or {}).get("charges", [])),
+            "schedule_collections_created": len((schedule_result or {}).get("collections", [])),
+        },
     )
 
     return {
         "lease": _enrich([lease])[0],
         "first_collection": first_collection,
+        "schedule_due_dates": (schedule_result or {}).get("due_dates", []),
+        "schedule_collections_created": len((schedule_result or {}).get("collections", [])),
     }
 
 

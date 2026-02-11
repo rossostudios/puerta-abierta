@@ -44,7 +44,7 @@ export default async function RootLayout({
   const locale = await getActiveLocale();
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" data-base-ui-root>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: needed to prevent theme flash before hydration */}
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>

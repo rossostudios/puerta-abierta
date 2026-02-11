@@ -399,6 +399,7 @@ class ConvertApplicationToLeaseInput(BaseModel):
     notes: Optional[str] = None
     generate_first_collection: bool = True
     first_collection_due_date: Optional[str] = None
+    collection_schedule_months: Optional[int] = Field(default=None, ge=1, le=120)
 
 
 class CreateLeaseChargeInput(BaseModel):
@@ -432,6 +433,7 @@ class CreateLeaseInput(BaseModel):
     charges: list[CreateLeaseChargeInput] = Field(default_factory=list)
     generate_first_collection: bool = True
     first_collection_due_date: Optional[str] = None
+    collection_schedule_months: Optional[int] = Field(default=None, ge=1, le=120)
 
 
 class UpdateLeaseInput(BaseModel):

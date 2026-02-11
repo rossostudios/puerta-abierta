@@ -177,6 +177,17 @@ export const MODULES: ModuleDef[] = [
       "Immutable history of critical changes and state transitions.",
   },
   {
+    slug: "transparency-summary",
+    label: "Resumen de transparencia",
+    label_en: "Transparency summary",
+    endpoint: "/reports/transparency-summary",
+    description:
+      "KPIs semanales de transparencia de precios, funnel de aplicaciones y cobros.",
+    description_en:
+      "Weekly KPIs for pricing transparency, applications funnel, and collections.",
+    kind: "report",
+  },
+  {
     slug: "reports",
     label: "Informe resumen del propietario",
     label_en: "Owner summary report",

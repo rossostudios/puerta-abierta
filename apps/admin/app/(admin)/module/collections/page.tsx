@@ -11,7 +11,7 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
-import { ApplicationsManager } from "./applications-manager";
+import { CollectionsManager } from "./collections-manager";
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -25,7 +25,7 @@ function safeDecode(value: string): string {
   }
 }
 
-export default async function ApplicationsModulePage({
+export default async function CollectionsModulePage({
   searchParams,
 }: PageProps) {
   const locale = await getActiveLocale();
@@ -48,27 +48,23 @@ export default async function ApplicationsModulePage({
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Select an organization to load applications."
-              : "Selecciona una organización para cargar aplicaciones."}
+              ? "Select an organization to load collections."
+              : "Selecciona una organización para cargar cobros."}
           </CardDescription>
         </CardHeader>
       </Card>
     );
   }
 
-  let applications: Record<string, unknown>[] = [];
-  let members: Record<string, unknown>[] = [];
-  let messageTemplates: Record<string, unknown>[] = [];
+  let collections: Record<string, unknown>[] = [];
+  let leases: Record<string, unknown>[] = [];
   try {
-    const [applicationRows, memberRows, templateRows] = await Promise.all([
-      fetchList("/applications", orgId, 500),
-      fetchList(`/organizations/${orgId}/members`, orgId, 300),
-      fetchList("/message-templates", orgId, 300),
+    const [collectionRows, leaseRows] = await Promise.all([
+      fetchList("/collections", orgId, 700),
+      fetchList("/leases", orgId, 500),
     ]);
-
-    applications = applicationRows as Record<string, unknown>[];
-    members = memberRows as Record<string, unknown>[];
-    messageTemplates = templateRows as Record<string, unknown>[];
+    collections = collectionRows as Record<string, unknown>[];
+    leases = leaseRows as Record<string, unknown>[];
   } catch (err) {
     const message = errorMessage(err);
     if (isOrgMembershipError(message)) {
@@ -83,8 +79,8 @@ export default async function ApplicationsModulePage({
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Could not load applications from backend."
-              : "No se pudieron cargar aplicaciones desde el backend."}
+              ? "Could not load collections from backend."
+              : "No se pudieron cargar cobros desde el backend."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-muted-foreground text-sm">
@@ -105,12 +101,12 @@ export default async function ApplicationsModulePage({
       <Card>
         <CardHeader>
           <CardTitle className="text-2xl">
-            {isEn ? "Applications pipeline" : "Pipeline de aplicaciones"}
+            {isEn ? "Collections" : "Cobros"}
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Run qualification workflow and convert qualified applicants to leases."
-              : "Ejecuta calificación y convierte solicitantes calificados a contratos."}
+              ? "Track payment schedules and mark successful collections."
+              : "Monitorea cronogramas de pago y marca cobros exitosos."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -127,10 +123,10 @@ export default async function ApplicationsModulePage({
             </div>
           ) : null}
 
-          <ApplicationsManager
-            applications={applications}
-            members={members}
-            messageTemplates={messageTemplates}
+          <CollectionsManager
+            collections={collections}
+            leases={leases}
+            orgId={orgId}
           />
         </CardContent>
       </Card>

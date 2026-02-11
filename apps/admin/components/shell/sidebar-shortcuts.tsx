@@ -20,7 +20,7 @@ function ItemLink({ item }: { item: ShortcutItem }) {
     <Link
       className={cn(
         buttonVariants({ variant: "ghost", size: "sm" }),
-        "w-full justify-start gap-2 px-2 font-normal"
+        "w-full justify-start gap-2.5 rounded-2xl px-2.5 py-2.5 font-normal text-foreground/72 transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:text-foreground"
       )}
       href={item.href}
       prefetch={false}
@@ -29,7 +29,7 @@ function ItemLink({ item }: { item: ShortcutItem }) {
       <span className="min-w-0 flex-1">
         <span className="block truncate">{item.label}</span>
         {item.meta ? (
-          <span className="block truncate text-[11px] text-muted-foreground">
+          <span className="block truncate text-[11px] text-foreground/48">
             {item.meta}
           </span>
         ) : null}
@@ -67,7 +67,7 @@ export function SidebarShortcuts({
     <div className="space-y-3">
       {pins.length ? (
         <div className="space-y-1">
-          <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+          <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
             <span className="inline-flex items-center gap-1.5">
               <Icon icon={PinIcon} size={14} />
               {isEn ? "Pinned" : "Fijados"}
@@ -83,7 +83,7 @@ export function SidebarShortcuts({
 
       {recents.length ? (
         <div className="space-y-1">
-          <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+          <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
             <span className="inline-flex items-center gap-1.5">
               <Icon icon={Clock01Icon} size={14} />
               {isEn ? "Recent" : "Recientes"}

@@ -86,6 +86,45 @@ export async function setApplicationStatusAction(formData: FormData) {
   }
 }
 
+export async function assignApplicationAction(formData: FormData) {
+  const application_id = toStringValue(formData.get("application_id"));
+  const status = toStringValue(formData.get("status"));
+  const assignedRaw = toStringValue(formData.get("assigned_user_id"));
+  const note = toStringValue(formData.get("note")) || "Assignment updated";
+
+  if (!application_id) {
+    redirect(applicationsUrl({ error: "application_id is required" }));
+  }
+  if (!status) {
+    redirect(applicationsUrl({ error: "status is required" }));
+  }
+
+  const next = normalizeNext(
+    toStringValue(formData.get("next")),
+    applicationsUrl()
+  );
+
+  const payload: Record<string, unknown> = { status, note };
+  if (assignedRaw === "__unassigned__") {
+    payload.assigned_user_id = null;
+  } else if (assignedRaw) {
+    payload.assigned_user_id = assignedRaw;
+  }
+
+  try {
+    await postJson(
+      `/applications/${encodeURIComponent(application_id)}/status`,
+      payload
+    );
+
+    revalidatePath("/module/applications");
+    redirect(withParams(next, { success: "application-assignment-updated" }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(withParams(next, { error: message.slice(0, 240) }));
+  }
+}
+
 export async function convertApplicationToLeaseAction(formData: FormData) {
   const application_id = toStringValue(formData.get("application_id"));
   const starts_on = toStringValue(formData.get("starts_on"));

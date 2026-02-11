@@ -19,7 +19,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Icon } from "@/components/ui/icon";
 import { getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
-import { humanizeKey } from "@/lib/format";
+import { formatCurrency, humanizeKey } from "@/lib/format";
 import { FOREIGN_KEY_HREF_BASE_BY_KEY } from "@/lib/links";
 import { MODULE_BY_SLUG } from "@/lib/modules";
 import { getActiveOrgId } from "@/lib/org";
@@ -225,6 +225,88 @@ function toLabel(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+type StatementLineItem = {
+  bucket: string;
+  source_table: string;
+  source_id: string;
+  kind: string;
+  amount_pyg: number;
+  date?: string;
+  from?: string;
+  to?: string;
+};
+
+type StatementReconciliation = {
+  gross_total?: number;
+  computed_net_payout?: number;
+  stored_net_payout?: number;
+  stored_vs_computed_diff?: number;
+};
+
+function toNumber(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function toStatementLineItems(value: unknown): StatementLineItem[] {
+  if (!Array.isArray(value)) return [];
+
+  const rows: StatementLineItem[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+
+    const bucket = typeof record.bucket === "string" ? record.bucket : "";
+    const source_table =
+      typeof record.source_table === "string" ? record.source_table : "";
+    const source_id =
+      typeof record.source_id === "string" ? record.source_id : "";
+    const kind = typeof record.kind === "string" ? record.kind : "";
+    const amount_pyg = toNumber(record.amount_pyg);
+
+    if (!(bucket && source_table && source_id && kind) || amount_pyg === null) {
+      continue;
+    }
+
+    rows.push({
+      bucket,
+      source_table,
+      source_id,
+      kind,
+      amount_pyg,
+      date: typeof record.date === "string" ? record.date : undefined,
+      from: typeof record.from === "string" ? record.from : undefined,
+      to: typeof record.to === "string" ? record.to : undefined,
+    });
+  }
+
+  return rows;
+}
+
+function toStatementReconciliation(
+  value: unknown
+): StatementReconciliation | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  return {
+    gross_total: toNumber(record.gross_total) ?? undefined,
+    computed_net_payout: toNumber(record.computed_net_payout) ?? undefined,
+    stored_net_payout: toNumber(record.stored_net_payout) ?? undefined,
+    stored_vs_computed_diff:
+      toNumber(record.stored_vs_computed_diff) ?? undefined,
+  };
+}
+
+function reconciliationDiffClass(diff: number): string {
+  if (Math.abs(diff) < 0.01) {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300";
+  }
+  if (diff > 0) {
+    return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300";
+  }
+  return "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300";
 }
 
 function recordTitle(record: Record<string, unknown>): string {
@@ -530,7 +612,30 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
     return links;
   })();
 
-  const keys = sortKeys(Object.keys(record));
+  const ownerStatementLineItems =
+    moduleDef.slug === "owner-statements"
+      ? toStatementLineItems(record.line_items)
+      : [];
+  const ownerStatementReconciliation =
+    moduleDef.slug === "owner-statements"
+      ? toStatementReconciliation(record.reconciliation)
+      : null;
+  const ownerStatementCurrency =
+    moduleDef.slug === "owner-statements" && typeof record.currency === "string"
+      ? record.currency
+      : "PYG";
+
+  const sourceHrefBaseByTable: Record<string, string> = {
+    reservations: "/module/reservations",
+    collection_records: "/module/collections",
+    leases: "/module/leases",
+    expenses: "/module/expenses",
+  };
+
+  const keys = sortKeys(Object.keys(record)).filter((key) => {
+    if (moduleDef.slug !== "owner-statements") return true;
+    return key !== "line_items" && key !== "reconciliation";
+  });
 
   return (
     <div className="space-y-6">
@@ -565,6 +670,152 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
           </div>
         </CardHeader>
       </Card>
+
+      {moduleDef.slug === "owner-statements" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Panel de conciliación</CardTitle>
+            <CardDescription>
+              Verifica línea por línea el cálculo de este estado del
+              propietario.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {ownerStatementReconciliation ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-xl border bg-card p-3">
+                  <p className="text-muted-foreground text-xs">
+                    Total bruto (reserva + cobros)
+                  </p>
+                  <p className="font-semibold text-base">
+                    {formatCurrency(
+                      ownerStatementReconciliation.gross_total ?? 0,
+                      ownerStatementCurrency,
+                      "es-PY"
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-card p-3">
+                  <p className="text-muted-foreground text-xs">
+                    Neto calculado
+                  </p>
+                  <p className="font-semibold text-base">
+                    {formatCurrency(
+                      ownerStatementReconciliation.computed_net_payout ?? 0,
+                      ownerStatementCurrency,
+                      "es-PY"
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-card p-3">
+                  <p className="text-muted-foreground text-xs">Neto guardado</p>
+                  <p className="font-semibold text-base">
+                    {formatCurrency(
+                      ownerStatementReconciliation.stored_net_payout ?? 0,
+                      ownerStatementCurrency,
+                      "es-PY"
+                    )}
+                  </p>
+                </div>
+                <div
+                  className={cn(
+                    "rounded-xl border p-3",
+                    reconciliationDiffClass(
+                      ownerStatementReconciliation.stored_vs_computed_diff ?? 0
+                    )
+                  )}
+                >
+                  <p className="text-xs">Diferencia guardado vs calculado</p>
+                  <p className="font-semibold text-base">
+                    {formatCurrency(
+                      ownerStatementReconciliation.stored_vs_computed_diff ?? 0,
+                      ownerStatementCurrency,
+                      "es-PY"
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-md border">
+              <div className="grid grid-cols-[1.2fr_1.1fr_1fr_0.9fr] gap-3 border-b bg-muted/35 px-3 py-2">
+                <p className="font-medium text-muted-foreground text-xs">
+                  Concepto
+                </p>
+                <p className="font-medium text-muted-foreground text-xs">
+                  Origen
+                </p>
+                <p className="font-medium text-muted-foreground text-xs">
+                  Fecha
+                </p>
+                <p className="text-right font-medium text-muted-foreground text-xs">
+                  Monto (PYG)
+                </p>
+              </div>
+              <div className="max-h-[28rem] divide-y overflow-auto">
+                {ownerStatementLineItems.length ? (
+                  ownerStatementLineItems.map((line, index) => {
+                    const sourceBase = sourceHrefBaseByTable[line.source_table];
+                    const sourceHref =
+                      sourceBase && isUuid(line.source_id)
+                        ? `${sourceBase}/${line.source_id}`
+                        : null;
+
+                    const dateLabel =
+                      line.date ??
+                      (line.from && line.to
+                        ? `${line.from} → ${line.to}`
+                        : "-");
+
+                    return (
+                      <div
+                        className="grid grid-cols-[1.2fr_1.1fr_1fr_0.9fr] gap-3 px-3 py-2.5"
+                        key={`${line.source_table}:${line.source_id}:${index}`}
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="truncate font-medium text-sm">
+                            {humanizeKey(line.bucket)}
+                          </p>
+                          <p className="truncate text-muted-foreground text-xs">
+                            {humanizeKey(line.kind)}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          {sourceHref ? (
+                            <Link
+                              className="font-mono text-primary text-xs underline-offset-4 hover:underline"
+                              href={sourceHref}
+                              prefetch={false}
+                            >
+                              {line.source_table}:{shortId(line.source_id)}
+                            </Link>
+                          ) : (
+                            <p className="font-mono text-muted-foreground text-xs">
+                              {line.source_table}:{shortId(line.source_id)}
+                            </p>
+                          )}
+                        </div>
+                        <p className="text-foreground text-xs">{dateLabel}</p>
+                        <p className="text-right text-sm tabular-nums">
+                          {formatCurrency(
+                            line.amount_pyg,
+                            ownerStatementCurrency,
+                            "es-PY"
+                          )}
+                        </p>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-4 text-muted-foreground text-sm">
+                    Este estado aún no expone líneas de conciliación.
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

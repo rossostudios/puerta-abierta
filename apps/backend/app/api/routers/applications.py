@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,12 +9,14 @@ from app.core.tenancy import assert_org_member, assert_org_role
 from app.schemas.domain import ApplicationStatusInput, ConvertApplicationToLeaseInput
 from app.services.analytics import write_analytics_event
 from app.services.audit import write_audit_log
+from app.services.lease_schedule import ensure_monthly_lease_schedule
 from app.services.pricing import lease_financials_from_lines
 from app.services.table_service import create_row, get_row, list_rows, update_row
 
 router = APIRouter(tags=["Applications"])
 
 APPLICATION_EDIT_ROLES = {"owner_admin", "operator"}
+RESPONSE_SLA_MINUTES = 120
 
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     "new": {"screening", "rejected", "lost"},
@@ -70,16 +72,64 @@ def _enrich(rows: list[dict]) -> list[dict]:
             if isinstance(listing_id, str):
                 listing_title[listing_id] = str(listing.get("title") or "")
 
+    assigned_user_ids = [
+        str(row.get("assigned_user_id") or "")
+        for row in rows
+        if row.get("assigned_user_id")
+    ]
+
+    assigned_user_name: dict[str, str] = {}
+    if assigned_user_ids:
+        users = list_rows(
+            "app_users",
+            {"id": assigned_user_ids},
+            limit=max(200, len(assigned_user_ids)),
+        )
+        for user in users:
+            user_id = user.get("id")
+            if isinstance(user_id, str):
+                preferred = str(user.get("full_name") or "").strip()
+                if not preferred:
+                    preferred = str(user.get("email") or "").strip()
+                assigned_user_name[user_id] = preferred or user_id
+
+    now = datetime.now(timezone.utc)
+
     for row in rows:
         listing_id = row.get("marketplace_listing_id")
         if isinstance(listing_id, str):
             row["marketplace_listing_title"] = listing_title.get(listing_id)
 
+        assigned_user_id = row.get("assigned_user_id")
+        if isinstance(assigned_user_id, str) and assigned_user_id:
+            row["assigned_user_name"] = assigned_user_name.get(assigned_user_id)
+
         created_at = _parse_iso_datetime(row.get("created_at"))
         first_response_at = _parse_iso_datetime(row.get("first_response_at"))
-        if created_at and first_response_at:
+        if not created_at:
+            continue
+
+        sla_due_at = created_at + timedelta(minutes=RESPONSE_SLA_MINUTES)
+        row["response_sla_due_at"] = sla_due_at.isoformat()
+
+        if first_response_at:
             elapsed = max((first_response_at - created_at).total_seconds(), 0)
             row["first_response_minutes"] = round(elapsed / 60, 2)
+            if first_response_at <= sla_due_at:
+                row["response_sla_status"] = "met"
+            else:
+                row["response_sla_status"] = "breached"
+                row["response_sla_breached_at"] = sla_due_at.isoformat()
+            continue
+
+        remaining = (sla_due_at - now).total_seconds() / 60
+        if remaining <= 0:
+            row["response_sla_status"] = "breached"
+            row["response_sla_breached_at"] = sla_due_at.isoformat()
+            row["response_sla_remaining_minutes"] = 0
+        else:
+            row["response_sla_status"] = "pending"
+            row["response_sla_remaining_minutes"] = round(remaining, 2)
 
     return rows
 
@@ -188,6 +238,7 @@ def update_application_status(
             "event_payload": {
                 "from": current,
                 "to": nxt,
+                "assigned_user_id": payload.assigned_user_id,
                 "note": payload.note,
                 "rejected_reason": payload.rejected_reason,
             },
@@ -301,36 +352,21 @@ def convert_application_to_lease(
 
     lease = create_row("leases", lease_payload)
 
-    charge = create_row(
-        "lease_charges",
-        {
-            "organization_id": org_id,
-            "lease_id": lease.get("id"),
-            "charge_date": payload.starts_on,
-            "charge_type": "monthly_rent",
-            "description": "First recurring lease charge",
-            "amount": monthly_recurring_total,
-            "currency": payload.currency,
-            "status": "scheduled",
-        },
-    )
-
     first_collection = None
+    schedule_result = None
     if payload.generate_first_collection:
-        due_date = payload.first_collection_due_date or payload.starts_on
-        first_collection = create_row(
-            "collection_records",
-            {
-                "organization_id": org_id,
-                "lease_id": lease.get("id"),
-                "lease_charge_id": charge.get("id"),
-                "due_date": due_date,
-                "amount": monthly_recurring_total,
-                "currency": payload.currency,
-                "status": "scheduled",
-                "created_by_user_id": user_id,
-            },
+        schedule_result = ensure_monthly_lease_schedule(
+            organization_id=org_id,
+            lease_id=str(lease.get("id") or ""),
+            starts_on=payload.starts_on,
+            first_collection_due_date=payload.first_collection_due_date,
+            ends_on=payload.ends_on,
+            collection_schedule_months=payload.collection_schedule_months,
+            amount=monthly_recurring_total,
+            currency=payload.currency,
+            created_by_user_id=user_id,
         )
+        first_collection = schedule_result.get("first_collection")
 
     updated_application = update_row(
         "application_submissions",
@@ -353,6 +389,7 @@ def convert_application_to_lease(
             "event_payload": {
                 "lease_id": lease.get("id"),
                 "collection_id": first_collection.get("id") if first_collection else None,
+                "schedule_due_dates": (schedule_result or {}).get("due_dates", []),
             },
             "actor_user_id": user_id,
         },
@@ -375,6 +412,7 @@ def convert_application_to_lease(
             "application_id": application_id,
             "lease_id": lease.get("id"),
             "collection_id": first_collection.get("id") if first_collection else None,
+            "schedule_collections_created": len((schedule_result or {}).get("collections", [])),
         },
     )
 
@@ -382,4 +420,6 @@ def convert_application_to_lease(
         "application": _enrich([updated_application])[0],
         "lease": lease,
         "first_collection": first_collection,
+        "schedule_due_dates": (schedule_result or {}).get("due_dates", []),
+        "schedule_collections_created": len((schedule_result or {}).get("collections", [])),
     }
