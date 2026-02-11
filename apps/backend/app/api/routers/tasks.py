@@ -22,6 +22,45 @@ TASK_ITEM_UPDATE_ROLES = {"owner_admin", "operator", "cleaner"}
 TASK_ITEM_MANAGE_ROLES = {"owner_admin", "operator"}
 
 
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _flag_sla_breach(task: dict) -> dict:
+    status = str(task.get("status") or "")
+    if status in {"done", "cancelled"}:
+        return task
+    if task.get("sla_breached_at"):
+        return task
+
+    sla_due_at = _parse_iso_datetime(task.get("sla_due_at"))
+    if not sla_due_at:
+        return task
+
+    if sla_due_at <= datetime.now(timezone.utc):
+        try:
+            updated = update_row(
+                "tasks",
+                str(task.get("id") or ""),
+                {"sla_breached_at": datetime.now(timezone.utc).isoformat()},
+            )
+            return updated
+        except Exception:
+            return task
+
+    return task
+
+
 def _get_task(task_id: str) -> dict:
     record = get_row("tasks", task_id)
     if not record.get("organization_id"):
@@ -71,7 +110,7 @@ def list_tasks(
         filters["unit_id"] = unit_id
     if reservation_id:
         filters["reservation_id"] = reservation_id
-    rows = list_rows("tasks", filters, limit=limit)
+    rows = [_flag_sla_breach(item) for item in list_rows("tasks", filters, limit=limit)]
     return {"data": enrich_tasks(rows, org_id)}
 
 
@@ -95,7 +134,7 @@ def create_task(payload: CreateTaskInput, user_id: str = Depends(require_user_id
 def get_task(task_id: str, user_id: str = Depends(require_user_id)) -> dict:
     record = _get_task(task_id)
     assert_org_member(user_id, record["organization_id"])
-    return enrich_tasks([record], record["organization_id"])[0]
+    return enrich_tasks([_flag_sla_breach(record)], record["organization_id"])[0]
 
 
 @router.patch("/tasks/{task_id}")

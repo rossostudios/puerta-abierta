@@ -99,6 +99,44 @@ CREATE TYPE message_status AS ENUM (
   'failed'
 );
 
+CREATE TYPE fee_line_type AS ENUM (
+  'monthly_rent',
+  'advance_rent',
+  'security_deposit',
+  'service_fee_flat',
+  'guarantee_option_fee',
+  'admin_fee',
+  'tax_iva',
+  'other'
+);
+
+CREATE TYPE application_status AS ENUM (
+  'new',
+  'screening',
+  'qualified',
+  'visit_scheduled',
+  'offer_sent',
+  'contract_signed',
+  'rejected',
+  'lost'
+);
+
+CREATE TYPE lease_status AS ENUM (
+  'draft',
+  'active',
+  'delinquent',
+  'terminated',
+  'completed'
+);
+
+CREATE TYPE collection_status AS ENUM (
+  'scheduled',
+  'pending',
+  'paid',
+  'late',
+  'waived'
+);
+
 -- ---------- Utility functions ----------
 
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -270,6 +308,8 @@ CREATE TABLE listings (
   channel_id uuid NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
   external_listing_id text,
   public_name text NOT NULL,
+  marketplace_publishable boolean NOT NULL DEFAULT false,
+  public_slug text,
   ical_import_url text,
   ical_export_token text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(18), 'hex'),
   is_active boolean NOT NULL DEFAULT true,
@@ -284,6 +324,9 @@ CREATE UNIQUE INDEX idx_listings_channel_external
 
 CREATE INDEX idx_listings_org_id ON listings(organization_id);
 CREATE INDEX idx_listings_unit_id ON listings(unit_id);
+CREATE UNIQUE INDEX idx_listings_org_public_slug
+  ON listings(organization_id, public_slug)
+  WHERE public_slug IS NOT NULL;
 
 -- ---------- Guests and reservations ----------
 
@@ -397,6 +440,8 @@ CREATE TABLE tasks (
   title text NOT NULL,
   description text,
   due_at timestamptz,
+  sla_due_at timestamptz,
+  sla_breached_at timestamptz,
   started_at timestamptz,
   completed_at timestamptz,
   completion_notes text,
@@ -461,6 +506,9 @@ CREATE TABLE owner_statements (
   period_end date NOT NULL,
   currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
   gross_revenue numeric(12, 2) NOT NULL DEFAULT 0,
+  lease_collections numeric(12, 2) NOT NULL DEFAULT 0,
+  service_fees numeric(12, 2) NOT NULL DEFAULT 0,
+  collection_fees numeric(12, 2) NOT NULL DEFAULT 0,
   platform_fees numeric(12, 2) NOT NULL DEFAULT 0,
   taxes_collected numeric(12, 2) NOT NULL DEFAULT 0,
   operating_expenses numeric(12, 2) NOT NULL DEFAULT 0,
@@ -477,6 +525,204 @@ CREATE TABLE owner_statements (
 
 CREATE INDEX idx_owner_statements_org_period
   ON owner_statements(organization_id, period_start, period_end);
+
+CREATE TABLE pricing_templates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text,
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  is_default boolean NOT NULL DEFAULT false,
+  is_active boolean NOT NULL DEFAULT true,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, name)
+);
+
+CREATE INDEX idx_pricing_templates_org_id
+  ON pricing_templates(organization_id, is_active);
+
+CREATE TABLE pricing_template_lines (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  pricing_template_id uuid NOT NULL REFERENCES pricing_templates(id) ON DELETE CASCADE,
+  fee_type fee_line_type NOT NULL,
+  label text NOT NULL,
+  amount numeric(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  is_refundable boolean NOT NULL DEFAULT false,
+  is_recurring boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 1 CHECK (sort_order > 0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (pricing_template_id, sort_order)
+);
+
+CREATE INDEX idx_pricing_template_lines_org_id
+  ON pricing_template_lines(organization_id, pricing_template_id);
+
+CREATE TABLE marketplace_listings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  listing_id uuid REFERENCES listings(id) ON DELETE SET NULL,
+  property_id uuid REFERENCES properties(id) ON DELETE SET NULL,
+  unit_id uuid REFERENCES units(id) ON DELETE SET NULL,
+  pricing_template_id uuid REFERENCES pricing_templates(id) ON DELETE SET NULL,
+  public_slug text NOT NULL UNIQUE,
+  title text NOT NULL,
+  summary text,
+  description text,
+  neighborhood text,
+  city text NOT NULL DEFAULT 'Asuncion',
+  country_code char(2) NOT NULL DEFAULT 'PY',
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  is_published boolean NOT NULL DEFAULT false,
+  published_at timestamptz,
+  application_url text,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_marketplace_listings_org_published
+  ON marketplace_listings(organization_id, is_published, created_at DESC);
+CREATE INDEX idx_marketplace_listings_org_slug
+  ON marketplace_listings(organization_id, public_slug);
+
+CREATE TABLE marketplace_listing_fee_lines (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  marketplace_listing_id uuid NOT NULL REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+  fee_type fee_line_type NOT NULL,
+  label text NOT NULL,
+  amount numeric(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  is_refundable boolean NOT NULL DEFAULT false,
+  is_recurring boolean NOT NULL DEFAULT false,
+  sort_order integer NOT NULL DEFAULT 1 CHECK (sort_order > 0),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (marketplace_listing_id, sort_order)
+);
+
+CREATE INDEX idx_marketplace_listing_fee_lines_org
+  ON marketplace_listing_fee_lines(organization_id, marketplace_listing_id);
+
+CREATE TABLE application_submissions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  marketplace_listing_id uuid REFERENCES marketplace_listings(id) ON DELETE SET NULL,
+  status application_status NOT NULL DEFAULT 'new',
+  full_name text NOT NULL,
+  email citext NOT NULL,
+  phone_e164 text,
+  document_number text,
+  monthly_income numeric(12, 2),
+  guarantee_choice text NOT NULL DEFAULT 'cash_deposit',
+  message text,
+  source text NOT NULL DEFAULT 'marketplace',
+  assigned_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  first_response_at timestamptz,
+  qualified_at timestamptz,
+  rejected_reason text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_application_submissions_org_status
+  ON application_submissions(organization_id, status, created_at DESC);
+CREATE INDEX idx_application_submissions_listing
+  ON application_submissions(marketplace_listing_id);
+
+CREATE TABLE application_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  application_id uuid NOT NULL REFERENCES application_submissions(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  event_payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_application_events_org_created
+  ON application_events(organization_id, created_at DESC);
+CREATE INDEX idx_application_events_application
+  ON application_events(application_id, created_at DESC);
+
+CREATE TABLE leases (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  application_id uuid REFERENCES application_submissions(id) ON DELETE SET NULL,
+  property_id uuid REFERENCES properties(id) ON DELETE SET NULL,
+  unit_id uuid REFERENCES units(id) ON DELETE SET NULL,
+  tenant_full_name text NOT NULL,
+  tenant_email citext,
+  tenant_phone_e164 text,
+  lease_status lease_status NOT NULL DEFAULT 'draft',
+  starts_on date NOT NULL,
+  ends_on date,
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  monthly_rent numeric(12, 2) NOT NULL DEFAULT 0 CHECK (monthly_rent >= 0),
+  service_fee_flat numeric(12, 2) NOT NULL DEFAULT 0 CHECK (service_fee_flat >= 0),
+  security_deposit numeric(12, 2) NOT NULL DEFAULT 0 CHECK (security_deposit >= 0),
+  guarantee_option_fee numeric(12, 2) NOT NULL DEFAULT 0 CHECK (guarantee_option_fee >= 0),
+  tax_iva numeric(12, 2) NOT NULL DEFAULT 0 CHECK (tax_iva >= 0),
+  total_move_in numeric(12, 2) NOT NULL DEFAULT 0 CHECK (total_move_in >= 0),
+  monthly_recurring_total numeric(12, 2) NOT NULL DEFAULT 0 CHECK (monthly_recurring_total >= 0),
+  platform_fee numeric(12, 2) NOT NULL DEFAULT 0 CHECK (platform_fee >= 0),
+  notes text,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_leases_org_status
+  ON leases(organization_id, lease_status, created_at DESC);
+CREATE INDEX idx_leases_unit
+  ON leases(unit_id, starts_on);
+
+CREATE TABLE lease_charges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  lease_id uuid NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
+  charge_date date NOT NULL,
+  charge_type fee_line_type NOT NULL,
+  description text,
+  amount numeric(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  status collection_status NOT NULL DEFAULT 'scheduled',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_lease_charges_org_date
+  ON lease_charges(organization_id, charge_date, status);
+CREATE INDEX idx_lease_charges_lease
+  ON lease_charges(lease_id);
+
+CREATE TABLE collection_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  lease_id uuid NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
+  lease_charge_id uuid REFERENCES lease_charges(id) ON DELETE SET NULL,
+  due_date date NOT NULL,
+  amount numeric(12, 2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  status collection_status NOT NULL DEFAULT 'scheduled',
+  payment_method payment_method,
+  payment_reference text,
+  scheduled_at timestamptz NOT NULL DEFAULT now(),
+  paid_at timestamptz,
+  notes text,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_collection_records_org_status_due
+  ON collection_records(organization_id, status, due_date);
+CREATE INDEX idx_collection_records_lease
+  ON collection_records(lease_id, due_date);
 
 -- ---------- Messaging ----------
 
@@ -620,6 +866,38 @@ CREATE TRIGGER trg_owner_statements_updated_at
   BEFORE UPDATE ON owner_statements
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER trg_pricing_templates_updated_at
+  BEFORE UPDATE ON pricing_templates
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_pricing_template_lines_updated_at
+  BEFORE UPDATE ON pricing_template_lines
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_marketplace_listings_updated_at
+  BEFORE UPDATE ON marketplace_listings
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_marketplace_listing_fee_lines_updated_at
+  BEFORE UPDATE ON marketplace_listing_fee_lines
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_application_submissions_updated_at
+  BEFORE UPDATE ON application_submissions
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_leases_updated_at
+  BEFORE UPDATE ON leases
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_lease_charges_updated_at
+  BEFORE UPDATE ON lease_charges
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_collection_records_updated_at
+  BEFORE UPDATE ON collection_records
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TRIGGER trg_message_templates_updated_at
   BEFORE UPDATE ON message_templates
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -703,6 +981,15 @@ ALTER TABLE calendar_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE owner_statements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pricing_template_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketplace_listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketplace_listing_fee_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE application_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE application_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lease_charges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_logs ENABLE ROW LEVEL SECURITY;
 
@@ -753,6 +1040,51 @@ CREATE POLICY expenses_org_member_all
 
 CREATE POLICY owner_statements_org_member_all
   ON owner_statements FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY pricing_templates_org_member_all
+  ON pricing_templates FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY pricing_template_lines_org_member_all
+  ON pricing_template_lines FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY marketplace_listings_org_member_all
+  ON marketplace_listings FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY marketplace_listing_fee_lines_org_member_all
+  ON marketplace_listing_fee_lines FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY application_submissions_org_member_all
+  ON application_submissions FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY application_events_org_member_all
+  ON application_events FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY leases_org_member_all
+  ON leases FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY lease_charges_org_member_all
+  ON lease_charges FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY collection_records_org_member_all
+  ON collection_records FOR ALL
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
 

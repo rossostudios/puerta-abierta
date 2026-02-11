@@ -8,4 +8,9 @@ export const FOREIGN_KEY_HREF_BASE_BY_KEY: Record<string, string> = {
   reservation_id: "/module/reservations",
   task_id: "/module/tasks",
   template_id: "/module/messaging",
+  pricing_template_id: "/module/pricing",
+  marketplace_listing_id: "/module/marketplace-listings",
+  application_id: "/module/applications",
+  lease_id: "/module/leases",
+  lease_charge_id: "/module/collections",
 };

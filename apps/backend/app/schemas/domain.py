@@ -99,12 +99,16 @@ class CreateListingInput(BaseModel):
     channel_id: str
     external_listing_id: Optional[str] = None
     public_name: str
+    marketplace_publishable: bool = False
+    public_slug: Optional[str] = None
     ical_import_url: Optional[str] = None
 
 
 class UpdateListingInput(BaseModel):
     external_listing_id: Optional[str] = None
     public_name: Optional[str] = None
+    marketplace_publishable: Optional[bool] = None
+    public_slug: Optional[str] = None
     ical_import_url: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -198,6 +202,8 @@ class CreateTaskInput(BaseModel):
     assigned_user_id: Optional[str] = None
     description: Optional[str] = None
     due_at: Optional[str] = None
+    sla_due_at: Optional[str] = None
+    sla_breached_at: Optional[str] = None
 
 
 class UpdateTaskInput(BaseModel):
@@ -207,6 +213,8 @@ class UpdateTaskInput(BaseModel):
     assigned_user_id: Optional[str] = None
     description: Optional[str] = None
     due_at: Optional[str] = None
+    sla_due_at: Optional[str] = None
+    sla_breached_at: Optional[str] = None
 
 
 class CompleteTaskInput(BaseModel):
@@ -290,3 +298,176 @@ class SendMessageInput(BaseModel):
     guest_id: Optional[str] = None
     variables: Optional[dict[str, Any]] = None
     scheduled_at: Optional[str] = None
+
+
+class FeeLineInput(BaseModel):
+    fee_type: str
+    label: str
+    amount: float = Field(default=0, ge=0)
+    is_refundable: bool = False
+    is_recurring: bool = False
+    sort_order: Optional[int] = Field(default=None, gt=0)
+
+
+class CreatePricingTemplateInput(BaseModel):
+    organization_id: str
+    name: str
+    description: Optional[str] = None
+    currency: str = "PYG"
+    is_default: bool = False
+    is_active: bool = True
+    lines: list[FeeLineInput] = Field(default_factory=list)
+
+
+class UpdatePricingTemplateInput(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    currency: Optional[str] = None
+    is_default: Optional[bool] = None
+    is_active: Optional[bool] = None
+    lines: Optional[list[FeeLineInput]] = None
+
+
+class CreateMarketplaceListingInput(BaseModel):
+    organization_id: str
+    listing_id: Optional[str] = None
+    property_id: Optional[str] = None
+    unit_id: Optional[str] = None
+    pricing_template_id: Optional[str] = None
+    public_slug: str
+    title: str
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: str = "Asuncion"
+    country_code: str = "PY"
+    currency: str = "PYG"
+    application_url: Optional[str] = None
+    fee_lines: list[FeeLineInput] = Field(default_factory=list)
+
+
+class UpdateMarketplaceListingInput(BaseModel):
+    listing_id: Optional[str] = None
+    property_id: Optional[str] = None
+    unit_id: Optional[str] = None
+    pricing_template_id: Optional[str] = None
+    public_slug: Optional[str] = None
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    description: Optional[str] = None
+    neighborhood: Optional[str] = None
+    city: Optional[str] = None
+    country_code: Optional[str] = None
+    currency: Optional[str] = None
+    application_url: Optional[str] = None
+    is_published: Optional[bool] = None
+    fee_lines: Optional[list[FeeLineInput]] = None
+
+
+class PublicMarketplaceApplicationInput(BaseModel):
+    org_id: Optional[str] = None
+    marketplace_listing_id: Optional[str] = None
+    listing_slug: Optional[str] = None
+    full_name: str
+    email: str
+    phone_e164: Optional[str] = None
+    document_number: Optional[str] = None
+    monthly_income: Optional[float] = Field(default=None, ge=0)
+    guarantee_choice: str = "cash_deposit"
+    message: Optional[str] = None
+    source: str = "marketplace"
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ApplicationStatusInput(BaseModel):
+    status: str
+    assigned_user_id: Optional[str] = None
+    rejected_reason: Optional[str] = None
+    note: Optional[str] = None
+
+
+class ConvertApplicationToLeaseInput(BaseModel):
+    starts_on: str
+    ends_on: Optional[str] = None
+    currency: str = "PYG"
+    monthly_rent: float = Field(default=0, ge=0)
+    service_fee_flat: float = Field(default=0, ge=0)
+    security_deposit: float = Field(default=0, ge=0)
+    guarantee_option_fee: float = Field(default=0, ge=0)
+    tax_iva: float = Field(default=0, ge=0)
+    platform_fee: float = Field(default=0, ge=0)
+    notes: Optional[str] = None
+    generate_first_collection: bool = True
+    first_collection_due_date: Optional[str] = None
+
+
+class CreateLeaseChargeInput(BaseModel):
+    charge_date: str
+    charge_type: str
+    description: Optional[str] = None
+    amount: float = Field(default=0, ge=0)
+    currency: str = "PYG"
+    status: str = "scheduled"
+
+
+class CreateLeaseInput(BaseModel):
+    organization_id: str
+    application_id: Optional[str] = None
+    property_id: Optional[str] = None
+    unit_id: Optional[str] = None
+    tenant_full_name: str
+    tenant_email: Optional[str] = None
+    tenant_phone_e164: Optional[str] = None
+    lease_status: str = "draft"
+    starts_on: str
+    ends_on: Optional[str] = None
+    currency: str = "PYG"
+    monthly_rent: float = Field(default=0, ge=0)
+    service_fee_flat: float = Field(default=0, ge=0)
+    security_deposit: float = Field(default=0, ge=0)
+    guarantee_option_fee: float = Field(default=0, ge=0)
+    tax_iva: float = Field(default=0, ge=0)
+    platform_fee: float = Field(default=0, ge=0)
+    notes: Optional[str] = None
+    charges: list[CreateLeaseChargeInput] = Field(default_factory=list)
+    generate_first_collection: bool = True
+    first_collection_due_date: Optional[str] = None
+
+
+class UpdateLeaseInput(BaseModel):
+    tenant_full_name: Optional[str] = None
+    tenant_email: Optional[str] = None
+    tenant_phone_e164: Optional[str] = None
+    lease_status: Optional[str] = None
+    starts_on: Optional[str] = None
+    ends_on: Optional[str] = None
+    currency: Optional[str] = None
+    monthly_rent: Optional[float] = Field(default=None, ge=0)
+    service_fee_flat: Optional[float] = Field(default=None, ge=0)
+    security_deposit: Optional[float] = Field(default=None, ge=0)
+    guarantee_option_fee: Optional[float] = Field(default=None, ge=0)
+    tax_iva: Optional[float] = Field(default=None, ge=0)
+    platform_fee: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = None
+
+
+class CreateCollectionInput(BaseModel):
+    organization_id: str
+    lease_id: str
+    lease_charge_id: Optional[str] = None
+    due_date: str
+    amount: float = Field(default=0, ge=0)
+    currency: str = "PYG"
+    status: str = "scheduled"
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    scheduled_at: Optional[str] = None
+    paid_at: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class MarkCollectionPaidInput(BaseModel):
+    payment_method: Optional[str] = None
+    payment_reference: Optional[str] = None
+    paid_at: Optional[str] = None
+    notes: Optional[str] = None

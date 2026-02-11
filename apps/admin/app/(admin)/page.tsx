@@ -134,6 +134,9 @@ export default async function DashboardPage() {
   let reservations: unknown[] = [];
   let tasks: unknown[] = [];
   let units: unknown[] = [];
+  let applications: unknown[] = [];
+  let collections: unknown[] = [];
+  let marketplaceListings: unknown[] = [];
   let summary: Record<string, unknown> = {};
   let apiAvailable = true;
 
@@ -150,11 +153,23 @@ export default async function DashboardPage() {
 
   if (apiAvailable) {
     try {
-      const [props, resas, taskRows, unitRows, summ] = await Promise.all([
+      const [
+        props,
+        resas,
+        taskRows,
+        unitRows,
+        appRows,
+        collectionRows,
+        marketplaceRows,
+        summ,
+      ] = await Promise.all([
         safeList("/properties", orgId),
         safeList("/reservations", orgId),
         safeList("/tasks", orgId),
         safeList("/units", orgId),
+        safeList("/applications", orgId),
+        safeList("/collections", orgId),
+        safeList("/marketplace/listings", orgId),
         safeReport("/reports/summary", orgId),
       ]);
 
@@ -162,6 +177,9 @@ export default async function DashboardPage() {
       reservations = resas;
       tasks = taskRows;
       units = unitRows;
+      applications = appRows;
+      collections = collectionRows;
+      marketplaceListings = marketplaceRows;
       summary = summ;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -202,6 +220,35 @@ export default async function DashboardPage() {
     "cancelled",
     "unknown",
   ]);
+
+  const qualifiedLikeStatuses = new Set([
+    "qualified",
+    "visit_scheduled",
+    "offer_sent",
+    "contract_signed",
+  ]);
+  const qualifiedApplications = (
+    applications as Record<string, unknown>[]
+  ).filter((row) => qualifiedLikeStatuses.has(String(row.status ?? ""))).length;
+
+  const paidCollections = (collections as Record<string, unknown>[]).filter(
+    (row) => String(row.status ?? "") === "paid"
+  ).length;
+  const collectionRate =
+    collections.length > 0
+      ? `${((paidCollections / collections.length) * 100).toFixed(1)}%`
+      : "0%";
+
+  const publishedListings = (
+    marketplaceListings as Record<string, unknown>[]
+  ).filter((row) => Boolean(row.is_published));
+  const transparentListings = publishedListings.filter((row) =>
+    Boolean(row.fee_breakdown_complete)
+  ).length;
+  const transparentListingsPct =
+    publishedListings.length > 0
+      ? `${((transparentListings / publishedListings.length) * 100).toFixed(1)}%`
+      : "0%";
 
   return (
     <div className="space-y-6">
@@ -337,6 +384,34 @@ export default async function DashboardPage() {
             icon={Invoice01Icon}
             label={isEn ? "Net payout" : "Pago neto"}
             value={reportNet}
+          />
+        </div>
+      </section>
+
+      <section aria-label={isEn ? "Leasing metrics" : "Métricas de arriendos"}>
+        <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+          {isEn ? "Leasing pipeline" : "Pipeline de arriendos"}
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <StatCard
+            helper={isEn ? "Current cycle" : "Ciclo actual"}
+            icon={File01Icon}
+            label={isEn ? "Qualified applications" : "Aplicaciones calificadas"}
+            value={String(qualifiedApplications)}
+          />
+          <StatCard
+            helper={`${paidCollections}/${collections.length}`}
+            icon={Invoice01Icon}
+            label={
+              isEn ? "Lease collection rate" : "Tasa de cobro de contratos"
+            }
+            value={collectionRate}
+          />
+          <StatCard
+            helper={`${transparentListings}/${publishedListings.length}`}
+            icon={ChartIcon}
+            label={isEn ? "Transparent listings %" : "Anuncios transparentes %"}
+            value={transparentListingsPct}
           />
         </div>
       </section>

@@ -1,10 +1,12 @@
-from datetime import date
+from datetime import date, datetime
+from statistics import median
 
 from fastapi import APIRouter, Depends, Query
 from typing import Optional
 
 from app.core.auth import require_user_id
 from app.core.tenancy import assert_org_member
+from app.services.pricing import missing_required_fee_types
 from app.services.table_service import list_rows
 
 router = APIRouter(tags=["Reports"])
@@ -18,6 +20,13 @@ def _parse_date(value: str) -> date:
 
 def _nights(start: date, end: date) -> int:
     return max((end - start).days, 0)
+
+
+def _parse_datetime(value: str) -> datetime:
+    text = value.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    return datetime.fromisoformat(text)
 
 
 def _expense_amount_pyg(expense: dict) -> tuple[float, Optional[str]]:
@@ -40,6 +49,7 @@ def _expense_amount_pyg(expense: dict) -> tuple[float, Optional[str]]:
 
 
 @router.get("/reports/owner-summary")
+@router.get("/reports/summary")
 def owner_summary_report(
     org_id: str = Query(...),
     from_date: str = Query(..., alias="from"),
@@ -110,4 +120,121 @@ def owner_summary_report(
         "expenses": round(total_expenses, 2),
         "net_payout": net_payout,
         "expense_warnings": warnings,
+    }
+
+
+@router.get("/reports/transparency-summary")
+def transparency_summary_report(
+    org_id: str = Query(...),
+    from_date: str = Query(..., alias="from"),
+    to_date: str = Query(..., alias="to"),
+    user_id: str = Depends(require_user_id),
+) -> dict:
+    assert_org_member(user_id, org_id)
+
+    period_start = _parse_date(from_date)
+    period_end = _parse_date(to_date)
+
+    listings = list_rows("marketplace_listings", {"organization_id": org_id}, limit=6000)
+    listing_ids = [str(item.get("id") or "") for item in listings if item.get("id")]
+
+    fee_lines = list_rows(
+        "marketplace_listing_fee_lines",
+        {"marketplace_listing_id": listing_ids} if listing_ids else {"organization_id": org_id},
+        limit=max(1000, len(listing_ids) * 20 if listing_ids else 1000),
+        order_by="sort_order",
+        ascending=True,
+    )
+
+    lines_by_listing: dict[str, list[dict]] = {}
+    for line in fee_lines:
+        key = str(line.get("marketplace_listing_id") or "")
+        if not key:
+            continue
+        lines_by_listing.setdefault(key, []).append(line)
+
+    published_count = 0
+    transparent_count = 0
+    for listing in listings:
+        if not bool(listing.get("is_published")):
+            continue
+        published_count += 1
+        listing_id = str(listing.get("id") or "")
+        missing = missing_required_fee_types(lines_by_listing.get(listing_id, []))
+        if not missing:
+            transparent_count += 1
+
+    transparent_listings_pct = round(transparent_count / published_count, 4) if published_count else 0.0
+
+    applications = list_rows("application_submissions", {"organization_id": org_id}, limit=12000)
+
+    in_period_apps: list[dict] = []
+    first_response_hours: list[float] = []
+    qualified_like_statuses = {"qualified", "visit_scheduled", "offer_sent", "contract_signed"}
+    qualified_count = 0
+
+    for application in applications:
+        created_raw = application.get("created_at")
+        if not isinstance(created_raw, str):
+            continue
+        try:
+            created_at = _parse_datetime(created_raw)
+        except Exception:
+            continue
+        created_date = created_at.date()
+        if created_date < period_start or created_date > period_end:
+            continue
+        in_period_apps.append(application)
+
+        status = str(application.get("status") or "")
+        if status in qualified_like_statuses:
+            qualified_count += 1
+
+        first_response_raw = application.get("first_response_at")
+        if isinstance(first_response_raw, str):
+            try:
+                first_response_at = _parse_datetime(first_response_raw)
+                elapsed_hours = max((first_response_at - created_at).total_seconds(), 0) / 3600
+                first_response_hours.append(elapsed_hours)
+            except Exception:
+                pass
+
+    applications_count = len(in_period_apps)
+    inquiry_to_qualified_rate = (
+        round(qualified_count / applications_count, 4) if applications_count else 0.0
+    )
+    median_first_response_hours = round(median(first_response_hours), 2) if first_response_hours else None
+
+    collections = list_rows("collection_records", {"organization_id": org_id}, limit=20000)
+    in_period_collections = [
+        row
+        for row in collections
+        if isinstance(row.get("due_date"), str)
+        and period_start <= _parse_date(str(row.get("due_date"))) <= period_end
+    ]
+
+    total_collections = len(in_period_collections)
+    paid_collections = sum(1 for row in in_period_collections if str(row.get("status") or "") == "paid")
+    collection_success_rate = round(paid_collections / total_collections, 4) if total_collections else 0.0
+
+    paid_amount = round(
+        sum(float(row.get("amount", 0) or 0) for row in in_period_collections if str(row.get("status") or "") == "paid"),
+        2,
+    )
+
+    return {
+        "organization_id": org_id,
+        "from": from_date,
+        "to": to_date,
+        "published_listings": published_count,
+        "transparent_listings": transparent_count,
+        "transparent_listings_pct": transparent_listings_pct,
+        "applications": applications_count,
+        "qualified_applications": qualified_count,
+        "inquiry_to_qualified_rate": inquiry_to_qualified_rate,
+        "median_first_response_hours": median_first_response_hours,
+        "collections_scheduled": total_collections,
+        "collections_paid": paid_collections,
+        "collection_success_rate": collection_success_rate,
+        "paid_collections_amount": paid_amount,
     }

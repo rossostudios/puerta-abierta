@@ -198,3 +198,28 @@ export function deleteJson(path: string): Promise<unknown> {
     method: "DELETE",
   });
 }
+
+export function fetchPublicMarketplaceListings(params?: {
+  city?: string;
+  q?: string;
+  orgId?: string;
+  limit?: number;
+}): Promise<{ data?: Record<string, unknown>[] }> {
+  return fetchJson<{ data?: Record<string, unknown>[] }>(
+    "/public/marketplace/listings",
+    {
+      city: params?.city,
+      q: params?.q,
+      org_id: params?.orgId,
+      limit: params?.limit ?? 60,
+    }
+  );
+}
+
+export function fetchPublicMarketplaceListing(
+  slug: string
+): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(
+    `/public/marketplace/listings/${encodeURIComponent(slug)}`
+  );
+}

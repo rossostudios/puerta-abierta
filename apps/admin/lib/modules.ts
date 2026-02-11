@@ -102,6 +102,55 @@ export const MODULES: ModuleDef[] = [
     description_en: "Draft, close, and reconcile monthly payouts.",
   },
   {
+    slug: "pricing",
+    label: "Plantillas de precios",
+    label_en: "Pricing templates",
+    endpoint: "/pricing/templates",
+    description:
+      "Modela el desglose transparente de ingreso con líneas obligatorias.",
+    description_en:
+      "Model transparent move-in breakdown templates with mandatory fee lines.",
+  },
+  {
+    slug: "marketplace-listings",
+    label: "Anuncios del marketplace",
+    label_en: "Marketplace listings",
+    endpoint: "/marketplace/listings",
+    description:
+      "Publica anuncios de renta de largo plazo con validación de transparencia.",
+    description_en:
+      "Publish long-term rental listings with transparency validation.",
+  },
+  {
+    slug: "applications",
+    label: "Aplicaciones",
+    label_en: "Applications",
+    endpoint: "/applications",
+    description: "Gestiona el funnel de calificación y conversión a contrato.",
+    description_en:
+      "Manage the qualification funnel and lease conversion workflow.",
+  },
+  {
+    slug: "leases",
+    label: "Contratos",
+    label_en: "Leases",
+    endpoint: "/leases",
+    description:
+      "Administra contratos, cargos y estado de cobranza de alquileres.",
+    description_en:
+      "Manage lease records, charges, and rent collection status.",
+  },
+  {
+    slug: "collections",
+    label: "Cobros",
+    label_en: "Collections",
+    endpoint: "/collections",
+    description:
+      "Orquesta cobranza mensual sin custodia de fondos dentro de la plataforma.",
+    description_en:
+      "Orchestrate monthly collections without in-platform fund custody.",
+  },
+  {
     slug: "messaging",
     label: "Mensajería",
     label_en: "Messaging",
