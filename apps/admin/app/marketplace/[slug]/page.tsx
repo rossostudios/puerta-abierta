@@ -115,6 +115,18 @@ export default async function MarketplaceListingPage({
     : [];
   const specs = specsText(listing, locale);
   const whatsappUrl = asText(listing.whatsapp_contact_url);
+  const propertyType = asText(listing.property_type);
+  const furnished = listing.furnished === true;
+  const petPolicy = asText(listing.pet_policy);
+  const parkingSpaces = asOptionalNumber(listing.parking_spaces);
+  const minimumLeaseMonths = asOptionalNumber(listing.minimum_lease_months);
+  const availableFrom = asText(listing.available_from);
+  const maintenanceFee = asNumber(listing.maintenance_fee);
+  const amenities = Array.isArray(listing.amenities)
+    ? (listing.amenities as unknown[])
+        .map((item) => asText(item).trim())
+        .filter(Boolean)
+    : [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -134,7 +146,7 @@ export default async function MarketplaceListingPage({
     <div className="pa-marketplace-root min-h-dvh bg-background">
       <PublicHeader locale={locale} />
 
-      <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1320px] space-y-8 px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-3">
           <Link
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
@@ -167,8 +179,8 @@ export default async function MarketplaceListingPage({
           title={title}
         />
 
-        <section className="grid gap-4 lg:grid-cols-[1.8fr_1fr]">
-          <Card>
+        <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>
                 {isEn ? "Transparent fee breakdown" : "Desglose transparente"}
@@ -177,16 +189,18 @@ export default async function MarketplaceListingPage({
             <CardContent className="space-y-2">
               {feeLines.map((line) => (
                 <div
-                  className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2 text-sm"
+                  className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-border/70 px-3 py-2 text-sm"
                   key={`${asText(line.fee_type)}-${asText(line.label)}-${asNumber(line.amount)}`}
                 >
-                  <div>
-                    <p className="font-medium">{asText(line.label)}</p>
-                    <p className="text-muted-foreground text-xs">
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 font-medium">
+                      {asText(line.label)}
+                    </p>
+                    <p className="line-clamp-1 text-muted-foreground text-xs">
                       {humanizeKey(asText(line.fee_type))}
                     </p>
                   </div>
-                  <p className="font-medium">
+                  <p className="shrink-0 text-right font-medium">
                     {formatCurrency(asNumber(line.amount), currency, locale)}
                   </p>
                 </div>
@@ -198,10 +212,67 @@ export default async function MarketplaceListingPage({
                     : "Todavía no hay líneas de costo configuradas."}
                 </p>
               ) : null}
+
+              <div className="mt-4 rounded-xl border border-border/70 bg-muted/15 p-3">
+                <p className="mb-2 font-medium text-sm">
+                  {isEn ? "Rental details" : "Detalles del alquiler"}
+                </p>
+                <div className="grid gap-2 text-sm sm:grid-cols-2">
+                  <p>
+                    {isEn ? "Property type" : "Tipo"}:{" "}
+                    <span className="text-muted-foreground">
+                      {propertyType || (isEn ? "Not set" : "Sin definir")}
+                    </span>
+                  </p>
+                  <p>
+                    {isEn ? "Furnished" : "Amoblado"}:{" "}
+                    <span className="text-muted-foreground">
+                      {furnished ? (isEn ? "Yes" : "Sí") : isEn ? "No" : "No"}
+                    </span>
+                  </p>
+                  <p>
+                    {isEn ? "Parking spaces" : "Estacionamiento"}:{" "}
+                    <span className="text-muted-foreground">
+                      {parkingSpaces ?? 0}
+                    </span>
+                  </p>
+                  <p>
+                    {isEn ? "Minimum lease" : "Contrato mínimo"}:{" "}
+                    <span className="text-muted-foreground">
+                      {minimumLeaseMonths
+                        ? `${minimumLeaseMonths} ${isEn ? "months" : "meses"}`
+                        : isEn
+                          ? "Not set"
+                          : "Sin definir"}
+                    </span>
+                  </p>
+                  <p>
+                    {isEn ? "Available from" : "Disponible desde"}:{" "}
+                    <span className="text-muted-foreground">
+                      {availableFrom || (isEn ? "Not set" : "Sin definir")}
+                    </span>
+                  </p>
+                  <p>
+                    {isEn ? "Pet policy" : "Mascotas"}:{" "}
+                    <span className="text-muted-foreground">
+                      {petPolicy || (isEn ? "Not set" : "Sin definir")}
+                    </span>
+                  </p>
+                </div>
+                {amenities.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {amenities.map((amenity) => (
+                      <Badge key={amenity} variant="outline">
+                        {amenity}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>
                 {isEn ? "Move-in summary" : "Resumen de ingreso"}
@@ -217,6 +288,12 @@ export default async function MarketplaceListingPage({
                   {isEn ? "Monthly recurring" : "Mensual recurrente"}:{" "}
                   {recurring}
                 </p>
+                {maintenanceFee > 0 ? (
+                  <p className="text-muted-foreground text-xs">
+                    {isEn ? "Maintenance fee" : "Costo de mantenimiento"}:{" "}
+                    {formatCurrency(maintenanceFee, currency, locale)}
+                  </p>
+                ) : null}
               </div>
 
               <Link
@@ -243,7 +320,7 @@ export default async function MarketplaceListingPage({
         </section>
 
         {description ? (
-          <Card>
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>
                 {isEn ? "Listing details" : "Detalles del anuncio"}

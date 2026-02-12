@@ -71,8 +71,8 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
 
   return (
     <header className="sticky top-0 z-40 border-border/70 border-b bg-background/92 backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[1560px] items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="mx-auto flex w-full max-w-[1560px] flex-wrap items-center gap-2.5 px-3 py-3 sm:flex-nowrap sm:justify-between sm:px-6 lg:px-8">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Link
             className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border/75 bg-card/90 px-3 font-semibold text-[0.95rem] tracking-tight transition-colors hover:bg-accent"
             href="/"
@@ -105,7 +105,7 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:flex-none">
           <Link
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/75 bg-card/90 text-muted-foreground transition-colors hover:text-foreground"
             href="/marketplace"
@@ -124,10 +124,10 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
             <span className="sr-only">{isEn ? "Admin" : "Admin"}</span>
           </Link>
 
-          <LanguageSelector className="h-10 w-[8.4rem] rounded-xl border-border/75 text-xs" />
+          <LanguageSelector className="h-10 w-[7.25rem] rounded-xl border-border/75 text-xs sm:w-[8.4rem]" />
 
           <Link
-            className="hidden h-10 items-center rounded-2xl bg-primary px-4 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary/90 sm:inline-flex"
+            className="hidden h-10 items-center rounded-2xl bg-primary px-4 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary/90 md:inline-flex"
             href={
               pathname.startsWith("/marketplace") ? "/login" : "/marketplace"
             }

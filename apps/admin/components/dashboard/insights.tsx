@@ -47,9 +47,18 @@ export type StatusCount = {
   count: number;
 };
 
+export type OperationsSummarySnapshot = {
+  turnoversDue: number;
+  turnoversOnTime: number;
+  turnoverOnTimeRate: number;
+  overdueTasks: number;
+  slaBreachedTasks: number;
+};
+
 type DashboardInsightsProps = {
   revenue: RevenueSnapshot | null;
   taskStatuses: StatusCount[];
+  operationsSummary: OperationsSummarySnapshot | null;
   locale: Locale;
 };
 
@@ -70,6 +79,7 @@ const SERIES_COLORS = [
 export function DashboardInsights({
   revenue,
   taskStatuses,
+  operationsSummary,
   locale: localeProp,
 }: DashboardInsightsProps) {
   const activeLocale = useActiveLocale();
@@ -134,13 +144,63 @@ export function DashboardInsights({
     revenue && (revenue.gross > 0 || revenue.expenses > 0 || revenue.net > 0)
   );
   const hasTaskData = taskStatuses.some((item) => item.count > 0);
+  const hasOperationsData = Boolean(
+    operationsSummary &&
+      (operationsSummary.turnoversDue > 0 ||
+        operationsSummary.overdueTasks > 0 ||
+        operationsSummary.slaBreachedTasks > 0)
+  );
+
+  const operationsChartData = operationsSummary
+    ? [
+        {
+          metric: isEn ? "Turnovers due" : "Turnovers",
+          value: operationsSummary.turnoversDue,
+          fill: "var(--color-turnovers_due)",
+        },
+        {
+          metric: isEn ? "On-time" : "A tiempo",
+          value: operationsSummary.turnoversOnTime,
+          fill: "var(--color-turnovers_on_time)",
+        },
+        {
+          metric: isEn ? "Overdue" : "Vencidas",
+          value: operationsSummary.overdueTasks,
+          fill: "var(--color-overdue_tasks)",
+        },
+        {
+          metric: isEn ? "SLA breaches" : "SLA vencido",
+          value: operationsSummary.slaBreachedTasks,
+          fill: "var(--color-sla_breached_tasks)",
+        },
+      ]
+    : [];
+
+  const operationsConfig: ChartConfig = {
+    turnovers_due: {
+      label: isEn ? "Turnovers due" : "Turnovers",
+      color: "var(--chart-1)",
+    },
+    turnovers_on_time: {
+      label: isEn ? "On-time turnovers" : "Turnovers a tiempo",
+      color: "var(--chart-2)",
+    },
+    overdue_tasks: {
+      label: isEn ? "Overdue tasks" : "Tareas vencidas",
+      color: "var(--chart-3)",
+    },
+    sla_breached_tasks: {
+      label: isEn ? "SLA breaches" : "Incumplimientos SLA",
+      color: "var(--chart-4)",
+    },
+  };
 
   const taskCount = taskStatuses.reduce((sum, item) => sum + item.count, 0);
 
   return (
-    <section className="grid gap-4 lg:grid-cols-2">
-      <Card className="overflow-hidden">
-        <CardHeader className="space-y-3">
+    <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      <Card className="overflow-hidden border-border/80 bg-card/98">
+        <CardHeader className="space-y-3 border-border/70 border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
               <CardTitle className="text-base">
@@ -151,7 +211,10 @@ export function DashboardInsights({
               </CardDescription>
             </div>
             {revenue ? (
-              <Badge className="font-mono text-[11px]" variant="secondary">
+              <Badge
+                className="rounded-full border border-border/75 bg-muted/44 font-mono text-[11px]"
+                variant="secondary"
+              >
                 {revenue.currency}
               </Badge>
             ) : null}
@@ -233,8 +296,8 @@ export function DashboardInsights({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden">
-        <CardHeader className="space-y-3">
+      <Card className="overflow-hidden border-border/80 bg-card/98">
+        <CardHeader className="space-y-3 border-border/70 border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
               <CardTitle className="text-base">
@@ -301,6 +364,91 @@ export function DashboardInsights({
                 isEn
                   ? "Your task queue is empty"
                   : "Tu cola de tareas está vacía"
+              }
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="overflow-hidden border-border/80 bg-card/98">
+        <CardHeader className="space-y-3 border-border/70 border-b pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="space-y-1">
+              <CardTitle className="text-base">
+                {isEn ? "Operations health" : "Salud operativa"}
+              </CardTitle>
+              <CardDescription>
+                {isEn ? "Next 7 days pulse" : "Pulso próximos 7 días"}
+              </CardDescription>
+            </div>
+            <Badge className="font-mono text-[11px]" variant="outline">
+              {operationsSummary
+                ? `${(operationsSummary.turnoverOnTimeRate * 100).toFixed(1)}%`
+                : "0%"}{" "}
+              {isEn ? "on-time" : "a tiempo"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="min-w-0">
+          {hasOperationsData ? (
+            <ChartContainer className="h-56 w-full" config={operationsConfig}>
+              <BarChart
+                data={operationsChartData}
+                margin={{ left: 0, right: 8 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="metric"
+                  tickLine={false}
+                  tickMargin={8}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tickMargin={8}
+                  width={34}
+                />
+                <ChartTooltip
+                  content={(props) => (
+                    <ChartTooltipContent
+                      {...props}
+                      headerFormatter={() =>
+                        isEn ? "Operations summary" : "Resumen operativo"
+                      }
+                    />
+                  )}
+                />
+                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                  {operationsChartData.map((entry) => (
+                    <Cell fill={entry.fill} key={entry.metric} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          ) : (
+            <EmptyState
+              action={
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" })
+                  )}
+                  href="/module/tasks"
+                >
+                  {isEn ? "Open tasks →" : "Abrir tareas →"}
+                </Link>
+              }
+              description={
+                isEn
+                  ? "Operations health cards activate once tasks and reservations are recorded."
+                  : "Las tarjetas operativas se activan cuando registres tareas y reservas."
+              }
+              icon={Task01Icon}
+              title={
+                isEn
+                  ? "No operations metrics yet"
+                  : "Aún sin métricas operativas"
               }
             />
           )}

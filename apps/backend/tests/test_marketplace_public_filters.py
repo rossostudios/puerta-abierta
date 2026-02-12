@@ -28,6 +28,35 @@ class MarketplacePublicFiltersTest(unittest.TestCase):
         self.assertEqual(captured.exception.status_code, 400)
         self.assertIn("cover_image_url", str(captured.exception.detail))
 
+    @patch("app.api.routers.marketplace.assert_org_role")
+    @patch("app.api.routers.marketplace.get_row")
+    @patch("app.api.routers.marketplace.missing_required_fee_types")
+    @patch("app.api.routers.marketplace.list_rows")
+    def test_publish_requires_listing_completeness_fields(
+        self,
+        mock_list_rows,
+        mock_missing_required_fee_types,
+        mock_get_row,
+        mock_assert_org_role,
+    ):
+        del mock_assert_org_role, mock_list_rows
+
+        mock_missing_required_fee_types.return_value = []
+        mock_get_row.return_value = {
+            "id": "listing-1",
+            "organization_id": "org-1",
+            "cover_image_url": "https://example.com/cover.jpg",
+            "available_from": None,
+            "minimum_lease_months": 12,
+            "amenities": ["Balcony", "Air conditioning", "Parking"],
+        }
+
+        with self.assertRaises(HTTPException) as captured:
+            publish_marketplace_listing("listing-1", user_id="user-1")
+
+        self.assertEqual(captured.exception.status_code, 400)
+        self.assertIn("available_from", str(captured.exception.detail))
+
     @patch("app.api.routers.marketplace.ensure_marketplace_public_enabled")
     @patch("app.api.routers.marketplace._attach_fee_lines")
     @patch("app.api.routers.marketplace.list_rows")
@@ -50,6 +79,10 @@ class MarketplacePublicFiltersTest(unittest.TestCase):
                 "total_move_in": 3600000,
                 "bedrooms": 1,
                 "bathrooms": 1,
+                "property_type": "studio",
+                "furnished": False,
+                "pet_policy": "not allowed",
+                "parking_spaces": 0,
             },
             {
                 "id": "listing-2",
@@ -61,6 +94,10 @@ class MarketplacePublicFiltersTest(unittest.TestCase):
                 "total_move_in": 5200000,
                 "bedrooms": 2,
                 "bathrooms": 1.5,
+                "property_type": "apartment",
+                "furnished": True,
+                "pet_policy": "pets allowed",
+                "parking_spaces": 1,
             },
         ]
 
@@ -71,6 +108,10 @@ class MarketplacePublicFiltersTest(unittest.TestCase):
             city=None,
             neighborhood=None,
             q=None,
+            property_type="apartment",
+            furnished=True,
+            pet_policy="pets allowed",
+            min_parking=1,
             min_monthly=2000000,
             max_monthly=None,
             min_move_in=None,

@@ -12,6 +12,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
 const MARKETPLACE_V2_ENABLED = process.env.NEXT_PUBLIC_MARKETPLACE_V2 === "1";
+const BRAND_V1_ENABLED = process.env.NEXT_PUBLIC_BRAND_V1 !== "0";
 
 export const metadata: Metadata = {
   title: "Puerta Abierta",
@@ -53,7 +54,14 @@ export default async function PublicHomePage() {
 
       <main>
         <section className="relative overflow-hidden border-border/70 border-b">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#e9f2ff_0%,transparent_56%)]" />
+          <div
+            className={cn(
+              "absolute inset-0",
+              BRAND_V1_ENABLED
+                ? "bg-[radial-gradient(circle_at_top,var(--marketplace-hero-glow)_0%,transparent_58%)]"
+                : "bg-[radial-gradient(circle_at_top,#e9f2ff_0%,transparent_56%)]"
+            )}
+          />
           <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-16 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8 lg:py-24">
             <div className="max-w-2xl space-y-5">
               <Badge variant="outline">

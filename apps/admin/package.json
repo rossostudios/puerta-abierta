@@ -6,6 +6,7 @@
     "dev": "next dev -p 3000",
     "build": "next build --webpack",
     "start": "next start -p 3000",
+    "brand:check": "node ../../scripts/check-admin-colors.mjs",
     "lint": "ultracite check .",
     "format": "ultracite fix .",
     "typecheck": "tsc --noEmit"

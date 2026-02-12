@@ -1,6 +1,9 @@
-from typing import Any, Iterable
+from datetime import datetime
+from typing import Any, Iterable, Optional
 
 from app.services.table_service import list_rows
+
+AUTO_TURNOVER_TASK_TYPES = {"check_in", "check_out", "cleaning", "inspection"}
 
 
 def _map_by_id(rows: Iterable[dict[str, Any]], name_key: str = "name") -> dict[str, str]:
@@ -13,6 +16,48 @@ def _map_by_id(rows: Iterable[dict[str, Any]], name_key: str = "name") -> dict[s
         if isinstance(value, str) and value.strip():
             mapping[row_id] = value.strip()
     return mapping
+
+
+def _parse_datetime(value: object) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _infer_automation_source(
+    task: dict[str, Any], reservation: Optional[dict[str, Any]]
+) -> Optional[str]:
+    task_type = str(task.get("type") or "").strip().lower()
+    reservation_id = str(task.get("reservation_id") or "").strip()
+    if task_type not in AUTO_TURNOVER_TASK_TYPES or not reservation_id:
+        return None
+
+    task_created_at = _parse_datetime(task.get("created_at"))
+    reservation_created_at = _parse_datetime(
+        reservation.get("created_at") if reservation else None
+    )
+    reservation_status = (
+        str(reservation.get("status") or "").strip().lower() if reservation else ""
+    )
+
+    if (
+        task_type == "check_in"
+        and task_created_at
+        and reservation_created_at
+        and abs((task_created_at - reservation_created_at).total_seconds()) <= 300
+        and reservation_status in {"pending", "confirmed"}
+    ):
+        return "reservation_create"
+
+    return "reservation_status_transition"
 
 
 def enrich_units(units: list[dict[str, Any]], org_id: str) -> list[dict[str, Any]]:
@@ -106,7 +151,45 @@ def enrich_reservations(reservations: list[dict[str, Any]], org_id: str) -> list
         listings = list_rows("listings", {"organization_id": org_id, "id": list(listing_ids)}, limit=min(5000, len(listing_ids)))
         listing_name = _map_by_id(listings, "public_name")
 
+    reservation_ids = {
+        row.get("id")
+        for row in reservations
+        if isinstance(row.get("id"), str)
+    }
+    reservation_lookup = {
+        str(row.get("id")): row
+        for row in reservations
+        if isinstance(row.get("id"), str)
+    }
+    auto_source_by_reservation: dict[str, str | None] = {}
+    auto_count_by_reservation: dict[str, int] = {}
+    if reservation_ids:
+        related_tasks = list_rows(
+            "tasks",
+            {"organization_id": org_id, "reservation_id": list(reservation_ids)},
+            limit=min(20000, max(3000, len(reservation_ids) * 20)),
+        )
+        for task in related_tasks:
+            reservation_id = task.get("reservation_id")
+            task_type = str(task.get("type") or "").strip().lower()
+            if not isinstance(reservation_id, str):
+                continue
+            if task_type not in AUTO_TURNOVER_TASK_TYPES:
+                continue
+
+            auto_count_by_reservation[reservation_id] = (
+                auto_count_by_reservation.get(reservation_id, 0) + 1
+            )
+            source = _infer_automation_source(
+                task, reservation_lookup.get(reservation_id)
+            )
+            if source == "reservation_create":
+                auto_source_by_reservation[reservation_id] = "reservation_create"
+            elif reservation_id not in auto_source_by_reservation:
+                auto_source_by_reservation[reservation_id] = source
+
     for reservation in reservations:
+        reservation_id = reservation.get("id")
         uid = reservation.get("unit_id")
         if isinstance(uid, str):
             reservation["unit_name"] = unit_name.get(uid)
@@ -126,6 +209,20 @@ def enrich_reservations(reservations: list[dict[str, Any]], org_id: str) -> list
         lid = reservation.get("listing_id")
         if isinstance(lid, str):
             reservation["listing_name"] = listing_name.get(lid)
+
+        if isinstance(reservation_id, str):
+            automation_source = auto_source_by_reservation.get(reservation_id)
+            reservation["automation_source"] = automation_source
+            reservation["auto_generated_task_count"] = auto_count_by_reservation.get(
+                reservation_id, 0
+            )
+            reservation["has_auto_generated_tasks"] = bool(
+                auto_count_by_reservation.get(reservation_id, 0)
+            )
+        else:
+            reservation["automation_source"] = None
+            reservation["auto_generated_task_count"] = 0
+            reservation["has_auto_generated_tasks"] = False
 
     return reservations
 
@@ -166,6 +263,11 @@ def enrich_tasks(tasks: list[dict[str, Any]], org_id: str) -> list[dict[str, Any
     property_ids = {row.get("property_id") for row in tasks if isinstance(row.get("property_id"), str)}
     unit_ids = {row.get("unit_id") for row in tasks if isinstance(row.get("unit_id"), str)}
     task_ids = {row.get("id") for row in tasks if isinstance(row.get("id"), str)}
+    reservation_ids = {
+        row.get("reservation_id")
+        for row in tasks
+        if isinstance(row.get("reservation_id"), str)
+    }
 
     unit_name: dict[str, str] = {}
     unit_property: dict[str, str] = {}
@@ -210,6 +312,18 @@ def enrich_tasks(tasks: list[dict[str, Any]], org_id: str) -> list[dict[str, Any
                 if completed:
                     counts["required_completed"] += 1
 
+    reservations_by_id: dict[str, dict[str, Any]] = {}
+    if reservation_ids:
+        reservations = list_rows(
+            "reservations",
+            {"organization_id": org_id, "id": list(reservation_ids)},
+            limit=min(5000, len(reservation_ids)),
+        )
+        for reservation in reservations:
+            reservation_id = reservation.get("id")
+            if isinstance(reservation_id, str):
+                reservations_by_id[reservation_id] = reservation
+
     all_property_ids = {pid for pid in property_ids if isinstance(pid, str)} | {pid for pid in unit_property.values()}
     property_name: dict[str, str] = {}
     if all_property_ids:
@@ -246,6 +360,16 @@ def enrich_tasks(tasks: list[dict[str, Any]], org_id: str) -> list[dict[str, Any
             task["checklist_required_remaining"] = max(
                 required_total - required_completed, 0
             )
+
+        reservation_id = task.get("reservation_id")
+        reservation = (
+            reservations_by_id.get(reservation_id)
+            if isinstance(reservation_id, str)
+            else None
+        )
+        automation_source = _infer_automation_source(task, reservation)
+        task["automation_source"] = automation_source
+        task["auto_generated"] = bool(automation_source)
 
     return tasks
 

@@ -67,6 +67,17 @@ function queryNumber(
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function queryBoolean(
+  query: Record<string, string | string[] | undefined>,
+  key: string
+): boolean | undefined {
+  const value = queryText(query, key).toLowerCase();
+  if (!value) return undefined;
+  if (["1", "true", "yes"].includes(value)) return true;
+  if (["0", "false", "no"].includes(value)) return false;
+  return undefined;
+}
+
 function querySort(
   query: Record<string, string | string[] | undefined>
 ): SortKey {
@@ -142,6 +153,10 @@ export default async function MarketplacePage({
   const q = queryText(query, "q");
   const city = queryText(query, "city");
   const neighborhood = queryText(query, "neighborhood");
+  const propertyType = queryText(query, "property_type");
+  const furnished = queryBoolean(query, "furnished");
+  const petPolicy = queryText(query, "pet_policy");
+  const minParking = queryNumber(query, "min_parking");
   const minMonthly = queryNumber(query, "min_monthly");
   const maxMonthly = queryNumber(query, "max_monthly");
   const minBedrooms = queryNumber(query, "min_bedrooms");
@@ -156,6 +171,10 @@ export default async function MarketplacePage({
       city,
       neighborhood,
       q,
+      propertyType,
+      furnished,
+      petPolicy,
+      minParking,
       minMonthly,
       maxMonthly,
       minBedrooms,
@@ -174,6 +193,10 @@ export default async function MarketplacePage({
   if (q) activeFilters += 1;
   if (city) activeFilters += 1;
   if (neighborhood) activeFilters += 1;
+  if (propertyType) activeFilters += 1;
+  if (furnished !== undefined) activeFilters += 1;
+  if (petPolicy) activeFilters += 1;
+  if (minParking !== undefined) activeFilters += 1;
   if (minMonthly !== undefined) activeFilters += 1;
   if (maxMonthly !== undefined) activeFilters += 1;
   if (minBedrooms !== undefined) activeFilters += 1;
@@ -206,8 +229,8 @@ export default async function MarketplacePage({
             className="border-border/70 border-b p-3 sm:p-4"
             id="marketplace-filters"
           >
-            <div className="flex flex-wrap items-center gap-2.5">
-              <label className="inline-flex h-11 min-w-[240px] flex-1 items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-7">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3 sm:col-span-2 xl:col-span-2">
                 <Icon
                   className="text-muted-foreground"
                   icon={Search01Icon}
@@ -226,7 +249,7 @@ export default async function MarketplacePage({
                 />
               </label>
 
-              <label className="inline-flex h-11 min-w-[170px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <Icon
                   className="text-muted-foreground"
                   icon={Location01Icon}
@@ -241,7 +264,7 @@ export default async function MarketplacePage({
                 />
               </label>
 
-              <label className="inline-flex h-11 min-w-[190px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <Icon
                   className="text-muted-foreground"
                   icon={Home01Icon}
@@ -256,14 +279,61 @@ export default async function MarketplacePage({
                 />
               </label>
 
-              <label className="inline-flex h-11 min-w-[170px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+                <Icon
+                  className="text-muted-foreground"
+                  icon={Home01Icon}
+                  size={16}
+                />
+                <select
+                  className="h-full w-full min-w-0 bg-transparent text-sm outline-none"
+                  defaultValue={propertyType || ""}
+                  name="property_type"
+                >
+                  <option value="">
+                    {isEn ? "Property type" : "Tipo de propiedad"}
+                  </option>
+                  <option value="apartment">
+                    {isEn ? "Apartment" : "Departamento"}
+                  </option>
+                  <option value="house">{isEn ? "House" : "Casa"}</option>
+                  <option value="studio">
+                    {isEn ? "Studio" : "Monoambiente"}
+                  </option>
+                </select>
+              </label>
+
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+                <Icon
+                  className="text-muted-foreground"
+                  icon={Home01Icon}
+                  size={16}
+                />
+                <select
+                  className="h-full w-full min-w-0 bg-transparent text-sm outline-none"
+                  defaultValue={
+                    furnished === undefined ? "" : furnished ? "true" : "false"
+                  }
+                  name="furnished"
+                >
+                  <option value="">{isEn ? "Furnished?" : "¿Amoblado?"}</option>
+                  <option value="true">
+                    {isEn ? "Furnished" : "Amoblado"}
+                  </option>
+                  <option value="false">
+                    {isEn ? "Unfurnished" : "Sin amoblar"}
+                  </option>
+                </select>
+              </label>
+
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <Icon
                   className="text-muted-foreground"
                   icon={Wallet02Icon}
                   size={16}
                 />
                 <Input
-                  className="h-full w-20 border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
                   defaultValue={minMonthly ?? ""}
                   min={0}
                   name="min_monthly"
@@ -272,7 +342,7 @@ export default async function MarketplacePage({
                 />
                 <span className="text-muted-foreground text-xs">-</span>
                 <Input
-                  className="h-full w-20 border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
                   defaultValue={maxMonthly ?? ""}
                   min={0}
                   name="max_monthly"
@@ -281,14 +351,29 @@ export default async function MarketplacePage({
                 />
               </label>
 
-              <label className="inline-flex h-11 min-w-[150px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+                <span className="text-muted-foreground text-xs">
+                  {isEn ? "Pets" : "Mascotas"}
+                </span>
+                <Input
+                  className="h-full w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                  defaultValue={petPolicy}
+                  name="pet_policy"
+                  placeholder={
+                    isEn ? "Allowed / not allowed" : "Permitidas / no"
+                  }
+                  type="text"
+                />
+              </label>
+
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <Icon
                   className="text-muted-foreground"
                   icon={FilterHorizontalIcon}
                   size={16}
                 />
                 <select
-                  className="h-full w-full bg-transparent text-sm outline-none"
+                  className="h-full w-full min-w-0 bg-transparent text-sm outline-none"
                   defaultValue={sort}
                   name="sort"
                 >
@@ -310,7 +395,7 @@ export default async function MarketplacePage({
                 </select>
               </label>
 
-              <label className="inline-flex h-11 min-w-[124px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <span className="text-muted-foreground text-xs">
                   {isEn ? "Beds" : "Hab"}
                 </span>
@@ -324,7 +409,7 @@ export default async function MarketplacePage({
                 />
               </label>
 
-              <label className="inline-flex h-11 min-w-[124px] items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
                 <span className="text-muted-foreground text-xs">
                   {isEn ? "Baths" : "Banos"}
                 </span>
@@ -339,15 +424,29 @@ export default async function MarketplacePage({
                 />
               </label>
 
+              <label className="inline-flex h-11 w-full items-center gap-2 rounded-2xl border border-border/80 bg-card/85 px-3">
+                <span className="text-muted-foreground text-xs">
+                  {isEn ? "Parking >=" : "Estac. >="}
+                </span>
+                <Input
+                  className="h-full w-full border-0 bg-transparent px-0 py-0 text-sm shadow-none focus-visible:ring-0"
+                  defaultValue={minParking ?? ""}
+                  min={0}
+                  name="min_parking"
+                  placeholder="0"
+                  type="number"
+                />
+              </label>
+
               <button
-                className="inline-flex h-11 items-center rounded-2xl bg-primary px-4 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary/90"
+                className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-primary px-4 font-medium text-primary-foreground text-sm transition-colors hover:bg-primary/90"
                 type="submit"
               >
                 {isEn ? "Apply" : "Aplicar"}
               </button>
 
               <Link
-                className="inline-flex h-11 items-center rounded-2xl border border-border/80 bg-card/80 px-4 font-medium text-sm transition-colors hover:bg-accent"
+                className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-border/80 bg-card/80 px-4 font-medium text-sm transition-colors hover:bg-accent"
                 href="/marketplace"
               >
                 {isEn ? "Reset" : "Limpiar"}
@@ -364,8 +463,8 @@ export default async function MarketplacePage({
             </div>
           </form>
 
-          <div className="grid lg:grid-cols-[390px_minmax(0,1fr)]">
-            <aside className="order-2 border-border/70 border-t lg:order-1 lg:max-h-[74vh] lg:overflow-hidden lg:border-t-0 lg:border-r">
+          <div className="grid min-w-0 lg:grid-cols-[390px_minmax(0,1fr)]">
+            <aside className="order-2 min-w-0 border-border/70 border-t lg:order-1 lg:max-h-[74vh] lg:overflow-hidden lg:border-t-0 lg:border-r">
               <div className="border-border/70 border-b px-4 py-3">
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "Listing feed" : "Listado"}
@@ -377,7 +476,7 @@ export default async function MarketplacePage({
                 </p>
               </div>
 
-              <div className="grid gap-3 p-3 sm:p-4 lg:max-h-[calc(74vh-64px)] lg:overflow-y-auto">
+              <div className="grid min-w-0 gap-3 p-3 sm:p-4 lg:max-h-[calc(74vh-64px)] lg:overflow-y-auto">
                 {apiError ? (
                   <Card>
                     <CardHeader>
@@ -418,7 +517,7 @@ export default async function MarketplacePage({
               </div>
             </aside>
 
-            <section className="order-1 p-3 sm:p-4 lg:order-2 lg:p-5">
+            <section className="order-1 min-w-0 p-3 sm:p-4 lg:order-2 lg:p-5">
               <MarketplaceMap listings={sortedListings} locale={locale} />
             </section>
           </div>

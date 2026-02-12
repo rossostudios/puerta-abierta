@@ -2,12 +2,19 @@
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import {
   createReservationAction,
   transitionReservationStatusAction,
 } from "@/app/(admin)/module/reservations/actions";
 import { Button } from "@/components/ui/button";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -248,6 +255,67 @@ export function ReservationsManager({
       });
   }, [from, query, reservations, status, to, unitId]);
 
+  const reservationsTrendData = useMemo(() => {
+    const days: string[] = [];
+    const today = new Date();
+    for (let index = 0; index < 7; index += 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + index);
+      days.push(date.toISOString().slice(0, 10));
+    }
+
+    const byDay = new Map<string, { checkIns: number; checkOuts: number }>(
+      days.map((day) => [day, { checkIns: 0, checkOuts: 0 }])
+    );
+
+    for (const row of filteredRows) {
+      const checkIn = asString(row.check_in_date).trim();
+      if (byDay.has(checkIn)) {
+        const bucket = byDay.get(checkIn);
+        if (bucket) {
+          bucket.checkIns += 1;
+        }
+      }
+
+      const checkOut = asString(row.check_out_date).trim();
+      if (byDay.has(checkOut)) {
+        const bucket = byDay.get(checkOut);
+        if (bucket) {
+          bucket.checkOuts += 1;
+        }
+      }
+    }
+
+    return days.map((day) => {
+      const parsed = new Date(`${day}T00:00:00`);
+      const values = byDay.get(day) ?? { checkIns: 0, checkOuts: 0 };
+      return {
+        day: Number.isNaN(parsed.valueOf())
+          ? day
+          : new Intl.DateTimeFormat(locale, {
+              month: "short",
+              day: "numeric",
+            }).format(parsed),
+        checkIns: values.checkIns,
+        checkOuts: values.checkOuts,
+      };
+    });
+  }, [filteredRows, locale]);
+
+  const reservationsTrendConfig: ChartConfig = useMemo(
+    () => ({
+      checkIns: {
+        label: isEn ? "Check-ins" : "Check-ins",
+        color: "var(--chart-1)",
+      },
+      checkOuts: {
+        label: isEn ? "Check-outs" : "Check-outs",
+        color: "var(--chart-2)",
+      },
+    }),
+    [isEn]
+  );
+
   const total = filteredRows.length;
 
   return (
@@ -340,6 +408,63 @@ export function ReservationsManager({
           </Button>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-border/80 bg-card/85 p-3.5">
+        <div className="mb-2">
+          <p className="font-semibold text-sm">
+            {isEn
+              ? "Check-in / check-out trend"
+              : "Tendencia check-in/check-out"}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {isEn
+              ? "Next 7 days from current filters"
+              : "Próximos 7 días con filtros actuales"}
+          </p>
+        </div>
+        <ChartContainer
+          className="h-52 w-full"
+          config={reservationsTrendConfig}
+        >
+          <LineChart
+            data={reservationsTrendData}
+            margin={{ left: 2, right: 8 }}
+          >
+            <CartesianGrid vertical={false} />
+            <XAxis
+              axisLine={false}
+              dataKey="day"
+              tickLine={false}
+              tickMargin={8}
+            />
+            <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+            <ChartTooltip
+              content={(props) => (
+                <ChartTooltipContent
+                  {...props}
+                  headerFormatter={() =>
+                    isEn ? "Reservations trend" : "Tendencia de reservas"
+                  }
+                />
+              )}
+            />
+            <Line
+              dataKey="checkIns"
+              dot={{ r: 3 }}
+              stroke="var(--color-checkIns)"
+              strokeWidth={2}
+              type="monotone"
+            />
+            <Line
+              dataKey="checkOuts"
+              dot={{ r: 3 }}
+              stroke="var(--color-checkOuts)"
+              strokeWidth={2}
+              type="monotone"
+            />
+          </LineChart>
+        </ChartContainer>
+      </section>
 
       <DataTable
         data={filteredRows}

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { patchJson, postJson } from "@/lib/api";
 
 const NEWLINE_SPLIT_REGEX = /\r?\n/;
+const AMENITIES_SPLIT_REGEX = /[\n,]/;
 
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
@@ -26,6 +27,23 @@ function parseGalleryImageUrls(value: FormDataEntryValue | null): string[] {
     .split(NEWLINE_SPLIT_REGEX)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseAmenities(value: FormDataEntryValue | null): string[] {
+  const text = toStringValue(value);
+  if (!text) return [];
+  return text
+    .split(AMENITIES_SPLIT_REGEX)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function toOptionalBoolean(value: FormDataEntryValue | null): boolean | null {
+  const normalized = toStringValue(value).toLowerCase();
+  if (!normalized) return null;
+  if (["1", "true", "yes", "on"].includes(normalized)) return true;
+  if (["0", "false", "no", "off"].includes(normalized)) return false;
+  return null;
 }
 
 function normalizeNext(path: string, fallback: string): string {
@@ -98,6 +116,16 @@ export async function createMarketplaceListingAction(formData: FormData) {
   const bedrooms = toOptionalNumber(formData.get("bedrooms"));
   const bathrooms = toOptionalNumber(formData.get("bathrooms"));
   const square_meters = toOptionalNumber(formData.get("square_meters"));
+  const property_type = toStringValue(formData.get("property_type"));
+  const furnished = toOptionalBoolean(formData.get("furnished"));
+  const pet_policy = toStringValue(formData.get("pet_policy"));
+  const parking_spaces = toOptionalNumber(formData.get("parking_spaces"));
+  const minimum_lease_months = toOptionalNumber(
+    formData.get("minimum_lease_months")
+  );
+  const available_from = toStringValue(formData.get("available_from"));
+  const amenities = parseAmenities(formData.get("amenities"));
+  const maintenance_fee = toOptionalNumber(formData.get("maintenance_fee"));
   const pricing_template_id = toStringValue(
     formData.get("pricing_template_id")
   );
@@ -113,6 +141,16 @@ export async function createMarketplaceListingAction(formData: FormData) {
   if (bedrooms !== null) payload.bedrooms = bedrooms;
   if (bathrooms !== null) payload.bathrooms = bathrooms;
   if (square_meters !== null) payload.square_meters = square_meters;
+  if (property_type) payload.property_type = property_type;
+  if (furnished !== null) payload.furnished = furnished;
+  if (pet_policy) payload.pet_policy = pet_policy;
+  if (parking_spaces !== null) payload.parking_spaces = parking_spaces;
+  if (minimum_lease_months !== null) {
+    payload.minimum_lease_months = minimum_lease_months;
+  }
+  if (available_from) payload.available_from = available_from;
+  if (amenities.length) payload.amenities = amenities;
+  if (maintenance_fee !== null) payload.maintenance_fee = maintenance_fee;
   if (pricing_template_id) payload.pricing_template_id = pricing_template_id;
   if (property_id) payload.property_id = property_id;
   if (unit_id) payload.unit_id = unit_id;

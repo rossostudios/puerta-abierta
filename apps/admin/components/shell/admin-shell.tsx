@@ -7,7 +7,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Sidebar, type ViewportMode } from "@/components/shell/sidebar";
+import type { ViewportMode } from "@/components/shell/sidebar";
+import { SidebarNew } from "@/components/shell/sidebar-new";
 import { SidebarV1 } from "@/components/shell/sidebar-v1";
 import { Topbar } from "@/components/shell/topbar";
 import type { Locale } from "@/lib/i18n";
@@ -20,6 +21,7 @@ type AdminShellProps = {
 };
 
 const SHELL_V2_ENABLED = process.env.NEXT_PUBLIC_SHELL_V2 !== "0";
+const BRAND_V1_ENABLED = process.env.NEXT_PUBLIC_BRAND_V1 !== "0";
 
 const STORAGE_KEY = "pa-sidebar-collapsed";
 const DESKTOP_QUERY = "(min-width: 1280px)";
@@ -32,7 +34,7 @@ function getViewportMode(): ViewportMode {
   return "mobile";
 }
 
-function LegacyAdminShell({ orgId, locale, children }: AdminShellProps) {
+function LegacyAdminShell({ locale, children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -79,14 +81,21 @@ function LegacyAdminShell({ orgId, locale, children }: AdminShellProps) {
   }, []);
 
   return (
-    <div className="flex h-full bg-[color-mix(in_oklch,var(--sidebar)_72%,var(--background))]">
+    <div
+      className={cn(
+        "flex h-full",
+        BRAND_V1_ENABLED
+          ? "bg-[color-mix(in_oklch,var(--shell-surface)_74%,var(--background))]"
+          : "bg-[color-mix(in_oklch,var(--shell-surface)_72%,var(--background))]"
+      )}
+    >
       <SidebarV1
         collapsed={collapsed}
         locale={locale}
         onCollapsedChange={setAndPersist}
       />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar locale={locale} orgId={orgId} />
+        <Topbar locale={locale} />
         <main className="min-h-0 min-w-0 flex-1 overflow-auto p-3 sm:p-4 lg:p-5 xl:p-6">
           <div className="mx-auto w-full max-w-screen-2xl">{children}</div>
         </main>
@@ -97,8 +106,6 @@ function LegacyAdminShell({ orgId, locale, children }: AdminShellProps) {
 
 function AdminShellV2({ orgId, locale, children }: AdminShellProps) {
   const [viewportMode, setViewportMode] = useState<ViewportMode>("desktop");
-  const [desktopPanelCollapsed, setDesktopPanelCollapsed] = useState(false);
-  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -119,92 +126,43 @@ function AdminShellV2({ orgId, locale, children }: AdminShellProps) {
   }, []);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === "true") setDesktopPanelCollapsed(true);
-      if (stored === "false") setDesktopPanelCollapsed(false);
-    } catch {
-      // Ignore storage failures.
-    }
-  }, []);
-
-  useEffect(() => {
     if (viewportMode === "desktop") {
-      setIsContextPanelOpen(false);
       setIsMobileDrawerOpen(false);
       return;
     }
-
-    if (viewportMode === "tablet") {
-      setIsMobileDrawerOpen(false);
-      return;
-    }
-
-    setIsContextPanelOpen(false);
   }, [viewportMode]);
-
-  const setDesktopCollapsedAndPersist = useCallback((next: boolean) => {
-    setDesktopPanelCollapsed(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(next));
-    } catch {
-      // Ignore storage failures.
-    }
-  }, []);
 
   const shellColumns = useMemo(() => {
     if (viewportMode === "desktop") {
-      return desktopPanelCollapsed
-        ? "grid-cols-[88px_minmax(0,1fr)]"
-        : "grid-cols-[88px_304px_minmax(0,1fr)]";
+      return "grid-cols-[240px_minmax(0,1fr)]";
     }
-
-    if (viewportMode === "tablet") {
-      return "grid-cols-[80px_minmax(0,1fr)]";
-    }
-
     return "grid-cols-[minmax(0,1fr)]";
-  }, [desktopPanelCollapsed, viewportMode]);
+  }, [viewportMode]);
 
-  const showNavToggle = true;
-  const isNavOpen =
-    viewportMode === "desktop"
-      ? !desktopPanelCollapsed
-      : viewportMode === "tablet"
-        ? isContextPanelOpen
-        : isMobileDrawerOpen;
+  const showNavToggle = viewportMode !== "desktop";
+  const isNavOpen = isMobileDrawerOpen;
 
   const onNavToggle = () => {
-    if (viewportMode === "desktop") {
-      setDesktopCollapsedAndPersist(!desktopPanelCollapsed);
-      return;
-    }
-
-    if (viewportMode === "tablet") {
-      setIsContextPanelOpen((open) => !open);
-      return;
-    }
-
     setIsMobileDrawerOpen((open) => !open);
   };
 
   return (
     <div
       className={cn(
-        "grid h-full min-h-0 w-full overflow-hidden bg-[color-mix(in_oklch,var(--sidebar)_72%,var(--background))]",
+        "grid h-full min-h-0 w-full overflow-hidden transition-all duration-300 ease-in-out",
+        BRAND_V1_ENABLED
+          ? "bg-[color-mix(in_oklch,var(--shell-surface)_78%,var(--background))]"
+          : "bg-[color-mix(in_oklch,var(--shell-surface)_76%,var(--background))]",
         shellColumns
       )}
       data-nav-open={isNavOpen}
       data-shell-mode={viewportMode}
     >
-      <Sidebar
-        desktopPanelCollapsed={desktopPanelCollapsed}
-        isContextPanelOpen={isContextPanelOpen}
+      <SidebarNew
         isMobileDrawerOpen={isMobileDrawerOpen}
         locale={locale}
-        onContextPanelOpenChange={setIsContextPanelOpen}
-        onDesktopPanelCollapsedChange={setDesktopCollapsedAndPersist}
         onMobileDrawerOpenChange={setIsMobileDrawerOpen}
+        orgId={orgId}
         viewportMode={viewportMode}
       />
 
@@ -213,10 +171,9 @@ function AdminShellV2({ orgId, locale, children }: AdminShellProps) {
           isNavOpen={isNavOpen}
           locale={locale}
           onNavToggle={onNavToggle}
-          orgId={orgId}
           showNavToggle={showNavToggle}
         />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-5 xl:p-6">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-5 xl:p-7">
           <div className="mx-auto w-full max-w-screen-2xl">{children}</div>
         </main>
       </div>

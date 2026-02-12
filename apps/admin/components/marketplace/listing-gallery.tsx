@@ -28,8 +28,8 @@ export function ListingGallery({
   const thumbnailImages = Array.from(new Set(rest)).slice(0, 4);
 
   return (
-    <section className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-      <div className="overflow-hidden rounded-2xl border border-border/70">
+    <section className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-border/70">
         <Image
           alt={title}
           className="h-full max-h-[540px] w-full object-cover"
@@ -41,7 +41,7 @@ export function ListingGallery({
           width={1600}
         />
       </div>
-      <div className="grid max-h-[540px] grid-cols-2 gap-3 overflow-auto lg:grid-cols-1">
+      <div className="grid max-h-[540px] min-w-0 grid-cols-2 gap-3 overflow-y-auto overflow-x-hidden lg:grid-cols-1">
         {thumbnailImages.map((url, index) => (
           <div
             className="overflow-hidden rounded-xl border border-border/70"

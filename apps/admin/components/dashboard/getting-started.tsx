@@ -10,7 +10,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +27,19 @@ type GettingStartedProps = {
   propertyCount: number;
   unitCount: number;
   reservationCount: number;
+  applicationCount?: number;
+  collectionCount?: number;
+  role?: "owner_admin" | "operator" | "accountant" | "viewer";
   locale: string;
+};
+
+type OnboardingStep = {
+  id: string;
+  label: string;
+  description: string;
+  done: boolean;
+  icon: ComponentProps<typeof Icon>["icon"];
+  href?: string;
 };
 
 const DISMISS_KEY = "pa-onboarding-dismissed";
@@ -36,6 +48,9 @@ export function GettingStarted({
   propertyCount,
   unitCount,
   reservationCount,
+  applicationCount = 0,
+  collectionCount = 0,
+  role = "viewer",
   locale,
 }: GettingStartedProps) {
   const [dismissed, setDismissed] = useState(true); // Default hidden until hydrated
@@ -53,16 +68,17 @@ export function GettingStarted({
 
   if (dismissed) return null;
 
-  const steps = [
-    {
-      id: "org",
-      label: isEn ? "Define organization" : "Definir organización",
-      description: isEn
-        ? "Basic workspace container."
-        : "Contenedor básico del espacio.",
-      done: true,
-      icon: Home01Icon,
-    },
+  const commonStep: OnboardingStep = {
+    id: "org",
+    label: isEn ? "Define organization" : "Definir organización",
+    description: isEn
+      ? "Basic workspace container."
+      : "Contenedor básico del espacio.",
+    done: true,
+    icon: Home01Icon,
+  };
+
+  const operatorSteps: OnboardingStep[] = [
     {
       id: "property",
       label: isEn ? "Add a property" : "Agregar una propiedad",
@@ -95,22 +111,97 @@ export function GettingStarted({
     },
   ];
 
+  const ownerSteps: OnboardingStep[] = [
+    {
+      id: "marketplace",
+      label: isEn ? "Publish marketplace listing" : "Publicar anuncio",
+      description: isEn
+        ? "Complete transparency and launch your first listing."
+        : "Completa transparencia y publica tu primer anuncio.",
+      done: propertyCount > 0,
+      icon: Home01Icon,
+      href: "/module/marketplace-listings",
+    },
+    {
+      id: "applications",
+      label: isEn ? "Qualify applications" : "Calificar aplicaciones",
+      description: isEn
+        ? "Assign and convert applicants into leases."
+        : "Asigna y convierte solicitantes en contratos.",
+      done: applicationCount > 0,
+      icon: Tick02Icon,
+      href: "/module/applications",
+    },
+    {
+      id: "statements",
+      label: isEn ? "Review owner statements" : "Revisar estados",
+      description: isEn
+        ? "Validate net payout and reconciliation."
+        : "Valida pago neto y conciliación.",
+      done: collectionCount > 0,
+      icon: CalendarCheckIn01Icon,
+      href: "/module/owner-statements",
+    },
+  ];
+
+  const accountantSteps: OnboardingStep[] = [
+    {
+      id: "collections",
+      label: isEn ? "Track collections" : "Registrar cobranzas",
+      description: isEn
+        ? "Keep lease collections up to date."
+        : "Mantén cobranzas de contratos al día.",
+      done: collectionCount > 0,
+      icon: CalendarCheckIn01Icon,
+      href: "/module/collections",
+    },
+    {
+      id: "expenses",
+      label: isEn ? "Register expenses" : "Registrar gastos",
+      description: isEn
+        ? "Capture operating expenses with receipts."
+        : "Carga gastos operativos con comprobantes.",
+      done: reservationCount > 0,
+      icon: HotelIcon,
+      href: "/module/expenses",
+    },
+    {
+      id: "reconcile",
+      label: isEn ? "Reconcile statement" : "Conciliar estado",
+      description: isEn
+        ? "Review statement diffs before closing month."
+        : "Revisa diferencias antes de cerrar mes.",
+      done: collectionCount > 0,
+      icon: Tick02Icon,
+      href: "/module/owner-statements",
+    },
+  ];
+
+  const steps =
+    role === "operator"
+      ? [commonStep, ...operatorSteps]
+      : role === "owner_admin"
+        ? [commonStep, ...ownerSteps]
+        : role === "accountant"
+          ? [commonStep, ...accountantSteps]
+          : [commonStep, ...operatorSteps];
+
   const allDone = steps.every((s) => s.done);
   if (allDone && propertyCount > 0) {
     // If they finished everything, we can still show it but maybe they can dismiss it
   }
 
   return (
-    <Card className="relative overflow-hidden border-primary/20 bg-primary/5 transition-all duration-300 hover:border-primary/30">
+    <Card className="relative overflow-hidden border-border/80 bg-card/98 transition-all duration-300 hover:border-border">
       <Button
-        className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:bg-background/80"
+        className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:bg-muted/50"
         onClick={onDismiss}
         size="icon"
         variant="ghost"
       >
         <Icon icon={Cancel01Icon} size={16} />
       </Button>
-      <CardHeader>
+      <CardHeader className="border-border/70 border-b pb-4">
         <CardTitle className="flex items-center gap-2 text-xl">
           {isEn ? "Getting started" : "Primeros pasos"}
         </CardTitle>
@@ -125,26 +216,30 @@ export function GettingStarted({
           {steps.map((step) => (
             <div
               className={cn(
-                "group relative flex flex-col gap-2 rounded-lg border bg-background p-4 transition-all",
+                "group relative flex flex-col gap-2 rounded-2xl border border-border/75 bg-background/90 p-4 transition-all",
                 step.done
-                  ? "border-primary/20 opacity-75"
-                  : "hover:border-primary hover:shadow-sm"
+                  ? "opacity-76"
+                  : "hover:border-border hover:bg-background"
               )}
               key={step.id}
             >
               <div className="flex items-center justify-between">
                 <div
                   className={cn(
-                    "rounded-md p-1.5",
+                    "rounded-lg border border-border/70 p-1.5",
                     step.done
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground"
+                      ? "bg-muted/60 text-foreground"
+                      : "bg-muted/40 text-muted-foreground"
                   )}
                 >
                   <Icon icon={step.icon} size={18} />
                 </div>
                 {step.done ? (
-                  <Icon className="text-primary" icon={Tick02Icon} size={18} />
+                  <Icon
+                    className="text-foreground/80"
+                    icon={Tick02Icon}
+                    size={18}
+                  />
                 ) : (
                   <Icon
                     className="text-muted-foreground/30"
@@ -163,7 +258,7 @@ export function GettingStarted({
               </div>
               {!step.done && step.href && (
                 <Link
-                  className="mt-2 inline-flex items-center gap-1 font-medium text-primary text-xs hover:underline"
+                  className="mt-2 inline-flex items-center gap-1 font-medium text-foreground text-xs hover:underline"
                   href={step.href}
                 >
                   {isEn ? "Go to step" : "Ir al paso"}

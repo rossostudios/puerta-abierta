@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -155,7 +155,7 @@ export function MarketplaceApplyForm({
   }
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>{isEn ? "Apply" : "Aplicar"}</CardTitle>
         <CardDescription>
@@ -165,9 +165,9 @@ export function MarketplaceApplyForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm" htmlFor="full_name">
+        <form className="min-w-0 space-y-4" onSubmit={onSubmit}>
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            <label className="min-w-0 space-y-1 text-sm" htmlFor="full_name">
               <span>{isEn ? "Full name" : "Nombre completo"}</span>
               <Input
                 id="full_name"
@@ -183,7 +183,7 @@ export function MarketplaceApplyForm({
               />
             </label>
 
-            <label className="space-y-1 text-sm" htmlFor="email">
+            <label className="min-w-0 space-y-1 text-sm" htmlFor="email">
               <span>Email</span>
               <Input
                 id="email"
@@ -198,8 +198,8 @@ export function MarketplaceApplyForm({
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm" htmlFor="phone_e164">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            <label className="min-w-0 space-y-1 text-sm" htmlFor="phone_e164">
               <span>{isEn ? "Phone" : "Teléfono"}</span>
               <Input
                 id="phone_e164"
@@ -215,7 +215,10 @@ export function MarketplaceApplyForm({
               />
             </label>
 
-            <label className="space-y-1 text-sm" htmlFor="document_number">
+            <label
+              className="min-w-0 space-y-1 text-sm"
+              htmlFor="document_number"
+            >
               <span>{isEn ? "Document number" : "Número de documento"}</span>
               <Input
                 id="document_number"
@@ -231,8 +234,11 @@ export function MarketplaceApplyForm({
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm" htmlFor="preferred_move_in">
+          <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            <label
+              className="min-w-0 space-y-1 text-sm"
+              htmlFor="preferred_move_in"
+            >
               <span>
                 {isEn ? "Preferred move-in date" : "Fecha de ingreso preferida"}
               </span>
@@ -249,7 +255,10 @@ export function MarketplaceApplyForm({
               />
             </label>
 
-            <label className="space-y-1 text-sm" htmlFor="monthly_income">
+            <label
+              className="min-w-0 space-y-1 text-sm"
+              htmlFor="monthly_income"
+            >
               <span>{isEn ? "Monthly income" : "Ingreso mensual"}</span>
               <Input
                 id="monthly_income"
@@ -267,10 +276,13 @@ export function MarketplaceApplyForm({
               />
             </label>
 
-            <label className="space-y-1 text-sm" htmlFor="guarantee_choice">
+            <label
+              className="min-w-0 space-y-1 text-sm"
+              htmlFor="guarantee_choice"
+            >
               <span>{isEn ? "Guarantee option" : "Opción de garantía"}</span>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                className="flex h-10 w-full min-w-0 rounded-xl border border-input bg-background/90 px-3 py-1.5 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/45"
                 id="guarantee_choice"
                 name="guarantee_choice"
                 onChange={(event) =>
@@ -293,7 +305,7 @@ export function MarketplaceApplyForm({
             </label>
           </div>
 
-          <label className="space-y-1 text-sm" htmlFor="message">
+          <label className="min-w-0 space-y-1 text-sm" htmlFor="message">
             <span>{isEn ? "Message" : "Mensaje"}</span>
             <Textarea
               id="message"
@@ -311,25 +323,29 @@ export function MarketplaceApplyForm({
           </label>
 
           {error ? (
-            <p className="text-destructive text-sm">
-              {isEn
-                ? "Could not submit application"
-                : "No se pudo enviar la aplicación"}
-              : {error}
-            </p>
+            <Alert variant="destructive">
+              <AlertTitle>
+                {isEn
+                  ? "Could not submit application"
+                  : "No se pudo enviar la aplicación"}
+              </AlertTitle>
+              <AlertDescription className="break-words">
+                {error}
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           {successId ? (
-            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
-              <p className="font-medium text-emerald-700 dark:text-emerald-300">
+            <Alert variant="success">
+              <AlertTitle>
                 {isEn
                   ? "Application submitted successfully."
                   : "Aplicación enviada correctamente."}
-              </p>
-              <p className="mt-1 text-emerald-700/90 text-xs dark:text-emerald-300/90">
+              </AlertTitle>
+              <AlertDescription className="mt-1 text-xs">
                 ID: <span className="font-mono">{successId}</span>
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           <Button

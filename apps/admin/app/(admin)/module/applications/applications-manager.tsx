@@ -5,6 +5,16 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useOptimistic, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import {
   assignApplicationAction,
@@ -13,6 +23,12 @@ import {
 } from "@/app/(admin)/module/applications/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import {
   Collapsible,
   CollapsibleContent,
@@ -797,6 +813,81 @@ export function ApplicationsManager({
     };
   }, [filteredRows]);
 
+  const funnelChartData = useMemo(() => {
+    return BOARD_LANES.map((lane) => ({
+      key: lane.key,
+      label: lane.label[locale],
+      count: filteredRows.filter((row) =>
+        lane.statuses.includes(row.status.trim().toLowerCase())
+      ).length,
+    }));
+  }, [filteredRows, locale]);
+
+  const funnelChartConfig: ChartConfig = useMemo(
+    () => ({
+      incoming: {
+        label: isEn ? "Incoming" : "Ingresos",
+        color: "var(--chart-1)",
+      },
+      qualified: {
+        label: isEn ? "Qualified" : "Calificación",
+        color: "var(--chart-2)",
+      },
+      converted: {
+        label: isEn ? "Converted" : "Convertidos",
+        color: "var(--chart-3)",
+      },
+      closed: { label: isEn ? "Closed" : "Cerrados", color: "var(--chart-4)" },
+    }),
+    [isEn]
+  );
+
+  const responseTrendData = useMemo(() => {
+    const days: string[] = [];
+    const today = new Date();
+    for (let index = 6; index >= 0; index -= 1) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - index);
+      days.push(date.toISOString().slice(0, 10));
+    }
+
+    const valuesByDay = new Map<string, number[]>(
+      days.map((day) => [day, []] as const)
+    );
+    for (const row of filteredRows) {
+      if (row.first_response_minutes <= 0) continue;
+      const day = row.created_at.slice(0, 10);
+      if (!valuesByDay.has(day)) continue;
+      valuesByDay.get(day)?.push(row.first_response_minutes);
+    }
+
+    return days.map((day) => {
+      const parsed = new Date(`${day}T00:00:00`);
+      const samples = valuesByDay.get(day) ?? [];
+      return {
+        day: Number.isNaN(parsed.valueOf())
+          ? day
+          : new Intl.DateTimeFormat(locale, {
+              month: "short",
+              day: "numeric",
+            }).format(parsed),
+        median_minutes: samples.length ? median(samples) : 0,
+      };
+    });
+  }, [filteredRows, locale]);
+
+  const responseTrendConfig: ChartConfig = useMemo(
+    () => ({
+      median_minutes: {
+        label: isEn
+          ? "Median first response (min)"
+          : "Mediana primera respuesta (min)",
+        color: "var(--chart-5)",
+      },
+    }),
+    [isEn]
+  );
+
   const boardRowsByLane = useMemo(() => {
     return BOARD_LANES.map((lane) => {
       const laneRows = filteredRows
@@ -1017,6 +1108,102 @@ export function ApplicationsManager({
                 ? `${metrics.medianFirstResponse.toFixed(1)}m`
                 : "-"}
             </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="grid gap-3 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              {isEn ? "Funnel stage distribution" : "Distribución del funnel"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer className="h-48 w-full" config={funnelChartConfig}>
+              <BarChart data={funnelChartData} margin={{ left: 0, right: 8 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="label"
+                  tickLine={false}
+                  tickMargin={8}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <ChartTooltip
+                  content={(props) => (
+                    <ChartTooltipContent
+                      {...props}
+                      headerFormatter={() =>
+                        isEn ? "Pipeline funnel" : "Funnel del pipeline"
+                      }
+                    />
+                  )}
+                />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                  {funnelChartData.map((entry) => (
+                    <Cell fill={`var(--color-${entry.key})`} key={entry.key} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">
+              {isEn
+                ? "First response median trend"
+                : "Tendencia mediana de primera respuesta"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer
+              className="h-48 w-full"
+              config={responseTrendConfig}
+            >
+              <LineChart
+                data={responseTrendData}
+                margin={{ left: 0, right: 8 }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  axisLine={false}
+                  dataKey="day"
+                  tickLine={false}
+                  tickMargin={8}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <ChartTooltip
+                  content={(props) => (
+                    <ChartTooltipContent
+                      {...props}
+                      headerFormatter={() =>
+                        isEn
+                          ? "Median first response"
+                          : "Mediana primera respuesta"
+                      }
+                    />
+                  )}
+                />
+                <Line
+                  dataKey="median_minutes"
+                  dot={{ r: 3 }}
+                  stroke="var(--color-median_minutes)"
+                  strokeWidth={2}
+                  type="monotone"
+                />
+              </LineChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </section>

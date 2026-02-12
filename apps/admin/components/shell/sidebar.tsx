@@ -287,19 +287,19 @@ function resolveSections(locale: Locale): ResolvedSection[] {
 
 function sectionButtonClass(active: boolean): string {
   return cn(
-    "group relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+    "group relative flex h-10 w-10 items-center justify-center rounded-2xl border border-transparent transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
     active
-      ? "bg-[color-mix(in_oklch,var(--sidebar-primary)_16%,var(--background))] text-[var(--sidebar-primary)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_28%,transparent)]"
-      : "text-foreground/58 hover:bg-[color-mix(in_oklch,var(--sidebar-primary)_7%,transparent)] hover:text-foreground/90"
+      ? "border-primary/25 bg-primary/10 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]"
+      : "text-foreground/46 hover:border-border/70 hover:bg-background/78 hover:text-foreground/86"
   );
 }
 
 function moduleLinkClass(active: boolean): string {
   return cn(
-    "group flex min-h-11 items-center gap-3 rounded-2xl px-3.5 py-2.5 transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+    "group flex min-h-[44px] items-center gap-3 rounded-2xl border border-transparent px-3.5 py-2.5 transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
     active
-      ? "bg-[color-mix(in_oklch,var(--sidebar-primary)_12%,var(--background))] text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_24%,transparent)]"
-      : "text-foreground/62 hover:bg-[color-mix(in_oklch,var(--sidebar-primary)_7%,transparent)] hover:text-foreground/92"
+      ? "border-primary/20 bg-primary/10 text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.94)]"
+      : "text-foreground/58 hover:border-border/70 hover:bg-background/82 hover:text-foreground/90"
   );
 }
 
@@ -334,13 +334,13 @@ function ContextPanel({
     <div className="flex h-full min-h-0 flex-col">
       {showHeader ? (
         <header className="space-y-1.5 px-1.5">
-          <p className="font-semibold text-[11px] text-foreground/55 uppercase tracking-[0.16em]">
+          <p className="font-semibold text-[11px] text-foreground/50 uppercase tracking-[0.14em]">
             {isEn ? "Navigation" : "Navegación"}
           </p>
-          <h2 className="font-semibold text-[19px] text-foreground leading-tight">
+          <h2 className="font-semibold text-[19px] text-foreground leading-tight tracking-[-0.01em]">
             {section.label}
           </h2>
-          <p className="text-[12px] text-foreground/58 leading-snug">
+          <p className="text-[12px] text-foreground/56 leading-snug">
             {section.description}
           </p>
         </header>
@@ -363,10 +363,10 @@ function ContextPanel({
             >
               <span
                 className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors duration-[120ms]",
+                  "flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-xl transition-colors duration-[120ms]",
                   active
-                    ? "bg-[color-mix(in_oklch,var(--sidebar-primary)_14%,var(--background))] text-[var(--sidebar-primary)]"
-                    : "bg-foreground/4 text-foreground/60 group-hover:bg-[color-mix(in_oklch,var(--sidebar-primary)_10%,transparent)] group-hover:text-foreground/85"
+                    ? "bg-background/90 text-foreground ring-1 ring-border/65 dark:bg-background/75 dark:ring-border/55"
+                    : "bg-foreground/[0.03] text-foreground/60 group-hover:bg-background/80 group-hover:text-foreground/85"
                 )}
               >
                 <Icon icon={link.icon} size={18} />
@@ -396,6 +396,7 @@ export function Sidebar({
   locale,
   viewportMode,
   desktopPanelCollapsed,
+  isCompactNav,
   onDesktopPanelCollapsedChange,
   isContextPanelOpen,
   onContextPanelOpenChange,
@@ -405,6 +406,7 @@ export function Sidebar({
   locale: Locale;
   viewportMode: ViewportMode;
   desktopPanelCollapsed: boolean;
+  isCompactNav: boolean;
   onDesktopPanelCollapsedChange: (next: boolean) => void;
   isContextPanelOpen: boolean;
   onContextPanelOpenChange: (next: boolean) => void;
@@ -504,14 +506,18 @@ export function Sidebar({
     viewportMode === "mobile" ? null : (
       <aside
         className={cn(
-          "flex h-full min-h-0 shrink-0 flex-col border-sidebar-border/70 border-r bg-sidebar",
-          viewportMode === "desktop" ? "w-[88px]" : "w-20"
+          "flex h-full min-h-0 shrink-0 flex-col border-sidebar-border/70 border-r bg-[color-mix(in_oklch,var(--sidebar)_94%,white)]",
+          isCompactNav
+            ? "w-[72px]"
+            : viewportMode === "desktop"
+              ? "w-[88px]"
+              : "w-20"
         )}
       >
-        <div className="flex min-h-0 flex-1 flex-col items-center px-2 py-3">
-          <div className="flex flex-col items-center pb-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_oklch,var(--sidebar-primary)_18%,var(--background))] text-[var(--sidebar-primary)] shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--sidebar-primary)_28%,transparent)]">
-              <Icon icon={Building01Icon} size={19} />
+        <div className="flex min-h-0 flex-1 flex-col items-center px-2.5 py-3">
+          <div className="flex flex-col items-center pb-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/80 bg-background/95 text-foreground shadow-[0_6px_16px_-14px_rgba(15,23,42,0.4)]">
+              <Icon icon={Building01Icon} size={18} />
             </div>
           </div>
 
@@ -525,7 +531,10 @@ export function Sidebar({
 
                 return (
                   <Tooltip key={section.key}>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger
+                      asChild
+                      id={`sidebar-section-trigger-${section.key}`}
+                    >
                       <Link
                         aria-label={section.label}
                         className={sectionButtonClass(sectionActive)}
@@ -538,7 +547,7 @@ export function Sidebar({
                             sectionActive ? "text-foreground" : "text-current"
                           )}
                           icon={section.icon}
-                          size={19}
+                          size={18}
                         />
                         <span className="sr-only">{section.label}</span>
                       </Link>
@@ -561,8 +570,13 @@ export function Sidebar({
 
   const desktopContextPanel =
     viewportMode === "desktop" && !desktopPanelCollapsed && activeSection ? (
-      <aside className="flex h-full min-h-0 w-[304px] shrink-0 border-sidebar-border/70 border-r bg-sidebar p-3">
-        <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-sidebar-border/80 bg-background/90 p-3">
+      <aside
+        className={cn(
+          "flex h-full min-h-0 shrink-0 border-sidebar-border/70 border-r bg-[color-mix(in_oklch,var(--sidebar)_95%,white)] px-3 py-3.5",
+          isCompactNav ? "w-[248px]" : "w-[304px]"
+        )}
+      >
+        <section className="flex min-h-0 flex-1 flex-col rounded-3xl border border-sidebar-border/75 bg-background/94 p-3.5">
           <ContextPanel
             locale={locale}
             onLinkNavigate={handleContextLinkNavigate}
@@ -576,7 +590,7 @@ export function Sidebar({
   const tabletContextDrawer =
     viewportMode === "tablet" && activeSection ? (
       <Drawer
-        className="w-[300px]"
+        className={isCompactNav ? "w-[248px]" : "w-[300px]"}
         closeLabel={isEn ? "Close navigation" : "Cerrar navegación"}
         description={activeSection.description}
         onOpenChange={onContextPanelOpenChange}
@@ -585,7 +599,7 @@ export function Sidebar({
         title={activeSection.label}
       >
         <div className="h-full p-3">
-          <section className="flex h-full min-h-0 flex-col rounded-2xl border border-sidebar-border/80 bg-background/90 p-3">
+          <section className="flex h-full min-h-0 flex-col rounded-3xl border border-sidebar-border/80 bg-background/94 p-3.5">
             <ContextPanel
               locale={locale}
               onLinkNavigate={handleContextLinkNavigate}
@@ -609,7 +623,7 @@ export function Sidebar({
         side="left"
         title={isEn ? "Navigation" : "Navegación"}
       >
-        <section className="flex h-full min-h-0 flex-col rounded-2xl border border-sidebar-border/80 bg-background/90 p-3">
+        <section className="flex h-full min-h-0 flex-col rounded-3xl border border-sidebar-border/80 bg-background/94 p-3.5">
           <div className="border-sidebar-border/70 border-b pb-3">
             <p className="font-semibold text-[11px] text-foreground/55 uppercase tracking-[0.16em]">
               {isEn ? "Sections" : "Secciones"}
@@ -619,7 +633,10 @@ export function Sidebar({
                 const isActive = section.key === activeSection.key;
                 return (
                   <Tooltip key={section.key}>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger
+                      asChild
+                      id={`mobile-section-trigger-${section.key}`}
+                    >
                       <button
                         aria-label={section.label}
                         className={sectionButtonClass(isActive)}

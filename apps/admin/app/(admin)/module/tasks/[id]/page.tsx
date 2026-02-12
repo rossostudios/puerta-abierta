@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { PinButton } from "@/components/shell/pin-button";
 import { RecordRecent } from "@/components/shell/record-recent";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -396,16 +397,21 @@ export default async function TaskDetailPage({
       </div>
 
       {errorLabel ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-          <p className="font-medium text-destructive">{errorLabel}</p>
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>
+            {isEn
+              ? "Could not complete request"
+              : "No se pudo completar la solicitud"}
+          </AlertTitle>
+          <AlertDescription>{errorLabel}</AlertDescription>
+        </Alert>
       ) : null}
       {successLabel ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
-          <p className="font-medium text-emerald-700">
+        <Alert variant="success">
+          <AlertTitle>
             {isEn ? "Success" : "Éxito"}: {successLabel}
-          </p>
-        </div>
+          </AlertTitle>
+        </Alert>
       ) : null}
 
       <Card>
@@ -606,18 +612,18 @@ export default async function TaskDetailPage({
         </CardHeader>
         <CardContent className="space-y-3">
           {completionBlocked ? (
-            <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-amber-800 text-sm dark:text-amber-200">
-              <p className="font-medium">
+            <Alert variant="warning">
+              <AlertTitle>
                 {isEn
                   ? "Complete required checklist items to finish this task."
                   : "Completa los items obligatorios para finalizar la tarea."}
-              </p>
-              <p className="mt-1 text-amber-900/80 text-xs dark:text-amber-200/80">
+              </AlertTitle>
+              <AlertDescription className="mt-1 text-xs">
                 {isEn
                   ? `${missingRequiredCount} required item(s) remaining.`
                   : `${missingRequiredCount} item(s) obligatorios pendientes.`}
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           ) : null}
           {items.length ? (
             <div className="space-y-2">
@@ -648,7 +654,7 @@ export default async function TaskDetailPage({
                         className={cn(
                           "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
                           item.is_completed
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300"
+                            ? "status-tone-success"
                             : "border-input bg-background"
                         )}
                       >

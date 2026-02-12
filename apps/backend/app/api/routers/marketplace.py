@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,6 +27,7 @@ router = APIRouter(tags=["Marketplace"])
 
 MARKETPLACE_EDIT_ROLES = {"owner_admin", "operator"}
 MAX_GALLERY_IMAGES = 8
+MAX_AMENITIES = 24
 
 
 def _normalize_whatsapp_phone(value: Optional[str]) -> Optional[str]:
@@ -70,6 +71,54 @@ def _normalize_gallery_urls(value: object, *, strict: bool) -> list[str]:
     return cleaned
 
 
+def _normalize_amenities(value: object, *, strict: bool) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        if strict:
+            raise HTTPException(status_code=400, detail="amenities must be an array.")
+        return []
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        candidate = item.strip()
+        if not candidate:
+            continue
+        key = candidate.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(candidate)
+
+    if len(cleaned) > MAX_AMENITIES:
+        if not strict:
+            return cleaned[:MAX_AMENITIES]
+        raise HTTPException(
+            status_code=400,
+            detail=f"amenities supports up to {MAX_AMENITIES} items.",
+        )
+    return cleaned
+
+
+def _normalize_iso_date(value: object, field_name: str) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value.isoformat()
+    if not isinstance(value, str):
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a valid date (YYYY-MM-DD).")
+    text = value.strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text).isoformat()
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"{field_name} must be a valid date (YYYY-MM-DD).")
+
+
 def _sanitize_listing_payload(patch: dict, *, require_cover: bool) -> dict:
     normalized = dict(patch)
 
@@ -80,9 +129,32 @@ def _sanitize_listing_payload(patch: dict, *, require_cover: bool) -> dict:
         )
         normalized["gallery_image_urls"] = gallery_urls
 
+    if "amenities" in normalized:
+        normalized["amenities"] = _normalize_amenities(
+            normalized.get("amenities"),
+            strict=True,
+        )
+
     cover_image = normalized.get("cover_image_url")
     if isinstance(cover_image, str):
         normalized["cover_image_url"] = cover_image.strip() or None
+
+    property_type = normalized.get("property_type")
+    if isinstance(property_type, str):
+        normalized["property_type"] = property_type.strip() or None
+
+    pet_policy = normalized.get("pet_policy")
+    if isinstance(pet_policy, str):
+        normalized["pet_policy"] = pet_policy.strip() or None
+
+    if "available_from" in normalized:
+        normalized["available_from"] = _normalize_iso_date(
+            normalized.get("available_from"),
+            "available_from",
+        )
+
+    if "maintenance_fee" in normalized and normalized.get("maintenance_fee") is None:
+        normalized["maintenance_fee"] = 0
 
     if require_cover and not normalized.get("cover_image_url"):
         raise HTTPException(
@@ -229,6 +301,23 @@ def _assert_publishable(row: dict) -> None:
     _sanitize_listing_payload(row, require_cover=True)
 
     if not settings.transparent_pricing_required:
+        if not row.get("available_from"):
+            raise HTTPException(
+                status_code=400,
+                detail="available_from is required before publishing marketplace listings.",
+            )
+        minimum_lease_months = row.get("minimum_lease_months")
+        if not isinstance(minimum_lease_months, int) or minimum_lease_months <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="minimum_lease_months is required before publishing marketplace listings.",
+            )
+        amenities = _normalize_amenities(row.get("amenities"), strict=False)
+        if len(amenities) < 3:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 3 amenities are required before publishing marketplace listings.",
+            )
         return
 
     lines = list_rows(
@@ -246,6 +335,26 @@ def _assert_publishable(row: dict) -> None:
                 "message": "Listing cannot be published without a full transparent fee breakdown.",
                 "missing_required_fee_lines": missing,
             },
+        )
+
+    if not row.get("available_from"):
+        raise HTTPException(
+            status_code=400,
+            detail="available_from is required before publishing marketplace listings.",
+        )
+
+    minimum_lease_months = row.get("minimum_lease_months")
+    if not isinstance(minimum_lease_months, int) or minimum_lease_months <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="minimum_lease_months is required before publishing marketplace listings.",
+        )
+
+    amenities = _normalize_amenities(row.get("amenities"), strict=False)
+    if len(amenities) < 3:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 3 amenities are required before publishing marketplace listings.",
         )
 
 
@@ -454,6 +563,14 @@ def _public_shape(row: dict) -> dict:
         "bedrooms": row.get("bedrooms"),
         "bathrooms": row.get("bathrooms"),
         "square_meters": row.get("square_meters"),
+        "property_type": row.get("property_type"),
+        "furnished": bool(row.get("furnished")),
+        "pet_policy": row.get("pet_policy"),
+        "parking_spaces": row.get("parking_spaces"),
+        "minimum_lease_months": row.get("minimum_lease_months"),
+        "available_from": row.get("available_from"),
+        "amenities": _normalize_amenities(row.get("amenities"), strict=False),
+        "maintenance_fee": row.get("maintenance_fee"),
         "whatsapp_contact_url": _whatsapp_contact_url(),
         "published_at": row.get("published_at"),
         "total_move_in": row.get("total_move_in"),
@@ -469,6 +586,10 @@ def list_public_marketplace_listings(
     city: Annotated[Optional[str], Query(max_length=120)] = None,
     neighborhood: Annotated[Optional[str], Query(max_length=120)] = None,
     q: Annotated[Optional[str], Query(max_length=200)] = None,
+    property_type: Annotated[Optional[str], Query(max_length=80)] = None,
+    furnished: Optional[bool] = None,
+    pet_policy: Annotated[Optional[str], Query(max_length=120)] = None,
+    min_parking: Annotated[Optional[int], Query(ge=0)] = None,
     min_monthly: Annotated[Optional[float], Query(ge=0)] = None,
     max_monthly: Annotated[Optional[float], Query(ge=0)] = None,
     min_move_in: Annotated[Optional[float], Query(ge=0)] = None,
@@ -514,6 +635,32 @@ def list_public_marketplace_listings(
             or needle in str(row.get("summary") or "").lower()
             or needle in str(row.get("neighborhood") or "").lower()
             or needle in str(row.get("description") or "").lower()
+        ]
+
+    if property_type:
+        expected = property_type.strip().lower()
+        rows = [
+            row
+            for row in rows
+            if str(row.get("property_type") or "").strip().lower() == expected
+        ]
+
+    if furnished is not None:
+        rows = [row for row in rows if bool(row.get("furnished")) is furnished]
+
+    if pet_policy:
+        expected = pet_policy.strip().lower()
+        rows = [
+            row
+            for row in rows
+            if expected in str(row.get("pet_policy") or "").strip().lower()
+        ]
+
+    if min_parking is not None:
+        rows = [
+            row
+            for row in rows
+            if int(row.get("parking_spaces", 0) or 0) >= min_parking
         ]
 
     if min_monthly is not None:

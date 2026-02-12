@@ -85,12 +85,12 @@ export function Sheet({
   const panelSide =
     side === "right"
       ? {
-          wrapper: "right-0 border-l",
+          wrapper: "right-3",
           enter: "translate-x-full",
           exit: "translate-x-0",
         }
       : {
-          wrapper: "left-0 border-r",
+          wrapper: "left-3",
           enter: "-translate-x-full",
           exit: "translate-x-0",
         };
@@ -100,7 +100,7 @@ export function Sheet({
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 bg-black/35 backdrop-blur-[2px] transition-opacity dark:bg-black/70",
+          "absolute inset-0 bg-black/24 backdrop-blur-[3px] transition-opacity dark:bg-black/60",
           open
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
@@ -113,7 +113,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         aria-modal="true"
         className={cn(
-          "absolute inset-y-0 flex w-full max-w-xl flex-col bg-background shadow-xl transition-transform",
+          "absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] border border-border/80 bg-background/95 shadow-[0_24px_56px_rgba(15,23,42,0.2)] transition-transform",
           panelSide.wrapper,
           open
             ? cn(panelSide.exit, "pointer-events-auto")
@@ -123,7 +123,7 @@ export function Sheet({
         role="dialog"
         style={{ transitionDuration: `${ANIMATION_MS}ms` }}
       >
-        <header className="flex items-start justify-between gap-4 border-b px-6 py-4">
+        <header className="flex items-start justify-between gap-4 border-border/70 border-b px-6 py-4">
           <div className="min-w-0">
             {title ? (
               <h2 className="truncate font-semibold text-base" id={titleId}>
@@ -132,7 +132,7 @@ export function Sheet({
             ) : null}
             {description ? (
               <p
-                className="mt-1 text-muted-foreground text-sm"
+                className="mt-1 text-muted-foreground/90 text-sm"
                 id={descriptionId}
               >
                 {description}
@@ -143,7 +143,7 @@ export function Sheet({
             aria-label="Cerrar"
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-9 w-9 shrink-0"
+              "h-9 w-9 shrink-0 rounded-xl"
             )}
             onClick={() => onOpenChange(false)}
             ref={closeRef}
@@ -156,7 +156,9 @@ export function Sheet({
         <div className="min-h-0 flex-1 overflow-auto px-6 py-5">{children}</div>
 
         {footer ? (
-          <footer className="border-t px-6 py-4">{footer}</footer>
+          <footer className="border-border/70 border-t px-6 py-4">
+            {footer}
+          </footer>
         ) : null}
       </section>
     </div>

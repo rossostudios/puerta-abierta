@@ -22,6 +22,33 @@ if (
 }
 
 type QueryValue = string | number | boolean | undefined | null;
+
+export type OrganizationMembership = {
+  id?: string;
+  organization_id?: string;
+  role?: string;
+  user_id?: string;
+};
+
+export type MePayload = {
+  user?: Record<string, unknown>;
+  memberships?: OrganizationMembership[];
+  organizations?: Record<string, unknown>[];
+};
+
+export type OperationsSummary = {
+  organization_id?: string;
+  from?: string;
+  to?: string;
+  turnovers_due?: number;
+  turnovers_completed_on_time?: number;
+  turnover_on_time_rate?: number;
+  open_tasks?: number;
+  overdue_tasks?: number;
+  sla_breached_tasks?: number;
+  reservations_upcoming_check_in?: number;
+  reservations_upcoming_check_out?: number;
+};
 const LIST_LIMIT_CAPS: Record<string, number> = {
   "/properties": 500,
   "/units": 500,
@@ -179,6 +206,29 @@ export function fetchOwnerSummary(
   return fetchJson<Record<string, unknown>>(path, { org_id: orgId, from, to });
 }
 
+export function fetchMe(): Promise<MePayload> {
+  return fetchJson<MePayload>("/me");
+}
+
+export function fetchOperationsSummary(
+  orgId: string,
+  range?: { from?: string; to?: string }
+): Promise<OperationsSummary> {
+  const today = new Date();
+  const defaultFrom = range?.from ?? today.toISOString().slice(0, 10);
+  const defaultTo =
+    range?.to ??
+    new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
+  return fetchJson<OperationsSummary>("/reports/operations-summary", {
+    org_id: orgId,
+    from: defaultFrom,
+    to: defaultTo,
+  });
+}
+
 export function postJson(
   path: string,
   payload: Record<string, unknown>
@@ -215,6 +265,10 @@ export function fetchPublicMarketplaceListings(params?: {
   city?: string;
   neighborhood?: string;
   q?: string;
+  propertyType?: string;
+  furnished?: boolean;
+  petPolicy?: string;
+  minParking?: number;
   minMonthly?: number;
   maxMonthly?: number;
   minMoveIn?: number;
@@ -230,6 +284,10 @@ export function fetchPublicMarketplaceListings(params?: {
       city: params?.city,
       neighborhood: params?.neighborhood,
       q: params?.q,
+      property_type: params?.propertyType,
+      furnished: params?.furnished,
+      pet_policy: params?.petPolicy,
+      min_parking: params?.minParking,
       min_monthly: params?.minMonthly,
       max_monthly: params?.maxMonthly,
       min_move_in: params?.minMoveIn,

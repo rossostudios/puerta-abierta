@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { AppBreadcrumbs } from "@/components/shell/app-breadcrumbs";
 import { CommandPalette } from "@/components/shell/command-palette";
-import { OrgSwitcher } from "@/components/shell/org-switcher";
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -14,7 +14,6 @@ import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type TopbarProps = {
-  orgId: string | null;
   locale: Locale;
   showNavToggle?: boolean;
   onNavToggle?: () => void;
@@ -22,7 +21,6 @@ type TopbarProps = {
 };
 
 export function Topbar({
-  orgId,
   locale,
   showNavToggle = false,
   onNavToggle,
@@ -32,9 +30,9 @@ export function Topbar({
   const isEn = locale === "en-US";
 
   return (
-    <header className="border-border/75 border-b bg-background/96 px-3 py-2.5 backdrop-blur sm:px-4 lg:px-5 xl:px-6">
-      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
+    <header className="border-border/75 border-b bg-background/86 px-3 py-2.5 backdrop-blur-xl sm:px-4 lg:px-5 xl:px-6">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
           {showNavToggle ? (
             <button
               aria-label={
@@ -48,7 +46,7 @@ export function Topbar({
               }
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
-                "h-9 w-9 rounded-xl text-foreground/68 hover:text-foreground"
+                "h-9 w-9 rounded-xl border border-transparent text-foreground/62 hover:border-border/80 hover:bg-background hover:text-foreground"
               )}
               onClick={onNavToggle}
               type="button"
@@ -62,7 +60,7 @@ export function Topbar({
 
           <div className="min-w-0">
             {pathname === "/app" ? (
-              <h2 className="truncate font-semibold text-[1.05rem] tracking-tight md:text-[1.1rem] lg:text-[1.18rem]">
+              <h2 className="truncate font-semibold text-[1.12rem] tracking-[-0.01em] md:text-[1.2rem] lg:text-[1.25rem]">
                 {isEn ? "Dashboard" : "Panel"}
               </h2>
             ) : (
@@ -71,11 +69,13 @@ export function Topbar({
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 lg:justify-end">
-          <CommandPalette />
+        <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
+          <div className="min-w-[13rem] flex-1 xl:min-w-[19rem] xl:flex-none">
+            <CommandPalette />
+          </div>
+          <NotificationBell locale={locale} />
           <ThemeToggle locale={locale} />
           <LanguageSelector className="hidden h-9 w-[10rem] md:block" />
-          <OrgSwitcher activeOrgId={orgId} locale={locale} />
         </div>
       </div>
     </header>

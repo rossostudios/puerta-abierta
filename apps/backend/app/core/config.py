@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     cors_origins: str = "http://localhost:3000"
-    trusted_hosts: str = "localhost,127.0.0.1,*.vercel.app"
+    # In production, this must be set to the exact domain(s) of the admin app.
+    # e.g. "https://admin.puerta-abierta.com"
+    trusted_hosts: str = "localhost,127.0.0.1"
     docs_enabled: bool = True
     dev_auth_overrides_enabled: bool = True
     marketplace_public_enabled: bool = True

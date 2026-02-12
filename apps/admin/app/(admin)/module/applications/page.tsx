@@ -1,4 +1,5 @@
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -123,30 +124,35 @@ export default async function ApplicationsModulePage({
         </CardHeader>
         <CardContent className="space-y-4">
           {errorLabel ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              <p className="font-medium text-destructive">{errorLabel}</p>
-            </div>
+            <Alert variant="destructive">
+              <AlertTitle>
+                {isEn
+                  ? "Could not complete request"
+                  : "No se pudo completar la solicitud"}
+              </AlertTitle>
+              <AlertDescription>{errorLabel}</AlertDescription>
+            </Alert>
           ) : null}
           {successLabel ? (
-            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
-              <p className="font-medium text-emerald-700">
+            <Alert variant="success">
+              <AlertTitle>
                 {isEn ? "Success" : "Éxito"}: {successLabel}
-              </p>
-            </div>
+              </AlertTitle>
+            </Alert>
           ) : null}
           {submissionAlerts.length > 0 ? (
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-              <p className="font-medium text-amber-800">
+            <Alert variant="warning">
+              <AlertTitle>
                 {isEn
                   ? `Submission alerts detected: ${submissionAlerts.length}`
                   : `Alertas de envío detectadas: ${submissionAlerts.length}`}
-              </p>
-              <p className="mt-1 text-amber-900/80 text-xs">
+              </AlertTitle>
+              <AlertDescription className="mt-1 text-xs">
                 {isEn
                   ? "Review Integration Events for failed marketplace application submissions."
                   : "Revisa Eventos de Integración para envíos fallidos de aplicaciones del marketplace."}
-              </p>
-            </div>
+              </AlertDescription>
+            </Alert>
           ) : null}
 
           <ApplicationsManager

@@ -24,7 +24,14 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableCard } from "@/components/ui/table-card";
-import { fetchList, fetchOwnerSummary, getApiBaseUrl } from "@/lib/api";
+import {
+  fetchList,
+  fetchMe,
+  fetchOperationsSummary,
+  fetchOwnerSummary,
+  getApiBaseUrl,
+  type OperationsSummary,
+} from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -68,6 +75,128 @@ function countByStatus(
   });
 }
 
+type DashboardRole = "owner_admin" | "operator" | "accountant" | "viewer";
+
+type QuickAction = {
+  href: string;
+  labelEn: string;
+  labelEs: string;
+  variant: "default" | "outline" | "secondary";
+};
+
+function normalizedRole(value: unknown): DashboardRole {
+  const role = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (role === "owner_admin") return "owner_admin";
+  if (role === "operator") return "operator";
+  if (role === "accountant") return "accountant";
+  return "viewer";
+}
+
+function roleQuickActions(role: DashboardRole): QuickAction[] {
+  if (role === "operator") {
+    return [
+      {
+        href: "/module/tasks",
+        labelEn: "Create task",
+        labelEs: "Crear tarea",
+        variant: "default",
+      },
+      {
+        href: "/module/reservations",
+        labelEn: "Check today check-outs",
+        labelEs: "Ver check-outs de hoy",
+        variant: "outline",
+      },
+      {
+        href: "/module/applications",
+        labelEn: "Open applications board",
+        labelEs: "Abrir tablero de aplicaciones",
+        variant: "outline",
+      },
+    ];
+  }
+
+  if (role === "owner_admin") {
+    return [
+      {
+        href: "/module/owner-statements",
+        labelEn: "Review statements",
+        labelEs: "Revisar estados",
+        variant: "default",
+      },
+      {
+        href: "/module/collections",
+        labelEn: "View collections",
+        labelEs: "Ver cobranzas",
+        variant: "outline",
+      },
+      {
+        href: "/module/marketplace-listings",
+        labelEn: "Publish listing",
+        labelEs: "Publicar anuncio",
+        variant: "outline",
+      },
+    ];
+  }
+
+  if (role === "accountant") {
+    return [
+      {
+        href: "/module/expenses",
+        labelEn: "Add expense",
+        labelEs: "Agregar gasto",
+        variant: "default",
+      },
+      {
+        href: "/module/owner-statements",
+        labelEn: "Reconcile statement",
+        labelEs: "Conciliar estado",
+        variant: "outline",
+      },
+      {
+        href: "/module/reports",
+        labelEn: "Export summary",
+        labelEs: "Exportar resumen",
+        variant: "outline",
+      },
+    ];
+  }
+
+  return [
+    {
+      href: "/module/reports",
+      labelEn: "Open reports",
+      labelEs: "Abrir reportes",
+      variant: "default",
+    },
+    {
+      href: "/module/reservations",
+      labelEn: "View reservations",
+      labelEs: "Ver reservas",
+      variant: "outline",
+    },
+    {
+      href: "/module/tasks",
+      labelEn: "Open tasks",
+      labelEs: "Abrir tareas",
+      variant: "outline",
+    },
+  ];
+}
+
+function roleLabel(role: DashboardRole, isEn: boolean): string {
+  if (role === "owner_admin") {
+    return isEn ? "Owner admin" : "Administrador";
+  }
+  if (role === "operator") {
+    return isEn ? "Operator" : "Operador";
+  }
+  if (role === "accountant") {
+    return isEn ? "Accountant" : "Finanzas";
+  }
+  return isEn ? "Viewer" : "Visualizador";
+}
+
 async function safeList(path: string, orgId: string): Promise<unknown[]> {
   try {
     return await fetchList(path, orgId, 25);
@@ -82,6 +211,24 @@ async function safeReport(
 ): Promise<Record<string, unknown>> {
   try {
     return await fetchOwnerSummary(path, orgId);
+  } catch {
+    return {};
+  }
+}
+
+async function safeOperationsSummary(
+  orgId: string
+): Promise<OperationsSummary> {
+  try {
+    return await fetchOperationsSummary(orgId);
+  } catch {
+    return {};
+  }
+}
+
+async function safeMe(): Promise<Record<string, unknown>> {
+  try {
+    return (await fetchMe()) as Record<string, unknown>;
   } catch {
     return {};
   }
@@ -137,7 +284,10 @@ export default async function DashboardPage() {
   let applications: unknown[] = [];
   let collections: unknown[] = [];
   let marketplaceListings: unknown[] = [];
+  let opsAlerts: unknown[] = [];
   let summary: Record<string, unknown> = {};
+  let operationsSummary: OperationsSummary = {};
+  let mePayload: Record<string, unknown> = {};
   let apiAvailable = true;
 
   try {
@@ -161,7 +311,10 @@ export default async function DashboardPage() {
         appRows,
         collectionRows,
         marketplaceRows,
+        alertRows,
         summ,
+        opsSummary,
+        me,
       ] = await Promise.all([
         safeList("/properties", orgId),
         safeList("/reservations", orgId),
@@ -170,7 +323,10 @@ export default async function DashboardPage() {
         safeList("/applications", orgId),
         safeList("/collections", orgId),
         safeList("/marketplace/listings", orgId),
+        safeList("/integration-events", orgId),
         safeReport("/reports/summary", orgId),
+        safeOperationsSummary(orgId),
+        safeMe(),
       ]);
 
       properties = props;
@@ -180,13 +336,34 @@ export default async function DashboardPage() {
       applications = appRows;
       collections = collectionRows;
       marketplaceListings = marketplaceRows;
+      opsAlerts = (alertRows as Record<string, unknown>[]).filter(
+        (row) =>
+          String(row.provider ?? "")
+            .trim()
+            .toLowerCase() === "alerting" &&
+          String(row.status ?? "")
+            .trim()
+            .toLowerCase() === "failed"
+      );
       summary = summ;
+      operationsSummary = opsSummary;
+      mePayload = me;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       apiAvailable = false;
       orgAccessError = message;
     }
   }
+
+  const memberships = Array.isArray(mePayload.memberships)
+    ? (mePayload.memberships as Record<string, unknown>[])
+    : [];
+  const activeMembership =
+    memberships.find((membership) => membership.organization_id === orgId) ??
+    null;
+  const activeRole = normalizedRole(activeMembership?.role);
+  const quickActions = roleQuickActions(activeRole);
+  const activeRoleLabel = roleLabel(activeRole, isEn);
 
   const reportNet = formatCurrency(
     numberOrZero(summary.net_payout),
@@ -250,15 +427,175 @@ export default async function DashboardPage() {
       ? `${((transparentListings / publishedListings.length) * 100).toFixed(1)}%`
       : "0%";
 
+  const operationsKpis = {
+    turnoversDue: numberOrZero(operationsSummary.turnovers_due),
+    turnoversOnTime: numberOrZero(
+      operationsSummary.turnovers_completed_on_time
+    ),
+    turnoverOnTimeRate: numberOrZero(operationsSummary.turnover_on_time_rate),
+    openTasks: numberOrZero(operationsSummary.open_tasks),
+    overdueTasks: numberOrZero(operationsSummary.overdue_tasks),
+    slaBreachedTasks: numberOrZero(operationsSummary.sla_breached_tasks),
+    upcomingCheckIns: numberOrZero(
+      operationsSummary.reservations_upcoming_check_in
+    ),
+    upcomingCheckOuts: numberOrZero(
+      operationsSummary.reservations_upcoming_check_out
+    ),
+  };
+
+  const unassignedApplications = (
+    applications as Record<string, unknown>[]
+  ).filter((row) => !row.assigned_user_id).length;
+
+  const opsAlertsCards = [
+    operationsKpis.slaBreachedTasks > 0
+      ? {
+          key: "sla-breaches",
+          variant: "destructive" as const,
+          title: isEn
+            ? "SLA breaches detected"
+            : "Incumplimientos SLA detectados",
+          description: isEn
+            ? `${operationsKpis.slaBreachedTasks} tasks crossed SLA targets.`
+            : `${operationsKpis.slaBreachedTasks} tareas excedieron el SLA.`,
+        }
+      : null,
+    operationsKpis.overdueTasks > 0
+      ? {
+          key: "overdue-turnovers",
+          variant: "warning" as const,
+          title: isEn
+            ? "Overdue operations tasks"
+            : "Tareas operativas vencidas",
+          description: isEn
+            ? `${operationsKpis.overdueTasks} open tasks are overdue.`
+            : `${operationsKpis.overdueTasks} tareas abiertas están vencidas.`,
+        }
+      : null,
+    unassignedApplications > 0
+      ? {
+          key: "assignment-gaps",
+          variant: "info" as const,
+          title: isEn ? "Assignment gaps" : "Brechas de asignación",
+          description: isEn
+            ? `${unassignedApplications} applications are still unassigned.`
+            : `${unassignedApplications} aplicaciones siguen sin responsable.`,
+        }
+      : null,
+    opsAlerts.length > 0
+      ? {
+          key: "integration-alerts",
+          variant: "warning" as const,
+          title: isEn ? "Integration alerts" : "Alertas de integración",
+          description: isEn
+            ? `${opsAlerts.length} failed alert events need review.`
+            : `${opsAlerts.length} eventos fallidos requieren revisión.`,
+        }
+      : null,
+  ].filter(Boolean) as Array<{
+    key: string;
+    variant: "destructive" | "warning" | "info";
+    title: string;
+    description: string;
+  }>;
+
+  const roleKpis =
+    activeRole === "operator"
+      ? [
+          {
+            label: isEn ? "Upcoming check-ins" : "Check-ins próximos",
+            value: String(operationsKpis.upcomingCheckIns),
+            helper: isEn ? "Next 7 days" : "Próximos 7 días",
+            icon: CalendarCheckIn01Icon,
+          },
+          {
+            label: isEn ? "Upcoming check-outs" : "Check-outs próximos",
+            value: String(operationsKpis.upcomingCheckOuts),
+            helper: isEn ? "Next 7 days" : "Próximos 7 días",
+            icon: CalendarCheckIn01Icon,
+          },
+          {
+            label: isEn ? "Turnover on-time rate" : "Turnovers a tiempo",
+            value: `${(operationsKpis.turnoverOnTimeRate * 100).toFixed(1)}%`,
+            helper: `${operationsKpis.turnoversOnTime}/${operationsKpis.turnoversDue}`,
+            icon: Task01Icon,
+          },
+        ]
+      : activeRole === "owner_admin"
+        ? [
+            {
+              label: isEn ? "Portfolio occupancy" : "Ocupación portafolio",
+              value: occupancyRate,
+              helper: isEn ? "Current period" : "Periodo actual",
+              icon: Home01Icon,
+            },
+            {
+              label: isEn ? "Collections paid" : "Cobranzas pagadas",
+              value: collectionRate,
+              helper: `${paidCollections}/${collections.length}`,
+              icon: Invoice01Icon,
+            },
+            {
+              label: isEn ? "Transparent listings" : "Anuncios transparentes",
+              value: transparentListingsPct,
+              helper: `${transparentListings}/${publishedListings.length}`,
+              icon: ChartIcon,
+            },
+          ]
+        : activeRole === "accountant"
+          ? [
+              {
+                label: isEn ? "Net payout" : "Pago neto",
+                value: reportNet,
+                helper: isEn ? "Current period" : "Periodo actual",
+                icon: Invoice01Icon,
+              },
+              {
+                label: isEn ? "Gross revenue" : "Ingresos brutos",
+                value: reportGross,
+                helper: isEn ? "Current period" : "Periodo actual",
+                icon: ChartIcon,
+              },
+              {
+                label: isEn ? "SLA breached tasks" : "Tareas SLA vencido",
+                value: String(operationsKpis.slaBreachedTasks),
+                helper: isEn ? "Ops risk signal" : "Señal de riesgo operativo",
+                icon: Task01Icon,
+              },
+            ]
+          : [
+              {
+                label: isEn ? "Properties" : "Propiedades",
+                value: String(properties.length),
+                helper: isEn ? "Portfolio scope" : "Alcance de portafolio",
+                icon: Home01Icon,
+              },
+              {
+                label: isEn ? "Open tasks" : "Tareas abiertas",
+                value: String(operationsKpis.openTasks),
+                helper: isEn ? "Current queue" : "Cola actual",
+                icon: Task01Icon,
+              },
+              {
+                label: isEn
+                  ? "Qualified applications"
+                  : "Aplicaciones calificadas",
+                value: String(qualifiedApplications),
+                helper: isEn ? "Leasing pipeline" : "Pipeline de leasing",
+                icon: File01Icon,
+              },
+            ];
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ── Page header ─────────────────────────────────────── */}
-      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <header className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card/98 p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="font-bold text-3xl tracking-tight">
+          <h1 className="font-semibold text-[2rem] tracking-[-0.02em]">
             {isEn ? "Operations" : "Operaciones"}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground/90 text-sm">
             {isEn ? "Active workspace · " : "Espacio activo · "}
             <span className="capitalize">
               {new Intl.DateTimeFormat(locale, {
@@ -267,22 +604,24 @@ export default async function DashboardPage() {
               }).format(new Date())}
             </span>
           </p>
+          <p className="mt-1 text-muted-foreground/80 text-xs uppercase tracking-[0.13em]">
+            {isEn ? "Role view" : "Vista por rol"}: {activeRoleLabel}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Link
-            className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-            href="/setup"
-          >
-            {isEn ? "Open setup" : "Abrir configuración"}
-          </Link>
-          <Link
-            className={cn(buttonVariants({ variant: "default", size: "sm" }))}
-            href="/module/reservations"
-          >
-            {isEn ? "View reservations" : "Ver reservas"}
-            <Icon icon={ArrowRight01Icon} size={14} />
-          </Link>
+          {quickActions.map((action, index) => (
+            <Link
+              className={cn(
+                buttonVariants({ variant: action.variant, size: "sm" })
+              )}
+              href={action.href}
+              key={action.href}
+            >
+              {isEn ? action.labelEn : action.labelEs}
+              {index === 0 ? <Icon icon={ArrowRight01Icon} size={14} /> : null}
+            </Link>
+          ))}
         </div>
       </header>
 
@@ -327,16 +666,66 @@ export default async function DashboardPage() {
         </Alert>
       )}
 
+      {opsAlertsCards.length > 0 ? (
+        <section className="grid gap-3 md:grid-cols-2">
+          {opsAlertsCards.map((item) => (
+            <Alert key={item.key} variant={item.variant}>
+              <AlertTitle>{item.title}</AlertTitle>
+              <AlertDescription>{item.description}</AlertDescription>
+            </Alert>
+          ))}
+        </section>
+      ) : (
+        <Alert variant="success">
+          <AlertTitle>
+            {isEn
+              ? "Operations alert center is clean"
+              : "Sin alertas operativas"}
+          </AlertTitle>
+          <AlertDescription>
+            {isEn
+              ? "No SLA breaches, overdue turnover tasks, or assignment gaps detected right now."
+              : "No se detectan incumplimientos SLA, vencimientos ni brechas de asignación en este momento."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       <GettingStarted
+        applicationCount={applications.length}
+        collectionCount={collections.length}
         locale={locale}
         propertyCount={properties.length}
         reservationCount={reservations.length}
+        role={activeRole}
         unitCount={units.length}
       />
 
+      <section
+        aria-label={isEn ? "Role control center" : "Centro de control por rol"}
+        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
+      >
+        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+          {isEn ? "Role control center" : "Centro de control por rol"}
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {roleKpis.map((item) => (
+            <StatCard
+              helper={item.helper}
+              icon={item.icon}
+              key={item.label}
+              label={item.label}
+              value={item.value}
+            />
+          ))}
+        </div>
+      </section>
+
       {/* ── KPI stats ───────────────────────────────────────── */}
-      <section aria-label={isEn ? "Key metrics" : "Métricas clave"}>
-        <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <section
+        aria-label={isEn ? "Key metrics" : "Métricas clave"}
+        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
+      >
+        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
           {isEn ? "Operations" : "Operaciones"}
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -347,23 +736,28 @@ export default async function DashboardPage() {
             value={String(properties.length)}
           />
           <StatCard
-            helper={isEn ? "Recent bookings" : "Reservas recientes"}
+            helper={
+              isEn ? "Check-ins next 7 days" : "Check-ins próximos 7 días"
+            }
             icon={CalendarCheckIn01Icon}
-            label={isEn ? "Reservations" : "Reservas"}
-            value={String(reservations.length)}
+            label={isEn ? "Upcoming check-ins" : "Check-ins próximos"}
+            value={String(operationsKpis.upcomingCheckIns)}
           />
           <StatCard
-            helper={isEn ? "Pending today" : "Pendientes hoy"}
+            helper={`${isEn ? "Overdue" : "Vencidas"} ${operationsKpis.overdueTasks} · ${isEn ? "SLA" : "SLA"} ${operationsKpis.slaBreachedTasks}`}
             icon={Task01Icon}
             label={isEn ? "Open tasks" : "Tareas abiertas"}
-            value={String(tasks.length)}
+            value={String(operationsKpis.openTasks)}
           />
         </div>
       </section>
 
       {/* ── Finance stats ───────────────────────────────────── */}
-      <section aria-label={isEn ? "Financial overview" : "Resumen financiero"}>
-        <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <section
+        aria-label={isEn ? "Financial overview" : "Resumen financiero"}
+        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
+      >
+        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
           {isEn ? "Finance" : "Finanzas"}
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -388,8 +782,11 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section aria-label={isEn ? "Leasing metrics" : "Métricas de arriendos"}>
-        <h2 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+      <section
+        aria-label={isEn ? "Leasing metrics" : "Métricas de arriendos"}
+        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
+      >
+        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
           {isEn ? "Leasing pipeline" : "Pipeline de arriendos"}
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -419,6 +816,13 @@ export default async function DashboardPage() {
       {/* ── Insights charts ─────────────────────────────────── */}
       <DashboardInsights
         locale={locale}
+        operationsSummary={{
+          turnoversDue: operationsKpis.turnoversDue,
+          turnoversOnTime: operationsKpis.turnoversOnTime,
+          turnoverOnTimeRate: operationsKpis.turnoverOnTimeRate,
+          overdueTasks: operationsKpis.overdueTasks,
+          slaBreachedTasks: operationsKpis.slaBreachedTasks,
+        }}
         revenue={revenueSnapshot}
         taskStatuses={taskStatuses}
       />

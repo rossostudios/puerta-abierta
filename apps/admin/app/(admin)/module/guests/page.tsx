@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -306,16 +307,21 @@ export default async function GuestsModulePage({ searchParams }: PageProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {errorLabel ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-              <p className="font-medium text-destructive">{errorLabel}</p>
-            </div>
+            <Alert variant="destructive">
+              <AlertTitle>
+                {isEn
+                  ? "Could not complete request"
+                  : "No se pudo completar la solicitud"}
+              </AlertTitle>
+              <AlertDescription>{errorLabel}</AlertDescription>
+            </Alert>
           ) : null}
           {successLabel ? (
-            <div className="rounded-md border border-emerald-500/40 bg-emerald-500/5 p-3 text-sm">
-              <p className="font-medium text-emerald-700">
+            <Alert variant="success">
+              <AlertTitle>
                 {isEn ? "Success" : "Éxito"}: {successLabel}
-              </p>
-            </div>
+              </AlertTitle>
+            </Alert>
           ) : null}
 
           <GuestsCrm orgId={orgId} rows={rows} />

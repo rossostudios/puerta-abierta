@@ -348,6 +348,14 @@ class CreateMarketplaceListingInput(BaseModel):
     bedrooms: Optional[int] = Field(default=None, ge=0)
     bathrooms: Optional[float] = Field(default=None, ge=0)
     square_meters: Optional[float] = Field(default=None, ge=0)
+    property_type: Optional[str] = None
+    furnished: bool = False
+    pet_policy: Optional[str] = None
+    parking_spaces: Optional[int] = Field(default=None, ge=0)
+    minimum_lease_months: Optional[int] = Field(default=None, ge=1)
+    available_from: Optional[str] = None
+    amenities: list[str] = Field(default_factory=list)
+    maintenance_fee: float = Field(default=0, ge=0)
     fee_lines: list[FeeLineInput] = Field(default_factory=list)
 
 
@@ -370,6 +378,14 @@ class UpdateMarketplaceListingInput(BaseModel):
     bedrooms: Optional[int] = Field(default=None, ge=0)
     bathrooms: Optional[float] = Field(default=None, ge=0)
     square_meters: Optional[float] = Field(default=None, ge=0)
+    property_type: Optional[str] = None
+    furnished: Optional[bool] = None
+    pet_policy: Optional[str] = None
+    parking_spaces: Optional[int] = Field(default=None, ge=0)
+    minimum_lease_months: Optional[int] = Field(default=None, ge=1)
+    available_from: Optional[str] = None
+    amenities: Optional[list[str]] = None
+    maintenance_fee: Optional[float] = Field(default=None, ge=0)
     is_published: Optional[bool] = None
     fee_lines: Optional[list[FeeLineInput]] = None
 

@@ -6,7 +6,7 @@ const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       className={cn(
-        "rounded-lg border bg-card text-card-foreground shadow-sm",
+        "rounded-3xl border border-border/75 bg-card text-card-foreground shadow-[0_1px_0_rgba(17,24,39,0.03)]",
         className
       )}
       ref={ref}
@@ -19,7 +19,7 @@ Card.displayName = "Card";
 const CardHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
-      className={cn("flex flex-col space-y-1.5 p-6", className)}
+      className={cn("flex flex-col space-y-2 p-5", className)}
       ref={ref}
       {...props}
     />
@@ -32,7 +32,7 @@ const CardTitle = forwardRef<
   HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
   <h3
-    className={cn("font-semibold leading-none tracking-tight", className)}
+    className={cn("font-semibold leading-tight tracking-[-0.01em]", className)}
     ref={ref}
     {...props}
   />
@@ -44,7 +44,7 @@ const CardDescription = forwardRef<
   HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
   <p
-    className={cn("text-muted-foreground text-sm", className)}
+    className={cn("text-muted-foreground/90 text-sm", className)}
     ref={ref}
     {...props}
   />
@@ -53,7 +53,7 @@ CardDescription.displayName = "CardDescription";
 
 const CardContent = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
-    <div className={cn("p-6 pt-0", className)} ref={ref} {...props} />
+    <div className={cn("p-5 pt-0", className)} ref={ref} {...props} />
   )
 );
 CardContent.displayName = "CardContent";
@@ -61,7 +61,7 @@ CardContent.displayName = "CardContent";
 const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
-      className={cn("flex items-center p-6 pt-0", className)}
+      className={cn("flex items-center p-5 pt-0", className)}
       ref={ref}
       {...props}
     />

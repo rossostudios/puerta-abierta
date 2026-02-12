@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Icon } from "@/components/ui/icon";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency, humanizeKey } from "@/lib/format";
@@ -109,68 +110,6 @@ function asDateLabel(value: string): string | null {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-type StatusTone = "success" | "warning" | "danger" | "neutral";
-
-function statusTone(value: string): StatusTone {
-  const normalized = value.trim().toLowerCase();
-  if (
-    [
-      "active",
-      "confirmed",
-      "checked_in",
-      "checked_out",
-      "done",
-      "finalized",
-      "sent",
-      "paid",
-      "processed",
-    ].includes(normalized)
-  ) {
-    return "success";
-  }
-  if (
-    ["inactive", "cancelled", "failed", "no_show", "ignored"].includes(
-      normalized
-    )
-  ) {
-    return "danger";
-  }
-  if (
-    ["pending", "draft", "todo", "in_progress", "received", "queued"].includes(
-      normalized
-    )
-  ) {
-    return "warning";
-  }
-  return "neutral";
-}
-
-function StatusBadge({ value }: { value: string }) {
-  const tone = statusTone(value);
-  const label = humanizeKey(value);
-
-  if (tone === "neutral") {
-    return (
-      <Badge className="whitespace-nowrap" variant="secondary">
-        {label}
-      </Badge>
-    );
-  }
-
-  const className =
-    tone === "success"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300"
-      : tone === "danger"
-        ? "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300"
-        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300";
-
-  return (
-    <Badge className={cn("whitespace-nowrap", className)} variant="outline">
-      {label}
-    </Badge>
-  );
 }
 
 function sortKeys(keys: string[]): string[] {
@@ -301,12 +240,12 @@ function toStatementReconciliation(
 
 function reconciliationDiffClass(diff: number): string {
   if (Math.abs(diff) < 0.01) {
-    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300";
+    return "status-tone-success";
   }
   if (diff > 0) {
-    return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300";
+    return "status-tone-warning";
   }
-  return "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300";
+  return "status-tone-danger";
 }
 
 function recordTitle(record: Record<string, unknown>): string {

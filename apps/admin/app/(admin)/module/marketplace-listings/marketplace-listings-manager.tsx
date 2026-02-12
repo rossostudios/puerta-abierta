@@ -18,6 +18,7 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,14 @@ export function MarketplaceListingsManager({
         bedrooms: asNumber(row.bedrooms),
         bathrooms: asNumber(row.bathrooms),
         square_meters: asNumber(row.square_meters),
+        property_type: asString(row.property_type).trim() || null,
+        furnished: asBoolean(row.furnished),
+        pet_policy: asString(row.pet_policy).trim() || null,
+        parking_spaces: asNumber(row.parking_spaces),
+        minimum_lease_months: asNumber(row.minimum_lease_months),
+        available_from: asString(row.available_from).trim() || null,
+        amenities: Array.isArray(row.amenities) ? row.amenities : [],
+        maintenance_fee: asNumber(row.maintenance_fee),
         missing_required_fee_lines: Array.isArray(
           row.missing_required_fee_lines
         )
@@ -149,11 +158,28 @@ export function MarketplaceListingsManager({
           const beds = asNumber(row.original.bedrooms);
           const baths = asNumber(row.original.bathrooms);
           const sqm = asNumber(row.original.square_meters);
+          const propertyType = asString(row.original.property_type);
+          const furnished = asBoolean(row.original.furnished);
+          const parking = asNumber(row.original.parking_spaces);
+          const minLeaseMonths = asNumber(row.original.minimum_lease_months);
           return (
-            <p className="text-sm">
-              {beds} {isEn ? "bed" : "hab"} · {baths} {isEn ? "bath" : "baño"} ·{" "}
-              {sqm} m²
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm">
+                {beds} {isEn ? "bed" : "hab"} · {baths} {isEn ? "bath" : "baño"}{" "}
+                · {sqm} m²
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {propertyType || (isEn ? "Property" : "Propiedad")} ·{" "}
+                {furnished
+                  ? isEn
+                    ? "Furnished"
+                    : "Amoblado"
+                  : isEn
+                    ? "Unfurnished"
+                    : "Sin amoblar"}{" "}
+                · {parking} {isEn ? "parking" : "estac."} · {minLeaseMonths}m
+              </p>
+            </div>
           );
         },
       },
@@ -167,6 +193,29 @@ export function MarketplaceListingsManager({
             </Badge>
           ) : (
             <Badge variant="outline">{isEn ? "Draft" : "Borrador"}</Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "available_from",
+        header: isEn ? "Availability" : "Disponibilidad",
+        cell: ({ row }) => {
+          const availableFrom = asString(row.original.available_from);
+          const amenities = Array.isArray(row.original.amenities)
+            ? row.original.amenities
+            : [];
+          const petPolicy = asString(row.original.pet_policy);
+          return (
+            <div className="space-y-1">
+              <p className="text-sm">
+                {availableFrom || (isEn ? "Not set" : "Sin fecha")}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {amenities.length} {isEn ? "amenities" : "amenidades"} ·{" "}
+                {petPolicy ||
+                  (isEn ? "Pet policy pending" : "Política pendiente")}
+              </p>
+            </div>
           );
         },
       },
@@ -206,11 +255,19 @@ export function MarketplaceListingsManager({
         accessorKey: "monthly_recurring_total",
         header: isEn ? "Monthly recurring" : "Mensual recurrente",
         cell: ({ row, getValue }) =>
-          formatCurrency(
+          `${formatCurrency(
             asNumber(getValue()),
             asString(row.original.currency),
             locale
-          ),
+          )}${
+            asNumber(row.original.maintenance_fee) > 0
+              ? ` (+${formatCurrency(
+                  asNumber(row.original.maintenance_fee),
+                  asString(row.original.currency),
+                  locale
+                )} ${isEn ? "maintenance" : "mantenimiento"})`
+              : ""
+          }`,
       },
     ];
   }, [isEn, locale]);
@@ -388,8 +445,7 @@ export function MarketplaceListingsManager({
                   ? "Gallery image URLs (one per line)"
                   : "URLs galería (una por línea)"}
               </span>
-              <textarea
-                className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+              <Textarea
                 name="gallery_image_urls"
                 placeholder={"https://.../1.jpg\nhttps://.../2.jpg"}
               />
@@ -408,6 +464,60 @@ export function MarketplaceListingsManager({
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Area (m²)" : "Área (m²)"}</span>
               <Input min={0} name="square_meters" step="0.01" type="number" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Property type" : "Tipo de propiedad"}</span>
+              <Input
+                name="property_type"
+                placeholder={
+                  isEn ? "Apartment, house..." : "Departamento, casa..."
+                }
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Furnished" : "Amoblado"}</span>
+              <Select defaultValue="false" name="furnished">
+                <option value="false">{isEn ? "No" : "No"}</option>
+                <option value="true">{isEn ? "Yes" : "Sí"}</option>
+              </Select>
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Pet policy" : "Política de mascotas"}</span>
+              <Input
+                name="pet_policy"
+                placeholder={
+                  isEn
+                    ? "Pets allowed / not allowed"
+                    : "Se aceptan / no se aceptan"
+                }
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>
+                {isEn ? "Parking spaces" : "Espacios de estacionamiento"}
+              </span>
+              <Input min={0} name="parking_spaces" type="number" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>
+                {isEn ? "Minimum lease (months)" : "Contrato mínimo (meses)"}
+              </span>
+              <Input min={1} name="minimum_lease_months" type="number" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Available from" : "Disponible desde"}</span>
+              <Input name="available_from" type="date" />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Maintenance fee" : "Costo de mantenimiento"}</span>
+              <Input min={0} name="maintenance_fee" step="0.01" type="number" />
             </label>
 
             <label className="space-y-1 text-sm md:col-span-2">
@@ -454,11 +564,24 @@ export function MarketplaceListingsManager({
             </label>
 
             <label className="space-y-1 text-sm md:col-span-2">
-              <span>{isEn ? "Description" : "Descripción"}</span>
-              <textarea
-                className="min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-                name="description"
+              <span>
+                {isEn
+                  ? "Amenities (minimum 3, one per line)"
+                  : "Amenidades (mínimo 3, una por línea)"}
+              </span>
+              <Textarea
+                name="amenities"
+                placeholder={
+                  isEn
+                    ? "Air conditioning\nWifi\nParking"
+                    : "Aire acondicionado\nWifi\nEstacionamiento"
+                }
               />
+            </label>
+
+            <label className="space-y-1 text-sm md:col-span-2">
+              <span>{isEn ? "Description" : "Descripción"}</span>
+              <Textarea name="description" />
             </label>
           </div>
 

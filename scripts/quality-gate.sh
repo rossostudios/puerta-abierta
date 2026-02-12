@@ -9,6 +9,7 @@ echo "==> Puerta Abierta quality gate (${MODE})"
 echo "==> Admin checks"
 (
   cd "${ROOT_DIR}/apps/admin"
+  npm run brand:check
   npm run lint
   npm run typecheck
   if [[ "${MODE}" == "full" ]]; then

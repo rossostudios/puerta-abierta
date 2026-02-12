@@ -18,11 +18,11 @@ import {
 
 const PIN_POSITIONS: ReadonlyArray<{ left: string; top: string }> = [
   { left: "18%", top: "22%" },
-  { left: "62%", top: "26%" },
-  { left: "31%", top: "58%" },
-  { left: "70%", top: "61%" },
-  { left: "46%", top: "42%" },
-  { left: "56%", top: "72%" },
+  { left: "63%", top: "24%" },
+  { left: "33%", top: "44%" },
+  { left: "74%", top: "46%" },
+  { left: "24%", top: "57%" },
+  { left: "53%", top: "54%" },
 ];
 
 function compactCurrency(
@@ -101,7 +101,7 @@ export function MarketplaceMap({
   const spotlightSpecs = specsLabel(spotlight, locale);
 
   return (
-    <section className="pa-marketplace-map relative min-h-[560px] overflow-hidden rounded-[28px] border border-border/75 p-4 sm:p-6">
+    <section className="pa-marketplace-map relative min-h-[560px] min-w-0 overflow-hidden rounded-[28px] border border-border/75 p-4 sm:p-6">
       <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <Badge
           className="rounded-full bg-background/90 px-3 py-1 text-[11px] uppercase tracking-wide"
@@ -125,24 +125,24 @@ export function MarketplaceMap({
 
         return (
           <Link
-            className="absolute z-10 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border/80 bg-background/92 px-3 py-1.5 font-semibold text-sm shadow-[0_10px_24px_rgba(15,23,42,0.16)] transition-all duration-150 ease-out hover:-translate-y-[52%] hover:border-primary/40"
+            className="absolute z-10 inline-flex max-w-[9.5rem] -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border/80 bg-background/92 px-3 py-1.5 font-semibold text-sm shadow-[0_10px_24px_rgba(15,23,42,0.16)] transition-all duration-150 ease-out hover:-translate-y-[52%] hover:border-primary/40"
             href={`/marketplace/${encodeURIComponent(slug)}`}
             key={slug || `${title}-${index}`}
             style={{ left: pos.left, top: pos.top }}
           >
             <Icon className="text-primary" icon={Tag01Icon} size={14} />
-            {amount}
+            <span className="truncate">{amount}</span>
           </Link>
         );
       })}
 
-      <div className="absolute inset-x-4 bottom-4 z-20 rounded-[24px] border border-border/75 bg-background/94 p-4 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:inset-x-6 sm:bottom-6 sm:p-5">
+      <div className="absolute inset-x-4 bottom-4 z-20 min-w-0 rounded-[24px] border border-border/75 bg-background/94 p-4 shadow-[0_20px_40px_rgba(15,23,42,0.12)] backdrop-blur-sm sm:inset-x-6 sm:bottom-6 sm:p-5">
         <p className="line-clamp-1 text-muted-foreground text-sm">
           {spotlightNeighborhood
             ? `${spotlightNeighborhood}, ${spotlightCity}`
             : spotlightCity}
         </p>
-        <h3 className="line-clamp-1 font-semibold text-2xl tracking-tight">
+        <h3 className="line-clamp-1 font-semibold text-xl tracking-tight sm:text-2xl">
           {spotlightTitle}
         </h3>
 
@@ -153,20 +153,20 @@ export function MarketplaceMap({
               : "Precios transparentes de ingreso y mensual.")}
         </p>
 
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
             <p className="text-muted-foreground text-xs uppercase tracking-wide">
               {isEn ? "Total move-in" : "Costo total de ingreso"}
             </p>
-            <p className="font-semibold text-2xl tracking-tight">
+            <p className="truncate font-semibold text-2xl tracking-tight">
               {spotlightMoveIn}
             </p>
-            <p className="text-muted-foreground text-xs">
+            <p className="truncate text-muted-foreground text-xs">
               {isEn ? "Monthly" : "Mensual"}: {spotlightMonthly}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <Link
               className="inline-flex h-10 items-center rounded-2xl border border-border/80 bg-background px-4 font-medium text-sm transition-colors hover:bg-accent"
               href={`/marketplace/${encodeURIComponent(spotlightSlug)}`}

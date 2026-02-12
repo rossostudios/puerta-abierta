@@ -27,13 +27,17 @@ export function TableCard({
   const isEn = locale === "en-US";
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-3">
+    <Card className="border-border/80 bg-card/98">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 border-border/70 border-b pb-4">
         <div>
-          <CardDescription>{subtitle}</CardDescription>
-          <CardTitle>{title}</CardTitle>
+          <CardDescription className="text-[11px] uppercase tracking-[0.13em]">
+            {subtitle}
+          </CardDescription>
+          <CardTitle className="mt-1 text-[1.45rem] tracking-[-0.01em]">
+            {title}
+          </CardTitle>
         </div>
-        <CardDescription>
+        <CardDescription className="rounded-full border border-border/75 bg-muted/44 px-2.5 py-1 font-medium text-[11px] tracking-wide">
           {rows.length} {isEn ? "records" : "registros"}
         </CardDescription>
       </CardHeader>

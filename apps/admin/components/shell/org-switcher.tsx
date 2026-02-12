@@ -2,17 +2,21 @@
 
 import {
   Add01Icon,
-  ArrowDown01Icon,
   Building01Icon,
   Tick01Icon,
+  UnavailableIcon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +42,7 @@ export function OrgSwitcher({
   locale: Locale;
 }) {
   const router = useRouter();
-  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const [open, setOpen] = useState(false);
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,6 +79,7 @@ export function OrgSwitcher({
     () => orgs.find((org) => org.id === activeOrgId) ?? null,
     [activeOrgId, orgs]
   );
+
   const label =
     activeOrg?.name?.trim() ||
     (activeOrgId
@@ -106,7 +111,7 @@ export function OrgSwitcher({
         );
         return;
       }
-      if (detailsRef.current) detailsRef.current.open = false;
+      setOpen(false);
       router.refresh();
     } catch (err) {
       toast.error(
@@ -121,103 +126,145 @@ export function OrgSwitcher({
   };
 
   return (
-    <details className="relative" ref={detailsRef}>
-      <summary
+    <PopoverRoot onOpenChange={setOpen} open={open}>
+      <PopoverTrigger
         className={cn(
-          buttonVariants({ variant: "outline", size: "sm" }),
-          "cursor-pointer list-none gap-2 [&::-webkit-details-marker]:hidden"
+          "group flex w-full items-center gap-3 rounded-xl border border-transparent p-1.5 outline-none transition-all duration-200",
+          "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring",
+          open && "bg-muted/60"
         )}
-        title={
-          activeOrgId ??
-          (isEn ? "Select organization" : "Seleccionar organización")
-        }
       >
-        <Icon
-          className="text-muted-foreground"
-          icon={Building01Icon}
-          size={16}
-        />
-        <span className="max-w-[14rem] truncate">
-          {loading
-            ? isEn
-              ? "Loading organization..."
-              : "Cargando organización..."
-            : label}
-        </span>
-        <Icon
-          className="text-muted-foreground"
-          icon={ArrowDown01Icon}
-          size={16}
-        />
-      </summary>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background shadow-xs transition-colors group-hover:border-border/60">
+          <Icon
+            className="text-foreground/80"
+            icon={Building01Icon}
+            size={18}
+          />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col text-left">
+          <span className="truncate font-medium text-foreground text-sm leading-tight">
+            {loading ? (
+              <span className="animate-pulse rounded bg-muted text-transparent">
+                Loading
+              </span>
+            ) : (
+              label
+            )}
+          </span>
+          <span className="truncate text-[11px] text-muted-foreground/60 leading-tight">
+            {isEn ? "Agency" : "Agencia"}
+          </span>
+        </div>
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+          fill="none"
+          focusable="false"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M8 9l4-4 4 4m0 6l-4 4-4-4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+          />
+        </svg>
+      </PopoverTrigger>
 
-      <div className="absolute right-0 z-30 mt-2 w-72 overflow-hidden rounded-lg border bg-popover shadow-lg">
-        <div className="border-b px-3 py-2">
-          <p className="font-medium text-muted-foreground text-xs">
-            {isEn ? "Organization" : "Organización"}
+      <PopoverContent
+        align="start"
+        className="w-[260px] p-1"
+        side="bottom"
+        sideOffset={8}
+      >
+        <div className="px-2 py-1.5">
+          <p className="font-medium text-[10px] text-muted-foreground uppercase tracking-wider">
+            {isEn ? "Switch Organization" : "Cambiar organización"}
           </p>
         </div>
 
-        <div className="max-h-72 overflow-auto p-1">
-          {orgs.length ? (
+        <div className="max-h-[280px] overflow-y-auto">
+          {loading ? (
+            <div className="px-2 py-4 text-center text-muted-foreground text-xs">
+              {isEn ? "Loading..." : "Cargando..."}
+            </div>
+          ) : orgs.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-muted-foreground">
+              <Icon
+                className="text-muted-foreground/40"
+                icon={UnavailableIcon}
+                size={24}
+              />
+              <p className="text-xs">
+                {isEn
+                  ? "No organizations found"
+                  : "No se encontraron organizaciones"}
+              </p>
+            </div>
+          ) : (
             orgs.map((org) => {
               const selected = org.id === activeOrgId;
               return (
                 <button
                   className={cn(
-                    "flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/40",
-                    selected ? "bg-muted/40" : ""
+                    "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
+                    selected
+                      ? "bg-primary/5 text-primary"
+                      : "text-foreground hover:bg-muted/50"
                   )}
                   key={org.id}
                   onClick={() => onSelect(org.id)}
                   type="button"
                 >
-                  <Icon
+                  <div
                     className={cn(
-                      selected ? "text-primary" : "text-muted-foreground",
-                      "mt-0.5"
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+                      selected
+                        ? "border-primary/20 bg-primary/10 text-primary"
+                        : "border-border/40 bg-background text-muted-foreground"
                     )}
-                    icon={selected ? Tick01Icon : Building01Icon}
-                    size={16}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-foreground">
-                      {org.name || (isEn ? "Organization" : "Organización")}
+                  >
+                    <Icon icon={Building01Icon} size={16} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-[13px]">
+                      {org.name ||
+                        (isEn ? "Unnamed Organization" : "Sin nombre")}
                     </span>
-                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {org.id}
+                    <span className="block truncate font-mono text-[10px] opacity-60">
+                      {shortId(org.id)}
                     </span>
-                  </span>
+                  </div>
+                  {selected && (
+                    <Icon
+                      className="text-primary"
+                      icon={Tick01Icon}
+                      size={16}
+                    />
+                  )}
                 </button>
               );
             })
-          ) : (
-            <div className="px-2 py-3 text-muted-foreground text-sm">
-              {isEn
-                ? "No organizations yet. Create your first one in Setup."
-                : "Todavía no hay organizaciones. Crea tu primera en Configuración."}
-            </div>
           )}
         </div>
 
-        <div className="border-t p-2">
+        <div className="mt-1 border-border/40 border-t p-1">
           <Link
             className={cn(
-              buttonVariants({ variant: "secondary", size: "sm" }),
-              "w-full justify-start"
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "h-9 w-full justify-start gap-2 text-xs"
             )}
             href="/setup"
-            onClick={() => {
-              if (detailsRef.current) detailsRef.current.open = false;
-            }}
+            onClick={() => setOpen(false)}
           >
-            <Icon icon={Add01Icon} size={16} />
+            <Icon icon={Add01Icon} size={14} />
             {isEn
-              ? "Create / manage organizations"
-              : "Crear / administrar organizaciones"}
+              ? "Create or join organization"
+              : "Crear o unirse a organización"}
           </Link>
         </div>
-      </div>
-    </details>
+      </PopoverContent>
+    </PopoverRoot>
   );
 }

@@ -36,6 +36,37 @@ function specsLabel(
   return segments.join(" · ");
 }
 
+function leaseTermsLabel(
+  listing: MarketplaceListingRecord,
+  locale: "es-PY" | "en-US"
+): string {
+  const isEn = locale === "en-US";
+  const propertyType = asText(listing.property_type);
+  const furnished = listing.furnished === true;
+  const parking = asOptionalNumber(listing.parking_spaces);
+  const minLeaseMonths = asOptionalNumber(listing.minimum_lease_months);
+  const parts: string[] = [];
+
+  if (propertyType) parts.push(propertyType);
+  parts.push(
+    furnished
+      ? isEn
+        ? "Furnished"
+        : "Amoblado"
+      : isEn
+        ? "Unfurnished"
+        : "Sin amoblar"
+  );
+  if (parking !== null) {
+    parts.push(`${parking} ${isEn ? "parking" : "estac."}`);
+  }
+  if (minLeaseMonths !== null) {
+    parts.push(`${minLeaseMonths} ${isEn ? "min months" : "meses min."}`);
+  }
+
+  return parts.join(" · ");
+}
+
 export function MarketplaceListingCard({
   listing,
   locale,
@@ -62,6 +93,9 @@ export function MarketplaceListingCard({
     locale
   );
   const specs = specsLabel(listing, locale);
+  const leaseTerms = leaseTermsLabel(listing, locale);
+  const availableFrom = asText(listing.available_from);
+  const maintenanceFee = asNumber(listing.maintenance_fee);
 
   return (
     <Card className="overflow-hidden rounded-2xl border-border/80 shadow-none">
@@ -105,6 +139,9 @@ export function MarketplaceListingCard({
         {specs ? (
           <p className="text-muted-foreground text-xs">{specs}</p>
         ) : null}
+        {leaseTerms ? (
+          <p className="text-muted-foreground text-xs">{leaseTerms}</p>
+        ) : null}
       </CardHeader>
 
       <CardContent className="space-y-3 p-4 pt-0">
@@ -116,6 +153,17 @@ export function MarketplaceListingCard({
           <p className="text-muted-foreground text-xs">
             {isEn ? "Monthly recurring" : "Mensual recurrente"}: {recurring}
           </p>
+          {maintenanceFee > 0 ? (
+            <p className="text-muted-foreground text-xs">
+              {isEn ? "Maintenance" : "Mantenimiento"}:{" "}
+              {formatCurrency(maintenanceFee, currency, locale)}
+            </p>
+          ) : null}
+          {availableFrom ? (
+            <p className="text-muted-foreground text-xs">
+              {isEn ? "Available from" : "Disponible desde"}: {availableFrom}
+            </p>
+          ) : null}
         </div>
 
         <IntentPrefetchLink

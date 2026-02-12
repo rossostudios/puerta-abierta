@@ -91,8 +91,8 @@ export function LanguageSelector({ className }: LanguageSelectorProps) {
       onChange={(event) => setAndPersist(event.target.value as Locale)}
       value={locale}
     >
-      <option value="es-PY">{localeLabel("es-PY")}</option>
-      <option value="en-US">{localeLabel("en-US")}</option>
+      <option value="es-PY">ES</option>
+      <option value="en-US">EN</option>
     </Select>
   );
 }

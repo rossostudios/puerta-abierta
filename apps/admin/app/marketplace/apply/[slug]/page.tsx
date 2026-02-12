@@ -92,12 +92,16 @@ export default async function MarketplaceApplyPage({
   );
   const coverImageUrl = asText(listing.cover_image_url);
   const specs = specsText(listing, locale);
+  const propertyType = asText(listing.property_type);
+  const furnished = listing.furnished === true;
+  const availableFrom = asText(listing.available_from);
+  const minimumLeaseMonths = asOptionalNumber(listing.minimum_lease_months);
 
   return (
     <div className="pa-marketplace-root min-h-dvh bg-background">
       <PublicHeader locale={locale} />
 
-      <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-[1240px] space-y-6 px-4 py-8 sm:px-6 lg:px-8">
         <header className="space-y-3">
           <Link
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
@@ -116,8 +120,8 @@ export default async function MarketplaceApplyPage({
           </h1>
         </header>
 
-        <section className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
-          <Card>
+        <section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+          <Card className="min-w-0">
             <CardHeader>
               <CardTitle>{title}</CardTitle>
             </CardHeader>
@@ -143,6 +147,14 @@ export default async function MarketplaceApplyPage({
               {specs ? (
                 <p className="text-muted-foreground text-sm">{specs}</p>
               ) : null}
+              <p className="text-muted-foreground text-xs">
+                {[
+                  propertyType,
+                  furnished ? (isEn ? "Furnished" : "Amoblado") : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
               <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "Total move-in" : "Costo total de ingreso"}
@@ -151,6 +163,18 @@ export default async function MarketplaceApplyPage({
                 <p className="text-muted-foreground text-xs">
                   {isEn ? "Monthly recurring" : "Mensual recurrente"}:{" "}
                   {recurring}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {isEn ? "Available from" : "Disponible desde"}:{" "}
+                  {availableFrom || (isEn ? "Not set" : "Sin definir")}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {isEn ? "Minimum lease" : "Contrato mínimo"}:{" "}
+                  {minimumLeaseMonths
+                    ? `${minimumLeaseMonths} ${isEn ? "months" : "meses"}`
+                    : isEn
+                      ? "Not set"
+                      : "Sin definir"}
                 </p>
               </div>
               <p className="text-muted-foreground text-xs">

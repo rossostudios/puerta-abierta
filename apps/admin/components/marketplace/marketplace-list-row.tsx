@@ -63,6 +63,11 @@ export function MarketplaceListRow({
     locale
   );
   const specs = specsLabel(listing, locale);
+  const propertyType = asText(listing.property_type);
+  const furnished = listing.furnished === true;
+  const parkingSpaces = asOptionalNumber(listing.parking_spaces);
+  const minimumLeaseMonths = asOptionalNumber(listing.minimum_lease_months);
+  const availableFrom = asText(listing.available_from);
 
   return (
     <article className="group rounded-3xl border border-border/70 bg-card/95 p-3 shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-all duration-150 ease-out hover:border-primary/35 hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
@@ -124,6 +129,25 @@ export function MarketplaceListRow({
               <Icon icon={Calendar02Icon} size={12} />
               {isEn ? "Long-term" : "Largo plazo"}
             </span>
+            {propertyType ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-muted-foreground">
+                {propertyType}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-muted-foreground">
+              {furnished
+                ? isEn
+                  ? "Furnished"
+                  : "Amoblado"
+                : isEn
+                  ? "Unfurnished"
+                  : "Sin amoblar"}
+            </span>
+            {parkingSpaces !== null ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/30 px-2 py-0.5 text-muted-foreground">
+                {parkingSpaces} {isEn ? "parking" : "estac."}
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -139,6 +163,16 @@ export function MarketplaceListRow({
           </p>
           <p className="truncate text-muted-foreground text-xs">
             {isEn ? "Monthly" : "Mensual"}: {monthly}
+          </p>
+          <p className="truncate text-muted-foreground text-xs">
+            {isEn ? "Available" : "Disponible"}:{" "}
+            {availableFrom || (isEn ? "Not set" : "Sin fecha")} ·{" "}
+            {isEn ? "Min lease" : "Contrato min."}:{" "}
+            {minimumLeaseMonths
+              ? `${minimumLeaseMonths} ${isEn ? "months" : "meses"}`
+              : isEn
+                ? "n/a"
+                : "n/d"}
           </p>
         </div>
 

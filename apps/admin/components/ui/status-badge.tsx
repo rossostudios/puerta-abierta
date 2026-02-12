@@ -12,14 +12,11 @@ type StatusBadgeProps = {
 };
 
 const TONE_CLASS: Record<StatusTone, string> = {
-  success:
-    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300",
-  warning:
-    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300",
-  danger:
-    "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-300",
-  info: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-300",
-  neutral: "",
+  success: "status-tone-success",
+  warning: "status-tone-warning",
+  danger: "status-tone-danger",
+  info: "status-tone-info",
+  neutral: "status-tone-neutral",
 };
 
 const VALUE_TONE: Record<string, StatusTone> = {
@@ -86,12 +83,15 @@ export function StatusBadge({
   }
 
   const resolvedTone = tone ?? inferredTone(rawValue || display);
-  const variant = resolvedTone === "neutral" ? "secondary" : "outline";
 
   return (
     <Badge
-      className={cn("whitespace-nowrap", TONE_CLASS[resolvedTone], className)}
-      variant={variant}
+      className={cn(
+        "whitespace-nowrap border bg-transparent",
+        TONE_CLASS[resolvedTone],
+        className
+      )}
+      variant="outline"
     >
       {display}
     </Badge>

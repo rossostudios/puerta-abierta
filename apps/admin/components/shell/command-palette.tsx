@@ -148,7 +148,7 @@ export function CommandPalette() {
         aria-label={
           isEn ? "Search or jump to... (Cmd+K)" : "Buscar o ir a... (Cmd+K)"
         }
-        className="flex w-full items-center justify-between gap-3 px-3 font-normal text-muted-foreground md:w-64"
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-xl border-border/85 bg-background/90 px-3.5 font-normal text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] hover:bg-background"
         onClick={() => setOpen(true)}
         type="button"
         variant="outline"
@@ -168,13 +168,13 @@ export function CommandPalette() {
         <div className="fixed inset-0 z-50">
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-black/35 backdrop-blur-[2px] transition-opacity dark:bg-black/70"
+            className="absolute inset-0 bg-black/24 backdrop-blur-[3px] transition-opacity dark:bg-black/65"
             onClick={() => setOpen(false)}
           />
 
-          <div className="absolute top-[12vh] left-1/2 w-[min(680px,calc(100vw-32px))] -translate-x-1/2">
-            <div className="overflow-hidden rounded-xl border bg-popover shadow-2xl">
-              <div className="flex items-center gap-2 border-b px-3 py-2">
+          <div className="absolute top-[9vh] left-1/2 w-[min(760px,calc(100vw-32px))] -translate-x-1/2">
+            <div className="overflow-hidden rounded-3xl border border-border/80 bg-popover/98 shadow-[0_24px_54px_rgba(15,23,42,0.22)]">
+              <div className="flex items-center gap-2 border-border/75 border-b px-4 py-3">
                 <Icon
                   className="text-muted-foreground"
                   icon={Search01Icon}
@@ -192,7 +192,7 @@ export function CommandPalette() {
                   aria-label="Cerrar"
                   className={cn(
                     buttonVariants({ variant: "ghost", size: "icon" }),
-                    "h-9 w-9"
+                    "h-9 w-9 rounded-xl"
                   )}
                   onClick={() => setOpen(false)}
                   type="button"
@@ -201,15 +201,17 @@ export function CommandPalette() {
                 </button>
               </div>
 
-              <div className="max-h-[52vh] overflow-auto p-1">
+              <div className="max-h-[52vh] overflow-auto p-2">
                 {actions.length ? (
                   actions.map((action, index) => {
                     const active = index === cursor;
                     return (
                       <button
                         className={cn(
-                          "flex w-full items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                          active ? "bg-muted/50" : "hover:bg-muted/30"
+                          "flex w-full items-center justify-between gap-4 rounded-2xl px-3 py-2.5 text-left text-sm transition-colors",
+                          active
+                            ? "bg-muted/56 shadow-[inset_0_0_0_1px_rgba(17,24,39,0.04)]"
+                            : "hover:bg-muted/34"
                         )}
                         key={action.key}
                         onClick={() => go(action.href)}
@@ -242,7 +244,7 @@ export function CommandPalette() {
                 )}
               </div>
 
-              <div className="border-t px-3 py-2 text-muted-foreground text-xs">
+              <div className="border-border/75 border-t px-4 py-2.5 text-muted-foreground text-xs">
                 Tip: <span className="font-medium text-foreground">Cmd+K</span>{" "}
                 para abrir. Usa{" "}
                 <span className="font-medium text-foreground">↑</span>/

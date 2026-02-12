@@ -96,13 +96,13 @@ export function SidebarAccount({
           aria-haspopup="menu"
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "w-full list-none justify-start gap-2.5 rounded-2xl px-2.5 py-2.5 text-foreground/78 [&::-webkit-details-marker]:hidden",
-            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-foreground/4 hover:text-foreground",
+            "w-full list-none justify-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 text-foreground/72 [&::-webkit-details-marker]:hidden",
+            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border/70 hover:bg-background/72 hover:text-foreground",
             collapsed ? "justify-center px-0" : ""
           )}
           title={label}
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border/80 bg-background/90 font-semibold text-primary text-sm">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border/80 bg-background/90 font-semibold text-foreground text-sm">
             {badge}
           </span>
           <span
@@ -127,7 +127,7 @@ export function SidebarAccount({
 
         <div
           className={cn(
-            "absolute bottom-12 z-30 rounded-2xl border border-sidebar-border/80 bg-popover/98 p-1.5 shadow-xl",
+            "absolute bottom-12 z-30 rounded-2xl border border-sidebar-border/80 bg-popover/98 p-1.5 shadow-[0_20px_40px_rgba(15,23,42,0.16)]",
             collapsed ? "left-full ml-2 w-56" : "right-0 left-0"
           )}
         >

@@ -12,6 +12,10 @@ from app.services.table_service import list_rows
 router = APIRouter(tags=["Reports"])
 
 REPORTABLE_STATUSES = {"confirmed", "checked_in", "checked_out"}
+ACTIVE_TASK_STATUSES = {"todo", "in_progress"}
+TURNOVER_TASK_TYPES = {"check_in", "check_out", "cleaning", "inspection"}
+UPCOMING_CHECK_IN_STATUSES = {"pending", "confirmed"}
+UPCOMING_CHECK_OUT_STATUSES = {"confirmed", "checked_in"}
 
 
 def _parse_date(value: str) -> date:
@@ -27,6 +31,15 @@ def _parse_datetime(value: str) -> datetime:
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     return datetime.fromisoformat(text)
+
+
+def _datetime_or_none(value: object) -> Optional[datetime]:
+    if not isinstance(value, str):
+        return None
+    try:
+        return _parse_datetime(value)
+    except Exception:
+        return None
 
 
 def _expense_amount_pyg(expense: dict) -> tuple[float, Optional[str]]:
@@ -120,6 +133,120 @@ def owner_summary_report(
         "expenses": round(total_expenses, 2),
         "net_payout": net_payout,
         "expense_warnings": warnings,
+    }
+
+
+@router.get("/reports/operations-summary")
+def operations_summary_report(
+    org_id: str = Query(...),
+    from_date: str = Query(..., alias="from"),
+    to_date: str = Query(..., alias="to"),
+    user_id: str = Depends(require_user_id),
+) -> dict:
+    assert_org_member(user_id, org_id)
+
+    period_start = _parse_date(from_date)
+    period_end = _parse_date(to_date)
+    now_utc = datetime.utcnow().date()
+
+    tasks = list_rows("tasks", {"organization_id": org_id}, limit=20000)
+
+    turnovers_due = 0
+    turnovers_completed_on_time = 0
+    open_tasks = 0
+    overdue_tasks = 0
+    sla_breached_tasks = 0
+
+    for task in tasks:
+        task_type = str(task.get("type") or "").strip().lower()
+        status = str(task.get("status") or "").strip().lower()
+
+        due_at = _datetime_or_none(task.get("due_at"))
+        due_date = due_at.date() if due_at else None
+        sla_due_at = _datetime_or_none(task.get("sla_due_at"))
+        completed_at = _datetime_or_none(task.get("completed_at"))
+        sla_breached_at = _datetime_or_none(task.get("sla_breached_at"))
+
+        if status in ACTIVE_TASK_STATUSES:
+            open_tasks += 1
+            if due_date and due_date < now_utc:
+                overdue_tasks += 1
+
+        if sla_breached_at or (
+            status in ACTIVE_TASK_STATUSES
+            and sla_due_at
+            and sla_due_at.date() < now_utc
+        ):
+            sla_breached_tasks += 1
+
+        if task_type not in TURNOVER_TASK_TYPES:
+            continue
+        if not due_date:
+            continue
+        if due_date < period_start or due_date > period_end:
+            continue
+
+        turnovers_due += 1
+        if status != "done":
+            continue
+
+        reference_due = sla_due_at or due_at
+        if reference_due and completed_at and completed_at <= reference_due:
+            turnovers_completed_on_time += 1
+        elif completed_at and not reference_due:
+            turnovers_completed_on_time += 1
+
+    turnover_on_time_rate = (
+        round(turnovers_completed_on_time / turnovers_due, 4)
+        if turnovers_due
+        else 0.0
+    )
+
+    reservations = list_rows("reservations", {"organization_id": org_id}, limit=20000)
+    reservations_upcoming_check_in = 0
+    reservations_upcoming_check_out = 0
+
+    for reservation in reservations:
+        status = str(reservation.get("status") or "").strip().lower()
+
+        check_in_raw = reservation.get("check_in_date")
+        if isinstance(check_in_raw, str):
+            try:
+                check_in_date = _parse_date(check_in_raw)
+            except Exception:
+                check_in_date = None
+            if (
+                check_in_date
+                and period_start <= check_in_date <= period_end
+                and status in UPCOMING_CHECK_IN_STATUSES
+            ):
+                reservations_upcoming_check_in += 1
+
+        check_out_raw = reservation.get("check_out_date")
+        if isinstance(check_out_raw, str):
+            try:
+                check_out_date = _parse_date(check_out_raw)
+            except Exception:
+                check_out_date = None
+            if (
+                check_out_date
+                and period_start <= check_out_date <= period_end
+                and status in UPCOMING_CHECK_OUT_STATUSES
+            ):
+                reservations_upcoming_check_out += 1
+
+    return {
+        "organization_id": org_id,
+        "from": from_date,
+        "to": to_date,
+        "turnovers_due": turnovers_due,
+        "turnovers_completed_on_time": turnovers_completed_on_time,
+        "turnover_on_time_rate": turnover_on_time_rate,
+        "open_tasks": open_tasks,
+        "overdue_tasks": overdue_tasks,
+        "sla_breached_tasks": sla_breached_tasks,
+        "reservations_upcoming_check_in": reservations_upcoming_check_in,
+        "reservations_upcoming_check_out": reservations_upcoming_check_out,
     }
 
 
