@@ -71,11 +71,11 @@ export const MODULES: ModuleDef[] = [
   },
   {
     slug: "calendar",
-    label: "Bloqueos de calendario",
-    label_en: "Calendar blocks",
+    label: "Calendario",
+    label_en: "Calendar",
     endpoint: "/calendar/blocks",
-    description: "Mantenimiento y gestión de no disponibilidad manual.",
-    description_en: "Maintenance and manual availability blocks.",
+    description: "Calendario operativo y gestión de disponibilidad manual.",
+    description_en: "Operational calendar and manual availability management.",
   },
   {
     slug: "tasks",
@@ -191,12 +191,11 @@ export const MODULES: ModuleDef[] = [
     slug: "reports",
     label: "Reportes",
     label_en: "Reports",
-    endpoint: "/reports/owner-summary",
+    endpoint: "/reports",
     description:
-      "Vista consolidada de desempeño: ocupación, ingresos, cobros y métricas netas.",
+      "Hub centralizado para resumen del propietario, estados y transparencia.",
     description_en:
-      "Consolidated performance view: occupancy, revenue, collections, and net metrics.",
-    kind: "report",
+      "Centralized hub for owner summary, statements, and transparency reports.",
   },
 ];
 

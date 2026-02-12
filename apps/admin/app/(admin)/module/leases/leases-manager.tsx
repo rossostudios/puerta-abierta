@@ -12,6 +12,8 @@ import {
 } from "@/app/(admin)/module/leases/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -256,7 +258,7 @@ export function LeasesManager({
               </Link>
 
               {canActivate(status) ? (
-                <form
+                <Form
                   action={setLeaseStatusAction}
                   onSubmit={() =>
                     queueOptimisticRowUpdate({
@@ -272,11 +274,11 @@ export function LeasesManager({
                   <Button size="sm" type="submit" variant="outline">
                     {isEn ? "Activate" : "Activar"}
                   </Button>
-                </form>
+                </Form>
               ) : null}
 
               {canTerminate(status) ? (
-                <form
+                <Form
                   action={setLeaseStatusAction}
                   onSubmit={() =>
                     queueOptimisticRowUpdate({
@@ -292,11 +294,11 @@ export function LeasesManager({
                   <Button size="sm" type="submit" variant="outline">
                     {isEn ? "Terminate" : "Terminar"}
                   </Button>
-                </form>
+                </Form>
               ) : null}
 
               {canComplete(status) ? (
-                <form
+                <Form
                   action={setLeaseStatusAction}
                   onSubmit={() =>
                     queueOptimisticRowUpdate({
@@ -312,7 +314,7 @@ export function LeasesManager({
                   <Button size="sm" type="submit" variant="secondary">
                     {isEn ? "Complete" : "Completar"}
                   </Button>
-                </form>
+                </Form>
               ) : null}
             </div>
           );
@@ -330,7 +332,7 @@ export function LeasesManager({
         open={open}
         title={isEn ? "New lease" : "Nuevo contrato"}
       >
-        <form action={createLeaseAction} className="space-y-4">
+        <Form action={createLeaseAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -352,17 +354,16 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Start date" : "Fecha de inicio"}</span>
-              <Input
+              <DatePicker
                 defaultValue={today}
+                locale={locale}
                 name="starts_on"
-                required
-                type="date"
               />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "End date" : "Fecha de término"}</span>
-              <Input name="ends_on" type="date" />
+              <DatePicker locale={locale} name="ends_on" />
             </label>
 
             <label className="space-y-1 text-sm">
@@ -476,10 +477,10 @@ export function LeasesManager({
               <span>
                 {isEn ? "First collection due" : "Vencimiento primer cobro"}
               </span>
-              <Input
+              <DatePicker
                 defaultValue={today}
+                locale={locale}
                 name="first_collection_due_date"
-                type="date"
               />
             </label>
           </div>
@@ -494,7 +495,7 @@ export function LeasesManager({
               {isEn ? "Create lease" : "Crear contrato"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

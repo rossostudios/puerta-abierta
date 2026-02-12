@@ -6,15 +6,29 @@ import { getActiveLocale } from "@/lib/i18n/server";
 
 import "./globals.css";
 
+const THEME_V2_ENABLED = process.env.NEXT_PUBLIC_THEME_V2 !== "0";
+
 const THEME_INIT_SCRIPT = `
 (() => {
   try {
+    const themeV2Enabled = ${THEME_V2_ENABLED ? "true" : "false"};
     const key = "pa-theme";
     const stored = localStorage.getItem(key);
-    const theme = stored === "light" || stored === "dark"
-      ? stored
-      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    const systemDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (themeV2Enabled) {
+      const preference = stored === "light" || stored === "dark" || stored === "system"
+        ? stored
+        : "system";
+      const resolvedTheme = preference === "system" ? (systemDark ? "dark" : "light") : preference;
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+    } else {
+      const theme = stored === "light" || stored === "dark"
+        ? stored
+        : (systemDark ? "dark" : "light");
+      document.documentElement.dataset.themePreference = theme;
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    }
   } catch {}
 
   try {

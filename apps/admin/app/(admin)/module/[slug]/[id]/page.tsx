@@ -491,7 +491,7 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
       });
       links.push({
         href: `/module/calendar?${q("unit_id", recordId)}`,
-        label: "Bloqueos de calendario de esta unidad",
+        label: "Calendario de esta unidad",
       });
       links.push({
         href: `/module/tasks?${q("unit_id", recordId)}`,

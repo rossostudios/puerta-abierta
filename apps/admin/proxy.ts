@@ -99,6 +99,7 @@ export const config = {
   matcher: [
     "/app/:path*",
     "/setup/:path*",
+    "/settings/:path*",
     "/module/:path*",
     "/account/:path*",
     "/invite/:path*",

@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start -p 3000",
     "brand:check": "node ../../scripts/check-admin-colors.mjs",
+    "deadcode:check": "knip --include files",
     "lint": "ultracite check .",
     "format": "ultracite fix .",
     "typecheck": "tsc --noEmit"
@@ -35,6 +36,7 @@
     "@types/node": "25.2.1",
     "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
+    "knip": "^5.64.0",
     "tailwindcss": "4.1.18",
     "typescript": "5.9.3",
     "ultracite": "7.1.4"

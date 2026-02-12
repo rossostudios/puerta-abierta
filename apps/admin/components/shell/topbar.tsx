@@ -29,7 +29,7 @@ export function Topbar({
   const isEn = locale === "en-US";
 
   return (
-    <header className="border-border/75 border-b bg-background/86 px-3 py-2.5 backdrop-blur-xl sm:px-4 lg:px-5 xl:px-6">
+    <header className="border-border/75 border-b bg-background px-3 py-2.5 backdrop-blur-xl sm:px-4 lg:px-5 xl:px-6">
       <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
           {showNavToggle ? (

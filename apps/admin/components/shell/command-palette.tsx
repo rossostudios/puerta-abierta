@@ -174,12 +174,12 @@ export function CommandPalette({
         <div className="fixed inset-0 z-50">
           <div
             aria-hidden="true"
-            className="absolute inset-0 bg-black/24 backdrop-blur-[3px] transition-opacity dark:bg-black/65"
+            className="absolute inset-0 bg-[var(--overlay-scrim-strong)] backdrop-blur-[3px] transition-opacity"
             onClick={() => setOpen(false)}
           />
 
           <div className="absolute top-[9vh] left-1/2 w-[min(760px,calc(100vw-32px))] -translate-x-1/2">
-            <div className="overflow-hidden rounded-3xl border border-border/80 bg-popover/98 shadow-[0_24px_54px_rgba(15,23,42,0.22)]">
+            <div className="overflow-hidden rounded-3xl border border-border/80 bg-popover/98 shadow-[var(--shadow-floating)]">
               <div className="flex items-center gap-2 border-border/75 border-b px-4 py-3">
                 <Icon
                   className="text-muted-foreground"

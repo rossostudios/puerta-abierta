@@ -67,7 +67,7 @@ const MODULE_ICONS: Record<string, IconSvgElement> = {
   reports: ChartIcon,
 };
 
-type ViewportMode = "desktop" | "tablet" | "mobile";
+export type ViewportMode = "desktop" | "tablet" | "mobile";
 
 type SectionKey =
   | "workspace"
@@ -75,7 +75,6 @@ type SectionKey =
   | "operations"
   | "portfolio"
   | "finance"
-  | "platform"
   | "other";
 
 type PrimaryTabKey = "home" | "chat" | "inbox";
@@ -117,6 +116,19 @@ type OnboardingProgress = {
   percent: number;
 };
 
+type ChatAgentItem = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
+type ChatSummaryItem = {
+  id: string;
+  title: string;
+  is_archived: boolean;
+  latest_message_preview?: string | null;
+};
+
 const PRIMARY_TABS: Array<{
   key: PrimaryTabKey;
   href: string;
@@ -131,7 +143,7 @@ const PRIMARY_TABS: Array<{
   },
   {
     key: "chat",
-    href: "/app/agent",
+    href: "/app/agents",
     icon: Message01Icon,
     label: { "es-PY": "Chat", "en-US": "Chat" },
   },
@@ -145,14 +157,14 @@ const PRIMARY_TABS: Array<{
 
 const CHAT_LINKS: RouteLinkDef[] = [
   {
-    href: "/app/agent",
+    href: "/app/agents",
     icon: SparklesIcon,
-    label: { "es-PY": "Agente de Operaciones", "en-US": "Operations Agent" },
+    label: { "es-PY": "Agentes", "en-US": "Agents" },
   },
   {
-    href: "/module/tasks?mine=1",
-    icon: Task01Icon,
-    label: { "es-PY": "Mis tareas", "en-US": "My tasks" },
+    href: "/app/chats",
+    icon: InboxIcon,
+    label: { "es-PY": "Historial de chats", "en-US": "Chat history" },
   },
 ];
 
@@ -225,14 +237,6 @@ const SECTIONS: SectionDef[] = [
     },
     moduleSlugs: ["expenses", "pricing", "reports"],
   },
-  {
-    key: "platform",
-    label: {
-      "es-PY": "Plataforma",
-      "en-US": "Platform",
-    },
-    moduleSlugs: ["organizations", "integration-events", "audit-logs"],
-  },
 ];
 
 const COLLAPSED_SECTIONS_KEY = "pa-sidebar-collapsed-sections";
@@ -243,6 +247,9 @@ const HOME_TAB_HIDDEN_MODULE_SLUGS = new Set([
   "messaging",
   "owner-statements",
   "transparency-summary",
+  "organizations",
+  "integration-events",
+  "audit-logs",
 ]);
 
 function isRouteActive(pathname: string, href: string): boolean {
@@ -251,7 +258,13 @@ function isRouteActive(pathname: string, href: string): boolean {
 }
 
 function resolvePrimaryTab(pathname: string): PrimaryTabKey {
-  if (pathname.startsWith("/app/agent")) return "chat";
+  if (
+    pathname.startsWith("/app/agent") ||
+    pathname.startsWith("/app/agents") ||
+    pathname.startsWith("/app/chats")
+  ) {
+    return "chat";
+  }
   if (pathname.startsWith("/module/messaging")) return "inbox";
   return "home";
 }
@@ -415,6 +428,42 @@ function ShortcutBlock({
   );
 }
 
+function normalizeAgentItems(payload: unknown): ChatAgentItem[] {
+  if (!payload || typeof payload !== "object") return [];
+  const rows = (payload as { data?: unknown[] }).data;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row): row is Record<string, unknown> =>
+      Boolean(row && typeof row === "object")
+    )
+    .map((row) => ({
+      id: String(row.id ?? ""),
+      slug: String(row.slug ?? ""),
+      name: String(row.name ?? ""),
+    }))
+    .filter((row) => row.id && row.slug && row.name);
+}
+
+function normalizeChatItems(payload: unknown): ChatSummaryItem[] {
+  if (!payload || typeof payload !== "object") return [];
+  const rows = (payload as { data?: unknown[] }).data;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((row): row is Record<string, unknown> =>
+      Boolean(row && typeof row === "object")
+    )
+    .map((row) => ({
+      id: String(row.id ?? ""),
+      title: String(row.title ?? ""),
+      is_archived: Boolean(row.is_archived),
+      latest_message_preview:
+        typeof row.latest_message_preview === "string"
+          ? row.latest_message_preview
+          : null,
+    }))
+    .filter((row) => row.id && row.title);
+}
+
 function SidebarContent({
   locale,
   orgId,
@@ -436,6 +485,15 @@ function SidebarContent({
   const onboardingCompleted = completionPercent >= 100;
   const showOnboardingHub =
     activeTab === "home" && !onboardingCompleted && !onboardingHubClosed;
+  const [chatAgents, setChatAgents] = useState<ChatAgentItem[]>([]);
+  const [recentChats, setRecentChats] = useState<ChatSummaryItem[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [showArchivedChats, setShowArchivedChats] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatBusyId, setChatBusyId] = useState<string | null>(null);
+  const [chatDeleteArmedId, setChatDeleteArmedId] = useState<string | null>(
+    null
+  );
 
   const openSearch = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -449,6 +507,137 @@ function SidebarContent({
     });
     window.dispatchEvent(event);
   }, []);
+
+  const loadChatData = useCallback(async () => {
+    if (!orgId) {
+      setChatAgents([]);
+      setRecentChats([]);
+      setChatError(null);
+      return;
+    }
+
+    setChatLoading(true);
+    setChatError(null);
+
+    try {
+      const [agentsResponse, chatsResponse] = await Promise.all([
+        fetch(`/api/agent/agents?org_id=${encodeURIComponent(orgId)}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+          },
+        }),
+        fetch(
+          `/api/agent/chats?org_id=${encodeURIComponent(orgId)}&archived=${showArchivedChats ? "true" : "false"}&limit=8`,
+          {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+            },
+          }
+        ),
+      ]);
+
+      const agentsPayload = (await agentsResponse.json()) as unknown;
+      const chatsPayload = (await chatsResponse.json()) as unknown;
+
+      if (!agentsResponse.ok) {
+        const message =
+          agentsPayload &&
+          typeof agentsPayload === "object" &&
+          "error" in agentsPayload
+            ? String((agentsPayload as { error?: unknown }).error)
+            : isEn
+              ? "Could not load agents."
+              : "No se pudieron cargar los agentes.";
+        throw new Error(message);
+      }
+
+      if (!chatsResponse.ok) {
+        const message =
+          chatsPayload &&
+          typeof chatsPayload === "object" &&
+          "error" in chatsPayload
+            ? String((chatsPayload as { error?: unknown }).error)
+            : isEn
+              ? "Could not load chats."
+              : "No se pudieron cargar los chats.";
+        throw new Error(message);
+      }
+
+      setChatAgents(normalizeAgentItems(agentsPayload));
+      setRecentChats(normalizeChatItems(chatsPayload));
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : String(err));
+      setChatAgents([]);
+      setRecentChats([]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [orgId, showArchivedChats, isEn]);
+
+  useEffect(() => {
+    if (activeTab !== "chat") return;
+    loadChatData().catch(() => undefined);
+  }, [activeTab, loadChatData]);
+
+  const mutateRecentChat = useCallback(
+    async (chatId: string, action: "archive" | "restore" | "delete") => {
+      if (!orgId) return;
+      setChatBusyId(chatId);
+      setChatError(null);
+
+      try {
+        let response: Response;
+        if (action === "delete") {
+          response = await fetch(
+            `/api/agent/chats/${encodeURIComponent(chatId)}?org_id=${encodeURIComponent(orgId)}`,
+            {
+              method: "DELETE",
+              headers: {
+                Accept: "application/json",
+              },
+            }
+          );
+        } else {
+          response = await fetch(
+            `/api/agent/chats/${encodeURIComponent(chatId)}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({
+                org_id: orgId,
+                action,
+              }),
+            }
+          );
+        }
+
+        const payload = (await response.json()) as { error?: string };
+        if (!response.ok) {
+          throw new Error(
+            payload.error ||
+              (isEn
+                ? "Chat update failed."
+                : "La actualización del chat falló.")
+          );
+        }
+
+        await loadChatData();
+        setChatDeleteArmedId(null);
+      } catch (err) {
+        setChatError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setChatBusyId(null);
+      }
+    },
+    [isEn, loadChatData, orgId]
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -495,12 +684,171 @@ function SidebarContent({
 
       <div className="sidebar-scroll-mask flex-1 space-y-3 overflow-y-auto px-3 py-1.5">
         {activeTab === "chat" ? (
-          <ShortcutBlock
-            label={{ "es-PY": "Agentes", "en-US": "Agents" }}
-            links={CHAT_LINKS}
-            locale={locale}
-            pathname={pathname}
-          />
+          <div className="space-y-3">
+            <ShortcutBlock
+              label={{ "es-PY": "Agentes", "en-US": "Agents" }}
+              links={CHAT_LINKS}
+              locale={locale}
+              pathname={pathname}
+            />
+
+            <section className="space-y-1.5">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="font-medium text-[10px] text-muted-foreground/55 uppercase tracking-[0.08em]">
+                  {isEn ? "Agent catalog" : "Catálogo de agentes"}
+                </h3>
+                <Link
+                  className="text-[11px] text-muted-foreground/80 hover:text-foreground"
+                  href="/app/agents"
+                >
+                  {isEn ? "Open" : "Abrir"}
+                </Link>
+              </div>
+              <div className="space-y-0.5">
+                {chatAgents.slice(0, 6).map((agent) => (
+                  <NavLinkRow
+                    active={pathname.startsWith("/app/agents")}
+                    href={`/app/agents?agent=${encodeURIComponent(agent.slug)}`}
+                    icon={SparklesIcon}
+                    key={agent.id}
+                    label={agent.name}
+                  />
+                ))}
+                {!chatLoading && chatAgents.length === 0 ? (
+                  <p className="px-2 py-1.5 text-[12px] text-muted-foreground/70">
+                    {isEn
+                      ? "No agents available."
+                      : "No hay agentes disponibles."}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="space-y-1.5">
+              <div className="flex items-center justify-between px-2">
+                <h3 className="font-medium text-[10px] text-muted-foreground/55 uppercase tracking-[0.08em]">
+                  {isEn ? "Recent chats" : "Chats recientes"}
+                </h3>
+                <button
+                  className="text-[11px] text-muted-foreground/80 hover:text-foreground"
+                  onClick={() => {
+                    setShowArchivedChats((value) => !value);
+                    setChatDeleteArmedId(null);
+                  }}
+                  type="button"
+                >
+                  {showArchivedChats
+                    ? isEn
+                      ? "Active"
+                      : "Activos"
+                    : isEn
+                      ? "Archived"
+                      : "Archivados"}
+                </button>
+              </div>
+
+              {chatError ? (
+                <p className="px-2 py-1 text-[11px] text-destructive">
+                  {chatError}
+                </p>
+              ) : null}
+
+              <div className="space-y-0.5">
+                {recentChats.map((chat) => (
+                  <div
+                    className={cn(
+                      "group flex items-center gap-1 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
+                      isRouteActive(pathname, `/app/chats/${chat.id}`)
+                        ? "bg-background ring-1 ring-border/40"
+                        : "hover:bg-muted/60"
+                    )}
+                    key={chat.id}
+                  >
+                    <Link
+                      className="min-w-0 flex-1 text-[12px] text-foreground/90"
+                      href={`/app/chats/${encodeURIComponent(chat.id)}`}
+                    >
+                      <div className="truncate font-medium">{chat.title}</div>
+                      <div className="truncate text-[11px] text-muted-foreground/75">
+                        {chat.latest_message_preview ||
+                          (isEn
+                            ? "No messages yet."
+                            : "Todavía no hay mensajes.")}
+                      </div>
+                    </Link>
+
+                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        className="rounded px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                        disabled={chatBusyId !== null}
+                        onClick={() => {
+                          const action = chat.is_archived
+                            ? "restore"
+                            : "archive";
+                          mutateRecentChat(chat.id, action).catch(
+                            () => undefined
+                          );
+                        }}
+                        type="button"
+                      >
+                        {chat.is_archived
+                          ? isEn
+                            ? "Restore"
+                            : "Rest."
+                          : isEn
+                            ? "Archive"
+                            : "Arch."}
+                      </button>
+                      <button
+                        className="rounded px-1.5 py-1 text-[10px] text-destructive/85 hover:bg-destructive/10 hover:text-destructive"
+                        disabled={chatBusyId !== null}
+                        onClick={() => {
+                          if (chatDeleteArmedId !== chat.id) {
+                            setChatDeleteArmedId(chat.id);
+                            return;
+                          }
+                          mutateRecentChat(chat.id, "delete").catch(
+                            () => undefined
+                          );
+                          setChatDeleteArmedId(null);
+                        }}
+                        type="button"
+                      >
+                        {chatDeleteArmedId === chat.id
+                          ? isEn
+                            ? "Confirm"
+                            : "Confirmar"
+                          : isEn
+                            ? "Delete"
+                            : "Eliminar"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {!chatLoading && recentChats.length === 0 ? (
+                  <p className="px-2 py-1.5 text-[12px] text-muted-foreground/70">
+                    {showArchivedChats
+                      ? isEn
+                        ? "No archived chats."
+                        : "No hay chats archivados."
+                      : isEn
+                        ? "No recent chats."
+                        : "No hay chats recientes."}
+                  </p>
+                ) : null}
+              </div>
+
+              <Link
+                className="inline-flex w-full items-center justify-center rounded-lg border border-border/60 px-2 py-1.5 text-[12px] text-muted-foreground/85 hover:text-foreground"
+                href={
+                  showArchivedChats ? "/app/chats?archived=1" : "/app/chats"
+                }
+              >
+                {isEn ? "Open full history" : "Abrir historial completo"}
+              </Link>
+            </section>
+          </div>
         ) : null}
 
         {activeTab === "inbox" ? (
@@ -628,7 +976,7 @@ function SidebarContent({
       <div className="shrink-0 space-y-2 p-3 pt-0">
         <Link
           className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 font-medium text-[13px] text-foreground transition-colors hover:bg-muted"
-          href="/app/agent?new=1"
+          href="/app/agents?new=1"
         >
           <Icon icon={AiVoiceGeneratorIcon} size={14} />
           {isEn ? "New chat" : "Nuevo chat"}

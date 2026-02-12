@@ -3,6 +3,7 @@
 import {
   ArrowDown01Icon,
   Logout01Icon,
+  Settings03Icon,
   UserCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
@@ -13,6 +14,11 @@ import { toast } from "sonner";
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { Locale } from "@/lib/i18n";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
@@ -34,6 +40,7 @@ export function SidebarAccount({
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
   const isEn = locale === "en-US";
 
   useEffect(() => {
@@ -91,18 +98,20 @@ export function SidebarAccount({
 
   return (
     <div className="mt-3 border-sidebar-border/70 border-t pt-3">
-      <details className="relative">
-        <summary
-          aria-haspopup="menu"
+      <PopoverRoot onOpenChange={setOpen} open={open}>
+        <PopoverTrigger
+          aria-label={isEn ? "Open account menu" : "Abrir menú de cuenta"}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "w-full list-none justify-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 text-foreground/72 [&::-webkit-details-marker]:hidden",
-            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-border/70 hover:bg-background/72 hover:text-foreground",
+            "group w-full justify-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 text-foreground/72 outline-none",
+            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-sidebar-border hover:bg-sidebar-accent hover:text-foreground",
+            "focus-visible:ring-2 focus-visible:ring-ring/30",
+            open && "border-sidebar-border bg-sidebar-accent text-foreground",
             collapsed ? "justify-center px-0" : ""
           )}
           title={label}
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border/80 bg-background/90 font-semibold text-foreground text-sm">
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-sidebar-border bg-secondary font-semibold text-foreground text-sm">
             {badge}
           </span>
           <span
@@ -119,48 +128,82 @@ export function SidebarAccount({
             </span>
           </span>
           <Icon
-            className={cn("text-muted-foreground", collapsed ? "sr-only" : "")}
+            className={cn(
+              "text-muted-foreground transition-transform",
+              open ? "rotate-180" : "rotate-0",
+              collapsed ? "sr-only" : ""
+            )}
             icon={ArrowDown01Icon}
             size={16}
           />
-        </summary>
+        </PopoverTrigger>
 
-        <div
-          className={cn(
-            "absolute bottom-12 z-30 rounded-2xl border border-sidebar-border/80 bg-popover/98 p-1.5 shadow-[0_20px_40px_rgba(15,23,42,0.16)]",
-            collapsed ? "left-full ml-2 w-56" : "right-0 left-0"
-          )}
+        <PopoverContent
+          align={collapsed ? "start" : "end"}
+          className="w-[260px] p-1.5"
+          side="top"
+          sideOffset={10}
         >
-          <Link
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "w-full justify-start gap-2 px-2 font-normal"
-            )}
-            href="/account"
+          <div className="rounded-xl border border-border/70 bg-background/70 p-2">
+            <p className="truncate font-medium text-[13px] text-foreground">
+              {label}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {isEn ? "Signed in" : "Sesión iniciada"}
+            </p>
+          </div>
+
+          <nav
+            aria-label={isEn ? "Account links" : "Enlaces de cuenta"}
+            className="mt-1.5 space-y-0.5"
           >
-            <Icon
-              className="text-muted-foreground"
-              icon={UserCircle02Icon}
-              size={16}
-            />
-            {isEn ? "Account" : "Cuenta"}
-          </Link>
+            <Link
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-9 w-full justify-start gap-2.5 rounded-xl px-2.5 font-normal text-foreground/88 hover:bg-muted/70 hover:text-foreground"
+              )}
+              href="/account"
+              onClick={() => setOpen(false)}
+            >
+              <Icon
+                className="text-muted-foreground"
+                icon={UserCircle02Icon}
+                size={16}
+              />
+              {isEn ? "Profile" : "Perfil"}
+            </Link>
+            <Link
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-9 w-full justify-start gap-2.5 rounded-xl px-2.5 font-normal text-foreground/88 hover:bg-muted/70 hover:text-foreground"
+              )}
+              href="/settings"
+              onClick={() => setOpen(false)}
+            >
+              <Icon
+                className="text-muted-foreground"
+                icon={Settings03Icon}
+                size={16}
+              />
+              {isEn ? "Settings" : "Configuración"}
+            </Link>
+          </nav>
 
-          <div className="my-1 h-px bg-border" />
+          <div className="my-1.5 h-px bg-border/80" />
 
-          <div className="px-2 py-2">
-            <p className="px-1 font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+          <div className="px-2.5 py-1.5">
+            <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
               {isEn ? "Language" : "Idioma"}
             </p>
             <LanguageSelector className="mt-2 h-8 text-xs" />
           </div>
 
-          <div className="my-1 h-px bg-border" />
+          <div className="my-1.5 h-px bg-border/80" />
 
           <button
             className={cn(
               buttonVariants({ variant: "ghost", size: "sm" }),
-              "w-full justify-start gap-2 px-2 font-normal"
+              "h-9 w-full justify-start gap-2.5 rounded-xl px-2.5 font-normal text-foreground/88 hover:bg-muted/70 hover:text-foreground"
             )}
             onClick={onSignOut}
             type="button"
@@ -170,10 +213,10 @@ export function SidebarAccount({
               icon={Logout01Icon}
               size={16}
             />
-            {isEn ? "Sign out" : "Cerrar sesión"}
+            {isEn ? "Log out" : "Cerrar sesión"}
           </button>
-        </div>
-      </details>
+        </PopoverContent>
+      </PopoverRoot>
     </div>
   );
 }

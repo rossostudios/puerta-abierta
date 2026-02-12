@@ -14,6 +14,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -348,7 +350,7 @@ export function MarketplaceListingsManager({
               ) : null}
 
               {published ? (
-                <form action={unpublishMarketplaceListingAction}>
+                <Form action={unpublishMarketplaceListingAction}>
                   <input
                     name="marketplace_listing_id"
                     type="hidden"
@@ -358,9 +360,9 @@ export function MarketplaceListingsManager({
                   <Button size="sm" type="submit" variant="ghost">
                     {isEn ? "Unpublish" : "Despublicar"}
                   </Button>
-                </form>
+                </Form>
               ) : (
-                <form action={publishMarketplaceListingAction}>
+                <Form action={publishMarketplaceListingAction}>
                   <input
                     name="marketplace_listing_id"
                     type="hidden"
@@ -370,7 +372,7 @@ export function MarketplaceListingsManager({
                   <Button size="sm" type="submit" variant="secondary">
                     {isEn ? "Publish" : "Publicar"}
                   </Button>
-                </form>
+                </Form>
               )}
             </div>
           );
@@ -388,7 +390,7 @@ export function MarketplaceListingsManager({
         open={open}
         title={isEn ? "New marketplace listing" : "Nuevo anuncio marketplace"}
       >
-        <form action={createMarketplaceListingAction} className="space-y-4">
+        <Form action={createMarketplaceListingAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -512,7 +514,7 @@ export function MarketplaceListingsManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Available from" : "Disponible desde"}</span>
-              <Input name="available_from" type="date" />
+              <DatePicker locale={locale} name="available_from" />
             </label>
 
             <label className="space-y-1 text-sm">
@@ -590,7 +592,7 @@ export function MarketplaceListingsManager({
               {isEn ? "Create listing" : "Crear anuncio"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

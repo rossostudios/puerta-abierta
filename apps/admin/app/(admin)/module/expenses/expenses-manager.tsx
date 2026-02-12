@@ -19,6 +19,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -159,14 +161,14 @@ function ExpenseRowActions({
         </Button>
       ) : null}
       {canManage ? (
-        <form action={deleteExpenseAction}>
+        <Form action={deleteExpenseAction}>
           <input name="expense_id" type="hidden" value={id} />
           <input name="next" type="hidden" value={nextPath} />
           <Button size="sm" type="submit" variant="ghost">
             <Icon icon={Delete02Icon} size={16} />
             <span className="sr-only">{isEn ? "Delete" : "Eliminar"}</span>
           </Button>
-        </form>
+        </Form>
       ) : null}
     </div>
   );
@@ -754,9 +756,10 @@ export function ExpensesManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "From" : "Desde"}
               </span>
-              <Input
-                onChange={(event) => setFromDate(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                max={toDate || undefined}
+                onValueChange={setFromDate}
                 value={fromDate}
               />
             </label>
@@ -764,9 +767,10 @@ export function ExpensesManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "To" : "Hasta"}
               </span>
-              <Input
-                onChange={(event) => setToDate(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                min={fromDate || undefined}
+                onValueChange={setToDate}
                 value={toDate}
               />
             </label>
@@ -840,7 +844,7 @@ export function ExpensesManager({
         open={open}
         title={isEn ? "New expense" : "Nuevo gasto"}
       >
-        <form action={createExpenseAction} className="space-y-4">
+        <Form action={createExpenseAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -869,11 +873,10 @@ export function ExpensesManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Date" : "Fecha"}
               </span>
-              <Input
+              <DatePicker
+                locale={locale}
                 name="expense_date"
-                onChange={(event) => setCreateExpenseDate(event.target.value)}
-                required
-                type="date"
+                onValueChange={setCreateExpenseDate}
                 value={createExpenseDate}
               />
             </label>
@@ -1137,7 +1140,7 @@ export function ExpensesManager({
               {isEn ? "Create" : "Crear"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
 
       {editing ? (
@@ -1158,7 +1161,7 @@ export function ExpensesManager({
           open={editOpen}
           title={isEn ? "Edit expense" : "Editar gasto"}
         >
-          <form action={updateExpenseAction} className="space-y-4">
+          <Form action={updateExpenseAction} className="space-y-4">
             <input name="expense_id" type="hidden" value={editing.id} />
             <input name="next" type="hidden" value={nextPath} />
 
@@ -1187,11 +1190,10 @@ export function ExpensesManager({
                 <span className="block font-medium text-muted-foreground text-xs">
                   {isEn ? "Date" : "Fecha"}
                 </span>
-                <Input
+                <DatePicker
+                  locale={locale}
                   name="expense_date"
-                  onChange={(event) => setEditExpenseDate(event.target.value)}
-                  required
-                  type="date"
+                  onValueChange={setEditExpenseDate}
                   value={editExpenseDate}
                 />
               </label>
@@ -1454,7 +1456,7 @@ export function ExpensesManager({
                 {isEn ? "Save" : "Guardar"}
               </Button>
             </div>
-          </form>
+          </Form>
         </Sheet>
       ) : null}
     </div>

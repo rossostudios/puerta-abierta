@@ -16,6 +16,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -138,13 +140,13 @@ function ReservationRowActions({ row }: { row: DataTableRow }) {
   return (
     <div className="flex flex-wrap justify-end gap-2">
       {actions.map((action) => (
-        <form action={transitionReservationStatusAction} key={action.next}>
+        <Form action={transitionReservationStatusAction} key={action.next}>
           <input name="reservation_id" type="hidden" value={id} />
           <input name="status" type="hidden" value={action.next} />
           <Button size="sm" type="submit" variant="outline">
             {localizedActionLabel(isEn, action.next)}
           </Button>
-        </form>
+        </Form>
       ))}
     </div>
   );
@@ -375,9 +377,10 @@ export function ReservationsManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "From" : "Desde"}
               </span>
-              <Input
-                onChange={(event) => setFrom(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                max={to || undefined}
+                onValueChange={setFrom}
                 value={from}
               />
             </label>
@@ -385,9 +388,10 @@ export function ReservationsManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "To" : "Hasta"}
               </span>
-              <Input
-                onChange={(event) => setTo(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                min={from || undefined}
+                onValueChange={setTo}
                 value={to}
               />
             </label>
@@ -484,7 +488,7 @@ export function ReservationsManager({
         open={open}
         title={isEn ? "New reservation" : "Nueva reserva"}
       >
-        <form action={createReservationAction} className="space-y-4">
+        <Form action={createReservationAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
 
           <label className="block space-y-1">
@@ -508,13 +512,13 @@ export function ReservationsManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Check-in" : "Check-in"}
               </span>
-              <Input name="check_in_date" required type="date" />
+              <DatePicker locale={locale} name="check_in_date" />
             </label>
             <label className="block space-y-1">
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Check-out" : "Check-out"}
               </span>
-              <Input name="check_out_date" required type="date" />
+              <DatePicker locale={locale} name="check_out_date" />
             </label>
           </div>
 
@@ -573,7 +577,7 @@ export function ReservationsManager({
               {isEn ? "Create" : "Crear"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

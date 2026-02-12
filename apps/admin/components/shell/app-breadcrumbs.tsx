@@ -56,6 +56,11 @@ function buildCrumbs(pathname: string, locale: Locale): Crumb[] {
     return crumbs;
   }
 
+  if (parts[0] === "settings") {
+    crumbs.push({ label: isEn ? "Settings" : "Configuración", current: true });
+    return crumbs;
+  }
+
   if (parts[0] === "account") {
     crumbs.push({ label: isEn ? "Account" : "Cuenta", current: true });
     return crumbs;

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
@@ -80,7 +81,7 @@ export function GuestProfileActions({
           </div>
         }
       >
-        <form action={updateGuestAction} className="grid gap-4">
+        <Form action={updateGuestAction} className="grid gap-4">
           <input name="id" type="hidden" value={guest.id} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -184,7 +185,7 @@ export function GuestProfileActions({
               {t("Save changes", "Guardar cambios")}
             </Button>
           </div>
-        </form>
+        </Form>
 
         <div className="mt-8 border-t pt-4">
           <p className="font-medium text-foreground text-sm">
@@ -197,7 +198,7 @@ export function GuestProfileActions({
             )}
           </p>
 
-          <form action={deleteGuestAction} className="mt-3">
+          <Form action={deleteGuestAction} className="mt-3">
             <input name="id" type="hidden" value={guest.id} />
             <input name="next" type="hidden" value="/module/guests" />
             {deleteArmed ? (
@@ -216,7 +217,7 @@ export function GuestProfileActions({
                 {t("Delete guest", "Eliminar huésped")}
               </Button>
             )}
-          </form>
+          </Form>
         </div>
       </Sheet>
     </>

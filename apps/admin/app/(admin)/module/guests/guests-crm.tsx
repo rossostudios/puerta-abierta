@@ -17,6 +17,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Form } from "@/components/ui/form";
 import { HoverLink } from "@/components/ui/hover-link";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -544,7 +545,7 @@ export function GuestsCrm({
                 {t("Edit guest", "Editar huésped")}
               </Button>
 
-              <form action={deleteGuestAction}>
+              <Form action={deleteGuestAction}>
                 <input name="id" type="hidden" value={record.id} />
                 <input name="next" type="hidden" value="/module/guests" />
                 {deleteArmed ? (
@@ -563,7 +564,7 @@ export function GuestsCrm({
                     {t("Delete", "Eliminar")}
                   </Button>
                 )}
-              </form>
+              </Form>
             </div>
           </div>
         ) : (
@@ -616,7 +617,7 @@ function GuestForm({
   const action = isCreate ? createGuestAction : updateGuestAction;
 
   return (
-    <form action={action} className="grid gap-4">
+    <Form action={action} className="grid gap-4">
       <input name="next" type="hidden" value="/module/guests" />
       {isCreate ? (
         <input name="organization_id" type="hidden" value={orgId} />
@@ -724,6 +725,6 @@ function GuestForm({
             : t("Save changes", "Guardar cambios")}
         </Button>
       </div>
-    </form>
+    </Form>
   );
 }

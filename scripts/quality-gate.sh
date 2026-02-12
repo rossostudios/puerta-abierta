@@ -10,6 +10,7 @@ echo "==> Admin checks"
 (
   cd "${ROOT_DIR}/apps/admin"
   npm run brand:check
+  npm run deadcode:check
   npm run lint
   npm run typecheck
   if [[ "${MODE}" == "full" ]]; then
@@ -24,6 +25,7 @@ echo "==> Backend checks"
     echo "Missing backend virtualenv at apps/backend/.venv"
     exit 1
   fi
+  ./.venv/bin/python -m ruff check app tests
   ./.venv/bin/python -m unittest discover -s tests -p "test_*.py"
 )
 

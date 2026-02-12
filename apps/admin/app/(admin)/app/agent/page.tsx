@@ -1,12 +1,7 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getActiveLocale } from "@/lib/i18n/server";
-import { getActiveOrgId } from "@/lib/org";
-
-import { AgentWorkspace } from "./agent-workspace";
+import { redirect } from "next/navigation";
 
 type PageProps = {
-  searchParams: Promise<{ new?: string }>;
+  searchParams: Promise<{ new?: string; agent?: string }>;
 };
 
 function isTruthy(value: string | undefined): boolean {
@@ -15,43 +10,17 @@ function isTruthy(value: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes(normalized);
 }
 
-export default async function AgentPage({ searchParams }: PageProps) {
-  const locale = await getActiveLocale();
-  const orgId = await getActiveOrgId();
-  const isEn = locale === "en-US";
-  const { new: shouldReset } = await searchParams;
+export default async function AgentCompatPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const qs = new URLSearchParams();
 
-  if (!orgId) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="warning">
-            <AlertTitle>
-              {isEn ? "Select an organization" : "Selecciona una organización"}
-            </AlertTitle>
-            <AlertDescription>
-              {isEn
-                ? "The AI agent needs an active organization to run scoped database actions."
-                : "El agente IA necesita una organización activa para ejecutar acciones sobre la base de datos."}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    );
+  if (isTruthy(params.new)) {
+    qs.set("new", "1");
   }
 
-  return (
-    <AgentWorkspace
-      locale={locale}
-      orgId={orgId}
-      startFresh={isTruthy(shouldReset)}
-    />
-  );
+  if (typeof params.agent === "string" && params.agent.trim()) {
+    qs.set("agent", params.agent.trim());
+  }
+
+  redirect(`/app/agents${qs.size ? `?${qs.toString()}` : ""}`);
 }

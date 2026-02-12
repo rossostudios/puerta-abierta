@@ -65,7 +65,6 @@ type SectionKey =
   | "operations"
   | "portfolio"
   | "finance"
-  | "platform"
   | "other";
 
 type RouteLinkDef = {
@@ -195,24 +194,14 @@ const SECTIONS: SectionDef[] = [
     },
     moduleSlugs: ["expenses", "pricing", "reports"],
   },
-  {
-    key: "platform",
-    icon: WebhookIcon,
-    label: {
-      "es-PY": "Plataforma",
-      "en-US": "Platform",
-    },
-    description: {
-      "es-PY": "Organización, integraciones y auditoría.",
-      "en-US": "Organization settings, integrations, and audit.",
-    },
-    moduleSlugs: ["organizations", "integration-events", "audit-logs"],
-  },
 ];
 
 const HIDDEN_MODULE_SLUGS = new Set([
   "owner-statements",
   "transparency-summary",
+  "organizations",
+  "integration-events",
+  "audit-logs",
 ]);
 
 function isRouteActive(pathname: string, href: string): boolean {

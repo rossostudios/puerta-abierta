@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from fastapi import HTTPException
 
@@ -58,7 +58,7 @@ def agent_capabilities(role: str, allow_mutations: bool) -> dict[str, Any]:
     return {
         "tables": list_supported_tables(),
         "role": role_value,
-        "mutations_enabled": _mutations_allowed(role_value, allow_mutations),
+        "mutations_enabled": _mutations_allowed(role_value, allow_mutations, False),
     }
 
 
@@ -70,13 +70,22 @@ def run_ai_agent_chat(
     message: str,
     conversation: list[dict[str, str]],
     allow_mutations: bool,
+    confirm_write: bool = False,
+    agent_name: str = "Operations Copilot",
+    agent_prompt: Optional[str] = None,
+    allowed_tools: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     if not settings.ai_agent_enabled:
         raise HTTPException(status_code=503, detail="AI agent is disabled in this environment.")
 
     role_value = (role or "viewer").strip().lower()
+    base_prompt = (
+        agent_prompt.strip()
+        if isinstance(agent_prompt, str) and agent_prompt.strip()
+        else f"You are {agent_name} for Puerta Abierta, a property-management platform in Paraguay."
+    )
     system_prompt = (
-        "You are Puerta Abierta AI Ops Agent for a property-management platform. "
+        f"{base_prompt} "
         "Use tools for all data-backed answers. Keep replies concise and action-oriented. "
         f"Current org_id is {org_id}. Current user role is {role_value}. "
         "Never access data outside this organization. "
@@ -93,9 +102,17 @@ def run_ai_agent_chat(
     messages.append({"role": "user", "content": message.strip()[:4000]})
 
     tool_trace: list[dict[str, Any]] = []
+    fallback_used = False
+    model_used = ""
+    tool_definitions = _tool_definitions(allowed_tools=allowed_tools)
 
     for _ in range(max(1, settings.ai_agent_max_tool_steps)):
-        completion = _call_openai_chat_completion(messages=messages, tools=_tool_definitions())
+        completion, call_model, call_fallback = _call_openai_chat_completion(
+            messages=messages,
+            tools=tool_definitions,
+        )
+        model_used = call_model
+        fallback_used = fallback_used or call_fallback
         choice = (completion.get("choices") or [{}])[0]
         assistant_message = choice.get("message") or {}
         assistant_text = _extract_content_text(assistant_message.get("content"))
@@ -124,6 +141,8 @@ def run_ai_agent_chat(
                         org_id=org_id,
                         role=role_value,
                         allow_mutations=allow_mutations,
+                        confirm_write=confirm_write,
+                        allowed_tools=allowed_tools,
                     )
                 except HTTPException as exc:
                     tool_result = {"ok": False, "error": str(exc.detail)}
@@ -154,12 +173,19 @@ def run_ai_agent_chat(
             return {
                 "reply": assistant_text,
                 "tool_trace": tool_trace,
-                "mutations_enabled": _mutations_allowed(role_value, allow_mutations),
+                "mutations_enabled": _mutations_allowed(role_value, allow_mutations, confirm_write),
+                "model_used": model_used,
+                "fallback_used": fallback_used,
             }
 
         break
 
-    final_completion = _call_openai_chat_completion(messages=messages, tools=None)
+    final_completion, final_model, final_fallback = _call_openai_chat_completion(
+        messages=messages,
+        tools=None,
+    )
+    model_used = final_model or model_used
+    fallback_used = fallback_used or final_fallback
     final_choice = (final_completion.get("choices") or [{}])[0]
     final_message = final_choice.get("message") or {}
     final_text = _extract_content_text(final_message.get("content"))
@@ -168,12 +194,14 @@ def run_ai_agent_chat(
         "reply": final_text
         or "I completed the tool calls but could not generate a final answer. Please rephrase the request.",
         "tool_trace": tool_trace,
-        "mutations_enabled": _mutations_allowed(role_value, allow_mutations),
+        "mutations_enabled": _mutations_allowed(role_value, allow_mutations, confirm_write),
+        "model_used": model_used,
+        "fallback_used": fallback_used,
     }
 
 
-def _tool_definitions() -> list[dict[str, Any]]:
-    return [
+def _tool_definitions(*, allowed_tools: Optional[list[str]] = None) -> list[dict[str, Any]]:
+    definitions = [
         {
             "type": "function",
             "function": {
@@ -277,6 +305,19 @@ def _tool_definitions() -> list[dict[str, Any]]:
         },
     ]
 
+    if not allowed_tools:
+        return definitions
+
+    allowed = {value.strip() for value in allowed_tools if str(value).strip()}
+    if not allowed:
+        return definitions
+
+    return [
+        definition
+        for definition in definitions
+        if str((definition.get("function") or {}).get("name") or "").strip() in allowed
+    ]
+
 
 def _execute_tool(
     tool_name: str,
@@ -285,7 +326,14 @@ def _execute_tool(
     org_id: str,
     role: str,
     allow_mutations: bool,
+    confirm_write: bool,
+    allowed_tools: Optional[list[str]] = None,
 ) -> dict[str, Any]:
+    if allowed_tools:
+        allowed = {value.strip() for value in allowed_tools if str(value).strip()}
+        if allowed and tool_name not in allowed:
+            return {"ok": False, "error": f"Tool '{tool_name}' is not enabled for this agent."}
+
     if tool_name == "list_tables":
         return {"ok": True, "tables": list_supported_tables()}
     if tool_name == "get_org_snapshot":
@@ -299,6 +347,7 @@ def _execute_tool(
             org_id=org_id,
             role=role,
             allow_mutations=allow_mutations,
+            confirm_write=confirm_write,
             args=args,
         )
     if tool_name == "update_row":
@@ -306,6 +355,7 @@ def _execute_tool(
             org_id=org_id,
             role=role,
             allow_mutations=allow_mutations,
+            confirm_write=confirm_write,
             args=args,
         )
     if tool_name == "delete_row":
@@ -313,6 +363,7 @@ def _execute_tool(
             org_id=org_id,
             role=role,
             allow_mutations=allow_mutations,
+            confirm_write=confirm_write,
             args=args,
         )
 
@@ -377,9 +428,14 @@ def _tool_create_row(
     org_id: str,
     role: str,
     allow_mutations: bool,
+    confirm_write: bool,
     args: dict[str, Any],
 ) -> dict[str, Any]:
-    allowed, detail = _assert_mutation_allowed(role=role, allow_mutations=allow_mutations)
+    allowed, detail = _assert_mutation_allowed(
+        role=role,
+        allow_mutations=allow_mutations,
+        confirm_write=confirm_write,
+    )
     if not allowed:
         return {"ok": False, "error": detail}
 
@@ -408,9 +464,14 @@ def _tool_update_row(
     org_id: str,
     role: str,
     allow_mutations: bool,
+    confirm_write: bool,
     args: dict[str, Any],
 ) -> dict[str, Any]:
-    allowed, detail = _assert_mutation_allowed(role=role, allow_mutations=allow_mutations)
+    allowed, detail = _assert_mutation_allowed(
+        role=role,
+        allow_mutations=allow_mutations,
+        confirm_write=confirm_write,
+    )
     if not allowed:
         return {"ok": False, "error": detail}
 
@@ -449,9 +510,14 @@ def _tool_delete_row(
     org_id: str,
     role: str,
     allow_mutations: bool,
+    confirm_write: bool,
     args: dict[str, Any],
 ) -> dict[str, Any]:
-    allowed, detail = _assert_mutation_allowed(role=role, allow_mutations=allow_mutations)
+    allowed, detail = _assert_mutation_allowed(
+        role=role,
+        allow_mutations=allow_mutations,
+        confirm_write=confirm_write,
+    )
     if not allowed:
         return {"ok": False, "error": detail}
 
@@ -580,16 +646,22 @@ def _coerce_limit(value: Any, *, default: int) -> int:
     return max(1, min(parsed, 200))
 
 
-def _assert_mutation_allowed(*, role: str, allow_mutations: bool) -> tuple[bool, str]:
+def _assert_mutation_allowed(*, role: str, allow_mutations: bool, confirm_write: bool) -> tuple[bool, str]:
     if not allow_mutations:
         return False, "Mutations are disabled. Enable write mode to create/update/delete rows."
+    if not confirm_write:
+        return False, "Write confirmation is required. Confirm this action before running mutations."
     if role not in _MUTATION_ROLES:
         return False, f"Role '{role or 'viewer'}' is read-only for AI mutations."
     return True, "ok"
 
 
-def _mutations_allowed(role: str, allow_mutations: bool) -> bool:
-    allowed, _detail = _assert_mutation_allowed(role=role, allow_mutations=allow_mutations)
+def _mutations_allowed(role: str, allow_mutations: bool, confirm_write: bool) -> bool:
+    allowed, _detail = _assert_mutation_allowed(
+        role=role,
+        allow_mutations=allow_mutations,
+        confirm_write=confirm_write,
+    )
     return allowed
 
 
@@ -644,7 +716,7 @@ def _call_openai_chat_completion(
     *,
     messages: list[dict[str, Any]],
     tools: Optional[list[dict[str, Any]]],
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], str, bool]:
     api_key = settings.openai_api_key
     if not api_key:
         raise HTTPException(
@@ -652,48 +724,76 @@ def _call_openai_chat_completion(
             detail="OPENAI_API_KEY is missing. Configure it in backend environment variables.",
         )
 
-    payload: dict[str, Any] = {
-        "model": settings.openai_model,
-        "messages": messages,
-        "temperature": 0.1,
-    }
-    if tools is not None:
-        payload["tools"] = tools
-        payload["tool_choice"] = "auto"
+    model_chain = settings.openai_model_chain
+    if not model_chain:
+        raise HTTPException(status_code=503, detail="No OpenAI model is configured.")
 
-    request = urllib.request.Request(
-        "https://api.openai.com/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
+    last_error: Optional[HTTPException] = None
+    fallback_used = False
 
-    try:
-        with urllib.request.urlopen(request, timeout=settings.ai_agent_timeout_seconds) as response:
-            body = response.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-        if settings.is_production:
-            detail = "AI provider request failed."
-        else:
-            detail = f"AI provider request failed ({exc.code}): {error_body or exc.reason}"
-        raise HTTPException(status_code=502, detail=detail) from exc
-    except Exception as exc:
-        detail = "AI provider is unreachable."
-        if not settings.is_production:
-            detail = f"AI provider is unreachable: {exc}"
-        raise HTTPException(status_code=502, detail=detail) from exc
+    for index, model_name in enumerate(model_chain):
+        payload: dict[str, Any] = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.1,
+        }
+        if tools is not None:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
 
-    try:
-        parsed = json.loads(body)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=502, detail="AI provider returned an invalid JSON response.") from exc
+        request = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
+        )
 
-    if not isinstance(parsed, dict):
-        raise HTTPException(status_code=502, detail="AI provider response is malformed.")
+        try:
+            with urllib.request.urlopen(request, timeout=settings.ai_agent_timeout_seconds) as response:
+                body = response.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+            if settings.is_production:
+                detail = "AI provider request failed."
+            else:
+                detail = f"AI provider request failed ({exc.code}) on model '{model_name}': {error_body or exc.reason}"
+            last_error = HTTPException(status_code=502, detail=detail)
+            if index < len(model_chain) - 1:
+                fallback_used = True
+                continue
+            raise last_error from exc
+        except Exception as exc:
+            detail = "AI provider is unreachable."
+            if not settings.is_production:
+                detail = f"AI provider is unreachable on model '{model_name}': {exc}"
+            last_error = HTTPException(status_code=502, detail=detail)
+            if index < len(model_chain) - 1:
+                fallback_used = True
+                continue
+            raise last_error from exc
 
-    return parsed
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError as exc:
+            last_error = HTTPException(status_code=502, detail="AI provider returned an invalid JSON response.")
+            if index < len(model_chain) - 1:
+                fallback_used = True
+                continue
+            raise last_error from exc
+
+        if not isinstance(parsed, dict):
+            last_error = HTTPException(status_code=502, detail="AI provider response is malformed.")
+            if index < len(model_chain) - 1:
+                fallback_used = True
+                continue
+            raise last_error
+
+        return parsed, model_name, fallback_used or index > 0
+
+    if last_error:
+        raise last_error
+    raise HTTPException(status_code=502, detail="AI provider request failed.")

@@ -11,6 +11,8 @@ import {
 } from "@/app/(admin)/module/collections/actions";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -259,7 +261,7 @@ export function CollectionsManager({
           }
 
           return (
-            <form
+            <Form
               action={markCollectionPaidAction}
               onSubmit={() =>
                 queueOptimisticRowUpdate({
@@ -284,7 +286,7 @@ export function CollectionsManager({
               <Button size="sm" type="submit" variant="secondary">
                 {isEn ? "Mark paid" : "Marcar pagado"}
               </Button>
-            </form>
+            </Form>
           );
         }}
       />
@@ -300,7 +302,7 @@ export function CollectionsManager({
         open={open}
         title={isEn ? "New collection" : "Nuevo cobro"}
       >
-        <form action={createCollectionAction} className="space-y-4">
+        <Form action={createCollectionAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -321,11 +323,10 @@ export function CollectionsManager({
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Due date" : "Fecha de vencimiento"}</span>
-              <Input
+              <DatePicker
                 defaultValue={today}
+                locale={locale}
                 name="due_date"
-                required
-                type="date"
               />
             </label>
 
@@ -379,7 +380,7 @@ export function CollectionsManager({
               {isEn ? "Create collection" : "Crear cobro"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

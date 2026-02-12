@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -163,16 +164,16 @@ export function PricingManager({
           return (
             <div className="flex flex-wrap justify-end gap-2">
               {isDefault ? null : (
-                <form action={setPricingTemplateDefaultAction}>
+                <Form action={setPricingTemplateDefaultAction}>
                   <input name="template_id" type="hidden" value={id} />
                   <input name="next" type="hidden" value={nextPath} />
                   <Button size="sm" type="submit" variant="outline">
                     {isEn ? "Set default" : "Definir"}
                   </Button>
-                </form>
+                </Form>
               )}
 
-              <form action={togglePricingTemplateActiveAction}>
+              <Form action={togglePricingTemplateActiveAction}>
                 <input name="template_id" type="hidden" value={id} />
                 <input name="next" type="hidden" value={nextPath} />
                 <input
@@ -189,7 +190,7 @@ export function PricingManager({
                       ? "Activate"
                       : "Activar"}
                 </Button>
-              </form>
+              </Form>
             </div>
           );
         }}
@@ -206,7 +207,7 @@ export function PricingManager({
         open={open}
         title={isEn ? "New pricing template" : "Nueva plantilla de precios"}
       >
-        <form action={createPricingTemplateAction} className="space-y-4">
+        <Form action={createPricingTemplateAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
           <input name="next" type="hidden" value={nextPath} />
 
@@ -278,7 +279,7 @@ export function PricingManager({
               {isEn ? "Create template" : "Crear plantilla"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
 
       <div className="rounded-md border p-3 text-muted-foreground text-xs">

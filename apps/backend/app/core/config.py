@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     lease_collections_enabled: bool = True
     ai_agent_enabled: bool = True
     openai_api_key: Optional[str] = None
-    openai_model: str = "gpt-4o-mini"
+    openai_primary_model: str = "gpt-5.2"
+    openai_fallback_models: str = "gpt-5.1-mini,gpt-4.1-mini"
+    # Backward-compatible legacy setting. If set, it is appended to the fallback chain.
+    openai_model: Optional[str] = None
     ai_agent_max_tool_steps: int = 6
     ai_agent_timeout_seconds: int = 45
 
@@ -60,6 +63,25 @@ class Settings(BaseSettings):
         if self.is_production:
             return False
         return self.dev_auth_overrides_enabled
+
+    @property
+    def openai_model_chain(self) -> list[str]:
+        models: list[str] = []
+
+        primary = self.openai_primary_model.strip()
+        if primary:
+            models.append(primary)
+
+        for fallback in self.openai_fallback_models.split(","):
+            candidate = fallback.strip()
+            if candidate and candidate not in models:
+                models.append(candidate)
+
+        legacy = (self.openai_model or "").strip()
+        if legacy and legacy not in models:
+            models.append(legacy)
+
+        return models
 
 
 @lru_cache

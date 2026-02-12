@@ -307,3 +307,165 @@ export function fetchPublicMarketplaceListing(
     `/public/marketplace/listings/${encodeURIComponent(slug)}`
   );
 }
+
+export type AgentDefinition = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon_key?: string;
+  is_active?: boolean;
+};
+
+export type AgentChatSummary = {
+  id: string;
+  org_id: string;
+  agent_id: string;
+  agent_slug: string;
+  agent_name: string;
+  agent_icon_key?: string;
+  title: string;
+  is_archived: boolean;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string;
+  latest_message_preview?: string | null;
+};
+
+export type AgentChatMessage = {
+  id: string;
+  chat_id: string;
+  org_id: string;
+  role: "user" | "assistant";
+  content: string;
+  tool_trace?: Array<{
+    tool?: string;
+    ok?: boolean;
+    preview?: string;
+    args?: Record<string, unknown>;
+  }> | null;
+  model_used?: string | null;
+  fallback_used?: boolean;
+  created_at: string;
+};
+
+export function fetchAgentDefinitions(orgId: string): Promise<{
+  organization_id?: string;
+  data?: AgentDefinition[];
+}> {
+  return fetchJson("/agent/agents", { org_id: orgId });
+}
+
+export function fetchAgentChats(
+  orgId: string,
+  params?: { archived?: boolean; limit?: number }
+): Promise<{ organization_id?: string; data?: AgentChatSummary[] }> {
+  return fetchJson("/agent/chats", {
+    org_id: orgId,
+    archived: params?.archived ?? false,
+    limit: params?.limit ?? 30,
+  });
+}
+
+export function createAgentChat(payload: {
+  org_id: string;
+  agent_slug: string;
+  title?: string;
+}): Promise<AgentChatSummary> {
+  return postJson("/agent/chats", payload) as Promise<AgentChatSummary>;
+}
+
+export function fetchAgentChat(
+  orgId: string,
+  chatId: string
+): Promise<AgentChatSummary> {
+  return fetchJson(`/agent/chats/${encodeURIComponent(chatId)}`, {
+    org_id: orgId,
+  });
+}
+
+export function fetchAgentChatMessages(
+  orgId: string,
+  chatId: string,
+  limit = 120
+): Promise<{
+  organization_id?: string;
+  chat_id?: string;
+  data?: AgentChatMessage[];
+}> {
+  return fetchJson(`/agent/chats/${encodeURIComponent(chatId)}/messages`, {
+    org_id: orgId,
+    limit,
+  });
+}
+
+export function sendAgentChatMessage(
+  orgId: string,
+  chatId: string,
+  payload: {
+    message: string;
+    allow_mutations?: boolean;
+    confirm_write?: boolean;
+  }
+): Promise<Record<string, unknown>> {
+  return fetchJson(
+    `/agent/chats/${encodeURIComponent(chatId)}/messages`,
+    { org_id: orgId },
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: payload.message,
+        allow_mutations: payload.allow_mutations === true,
+        confirm_write: payload.confirm_write === true,
+      }),
+    }
+  );
+}
+
+export function archiveAgentChat(
+  orgId: string,
+  chatId: string
+): Promise<unknown> {
+  return fetchJson(
+    `/agent/chats/${encodeURIComponent(chatId)}/archive`,
+    {
+      org_id: orgId,
+    },
+    {
+      method: "POST",
+    }
+  );
+}
+
+export function restoreAgentChat(
+  orgId: string,
+  chatId: string
+): Promise<unknown> {
+  return fetchJson(
+    `/agent/chats/${encodeURIComponent(chatId)}/restore`,
+    {
+      org_id: orgId,
+    },
+    {
+      method: "POST",
+    }
+  );
+}
+
+export function deleteAgentChat(
+  orgId: string,
+  chatId: string
+): Promise<unknown> {
+  return fetchJson(
+    `/agent/chats/${encodeURIComponent(chatId)}`,
+    {
+      org_id: orgId,
+    },
+    {
+      method: "DELETE",
+    }
+  );
+}

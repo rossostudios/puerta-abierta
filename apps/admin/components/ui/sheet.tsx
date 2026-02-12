@@ -100,7 +100,7 @@ export function Sheet({
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 bg-black/24 backdrop-blur-[3px] transition-opacity dark:bg-black/60",
+          "absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[3px] transition-opacity",
           open
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
@@ -113,7 +113,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         aria-modal="true"
         className={cn(
-          "absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] border border-border/80 bg-background/95 shadow-[0_24px_56px_rgba(15,23,42,0.2)] transition-transform",
+          "absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] border border-border/80 bg-background/95 shadow-[var(--shadow-floating)] transition-transform",
           panelSide.wrapper,
           open
             ? cn(panelSide.exit, "pointer-events-auto")

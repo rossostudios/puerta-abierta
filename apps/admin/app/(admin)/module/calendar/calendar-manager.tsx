@@ -9,6 +9,8 @@ import {
 } from "@/app/(admin)/module/calendar/actions";
 import { Button } from "@/components/ui/button";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -102,12 +104,12 @@ function CalendarBlockRowActions({ row }: { row: DataTableRow }) {
 
   return (
     <div className="flex flex-wrap justify-end gap-2">
-      <form action={deleteCalendarBlockAction}>
+      <Form action={deleteCalendarBlockAction}>
         <input name="block_id" type="hidden" value={id} />
         <Button size="sm" type="submit" variant="destructive">
           {isEn ? "Confirm" : "Confirmar"}
         </Button>
-      </form>
+      </Form>
       <Button
         onClick={() => setConfirming(false)}
         size="sm"
@@ -327,9 +329,10 @@ export function CalendarManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "From" : "Desde"}
               </span>
-              <Input
-                onChange={(event) => setFrom(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                max={to || undefined}
+                onValueChange={setFrom}
                 value={from}
               />
             </label>
@@ -337,9 +340,10 @@ export function CalendarManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "To" : "Hasta"}
               </span>
-              <Input
-                onChange={(event) => setTo(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                min={from || undefined}
+                onValueChange={setTo}
                 value={to}
               />
             </label>
@@ -381,9 +385,7 @@ export function CalendarManager({
 
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-medium">
-              {isEn ? "Calendar blocks" : "Bloqueos de calendario"}
-            </p>
+            <p className="font-medium">{isEn ? "Calendar" : "Calendario"}</p>
             <p className="text-muted-foreground text-sm">
               {blockRows.length} {isEn ? "records" : "registros"}
             </p>
@@ -410,7 +412,7 @@ export function CalendarManager({
         open={open}
         title={isEn ? "New calendar block" : "Nuevo bloqueo"}
       >
-        <form action={createCalendarBlockAction} className="space-y-4">
+        <Form action={createCalendarBlockAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
 
           <label className="block space-y-1">
@@ -434,13 +436,13 @@ export function CalendarManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Starts" : "Inicio"}
               </span>
-              <Input name="starts_on" required type="date" />
+              <DatePicker locale={locale} name="starts_on" />
             </label>
             <label className="block space-y-1">
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Ends" : "Fin"}
               </span>
-              <Input name="ends_on" required type="date" />
+              <DatePicker locale={locale} name="ends_on" />
             </label>
           </div>
 
@@ -470,7 +472,7 @@ export function CalendarManager({
               {isEn ? "Create" : "Crear"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

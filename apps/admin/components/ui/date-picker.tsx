@@ -21,13 +21,27 @@ type DatePickerProps = {
   max?: string;
   placeholder?: string;
   locale?: "es-PY" | "en-US";
+  allowClear?: boolean;
 };
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function toIsoDate(value: Date): string {
   const year = value.getFullYear();
   const month = String(value.getMonth() + 1).padStart(2, "0");
   const day = String(value.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function isIsoDate(value: string): boolean {
+  return ISO_DATE_RE.test(value);
+}
+
+function clampDate(value: string, min?: string, max?: string): string {
+  if (!isIsoDate(value)) return "";
+  if (min && isIsoDate(min) && value < min) return min;
+  if (max && isIsoDate(max) && value > max) return max;
+  return value;
 }
 
 function formatDateLabel(
@@ -58,6 +72,7 @@ export function DatePicker({
   max,
   placeholder,
   locale = "es-PY",
+  allowClear = true,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
@@ -75,14 +90,15 @@ export function DatePicker({
   );
 
   function updateValue(next: string) {
+    const bounded = clampDate(next, min, max);
     if (!isControlled) {
-      setInternalValue(next);
+      setInternalValue(bounded);
     }
-    onValueChange?.(next);
+    onValueChange?.(bounded);
   }
 
   function setToday() {
-    const today = toIsoDate(new Date());
+    const today = clampDate(toIsoDate(new Date()), min, max);
     updateValue(today);
     setOpen(false);
   }
@@ -97,7 +113,7 @@ export function DatePicker({
       <BasePopover.Root onOpenChange={setOpen} open={open}>
         <BasePopover.Trigger
           className={cn(
-            "inline-flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-left text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex h-9 w-full items-center justify-between gap-2 rounded-xl border border-input/90 bg-background/92 px-3 py-1 text-left text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.82)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50",
             resolvedValue ? "text-foreground" : "text-muted-foreground",
             className
           )}
@@ -123,8 +139,8 @@ export function DatePicker({
             <BasePopover.Popup
               className={(state) =>
                 cn(
-                  "z-50 w-[min(92vw,18rem)] rounded-xl border border-border/80 bg-popover p-3 text-popover-foreground shadow-xl",
-                  "transition-[opacity,transform] duration-[140ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  "z-50 w-[min(92vw,18rem)] rounded-2xl border border-border/85 bg-popover p-3 text-popover-foreground shadow-[var(--shadow-soft)]",
+                  "transition-[opacity,transform] duration-[140ms] ease-[var(--shell-ease)] motion-reduce:transition-none",
                   state.open
                     ? "translate-y-0 opacity-100"
                     : "translate-y-1 opacity-0"
@@ -145,6 +161,7 @@ export function DatePicker({
 
                 <div className="flex items-center justify-between gap-2">
                   <Button
+                    disabled={!(allowClear && resolvedValue)}
                     onClick={clearDate}
                     size="sm"
                     type="button"
@@ -153,6 +170,7 @@ export function DatePicker({
                     {locale === "en-US" ? "Clear" : "Limpiar"}
                   </Button>
                   <Button
+                    disabled={!clampDate(toIsoDate(new Date()), min, max)}
                     onClick={setToday}
                     size="sm"
                     type="button"

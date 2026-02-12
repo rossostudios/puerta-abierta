@@ -39,7 +39,7 @@ export function Drawer({
         <BaseDialog.Backdrop
           className={(state) =>
             cn(
-              "fixed inset-0 z-40 bg-black/28 transition-opacity duration-[160ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none dark:bg-black/56",
+              "fixed inset-0 z-40 bg-[var(--overlay-scrim)] transition-opacity duration-[160ms] ease-[var(--shell-ease)] motion-reduce:transition-none",
               state.open
                 ? "pointer-events-auto opacity-100"
                 : "pointer-events-none opacity-0"
@@ -49,8 +49,8 @@ export function Drawer({
         <BaseDialog.Popup
           className={(state) =>
             cn(
-              "fixed inset-y-0 z-50 flex h-full w-[min(86vw,320px)] flex-col border-sidebar-border/70 bg-sidebar shadow-xl",
-              "transition-transform duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              "fixed inset-y-0 z-50 flex h-full w-[min(86vw,320px)] flex-col border-sidebar-border/70 bg-sidebar shadow-[var(--shadow-floating)]",
+              "transition-transform duration-[180ms] ease-[var(--shell-ease)] motion-reduce:transition-none",
               side === "left" ? "left-0 border-r" : "right-0 border-l",
               side === "left"
                 ? state.open

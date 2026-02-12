@@ -8,7 +8,7 @@ from app.schemas.domain import CreateExpenseInput, UpdateExpenseInput
 from app.services.audit import write_audit_log
 from app.services.enrichment import enrich_expenses
 from app.services.fx import get_usd_to_pyg_rate
-from app.services.table_service import create_row, delete_row, get_row, list_rows, update_row
+from app.services.table_service import create_row, delete_row, get_row, update_row
 
 router = APIRouter(tags=["Expenses"])
 

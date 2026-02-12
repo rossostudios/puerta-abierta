@@ -35,6 +35,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -214,23 +216,23 @@ function TaskRowActions({
 
   const assignmentControl =
     currentUserId && !assignedUserId ? (
-      <form action={setTaskAssigneeAction}>
+      <Form action={setTaskAssigneeAction}>
         <input name="task_id" type="hidden" value={id} />
         <input name="assigned_user_id" type="hidden" value={currentUserId} />
         <input name="next" type="hidden" value={nextPath} />
         <Button size="sm" type="submit" variant="outline">
           {isEn ? "Take" : "Tomar"}
         </Button>
-      </form>
+      </Form>
     ) : currentUserId && assignedUserId === currentUserId ? (
-      <form action={setTaskAssigneeAction}>
+      <Form action={setTaskAssigneeAction}>
         <input name="task_id" type="hidden" value={id} />
         <input name="assigned_user_id" type="hidden" value="" />
         <input name="next" type="hidden" value={nextPath} />
         <Button size="sm" type="submit" variant="ghost">
           {isEn ? "Unassign" : "Soltar"}
         </Button>
-      </form>
+      </Form>
     ) : null;
 
   if (!(actions.length || assignmentControl)) return null;
@@ -241,25 +243,25 @@ function TaskRowActions({
       {actions.map((action) => {
         if (action.kind === "complete") {
           return (
-            <form action={completeTaskAction} key="complete">
+            <Form action={completeTaskAction} key="complete">
               <input name="task_id" type="hidden" value={id} />
               <input name="next" type="hidden" value={nextPath} />
               <Button size="sm" type="submit" variant="secondary">
                 {localizedTaskActionLabel(isEn, action.kind)}
               </Button>
-            </form>
+            </Form>
           );
         }
 
         return (
-          <form action={updateTaskStatusAction} key={action.next}>
+          <Form action={updateTaskStatusAction} key={action.next}>
             <input name="task_id" type="hidden" value={id} />
             <input name="next" type="hidden" value={nextPath} />
             <input name="status" type="hidden" value={action.next ?? ""} />
             <Button size="sm" type="submit" variant="outline">
               {localizedTaskActionLabel(isEn, action.kind, action.next)}
             </Button>
-          </form>
+          </Form>
         );
       })}
     </div>
@@ -731,9 +733,9 @@ export function TasksManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Due" : "Vence"}
               </span>
-              <Input
-                onChange={(event) => setDueOn(event.target.value)}
-                type="date"
+              <DatePicker
+                locale={locale}
+                onValueChange={setDueOn}
                 value={dueOn}
               />
             </label>
@@ -1021,7 +1023,7 @@ export function TasksManager({
         open={open}
         title={isEn ? "New task" : "Nueva tarea"}
       >
-        <form action={createTaskAction} className="space-y-4">
+        <Form action={createTaskAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
 
           <label className="block space-y-1">
@@ -1094,7 +1096,7 @@ export function TasksManager({
               <span className="block font-medium text-muted-foreground text-xs">
                 {isEn ? "Due date (optional)" : "Vence (opcional)"}
               </span>
-              <Input name="due_on" type="date" />
+              <DatePicker locale={locale} name="due_on" />
             </label>
           </div>
 
@@ -1120,7 +1122,7 @@ export function TasksManager({
               {isEn ? "Create" : "Crear"}
             </Button>
           </div>
-        </form>
+        </Form>
       </Sheet>
     </div>
   );

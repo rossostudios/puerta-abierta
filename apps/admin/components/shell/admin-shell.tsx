@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import type { ViewportMode } from "@/components/shell/sidebar";
+import type { ViewportMode } from "@/components/shell/sidebar-new";
 import { SidebarNew } from "@/components/shell/sidebar-new";
 import { SidebarV1 } from "@/components/shell/sidebar-v1";
 import { Topbar } from "@/components/shell/topbar";
@@ -88,9 +88,7 @@ function LegacyAdminShell({ locale, children }: AdminShellProps) {
     <div
       className={cn(
         "flex h-full",
-        BRAND_V1_ENABLED
-          ? "bg-[color-mix(in_oklch,var(--shell-surface)_74%,var(--background))]"
-          : "bg-[color-mix(in_oklch,var(--shell-surface)_72%,var(--background))]"
+        BRAND_V1_ENABLED ? "bg-[var(--shell-surface)]" : "bg-background"
       )}
     >
       <SidebarV1
@@ -150,8 +148,8 @@ function AdminShellV2({
   };
 
   const shellSurfaceClass = BRAND_V1_ENABLED
-    ? "bg-[color-mix(in_oklch,var(--shell-surface)_78%,var(--background))]"
-    : "bg-[color-mix(in_oklch,var(--shell-surface)_76%,var(--background))]";
+    ? "bg-[var(--shell-surface)]"
+    : "bg-background";
 
   const contentColumn = (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">

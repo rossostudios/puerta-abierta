@@ -518,3 +518,50 @@ class AgentChatInput(BaseModel):
         max_length=20,
     )
     allow_mutations: bool = False
+
+
+class AgentDefinition(BaseModel):
+    id: str
+    slug: str
+    name: str
+    description: str
+    icon_key: str
+    is_active: bool = True
+
+
+class CreateAgentChatInput(BaseModel):
+    org_id: str
+    agent_slug: str = Field(min_length=2, max_length=80)
+    title: Optional[str] = Field(default=None, max_length=180)
+
+
+class SendAgentMessageInput(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    allow_mutations: bool = False
+    confirm_write: bool = False
+
+
+class AgentChatSummary(BaseModel):
+    id: str
+    org_id: str
+    agent_id: str
+    agent_slug: str
+    agent_name: str
+    title: str
+    is_archived: bool
+    last_message_at: str
+    created_at: str
+    updated_at: str
+    latest_message_preview: Optional[str] = None
+
+
+class AgentChatMessage(BaseModel):
+    id: str
+    chat_id: str
+    org_id: str
+    role: Literal["user", "assistant"]
+    content: str
+    tool_trace: Optional[list[dict[str, Any]]] = None
+    model_used: Optional[str] = None
+    fallback_used: bool = False
+    created_at: str

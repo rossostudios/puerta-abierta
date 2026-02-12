@@ -785,6 +785,61 @@ CREATE TABLE message_logs (
 CREATE INDEX idx_message_logs_org_status ON message_logs(organization_id, status, created_at);
 CREATE INDEX idx_message_logs_recipient ON message_logs(recipient);
 
+-- ---------- AI agents and chats ----------
+
+CREATE TABLE ai_agents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  name text NOT NULL,
+  description text NOT NULL,
+  icon_key text NOT NULL DEFAULT 'SparklesIcon',
+  system_prompt text NOT NULL,
+  allowed_tools jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(allowed_tools) = 'array'),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_agents_active_slug
+  ON ai_agents(is_active, slug);
+
+CREATE TABLE ai_chats (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  created_by_user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  agent_id uuid NOT NULL REFERENCES ai_agents(id) ON DELETE RESTRICT,
+  title text NOT NULL,
+  is_archived boolean NOT NULL DEFAULT false,
+  last_message_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_chats_org_user_archived_last
+  ON ai_chats(organization_id, created_by_user_id, is_archived, last_message_at DESC);
+
+CREATE INDEX idx_ai_chats_agent_id
+  ON ai_chats(agent_id);
+
+CREATE TABLE ai_chat_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_id uuid NOT NULL REFERENCES ai_chats(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('user', 'assistant')),
+  content text NOT NULL,
+  tool_trace jsonb,
+  model_used text,
+  fallback_used boolean NOT NULL DEFAULT false,
+  created_by_user_id uuid NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_ai_chat_messages_chat_created
+  ON ai_chat_messages(chat_id, created_at DESC);
+
+CREATE INDEX idx_ai_chat_messages_org_user_created
+  ON ai_chat_messages(organization_id, created_by_user_id, created_at DESC);
+
 -- ---------- Integrations and audit ----------
 
 CREATE TABLE integration_events (
@@ -925,6 +980,14 @@ CREATE TRIGGER trg_message_logs_updated_at
   BEFORE UPDATE ON message_logs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER trg_ai_agents_updated_at
+  BEFORE UPDATE ON ai_agents
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_ai_chats_updated_at
+  BEFORE UPDATE ON ai_chats
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TRIGGER trg_integration_events_updated_at
   BEFORE UPDATE ON integration_events
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -1011,6 +1074,9 @@ ALTER TABLE lease_charges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY properties_org_member_all
   ON properties FOR ALL
@@ -1116,3 +1182,17 @@ CREATE POLICY message_logs_org_member_all
   ON message_logs FOR ALL
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY ai_agents_read_authenticated
+  ON ai_agents FOR SELECT
+  USING (auth_user_id() IS NOT NULL);
+
+CREATE POLICY ai_chats_owner_all
+  ON ai_chats FOR ALL
+  USING (is_org_member(organization_id) AND created_by_user_id = auth_user_id())
+  WITH CHECK (is_org_member(organization_id) AND created_by_user_id = auth_user_id());
+
+CREATE POLICY ai_chat_messages_owner_all
+  ON ai_chat_messages FOR ALL
+  USING (is_org_member(organization_id) AND created_by_user_id = auth_user_id())
+  WITH CHECK (is_org_member(organization_id) AND created_by_user_id = auth_user_id());
