@@ -1,13 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import { PropertyCard } from "@/components/properties/property-card";
 import { PropertiesMapView } from "@/components/properties/properties-map-view";
-import { getPropertyColumns } from "@/components/properties/property-table";
-import { DataTable } from "@/components/ui/data-table";
-import { TableCell, TableFooter, TableRow } from "@/components/ui/table";
-import { formatCurrency } from "@/lib/format";
+import { PropertyNotionTable } from "@/components/properties/property-notion-table";
 import type {
   PropertyPortfolioRow,
   PropertyPortfolioSummary,
@@ -28,52 +23,8 @@ export function PropertiesList({
   viewMode,
   summary,
 }: PropertiesListProps) {
-  const router = useRouter();
   const isEn = locale === "en-US";
   const formatLocale = isEn ? "en-US" : "es-PY";
-
-  const onViewDetails = (id: string) => {
-    router.push(`/module/properties/${id}`);
-  };
-
-  const footer = (
-    <TableFooter>
-      <TableRow className="hover:bg-transparent">
-        {/* select column */}
-        <TableCell />
-        {/* name / property */}
-        <TableCell className="font-medium uppercase tracking-wider">
-          {rows.length} {isEn ? "Properties" : "Propiedades"}
-        </TableCell>
-        {/* code */}
-        <TableCell />
-        {/* city */}
-        <TableCell />
-        {/* units */}
-        <TableCell className="tabular-nums">{summary.totalUnits}</TableCell>
-        {/* occupancy */}
-        <TableCell className="tabular-nums">
-          {summary.averageOccupancy}%
-        </TableCell>
-        {/* status */}
-        <TableCell />
-        {/* revenue */}
-        <TableCell className="tabular-nums">
-          {formatCurrency(summary.totalRevenueMtdPyg, "PYG", formatLocale)}
-        </TableCell>
-        {/* tasks */}
-        <TableCell className="tabular-nums">
-          {summary.totalOpenTasks}
-        </TableCell>
-        {/* overdue */}
-        <TableCell className="tabular-nums">
-          {summary.totalOverdueCollections}
-        </TableCell>
-        {/* actions */}
-        <TableCell />
-      </TableRow>
-    </TableFooter>
-  );
 
   return (
     <section className="pb-12">
@@ -104,13 +55,11 @@ export function PropertiesList({
           ))}
         </div>
       ) : (
-        <DataTable
-          borderless
-          columns={getPropertyColumns({ isEn, formatLocale, onViewDetails })}
-          data={rows}
-          footer={footer}
-          hideSearch
-          locale={locale}
+        <PropertyNotionTable
+          formatLocale={formatLocale}
+          isEn={isEn}
+          rows={rows}
+          summary={summary}
         />
       )}
     </section>

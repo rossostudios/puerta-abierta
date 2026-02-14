@@ -18,7 +18,8 @@ import {
 } from "@/app/(admin)/module/expenses/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { type DataTableRow } from "@/components/ui/data-table";
+import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
@@ -818,9 +819,11 @@ export function ExpensesManager({
         </div>
       </div>
 
-      <DataTable
+      <NotionDataTable
         columns={columns}
         data={rows as unknown as DataTableRow[]}
+        hideSearch
+        isEn={isEn}
         renderRowActions={(row) => (
           <ExpenseRowActions
             canManage={canManage}
@@ -830,8 +833,6 @@ export function ExpensesManager({
           />
         )}
         rowActionsHeader={isEn ? "Actions" : "Acciones"}
-        rowHrefBase="/module/expenses"
-        searchPlaceholder={isEn ? "Filter..." : "Filtrar..."}
       />
 
       <Sheet

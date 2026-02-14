@@ -11,7 +11,8 @@ import {
   setLeaseStatusAction,
 } from "@/app/(admin)/module/leases/actions";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { type DataTableRow } from "@/components/ui/data-table";
+import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
@@ -241,9 +242,11 @@ export function LeasesManager({
         </Button>
       </div>
 
-      <DataTable
+      <NotionDataTable
         columns={columns}
         data={optimisticRows}
+        hideSearch
+        isEn={isEn}
         renderRowActions={(row) => {
           const id = asString(row.id);
           const status = asString(row.lease_status);

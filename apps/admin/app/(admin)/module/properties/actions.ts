@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { postJson } from "@/lib/api";
+import { patchJson, postJson } from "@/lib/api";
 
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
@@ -50,4 +50,28 @@ export async function createPropertyFromPropertiesModuleAction(
   revalidatePath("/module/properties");
   revalidatePath("/setup");
   redirect(propertiesUrl({ success: "property-created" }));
+}
+
+const FIELD_TO_API_KEY: Record<string, string> = {
+  address: "address_line1",
+};
+
+export async function updatePropertyInlineAction({
+  propertyId,
+  field,
+  value,
+}: {
+  propertyId: string;
+  field: string;
+  value: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const apiField = FIELD_TO_API_KEY[field] ?? field;
+  try {
+    await patchJson(`/properties/${propertyId}`, { [apiField]: value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message.slice(0, 240) };
+  }
+  revalidatePath("/module/properties");
+  return { ok: true };
 }

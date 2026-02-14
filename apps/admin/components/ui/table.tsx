@@ -79,11 +79,12 @@ TableRow.displayName = "TableRow";
 
 const TableHead = forwardRef<
   HTMLTableCellElement,
-  ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
+  ThHTMLAttributes<HTMLTableCellElement> & { grid?: boolean }
+>(({ className, grid, ...props }, ref) => (
   <th
     className={cn(
       "h-10 px-3 text-left align-middle font-medium text-xs text-muted-foreground",
+      grid && "border-r border-border/40 last:border-r-0",
       className
     )}
     ref={ref}
@@ -94,10 +95,14 @@ TableHead.displayName = "TableHead";
 
 const TableCell = forwardRef<
   HTMLTableCellElement,
-  TdHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
+  TdHTMLAttributes<HTMLTableCellElement> & { grid?: boolean }
+>(({ className, grid, ...props }, ref) => (
   <td
-    className={cn("px-3 py-2 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn(
+      "px-3 py-2 align-middle [&:has([role=checkbox])]:pr-0",
+      grid && "border-r border-border/40 last:border-r-0",
+      className
+    )}
     ref={ref}
     {...props}
   />

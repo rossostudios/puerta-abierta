@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { postJson } from "@/lib/api";
+import { patchJson, postJson } from "@/lib/api";
 
 const UNITS_API_ERROR_RE =
   /API request failed \((\d+)\) for \/units(?::\s*(.+))?/i;
@@ -100,4 +100,23 @@ export async function createUnitFromUnitsModuleAction(formData: FormData) {
       unitsUrl({ error: friendlyUnitCreateError(message).slice(0, 240) })
     );
   }
+}
+
+export async function updateUnitInlineAction({
+  unitId,
+  field,
+  value,
+}: {
+  unitId: string;
+  field: string;
+  value: string | number | boolean;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await patchJson(`/units/${unitId}`, { [field]: value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message.slice(0, 240) };
+  }
+  revalidatePath("/module/units");
+  return { ok: true };
 }

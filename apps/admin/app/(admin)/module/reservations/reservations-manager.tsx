@@ -15,14 +15,18 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { type DataTableRow } from "@/components/ui/data-table";
+import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
+import type { ColumnDef } from "@tanstack/react-table";
 
 type UnitRow = {
   id: string;
@@ -257,6 +261,82 @@ export function ReservationsManager({
       });
   }, [from, query, reservations, status, to, unitId]);
 
+  const reservationColumns = useMemo<ColumnDef<DataTableRow>[]>(
+    () => [
+      {
+        accessorKey: "status",
+        header: isEn ? "Status" : "Estado",
+        size: 120,
+        cell: ({ getValue }) => (
+          <StatusBadge value={asString(getValue())} />
+        ),
+      },
+      {
+        accessorKey: "check_in_date",
+        header: isEn ? "Check-in" : "Check-in",
+        size: 120,
+      },
+      {
+        accessorKey: "check_out_date",
+        header: isEn ? "Check-out" : "Check-out",
+        size: 120,
+      },
+      {
+        accessorKey: "guest_name",
+        header: isEn ? "Guest" : "Huésped",
+        size: 160,
+        cell: ({ getValue }) => {
+          const name = asString(getValue()).trim();
+          return name || <span className="text-muted-foreground">-</span>;
+        },
+      },
+      {
+        accessorKey: "unit_name",
+        header: isEn ? "Unit" : "Unidad",
+        size: 130,
+        cell: ({ getValue }) => {
+          const name = asString(getValue()).trim();
+          return name || <span className="text-muted-foreground">-</span>;
+        },
+      },
+      {
+        accessorKey: "property_name",
+        header: isEn ? "Property" : "Propiedad",
+        size: 150,
+        cell: ({ getValue }) => {
+          const name = asString(getValue()).trim();
+          return name || <span className="text-muted-foreground">-</span>;
+        },
+      },
+      {
+        accessorKey: "channel_name",
+        header: isEn ? "Channel" : "Canal",
+        size: 120,
+        cell: ({ getValue }) => {
+          const name = asString(getValue()).trim();
+          return name || <span className="text-muted-foreground">-</span>;
+        },
+      },
+      {
+        accessorKey: "total_amount",
+        header: isEn ? "Amount" : "Monto",
+        size: 130,
+        cell: ({ row }) => {
+          const amount = asNumber(row.original.total_amount);
+          const currency = asString(row.original.currency).trim() || "PYG";
+          return amount != null ? (
+            <span className="tabular-nums text-sm">
+              {formatCurrency(amount, currency, locale)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          );
+        },
+      },
+    ],
+    [isEn, locale]
+  );
+
   const reservationsTrendData = useMemo(() => {
     const days: string[] = [];
     const today = new Date();
@@ -470,12 +550,13 @@ export function ReservationsManager({
         </ChartContainer>
       </section>
 
-      <DataTable
+      <NotionDataTable
+        columns={reservationColumns}
         data={filteredRows}
+        hideSearch
+        isEn={isEn}
         renderRowActions={(row) => <ReservationRowActions row={row} />}
         rowActionsHeader={isEn ? "Actions" : "Acciones"}
-        rowHrefBase="/module/reservations"
-        searchPlaceholder={isEn ? "Filter..." : "Filtrar..."}
       />
 
       <Sheet

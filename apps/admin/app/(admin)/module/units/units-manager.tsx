@@ -4,10 +4,10 @@ import { Add01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useMemo, useState } from "react";
 import { createUnitFromUnitsModuleAction } from "@/app/(admin)/module/units/actions";
 import { CsvImportSheet } from "@/components/import/csv-import-sheet";
+import { UnitNotionTable, type UnitRow } from "@/components/units/unit-notion-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
 import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ type PropertyRow = {
   code?: string | null;
 };
 
-type UnitRow = {
+type InternalUnitRow = {
   id: string;
   property_id?: string | null;
   property_name?: string | null;
@@ -121,8 +121,8 @@ export function UnitsManager({
       .sort((left, right) => left.label.localeCompare(right.label));
   }, [properties]);
 
-  const rows = useMemo(() => {
-    return (units as UnitRow[])
+  const rows = useMemo<UnitRow[]>(() => {
+    return (units as InternalUnitRow[])
       .map((row) => ({
         id: asString(row.id).trim(),
         property_id: asString(row.property_id).trim() || null,
@@ -140,12 +140,12 @@ export function UnitsManager({
       }))
       .filter((row) =>
         propertyFilter === "all" ? true : row.property_id === propertyFilter
-      ) as DataTableRow[];
+      );
   }, [units, propertyFilter]);
 
   const unitCodesByProperty = useMemo(() => {
     const map = new Map<string, Set<string>>();
-    for (const row of units as UnitRow[]) {
+    for (const row of units as InternalUnitRow[]) {
       const propertyId = asString(row.property_id).trim();
       const code = asString(row.code).trim();
       if (!(propertyId && code)) continue;
@@ -179,7 +179,7 @@ export function UnitsManager({
   }, [createPropertyId, propertyOptions]);
   const existingUnitsInSelectedProperty = useMemo(() => {
     if (!createPropertyId) return 0;
-    return (units as UnitRow[]).filter(
+    return (units as InternalUnitRow[]).filter(
       (row) => asString(row.property_id).trim() === createPropertyId
     ).length;
   }, [createPropertyId, units]);
@@ -257,11 +257,7 @@ export function UnitsManager({
         </div>
       </div>
 
-      <DataTable
-        data={rows}
-        rowHrefBase="/module/units"
-        searchPlaceholder={isEn ? "Filter units..." : "Filtrar unidades..."}
-      />
+      <UnitNotionTable isEn={isEn} rows={rows} />
 
       <Sheet
         description={

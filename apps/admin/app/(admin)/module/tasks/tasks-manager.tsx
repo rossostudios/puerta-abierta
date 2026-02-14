@@ -34,7 +34,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
+import { type DataTableRow } from "@/components/ui/data-table";
+import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
@@ -998,9 +999,11 @@ export function TasksManager({
         ))}
       </section>
 
-      <DataTable
+      <NotionDataTable
         columns={columns}
         data={rows}
+        hideSearch
+        isEn={isEn}
         renderRowActions={(row) => (
           <TaskRowActions
             currentUserId={currentUserId}
@@ -1009,8 +1012,6 @@ export function TasksManager({
           />
         )}
         rowActionsHeader={isEn ? "Actions" : "Acciones"}
-        rowHrefBase="/module/tasks"
-        searchPlaceholder={isEn ? "Filter..." : "Filtrar..."}
       />
 
       <Sheet
