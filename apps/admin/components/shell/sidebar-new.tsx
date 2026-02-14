@@ -40,6 +40,12 @@ import {
 import { Drawer } from "@/components/ui/drawer";
 import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { SHORTCUT_BY_HREF } from "@/lib/hotkeys/config";
 import type { Locale } from "@/lib/i18n";
 import { getModuleLabel, MODULE_BY_SLUG, MODULES } from "@/lib/modules";
 import { cn } from "@/lib/utils";
@@ -342,6 +348,23 @@ function useCollapsedSections(): [Set<SectionKey>, (key: SectionKey) => void] {
   return [collapsed, toggle];
 }
 
+function ShortcutKbd({ keys }: { keys: string[] }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {keys.map((key, i) => (
+        <span className="inline-flex items-center gap-0.5" key={i}>
+          {i > 0 && (
+            <span className="text-muted-foreground/60 text-[10px]">then</span>
+          )}
+          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/80 bg-muted/70 px-1 font-mono text-[10px] font-medium text-foreground shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
+            {key}
+          </kbd>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function NavLinkRow({
   active,
   href,
@@ -353,10 +376,12 @@ function NavLinkRow({
   icon: IconSvgElement;
   label: string;
 }) {
-  return (
+  const shortcutKeys = SHORTCUT_BY_HREF[href];
+
+  const link = (
     <Link
       className={cn(
-        "group flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
+        "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
           ? "bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-border/40"
           : "text-sidebar-foreground hover:bg-muted/60 hover:text-foreground"
@@ -368,7 +393,7 @@ function NavLinkRow({
           "shrink-0 transition-colors",
           active
             ? "text-primary"
-            : "text-sidebar-foreground/60 group-hover:text-foreground/80"
+            : "text-sidebar-foreground/60 group-hover/nav:text-foreground/80"
         )}
         icon={icon}
         size={16}
@@ -377,6 +402,22 @@ function NavLinkRow({
         {label}
       </span>
     </Link>
+  );
+
+  if (!shortcutKeys) return link;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{link}</TooltipTrigger>
+      <TooltipContent
+        className="flex items-center gap-2.5 px-2.5 py-1.5"
+        side="right"
+        sideOffset={12}
+      >
+        <span className="text-[11px] font-medium text-popover-foreground">{label}</span>
+        <ShortcutKbd keys={shortcutKeys} />
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -629,7 +670,8 @@ function SidebarContent({
           <div className="flex min-w-0 flex-1 items-center gap-0.5">
             {PRIMARY_TABS.map((tab) => {
               const active = tab.key === activeTab;
-              return (
+              const shortcutKeys = SHORTCUT_BY_HREF[tab.href];
+              const tabLink = (
                 <Link
                   className={cn(
                     "inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium text-[12px] transition-colors",
@@ -638,24 +680,54 @@ function SidebarContent({
                       : "text-muted-foreground/75 hover:text-foreground"
                   )}
                   href={tab.href}
-                  key={tab.key}
                 >
                   <Icon icon={tab.icon} size={14} />
                   <span className="truncate">{tab.label[locale]}</span>
                 </Link>
               );
+              return shortcutKeys ? (
+                <Tooltip key={tab.key}>
+                  <TooltipTrigger asChild>{tabLink}</TooltipTrigger>
+                  <TooltipContent
+                    className="flex items-center gap-2.5 px-2.5 py-1.5"
+                    side="bottom"
+                    sideOffset={8}
+                  >
+                    <span className="text-[11px] font-medium text-popover-foreground">
+                      {tab.label[locale]}
+                    </span>
+                    <ShortcutKbd keys={shortcutKeys} />
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <span key={tab.key}>{tabLink}</span>
+              );
             })}
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              aria-label={isEn ? "Search" : "Buscar"}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-              onClick={openSearch}
-              type="button"
-            >
-              <Icon icon={Search01Icon} size={15} />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={isEn ? "Search" : "Buscar"}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={openSearch}
+                  type="button"
+                >
+                  <Icon icon={Search01Icon} size={15} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                className="flex items-center gap-2.5 px-2.5 py-1.5"
+                side="bottom"
+                sideOffset={8}
+              >
+                <span className="text-[11px] font-medium text-popover-foreground">
+                  {isEn ? "Search" : "Buscar"}
+                </span>
+                <ShortcutKbd keys={["⌘", "K"]} />
+              </TooltipContent>
+            </Tooltip>
             <NotificationBell locale={locale} />
           </div>
         </div>

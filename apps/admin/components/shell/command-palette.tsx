@@ -50,15 +50,25 @@ function toActions(
 
 export function CommandPalette({
   showTrigger = true,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
 }: {
   showTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const router = useRouter();
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : internalOpen;
+  const setOpen = isControlled
+    ? (next: boolean) => onOpenChangeProp?.(next)
+    : setInternalOpen;
+
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const [pins, setPins] = useState<ShortcutItem[]>([]);
@@ -73,24 +83,39 @@ export function CommandPalette({
     return subscribeShortcuts(sync);
   }, []);
 
+  // Internal keyboard listener only when uncontrolled
   useEffect(() => {
+    if (isControlled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.key) return;
       const isK = event.key.toLowerCase() === "k";
       if ((event.metaKey || event.ctrlKey) && isK) {
         event.preventDefault();
-        setOpen(true);
+        setInternalOpen(true);
         return;
       }
       if (!open) return;
       if (event.key === "Escape") {
         event.preventDefault();
-        setOpen(false);
+        setInternalOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open]);
+  }, [isControlled, open]);
+
+  // Escape handler when controlled
+  useEffect(() => {
+    if (!isControlled || !open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onOpenChangeProp?.(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isControlled, open, onOpenChangeProp]);
 
   useEffect(() => {
     if (!open) return;

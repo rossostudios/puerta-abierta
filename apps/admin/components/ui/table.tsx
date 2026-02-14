@@ -47,13 +47,28 @@ const TableBody = forwardRef<
 ));
 TableBody.displayName = "TableBody";
 
+const TableFooter = forwardRef<
+  HTMLTableSectionElement,
+  HTMLAttributes<HTMLTableSectionElement>
+>(({ className, ...props }, ref) => (
+  <tfoot
+    className={cn(
+      "border-t bg-muted/30 text-xs text-muted-foreground",
+      className
+    )}
+    ref={ref}
+    {...props}
+  />
+));
+TableFooter.displayName = "TableFooter";
+
 const TableRow = forwardRef<
   HTMLTableRowElement,
   HTMLAttributes<HTMLTableRowElement>
 >(({ className, ...props }, ref) => (
   <tr
     className={cn(
-      "border-border/70 border-b transition-colors hover:bg-muted/34 data-[state=selected]:bg-muted/45",
+      "border-border/40 border-b transition-colors hover:bg-muted/34 data-[state=selected]:bg-muted/45",
       className
     )}
     ref={ref}
@@ -68,7 +83,7 @@ const TableHead = forwardRef<
 >(({ className, ...props }, ref) => (
   <th
     className={cn(
-      "h-11 px-3 text-left align-middle font-medium text-[11px] text-muted-foreground uppercase tracking-[0.13em]",
+      "h-10 px-3 text-left align-middle font-medium text-xs text-muted-foreground",
       className
     )}
     ref={ref}
@@ -82,7 +97,7 @@ const TableCell = forwardRef<
   TdHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
   <td
-    className={cn("p-3 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("px-3 py-2 align-middle [&:has([role=checkbox])]:pr-0", className)}
     ref={ref}
     {...props}
   />
@@ -106,6 +121,7 @@ export {
   TableBody,
   TableCaption,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,

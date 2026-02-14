@@ -6,8 +6,11 @@ import { PropertyCard } from "@/components/properties/property-card";
 import { PropertiesMapView } from "@/components/properties/properties-map-view";
 import { getPropertyColumns } from "@/components/properties/property-table";
 import { DataTable } from "@/components/ui/data-table";
+import { TableCell, TableFooter, TableRow } from "@/components/ui/table";
+import { formatCurrency } from "@/lib/format";
 import type {
   PropertyPortfolioRow,
+  PropertyPortfolioSummary,
   PropertyViewMode,
 } from "@/lib/features/properties/types";
 import type { Locale } from "@/lib/i18n";
@@ -16,12 +19,14 @@ type PropertiesListProps = {
   rows: PropertyPortfolioRow[];
   locale: Locale;
   viewMode: PropertyViewMode;
+  summary: PropertyPortfolioSummary;
 };
 
 export function PropertiesList({
   rows,
   locale,
   viewMode,
+  summary,
 }: PropertiesListProps) {
   const router = useRouter();
   const isEn = locale === "en-US";
@@ -30,6 +35,45 @@ export function PropertiesList({
   const onViewDetails = (id: string) => {
     router.push(`/module/properties/${id}`);
   };
+
+  const footer = (
+    <TableFooter>
+      <TableRow className="hover:bg-transparent">
+        {/* select column */}
+        <TableCell />
+        {/* name / property */}
+        <TableCell className="font-medium uppercase tracking-wider">
+          {rows.length} {isEn ? "Properties" : "Propiedades"}
+        </TableCell>
+        {/* code */}
+        <TableCell />
+        {/* city */}
+        <TableCell />
+        {/* units */}
+        <TableCell className="tabular-nums">{summary.totalUnits}</TableCell>
+        {/* occupancy */}
+        <TableCell className="tabular-nums">
+          {summary.averageOccupancy}%
+        </TableCell>
+        {/* status */}
+        <TableCell />
+        {/* revenue */}
+        <TableCell className="tabular-nums">
+          {formatCurrency(summary.totalRevenueMtdPyg, "PYG", formatLocale)}
+        </TableCell>
+        {/* tasks */}
+        <TableCell className="tabular-nums">
+          {summary.totalOpenTasks}
+        </TableCell>
+        {/* overdue */}
+        <TableCell className="tabular-nums">
+          {summary.totalOverdueCollections}
+        </TableCell>
+        {/* actions */}
+        <TableCell />
+      </TableRow>
+    </TableFooter>
+  );
 
   return (
     <section className="pb-12">
@@ -40,7 +84,7 @@ export function PropertiesList({
           rows={rows}
         />
       ) : viewMode === "grid" ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {rows.map((row) => (
             <PropertyCard
               address={row.address || row.city}
@@ -60,14 +104,14 @@ export function PropertiesList({
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border/50 bg-card/50 shadow-sm backdrop-blur-sm">
-          <DataTable
-            columns={getPropertyColumns({ isEn, formatLocale, onViewDetails })}
-            data={rows}
-            hideSearch
-            locale={locale}
-          />
-        </div>
+        <DataTable
+          borderless
+          columns={getPropertyColumns({ isEn, formatLocale, onViewDetails })}
+          data={rows}
+          footer={footer}
+          hideSearch
+          locale={locale}
+        />
       )}
     </section>
   );

@@ -139,6 +139,7 @@ export function PropertiesManager({
             <PropertiesList
               locale={locale}
               rows={filteredRows}
+              summary={summary}
               viewMode={viewMode}
             />
           </div>

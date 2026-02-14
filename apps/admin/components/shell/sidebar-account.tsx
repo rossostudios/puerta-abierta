@@ -3,6 +3,7 @@
 import {
   ArrowDown01Icon,
   File01Icon,
+  KeyboardIcon,
   Logout01Icon,
   Settings03Icon,
   UserCircle02Icon,
@@ -203,6 +204,29 @@ export function SidebarAccount({
               />
               {isEn ? "Settings" : "Configuración"}
             </Link>
+            <button
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "sm" }),
+                "h-9 w-full justify-start gap-2.5 rounded-xl px-2.5 font-normal text-foreground/88 hover:bg-muted/70 hover:text-foreground"
+              )}
+              onClick={() => {
+                setOpen(false);
+                window.dispatchEvent(
+                  new CustomEvent("pa:show-shortcuts-help")
+                );
+              }}
+              type="button"
+            >
+              <Icon
+                className="text-muted-foreground"
+                icon={KeyboardIcon}
+                size={16}
+              />
+              {isEn ? "Keyboard shortcuts" : "Atajos de teclado"}
+              <kbd className="ml-auto rounded border border-border/80 bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                ?
+              </kbd>
+            </button>
           </nav>
 
           <div className="my-1.5 h-px bg-border/80" />

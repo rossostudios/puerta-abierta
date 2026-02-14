@@ -2,9 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { CommandPalette } from "@/components/shell/command-palette";
+import { ShortcutsHelp } from "@/components/shell/shortcuts-help";
 import type { ViewportMode } from "@/components/shell/sidebar-new";
 import { SidebarNew } from "@/components/shell/sidebar-new";
-import { SidebarV1 } from "@/components/shell/sidebar-v1";
 import { Topbar } from "@/components/shell/topbar";
 import {
   ResizableHandle,
@@ -12,6 +13,8 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useGlobalHotkeys } from "@/lib/hotkeys/use-global-hotkeys";
+import { useNavigationHotkeys } from "@/lib/hotkeys/use-navigation-hotkeys";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +29,10 @@ type AdminShellProps = {
   children: ReactNode;
 };
 
-const SHELL_V2_ENABLED = process.env.NEXT_PUBLIC_SHELL_V2 !== "0";
 const BRAND_V1_ENABLED = process.env.NEXT_PUBLIC_BRAND_V1 !== "0";
 
-const STORAGE_KEY = "pa-sidebar-collapsed";
 const DESKTOP_QUERY = "(min-width: 1280px)";
 const TABLET_QUERY = "(min-width: 768px) and (max-width: 1279px)";
-const LEGACY_AUTO_COLLAPSE_BREAKPOINT = 1360;
 const SHEET_LOCK_COUNT_ATTR = "data-pa-scroll-lock-count";
 const SHEET_LOCK_PREV_OVERFLOW_ATTR = "data-pa-scroll-lock-prev-overflow";
 
@@ -82,84 +82,48 @@ function getViewportMode(): ViewportMode {
   return "mobile";
 }
 
-function LegacyAdminShell({ locale, children }: AdminShellProps) {
-  const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+function useShellHotkeys(locale: Locale) {
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+  const { gPressed } = useNavigationHotkeys();
 
+  useGlobalHotkeys({
+    onCommandPalette: useCallback(
+      () => setCmdPaletteOpen((prev) => !prev),
+      []
+    ),
+    onShowHelp: useCallback(() => setHelpOpen((prev) => !prev), []),
+    onEscape: useCallback(() => {}, []),
+  });
+
+  // Listen for topbar button event
   useEffect(() => {
-    const query = `(max-width: ${LEGACY_AUTO_COLLAPSE_BREAKPOINT}px)`;
-    const media = window.matchMedia(query);
-
-    const readStored = (): string | null => {
-      try {
-        return localStorage.getItem(STORAGE_KEY);
-      } catch {
-        return null;
-      }
-    };
-
-    const syncFromEnvironment = () => {
-      if (media.matches) {
-        setCollapsed(true);
-        return;
-      }
-
-      const stored = readStored();
-      if (stored === "true") setCollapsed(true);
-      if (stored === "false") setCollapsed(false);
-    };
-
-    try {
-      syncFromEnvironment();
-    } catch {
-      // Ignore storage failures (private mode / blocked).
-    }
-
-    const onChange = () => syncFromEnvironment();
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
+    const handler = () => setHelpOpen((prev) => !prev);
+    window.addEventListener("pa:show-shortcuts-help", handler);
+    return () => window.removeEventListener("pa:show-shortcuts-help", handler);
   }, []);
 
-  const setAndPersist = useCallback((next: boolean) => {
-    setCollapsed(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(next));
-    } catch {
-      // Ignore storage failures.
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!pathname) return;
-    clearStalePageScrollLock();
-    const handle = window.setTimeout(clearStalePageScrollLock, 220);
-    return () => window.clearTimeout(handle);
-  }, [pathname]);
-
-  return (
-    <div
-      className={cn(
-        "flex h-full min-h-0 overflow-hidden",
-        BRAND_V1_ENABLED ? "bg-[var(--shell-surface)]" : "bg-background"
-      )}
-    >
-      <SidebarV1
-        collapsed={collapsed}
+  const overlays = (
+    <>
+      <ShortcutsHelp
         locale={locale}
-        onCollapsedChange={setAndPersist}
+        onOpenChange={setHelpOpen}
+        open={helpOpen}
       />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar locale={locale} />
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <ScrollArea className="flex-1">
-            <div className="mx-auto w-full max-w-screen-2xl p-3 sm:p-4 lg:p-5 xl:p-6">
-              {children}
-            </div>
-          </ScrollArea>
-        </main>
-      </div>
-    </div>
+      <CommandPalette
+        onOpenChange={setCmdPaletteOpen}
+        open={cmdPaletteOpen}
+        showTrigger={false}
+      />
+      {gPressed && (
+        <div className="pointer-events-none fixed bottom-4 left-4 z-50 animate-in fade-in rounded-lg border border-border/80 bg-popover/95 px-3 py-1.5 font-mono text-sm text-foreground shadow-lg backdrop-blur">
+          G…
+        </div>
+      )}
+    </>
   );
+
+  return { overlays };
 }
 
 function AdminShellV2({
@@ -171,6 +135,7 @@ function AdminShellV2({
   const pathname = usePathname();
   const [viewportMode, setViewportMode] = useState<ViewportMode>("desktop");
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const { overlays } = useShellHotkeys(locale);
 
   useEffect(() => {
     const desktopMedia = window.matchMedia(DESKTOP_QUERY);
@@ -276,6 +241,7 @@ function AdminShellV2({
             {contentColumn}
           </ResizablePanel>
         </ResizablePanelGroup>
+        {overlays}
       </div>
     );
   }
@@ -298,6 +264,7 @@ function AdminShellV2({
         viewportMode={viewportMode}
       />
       {contentColumn}
+      {overlays}
     </div>
   );
 }
@@ -308,18 +275,6 @@ export function AdminShell({
   onboardingProgress,
   children,
 }: AdminShellProps) {
-  if (!SHELL_V2_ENABLED) {
-    return (
-      <LegacyAdminShell
-        locale={locale}
-        onboardingProgress={onboardingProgress}
-        orgId={orgId}
-      >
-        {children}
-      </LegacyAdminShell>
-    );
-  }
-
   return (
     <AdminShellV2
       locale={locale}

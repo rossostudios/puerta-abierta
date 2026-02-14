@@ -2,7 +2,7 @@
 
 import { ExternalLink, InboxIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,8 @@ import { HoverLink } from "@/components/ui/hover-link";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
 import { humanizeKey } from "@/lib/format";
+import { isInputFocused } from "@/lib/hotkeys/is-input-focused";
+import { useTableHotkeys } from "@/lib/hotkeys/use-table-hotkeys";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { FOREIGN_KEY_HREF_BASE_BY_KEY } from "@/lib/links";
@@ -364,18 +366,49 @@ export function ModuleTableCard({
   const rowHrefBase = `/module/${moduleSlug}`;
   const moduleEmptyState = getModuleEmptyState(moduleSlug, isEn);
 
-  const onRowClick = (next: DataTableRow) => {
-    setRecord(next);
-    setOpen(true);
-    const id = typeof next.id === "string" ? next.id : null;
-    if (id) {
-      addRecent({
-        href: `${rowHrefBase}/${id}`,
-        label: recordTitle(next, locale),
-        meta: moduleLabel,
-      });
-    }
-  };
+  const onRowClick = useCallback(
+    (next: DataTableRow) => {
+      setRecord(next);
+      setOpen(true);
+      const id = typeof next.id === "string" ? next.id : null;
+      if (id) {
+        addRecent({
+          href: `${rowHrefBase}/${id}`,
+          label: recordTitle(next, locale),
+          meta: moduleLabel,
+        });
+      }
+    },
+    [locale, moduleLabel, rowHrefBase]
+  );
+
+  const { focusedRowIndex } = useTableHotkeys({
+    rows,
+    onOpen: onRowClick,
+    enabled: !open && rows.length > 0,
+  });
+
+  // [ / ] navigation when sheet is open
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (isInputFocused()) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const currentIndex = record
+        ? rows.findIndex((r) => r.id === record.id)
+        : -1;
+      if (event.key === "[" && currentIndex > 0) {
+        event.preventDefault();
+        onRowClick(rows[currentIndex - 1]);
+      }
+      if (event.key === "]" && currentIndex < rows.length - 1) {
+        event.preventDefault();
+        onRowClick(rows[currentIndex + 1]);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, record, rows, onRowClick]);
 
   const recordId = record && typeof record.id === "string" ? record.id : null;
   const recordHref = recordId ? `${rowHrefBase}/${recordId}` : rowHrefBase;
@@ -454,6 +487,7 @@ export function ModuleTableCard({
             <DataTable
               data={rows as unknown as Record<string, unknown>[]}
               emptyStateConfig={moduleEmptyState}
+              focusedRowIndex={focusedRowIndex}
               locale={locale}
               onRowClick={onRowClick}
               rowHrefBase={rowHrefBase}

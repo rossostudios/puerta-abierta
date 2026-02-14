@@ -2,9 +2,16 @@
 
 import {
   Alert02Icon,
+  Building06Icon,
+  CheckmarkCircle02Icon,
+  City01Icon,
   Delete02Icon,
+  DollarCircleIcon,
+  Door01Icon,
+  Layers01Icon,
   MoreVerticalIcon,
   PencilEdit02Icon,
+  Tag01Icon,
   Task01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
@@ -12,8 +19,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import type { PropertyPortfolioRow } from "@/lib/features/properties/types";
 import { formatCurrency } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -24,7 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
-import { Progress } from "@/components/ui/progress";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 
 type PropertyTableColumnsProps = {
@@ -33,21 +39,26 @@ type PropertyTableColumnsProps = {
   onViewDetails: (id: string) => void;
 };
 
-function getCoverClassName(row: PropertyPortfolioRow): string {
-  if (row.status === "inactive") {
-    return "from-[var(--muted)] to-[var(--border)]";
-  }
-
-  if (row.health === "critical") {
-    return "from-[var(--status-danger-bg)] to-[var(--status-danger-border)]";
-  }
-
-  if (row.health === "watch") {
-    return "from-[var(--status-warning-bg)] to-[var(--status-warning-border)]";
-  }
-
-  return "from-[var(--status-success-bg)] to-[var(--status-success-border)]";
+function ColHeader({
+  icon,
+  label,
+}: {
+  icon: typeof Building06Icon;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className="text-muted-foreground/70" icon={icon} size={14} />
+      <span>{label}</span>
+    </span>
+  );
 }
+
+const HEALTH_DOT: Record<string, string> = {
+  stable: "bg-[var(--status-success-fg)]",
+  watch: "bg-[var(--status-warning-fg)]",
+  critical: "bg-[var(--status-danger-fg)]",
+};
 
 export const getPropertyColumns = ({
   isEn,
@@ -76,117 +87,144 @@ export const getPropertyColumns = ({
   },
   {
     accessorKey: "name",
-    header: isEn ? "Property" : "Propiedad",
+    header: () => (
+      <ColHeader
+        icon={Building06Icon}
+        label={isEn ? "Property" : "Propiedad"}
+      />
+    ),
     cell: ({ row }) => {
       const data = row.original;
+      const dotClass = HEALTH_DOT[data.health] ?? "bg-muted-foreground";
       return (
-        <div className="flex items-center gap-3">
-          <div
-            className={cn(
-              "h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br shadow-inner",
-              getCoverClassName(data)
-            )}
+        <div className="flex items-center gap-2.5">
+          <span
+            className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)}
+            title={data.health}
           />
           <div className="flex flex-col">
-            <span className="font-medium text-foreground text-sm">{data.name}</span>
-            <span className="text-muted-foreground text-xs">{data.address}</span>
+            <span className="font-medium text-foreground text-sm">
+              {data.name}
+            </span>
+            <span className="text-muted-foreground text-xs">
+              {data.address}
+            </span>
           </div>
         </div>
       );
     },
+  },
+  {
+    accessorKey: "code",
+    header: () => (
+      <ColHeader icon={Tag01Icon} label={isEn ? "Code" : "Código"} />
+    ),
+    cell: ({ row }) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {row.original.code}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "city",
+    header: () => (
+      <ColHeader icon={City01Icon} label={isEn ? "City" : "Ciudad"} />
+    ),
+    cell: ({ row }) => (
+      <span className="text-sm">{row.original.city}</span>
+    ),
+  },
+  {
+    accessorKey: "unitCount",
+    header: () => (
+      <ColHeader icon={Door01Icon} label={isEn ? "Units" : "Unidades"} />
+    ),
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm">{row.original.unitCount}</span>
+    ),
   },
   {
     accessorKey: "occupancyRate",
-    header: isEn ? "Occupancy" : "Ocupación",
+    header: () => (
+      <ColHeader
+        icon={Layers01Icon}
+        label={isEn ? "Occupancy" : "Ocupación"}
+      />
+    ),
     cell: ({ row }) => {
       const rate = row.original.occupancyRate;
-      let color = "bg-[var(--status-success-fg)]";
-      if (rate < 50) color = "bg-[var(--status-danger-fg)]";
-      else if (rate < 80) color = "bg-[var(--status-warning-fg)]";
+      let colorClass = "text-[var(--status-success-fg)]";
+      if (rate < 50) colorClass = "text-[var(--status-danger-fg)]";
+      else if (rate < 80) colorClass = "text-[var(--status-warning-fg)]";
 
       return (
-        <div className="w-[140px] space-y-1">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              {isEn ? "Occupied" : "Ocupado"}
-            </span>
-            <span
-              className={cn(
-                "font-medium",
-                rate < 80
-                  ? "text-[var(--status-warning-fg)]"
-                  : "text-[var(--status-success-fg)]"
-              )}
-            >
-              {rate}%
-            </span>
-          </div>
-          <Progress className="h-1.5" indicatorClassName={color} value={rate} />
-        </div>
+        <span className={cn("tabular-nums text-sm font-medium", colorClass)}>
+          {rate}%
+        </span>
       );
     },
+  },
+  {
+    accessorKey: "status",
+    header: () => (
+      <ColHeader
+        icon={CheckmarkCircle02Icon}
+        label={isEn ? "Status" : "Estado"}
+      />
+    ),
+    cell: ({ row }) => <StatusBadge value={row.original.status} />,
   },
   {
     accessorKey: "revenueMtdPyg",
-    header: isEn ? "Revenue (MTD)" : "Ingresos (Mes)",
-    cell: ({ row }) => {
-      const revenue = row.original.revenueMtdPyg;
-      const value = formatCurrency(revenue, "PYG", formatLocale).split(/\s/)[0] ?? "0";
-
-      return (
-        <div className="flex flex-col">
-          <span className="font-medium text-sm">{value}</span>
-        </div>
-      );
-    },
+    header: () => (
+      <ColHeader
+        icon={DollarCircleIcon}
+        label={isEn ? "Revenue" : "Ingresos"}
+      />
+    ),
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm">
+        {formatCurrency(row.original.revenueMtdPyg, "PYG", formatLocale)}
+      </span>
+    ),
   },
   {
     accessorKey: "openTaskCount",
-    header: isEn ? "Maintenance Tasks" : "Tareas Mantenimiento",
+    header: () => (
+      <ColHeader icon={Task01Icon} label={isEn ? "Tasks" : "Tareas"} />
+    ),
     cell: ({ row }) => {
       const count = row.original.openTaskCount;
       const urgent = row.original.urgentTaskCount;
-
       if (count === 0) {
-        return (
-          <Badge className="border-dashed font-normal text-muted-foreground" variant="outline">
-            {isEn ? "No tasks" : "Sin tareas"}
-          </Badge>
-        );
+        return <span className="text-muted-foreground text-sm">&mdash;</span>;
       }
-
       return (
-        <div className="flex items-center gap-2">
-          <Badge className="gap-1.5 bg-secondary/50" variant="secondary">
-            <Icon
-              className={
-                urgent > 0 ? "text-[var(--status-warning-fg)]" : "text-muted-foreground"
-              }
-              icon={Task01Icon}
-              size={12}
-            />
-            {count} {isEn ? "Active" : "Activas"}
-          </Badge>
-          {urgent > 0 ? (
-            <Icon className="animate-pulse text-red-500" icon={Alert02Icon} size={16} />
-          ) : null}
-        </div>
+        <span
+          className={cn(
+            "tabular-nums text-sm",
+            urgent > 0 && "font-medium text-[var(--status-warning-fg)]"
+          )}
+        >
+          {count}
+        </span>
       );
     },
   },
   {
     accessorKey: "overdueCollectionCount",
-    header: isEn ? "Overdue" : "Vencidos",
+    header: () => (
+      <ColHeader icon={Alert02Icon} label={isEn ? "Overdue" : "Vencidos"} />
+    ),
     cell: ({ row }) => {
       const count = row.original.overdueCollectionCount;
       if (count === 0) {
         return <span className="text-muted-foreground text-sm">&mdash;</span>;
       }
       return (
-        <Badge className="gap-1.5 status-tone-danger border" variant="secondary">
-          <Icon icon={Alert02Icon} size={12} />
+        <span className="tabular-nums text-sm font-medium text-[var(--status-danger-fg)]">
           {count}
-        </Badge>
+        </span>
       );
     },
   },
@@ -198,17 +236,26 @@ export const getPropertyColumns = ({
 
       return (
         <DropdownMenu>
-          <DropdownMenuTrigger className={cn(buttonVariants({ variant: "ghost" }), "h-8 w-8 p-0")}>
+          <DropdownMenuTrigger
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "h-8 w-8 p-0"
+            )}
+          >
             <span className="sr-only">Open menu</span>
             <Icon icon={MoreVerticalIcon} size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>{isEn ? "Actions" : "Acciones"}</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {isEn ? "Actions" : "Acciones"}
+            </DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onViewDetails(property.id)}>
               <Icon className="mr-2" icon={ViewIcon} size={14} />
               {isEn ? "View details" : "Ver detalles"}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(property.id)}>
+            <DropdownMenuItem
+              onClick={() => navigator.clipboard.writeText(property.id)}
+            >
               <Icon className="mr-2" icon={PencilEdit02Icon} size={14} />
               {isEn ? "Copy ID" : "Copiar ID"}
             </DropdownMenuItem>

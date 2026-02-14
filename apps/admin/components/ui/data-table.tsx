@@ -23,7 +23,8 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import Link from "next/link";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import type React from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -70,6 +71,9 @@ type DataTableProps<TRow extends DataTableRow = DataTableRow> = {
   foreignKeyHrefBaseByKey?: Record<string, string>;
   onRowClick?: (row: TRow) => void;
   emptyStateConfig?: EmptyStateConfig;
+  borderless?: boolean;
+  footer?: ReactNode;
+  focusedRowIndex?: number;
 };
 
 
@@ -497,6 +501,26 @@ function inferColumns(options: {
   });
 }
 
+function FocusableTableRow({
+  isFocused,
+  children,
+  ...props
+}: React.ComponentProps<typeof TableRow> & { isFocused: boolean }) {
+  const ref = useRef<HTMLTableRowElement>(null);
+
+  useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isFocused]);
+
+  return (
+    <TableRow ref={ref} {...props}>
+      {children}
+    </TableRow>
+  );
+}
+
 export function DataTable<TRow extends DataTableRow = DataTableRow>({
   data,
   columns: columnsProp,
@@ -510,6 +534,9 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
   foreignKeyHrefBaseByKey,
   onRowClick,
   emptyStateConfig,
+  borderless = false,
+  footer,
+  focusedRowIndex = -1,
 }: DataTableProps<TRow>) {
   const activeLocale = useActiveLocale();
   const locale = localeProp ?? activeLocale;
@@ -700,7 +727,7 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
         </details>
       </div>
 
-      <div className="rounded-md border">
+      <div className={cn("rounded-md border", borderless && "rounded-none border-0")}>
         <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -749,38 +776,43 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  className={cn(
-                    onRowClick ? "cursor-pointer hover:bg-muted/30" : ""
-                  )}
-                  key={row.id}
-                  onClick={(event) => {
-                    if (!onRowClick) return;
-                    const target = event.target as HTMLElement | null;
-                    if (
-                      target?.closest(
-                        'a,button,input,select,textarea,label,[role="button"],[data-row-click="ignore"]'
-                      )
-                    ) {
-                      return;
-                    }
-                    onRowClick(row.original);
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      className="max-w-72 break-words align-top"
-                      key={cell.id}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row, visualIndex) => {
+                const isFocused = focusedRowIndex >= 0 && row.index === focusedRowIndex;
+                return (
+                  <FocusableTableRow
+                    className={cn(
+                      onRowClick ? "cursor-pointer hover:bg-muted/30" : "",
+                      isFocused ? "ring-2 ring-primary/30 bg-primary/[0.03]" : ""
+                    )}
+                    isFocused={isFocused}
+                    key={row.id}
+                    onClick={(event) => {
+                      if (!onRowClick) return;
+                      const target = event.target as HTMLElement | null;
+                      if (
+                        target?.closest(
+                          'a,button,input,select,textarea,label,[role="button"],[data-row-click="ignore"]'
+                        )
+                      ) {
+                        return;
+                      }
+                      onRowClick(row.original);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        className="max-w-72 break-words align-top"
+                        key={cell.id}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </FocusableTableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -885,6 +917,7 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
               </TableRow>
             )}
           </TableBody>
+          {footer}
         </Table>
       </div>
 
