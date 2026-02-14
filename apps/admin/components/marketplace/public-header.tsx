@@ -3,15 +3,21 @@
 import {
   Calendar02Icon,
   GridViewIcon,
+  HeartAddIcon,
   Home01Icon,
   Message01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { Icon } from "@/components/ui/icon";
+import {
+  FAVORITES_CHANGE_EVENT,
+  getFavoritesCount,
+} from "@/lib/features/marketplace/favorites";
 import { cn } from "@/lib/utils";
 
 type HeaderLocale = "es-PY" | "en-US";
@@ -68,6 +74,16 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function PublicHeader({ locale }: { locale: HeaderLocale }) {
   const isEn = locale === "en-US";
   const pathname = usePathname();
+  const [favCount, setFavCount] = useState(0);
+
+  useEffect(() => {
+    setFavCount(getFavoritesCount());
+    function sync() {
+      setFavCount(getFavoritesCount());
+    }
+    window.addEventListener(FAVORITES_CHANGE_EVENT, sync);
+    return () => window.removeEventListener(FAVORITES_CHANGE_EVENT, sync);
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-border/70 border-b bg-background/92 backdrop-blur-md">
@@ -113,6 +129,21 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
             <Icon icon={GridViewIcon} size={16} />
             <span className="sr-only">
               {isEn ? "Marketplace" : "Marketplace"}
+            </span>
+          </Link>
+
+          <Link
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/75 bg-card/90 text-muted-foreground transition-colors hover:text-foreground"
+            href="/marketplace/favorites"
+          >
+            <Icon icon={HeartAddIcon} size={16} />
+            {favCount > 0 ? (
+              <span className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                {favCount}
+              </span>
+            ) : null}
+            <span className="sr-only">
+              {isEn ? "Favorites" : "Favoritos"}
             </span>
           </Link>
 

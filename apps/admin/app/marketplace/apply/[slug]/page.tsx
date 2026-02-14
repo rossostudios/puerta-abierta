@@ -3,18 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import {
-  asNumber,
-  asOptionalNumber,
-  asText,
-} from "@/components/marketplace/marketplace-types";
 import { PublicFooter } from "@/components/marketplace/public-footer";
 import { PublicHeader } from "@/components/marketplace/public-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchPublicMarketplaceListing } from "@/lib/api";
-import { formatCurrency } from "@/lib/format";
+import { toMarketplaceListingViewModel } from "@/lib/features/marketplace/view-model";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
@@ -23,21 +18,6 @@ import { MarketplaceApplyForm } from "./apply-form";
 type MarketplaceApplyPageProps = {
   params: Promise<{ slug: string }>;
 };
-
-function specsText(
-  listing: Record<string, unknown>,
-  locale: "es-PY" | "en-US"
-): string {
-  const isEn = locale === "en-US";
-  const bedrooms = asOptionalNumber(listing.bedrooms);
-  const bathrooms = asOptionalNumber(listing.bathrooms);
-  const squareMeters = asOptionalNumber(listing.square_meters);
-  const parts: string[] = [];
-  if (bedrooms !== null) parts.push(`${bedrooms} ${isEn ? "bed" : "hab"}`);
-  if (bathrooms !== null) parts.push(`${bathrooms} ${isEn ? "bath" : "baño"}`);
-  if (squareMeters !== null) parts.push(`${squareMeters} m²`);
-  return parts.join(" · ");
-}
 
 export async function generateMetadata({
   params,
@@ -60,9 +40,9 @@ export default async function MarketplaceApplyPage({
   const defaultOrgId = process.env.NEXT_PUBLIC_DEFAULT_ORG_ID?.trim();
   const { slug } = await params;
 
-  let listing: Record<string, unknown>;
+  let rawListing: Record<string, unknown>;
   try {
-    listing = await fetchPublicMarketplaceListing(slug);
+    rawListing = await fetchPublicMarketplaceListing(slug);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("(404)")) {
@@ -71,31 +51,10 @@ export default async function MarketplaceApplyPage({
     throw err;
   }
 
-  const listingOrgId = asText(listing.organization_id);
-  if (defaultOrgId && listingOrgId && listingOrgId !== defaultOrgId) {
+  const listing = toMarketplaceListingViewModel({ listing: rawListing, locale });
+  if (defaultOrgId && listing.organizationId && listing.organizationId !== defaultOrgId) {
     notFound();
   }
-
-  const title = asText(listing.title) || (isEn ? "Listing" : "Anuncio");
-  const city = asText(listing.city) || "Asuncion";
-  const neighborhood = asText(listing.neighborhood);
-  const currency = asText(listing.currency) || "PYG";
-  const totalMoveIn = formatCurrency(
-    asNumber(listing.total_move_in),
-    currency,
-    locale
-  );
-  const recurring = formatCurrency(
-    asNumber(listing.monthly_recurring_total),
-    currency,
-    locale
-  );
-  const coverImageUrl = asText(listing.cover_image_url);
-  const specs = specsText(listing, locale);
-  const propertyType = asText(listing.property_type);
-  const furnished = listing.furnished === true;
-  const availableFrom = asText(listing.available_from);
-  const minimumLeaseMonths = asOptionalNumber(listing.minimum_lease_months);
 
   return (
     <div className="pa-marketplace-root min-h-dvh bg-background">
@@ -110,10 +69,8 @@ export default async function MarketplaceApplyPage({
             {isEn ? "Back to listing" : "Volver al anuncio"}
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{city}</Badge>
-            {neighborhood ? (
-              <Badge variant="outline">{neighborhood}</Badge>
-            ) : null}
+            <Badge variant="secondary">{listing.city}</Badge>
+            {listing.neighborhood ? <Badge variant="outline">{listing.neighborhood}</Badge> : null}
           </div>
           <h1 className="font-semibold text-3xl tracking-tight">
             {isEn ? "Application" : "Aplicación"}
@@ -123,18 +80,18 @@ export default async function MarketplaceApplyPage({
         <section className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
           <Card className="min-w-0">
             <CardHeader>
-              <CardTitle>{title}</CardTitle>
+              <CardTitle>{listing.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="overflow-hidden rounded-xl border border-border/70 bg-muted/20">
-                {coverImageUrl ? (
+                {listing.coverImageUrl ? (
                   <Image
-                    alt={title}
+                    alt={listing.title}
                     className="h-56 w-full object-cover"
                     height={720}
                     loading="lazy"
                     sizes="(max-width: 1024px) 100vw, 40vw"
-                    src={coverImageUrl}
+                    src={listing.coverImageUrl}
                     unoptimized
                     width={1280}
                   />
@@ -144,13 +101,13 @@ export default async function MarketplaceApplyPage({
                   </div>
                 )}
               </div>
-              {specs ? (
-                <p className="text-muted-foreground text-sm">{specs}</p>
+              {listing.specsLong ? (
+                <p className="text-muted-foreground text-sm">{listing.specsLong}</p>
               ) : null}
               <p className="text-muted-foreground text-xs">
                 {[
-                  propertyType,
-                  furnished ? (isEn ? "Furnished" : "Amoblado") : null,
+                  listing.propertyType,
+                  listing.furnished ? (isEn ? "Furnished" : "Amoblado") : null,
                 ]
                   .filter(Boolean)
                   .join(" · ")}
@@ -159,19 +116,18 @@ export default async function MarketplaceApplyPage({
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "Total move-in" : "Costo total de ingreso"}
                 </p>
-                <p className="font-semibold text-2xl">{totalMoveIn}</p>
+                <p className="font-semibold text-2xl">{listing.totalMoveInLabel}</p>
                 <p className="text-muted-foreground text-xs">
-                  {isEn ? "Monthly recurring" : "Mensual recurrente"}:{" "}
-                  {recurring}
+                  {isEn ? "Monthly recurring" : "Mensual recurrente"}: {listing.monthlyRecurringLabel}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {isEn ? "Available from" : "Disponible desde"}:{" "}
-                  {availableFrom || (isEn ? "Not set" : "Sin definir")}
+                  {isEn ? "Available from" : "Disponible desde"}: {" "}
+                  {listing.availableFrom || (isEn ? "Not set" : "Sin definir")}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {isEn ? "Minimum lease" : "Contrato mínimo"}:{" "}
-                  {minimumLeaseMonths
-                    ? `${minimumLeaseMonths} ${isEn ? "months" : "meses"}`
+                  {isEn ? "Minimum lease" : "Contrato mínimo"}: {" "}
+                  {listing.minimumLeaseMonths
+                    ? `${listing.minimumLeaseMonths} ${isEn ? "months" : "meses"}`
                     : isEn
                       ? "Not set"
                       : "Sin definir"}

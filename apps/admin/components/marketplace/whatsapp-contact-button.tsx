@@ -1,6 +1,9 @@
 "use client";
 
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
+import { getSafeWhatsAppUrl } from "@/lib/security/safe-external-url";
 
 export function WhatsAppContactButton({
   listingSlug,
@@ -12,6 +15,12 @@ export function WhatsAppContactButton({
   label: string;
 }) {
   function onClick() {
+    const safeUrl = getSafeWhatsAppUrl(whatsappUrl);
+    if (!safeUrl) {
+      toast.error("Could not open WhatsApp link");
+      return;
+    }
+
     fetch(
       `/api/public/marketplace/listings/${encodeURIComponent(
         listingSlug
@@ -25,7 +34,7 @@ export function WhatsAppContactButton({
     });
 
     if (typeof window !== "undefined") {
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      window.open(safeUrl, "_blank", "noopener,noreferrer");
     }
   }
 
