@@ -25,6 +25,7 @@ import {
   WebhookIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
+import { Separator } from "@base-ui/react/separator";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -886,50 +887,54 @@ function SidebarContent({
               </Link>
             ) : null}
 
-            {sections.map((section) => {
+            {sections.map((section, index) => {
               const isCollapsed = collapsedSections.has(section.key);
 
               return (
-                <Collapsible
-                  key={section.key}
-                  onOpenChange={() => toggleSection(section.key)}
-                  open={!isCollapsed}
-                >
-                  <CollapsibleTrigger className="group flex w-full items-center gap-1 px-2 pt-1 pb-1">
-                    <svg
-                      aria-hidden="true"
-                      className={cn(
-                        "h-3 w-3 shrink-0 text-muted-foreground/40 transition-transform duration-150",
-                        isCollapsed ? "-rotate-90" : "rotate-0"
-                      )}
-                      fill="none"
-                      focusable="false"
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                    <span className="font-medium text-[10px] text-muted-foreground/50 uppercase tracking-[0.08em]">
-                      {section.label}
-                    </span>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="mt-0.5 space-y-0.5">
-                      {section.links.map((link) => (
-                        <NavLinkRow
-                          active={isRouteActive(pathname, link.href)}
-                          href={link.href}
-                          icon={link.iconElement}
-                          key={link.href}
-                          label={link.label}
-                        />
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
+                <div key={section.key}>
+                  {index > 0 && (
+                    <Separator className="mx-2 mb-2 h-px bg-border/40" />
+                  )}
+                  <Collapsible
+                    onOpenChange={() => toggleSection(section.key)}
+                    open={!isCollapsed}
+                  >
+                    <CollapsibleTrigger className="group flex w-full items-center gap-1 px-2 pt-1 pb-1">
+                      <svg
+                        aria-hidden="true"
+                        className={cn(
+                          "h-3 w-3 shrink-0 text-muted-foreground/40 transition-transform duration-150",
+                          isCollapsed ? "-rotate-90" : "rotate-0"
+                        )}
+                        fill="none"
+                        focusable="false"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                      <span className="font-medium text-[10px] text-muted-foreground/50 uppercase tracking-[0.08em]">
+                        {section.label}
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="mt-0.5 space-y-0.5">
+                        {section.links.map((link) => (
+                          <NavLinkRow
+                            active={isRouteActive(pathname, link.href)}
+                            href={link.href}
+                            icon={link.iconElement}
+                            key={link.href}
+                            label={link.label}
+                          />
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
               );
             })}
           </nav>

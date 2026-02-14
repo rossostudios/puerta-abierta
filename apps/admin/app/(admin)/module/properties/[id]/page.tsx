@@ -24,10 +24,9 @@ import {
 } from "@/lib/modules";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
-import { PropertyDetailsCard } from "./components/property-details-card";
+import { PropertyDetailsSheet } from "./components/property-details-sheet";
 import { PropertyLocationMiniMap } from "./components/property-location-mini-map";
 import { PropertyOverview } from "./components/property-overview";
-import { PropertyRelatedLinks } from "./components/property-related-links";
 import { loadPropertyDetailData } from "./data";
 
 type PropertyRecordPageProps = {
@@ -172,6 +171,14 @@ export default async function PropertyRecordPage({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <PropertyDetailsSheet
+                      isEn={isEn}
+                      keys={data.keys}
+                      links={data.relatedLinks}
+                      locale={locale}
+                      record={data.record}
+                      title={data.title}
+                    />
                     <CopyButton
                       className="h-9 w-9 rounded-xl border-border/40 bg-background/40 hover:bg-background/80"
                       value={data.recordId}
@@ -202,15 +209,6 @@ export default async function PropertyRecordPage({
           recordId={data.recordId}
         />
       ) : null}
-
-      <PropertyRelatedLinks isEn={isEn} links={data.relatedLinks} />
-
-      <PropertyDetailsCard
-        isEn={isEn}
-        keys={data.keys}
-        locale={locale}
-        record={data.record}
-      />
     </div>
   );
 }
