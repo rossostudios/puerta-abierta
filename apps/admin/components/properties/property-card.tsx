@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency } from "@/lib/format";
+import type { PropertyHealthState } from "@/lib/features/properties/types";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,9 @@ interface PropertyCardProps {
     revenueMtdPyg: number;
     openTaskCount: number;
     unitCount: number;
+    health: PropertyHealthState;
+    overdueCollectionCount: number;
+    urgentTaskCount: number;
 }
 
 export function PropertyCard({
@@ -37,6 +41,9 @@ export function PropertyCard({
     revenueMtdPyg,
     openTaskCount,
     unitCount,
+    health,
+    overdueCollectionCount,
+    urgentTaskCount,
 }: PropertyCardProps) {
     const locale = useActiveLocale();
     const formatLocale = locale === "en-US" ? "en-US" : "es-PY";
@@ -51,6 +58,14 @@ export function PropertyCard({
     if (occupancyRate < 50) occupancyColor = "bg-[var(--status-danger-fg)]";
     else if (occupancyRate < 80) occupancyColor = "bg-[var(--status-warning-fg)]";
 
+    // Health dot color
+    const healthDotColor =
+        health === "critical"
+            ? "bg-[var(--status-danger-fg)]"
+            : health === "watch"
+                ? "bg-[var(--status-warning-fg)]"
+                : "bg-[var(--status-success-fg)]";
+
     return (
         <Card className="group overflow-hidden rounded-3xl border-border/60 transition-all hover:border-border hover:shadow-md">
             {/* Cover Image Area */}
@@ -62,8 +77,8 @@ export function PropertyCard({
                     <Icon icon={Building03Icon} size={120} />
                 </div>
 
-                {/* Status Badge */}
-                <div className="absolute top-4 left-4 z-10">
+                {/* Status Badge + Health Dot */}
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-1.5">
                     <Badge
                         variant="secondary"
                         className={cn(
@@ -73,6 +88,13 @@ export function PropertyCard({
                     >
                         {status.toUpperCase()}
                     </Badge>
+                    <span
+                        className={cn(
+                            "h-2.5 w-2.5 rounded-full shadow-sm",
+                            healthDotColor,
+                            health === "critical" && "animate-pulse"
+                        )}
+                    />
                 </div>
 
                 {/* Property Code Overlay */}
@@ -81,6 +103,15 @@ export function PropertyCard({
                         {code}
                     </div>
                 </div>
+
+                {/* Unit Count Badge */}
+                {unitCount > 0 ? (
+                    <div className="absolute bottom-4 right-4 z-10">
+                        <div className="rounded-lg border border-border/20 bg-background/40 px-2 py-1 text-[10px] font-semibold text-foreground/70 backdrop-blur-xl shadow-sm">
+                            {unitCount} {isEn ? "units" : "unid."}
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <CardContent className="p-5">
@@ -150,8 +181,24 @@ export function PropertyCard({
                     </div>
                 </div>
 
+                {/* Overdue Collections Warning */}
+                {overdueCollectionCount > 0 ? (
+                    <div className="flex items-center gap-2 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 mb-4">
+                        <Icon
+                            className="shrink-0 text-[var(--status-danger-fg)]"
+                            icon={Invoice03Icon}
+                            size={14}
+                        />
+                        <span className="text-xs font-medium text-[var(--status-danger-fg)]">
+                            {overdueCollectionCount}{" "}
+                            {isEn ? "overdue collection" : "cobro vencido"}
+                            {overdueCollectionCount > 1 ? (isEn ? "s" : "s") : ""}
+                        </span>
+                    </div>
+                ) : null}
+
                 {/* Footer Action */}
-                <div className="mt-4">
+                <div className={cn(overdueCollectionCount > 0 ? "" : "mt-4")}>
                     <Link
                         href={`/module/properties/${id}`}
                         className={cn(

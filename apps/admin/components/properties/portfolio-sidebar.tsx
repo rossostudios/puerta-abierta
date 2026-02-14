@@ -9,15 +9,13 @@ import {
   Task01Icon,
   Time02Icon,
 } from "@hugeicons/core-free-icons";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
 
 import type {
   PropertyActivityItem,
   PropertyNotificationItem,
 } from "@/lib/features/properties/types";
 import { formatCompactCurrency } from "@/lib/format";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -25,21 +23,15 @@ type PortfolioStatsProps = {
   totalValuePyg: number;
   occupancyRate: number;
   avgRentPyg: number;
+  totalRevenueMtdPyg: number;
+  totalOverdueCollections: number;
+  totalVacantUnits: number;
+  vacancyCostPyg: number;
   recentActivity: PropertyActivityItem[];
   notifications: PropertyNotificationItem[];
   isEn: boolean;
   formatLocale: "en-US" | "es-PY";
 };
-
-const MOCK_CHART_DATA = [
-  { value: 4000 },
-  { value: 3000 },
-  { value: 2000 },
-  { value: 2780 },
-  { value: 1890 },
-  { value: 2390 },
-  { value: 3490 },
-];
 
 function relativeTimeLabel(timestamp: Date, isEn: boolean): string {
   const deltaMs = Date.now() - timestamp.getTime();
@@ -69,6 +61,10 @@ export function PortfolioSidebar({
   totalValuePyg,
   occupancyRate,
   avgRentPyg,
+  totalRevenueMtdPyg,
+  totalOverdueCollections,
+  totalVacantUnits,
+  vacancyCostPyg,
   recentActivity,
   notifications,
   isEn,
@@ -85,40 +81,22 @@ export function PortfolioSidebar({
           <div className="absolute right-0 top-0 p-4 opacity-5 transition-transform group-hover:-translate-y-2 group-hover:translate-x-2">
             <Icon icon={ChartIcon} size={140} />
           </div>
-          <CardHeader className="relative z-10 pb-2">
-            <div className="font-semibold text-[11px] text-white/70 uppercase tracking-wider">
-              {isEn ? "Total Assets" : "Activos Totales"}
+          <CardContent className="relative z-10 space-y-4 p-5">
+            <div>
+              <div className="font-semibold text-[11px] text-white/70 uppercase tracking-wider">
+                {isEn ? "Total Assets" : "Activos Totales"}
+              </div>
+              <div className="mt-1 text-3xl font-bold tracking-tight text-white">
+                {formatCompactCurrency(totalValuePyg, "PYG", formatLocale)}
+              </div>
             </div>
-            <CardTitle className="mt-1 text-3xl font-bold tracking-tight text-white">
-              {formatCompactCurrency(totalValuePyg, "PYG", formatLocale)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="relative z-10 pt-0">
-            <div className="mb-6 flex items-center gap-2">
-              <Badge className="status-tone-info h-5 border px-1.5 text-[10px]">
-                <Icon className="mr-1" icon={ChartIcon} size={10} />
-                +12% YOY
-              </Badge>
-            </div>
-
-            <div className="h-14 w-full opacity-60">
-              <ResponsiveContainer height="100%" width="100%">
-                <AreaChart data={MOCK_CHART_DATA}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <Area
-                    dataKey="value"
-                    fill="url(#colorValue)"
-                    stroke="#93c5fd"
-                    strokeWidth={2}
-                    type="monotone"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="rounded-lg bg-white/10 px-3 py-2">
+              <div className="font-medium text-[10px] text-white/60 uppercase tracking-wider">
+                {isEn ? "Revenue MTD" : "Ingresos del Mes"}
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-white/90">
+                {formatCompactCurrency(totalRevenueMtdPyg, "PYG", formatLocale)}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -145,6 +123,47 @@ export function PortfolioSidebar({
             </CardContent>
           </Card>
         </div>
+
+        {totalOverdueCollections > 0 ? (
+          <Card className="border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] shadow-sm">
+            <CardContent className="flex items-center gap-3 p-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--status-danger-fg)]/10">
+                <Icon
+                  className="text-[var(--status-danger-fg)]"
+                  icon={Invoice03Icon}
+                  size={18}
+                />
+              </div>
+              <div>
+                <div className="font-bold text-[10px] text-[var(--status-danger-fg)] uppercase tracking-wider">
+                  {isEn ? "Overdue Collections" : "Cobros Vencidos"}
+                </div>
+                <div className="text-lg font-bold text-[var(--status-danger-fg)]">
+                  {totalOverdueCollections}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {totalVacantUnits > 0 ? (
+          <Card className="border-border/60 bg-card/50 shadow-sm">
+            <CardContent className="space-y-1 p-3">
+              <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
+                {isEn ? "Vacancy Cost" : "Costo de Vacancia"}
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-bold text-[var(--status-warning-fg)]">
+                  {totalVacantUnits} {isEn ? "units" : "unidades"}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                ~{formatCompactCurrency(vacancyCostPyg, "PYG", formatLocale)}{" "}
+                {isEn ? "potential lost /mo" : "pérdida potencial /mes"}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       {notifications.length > 0 ? (

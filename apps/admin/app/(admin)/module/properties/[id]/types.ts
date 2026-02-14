@@ -1,3 +1,5 @@
+import type { PropertyHealthState } from "@/lib/features/properties/types";
+
 export type PropertyStatusTone = "occupied" | "maintenance" | "vacant";
 
 export type PropertyUnitCard = {
@@ -27,6 +29,13 @@ export type PropertyExpenseCategoryBreakdown = {
   amount: number;
 };
 
+export type LeaseExpiringSoon = {
+  tenantName: string;
+  unitLabel: string;
+  daysLeft: number;
+  leaseId: string;
+};
+
 export type PropertyOverview = {
   unitCount: number;
   activeLeaseCount: number;
@@ -42,10 +51,20 @@ export type PropertyOverview = {
   monthExpensePyg: number;
   monthNetIncomePyg: number;
   projectedRentPyg: number;
+  overdueCollectionCount: number;
+  overdueCollectionAmountPyg: number;
+  collectedThisMonthPyg: number;
+  leasesExpiringSoon: LeaseExpiringSoon[];
   latestStatement: Record<string, unknown> | null;
   attentionItems: PropertyAttentionItem[];
   unitCards: PropertyUnitCard[];
   expenseCategoryBreakdown: PropertyExpenseCategoryBreakdown[];
+  health: PropertyHealthState;
+  urgentTaskCount: number;
+  vacantUnitCount: number;
+  vacancyCostPyg: number;
+  collectionRate: number | null;
+  totalExpenseCategoryCount: number;
 };
 
 export type PropertyRelatedLink = {

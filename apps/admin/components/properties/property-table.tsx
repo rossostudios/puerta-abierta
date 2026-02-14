@@ -136,9 +136,6 @@ export const getPropertyColumns = ({
       return (
         <div className="flex flex-col">
           <span className="font-medium text-sm">{value}</span>
-          <span className="status-tone-success mt-0.5 w-fit rounded-full border px-1.5 py-0.5 font-medium text-[10px]">
-            +3.2%
-          </span>
         </div>
       );
     },
@@ -174,6 +171,22 @@ export const getPropertyColumns = ({
             <Icon className="animate-pulse text-red-500" icon={Alert02Icon} size={16} />
           ) : null}
         </div>
+      );
+    },
+  },
+  {
+    accessorKey: "overdueCollectionCount",
+    header: isEn ? "Overdue" : "Vencidos",
+    cell: ({ row }) => {
+      const count = row.original.overdueCollectionCount;
+      if (count === 0) {
+        return <span className="text-muted-foreground text-sm">&mdash;</span>;
+      }
+      return (
+        <Badge className="gap-1.5 status-tone-danger border" variant="secondary">
+          <Icon icon={Alert02Icon} size={12} />
+          {count}
+        </Badge>
       );
     },
   },

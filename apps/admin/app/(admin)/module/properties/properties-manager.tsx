@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CsvImportSheet } from "@/components/import/csv-import-sheet";
 import { PortfolioSidebar } from "@/components/properties/portfolio-sidebar";
@@ -61,6 +61,18 @@ export function PropertiesManager({
   const [statusFilter, setStatusFilter] = useState<PropertyStatusFilter>("all");
   const [healthFilter, setHealthFilter] = useState<PropertyHealthFilter>("all");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const previousSidebarRef = useRef(isSidebarOpen);
+
+  useEffect(() => {
+    if (viewMode === "map") {
+      previousSidebarRef.current = isSidebarOpen;
+      setIsSidebarOpen(false);
+    } else {
+      setIsSidebarOpen(previousSidebarRef.current);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode]);
 
   const { rows, summary, recentActivity, notifications } = usePropertyPortfolio(
     {
@@ -147,7 +159,11 @@ export function PropertiesManager({
             notifications={notifications}
             occupancyRate={summary.averageOccupancy}
             recentActivity={recentActivity}
+            totalOverdueCollections={summary.totalOverdueCollections}
+            totalRevenueMtdPyg={summary.totalRevenueMtdPyg}
+            totalVacantUnits={summary.totalVacantUnits}
             totalValuePyg={summary.totalAssetValuePyg}
+            vacancyCostPyg={summary.vacancyCostPyg}
           />
         </div>
       </aside>

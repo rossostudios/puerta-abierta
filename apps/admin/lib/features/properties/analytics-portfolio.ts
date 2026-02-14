@@ -292,9 +292,41 @@ export function buildPropertyPortfolioSummary(
       rowsWithRent.length
     : 0;
 
+  const totalRevenueMtdPyg = rows.reduce(
+    (total, row) => total + row.revenueMtdPyg,
+    0
+  );
+  const totalOverdueCollections = rows.reduce(
+    (total, row) => total + row.overdueCollectionCount,
+    0
+  );
+  const totalOpenTasks = rows.reduce(
+    (total, row) => total + row.openTaskCount,
+    0
+  );
+  const totalUrgentTasks = rows.reduce(
+    (total, row) => total + row.urgentTaskCount,
+    0
+  );
+  const totalUnits = rows.reduce((total, row) => total + row.unitCount, 0);
+  const totalActiveLeases = rows.reduce(
+    (total, row) => total + row.activeLeaseCount,
+    0
+  );
+  const totalVacantUnits = totalUnits - totalActiveLeases;
+  const vacancyCostPyg = totalVacantUnits > 0 ? totalVacantUnits * averageRentPyg : 0;
+
   return {
     totalAssetValuePyg,
     averageOccupancy,
     averageRentPyg,
+    totalRevenueMtdPyg,
+    totalOverdueCollections,
+    totalOpenTasks,
+    totalUrgentTasks,
+    totalUnits,
+    totalActiveLeases,
+    totalVacantUnits,
+    vacancyCostPyg,
   };
 }

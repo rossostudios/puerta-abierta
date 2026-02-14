@@ -2,6 +2,7 @@ import {
   ChartIcon,
   FilterIcon,
   GridViewIcon,
+  MapsLocation01Icon,
   Search01Icon,
   SidebarRight01Icon,
 } from "@hugeicons/core-free-icons";
@@ -183,6 +184,14 @@ export function PropertiesFilterBar({
             variant={viewMode === "table" ? "secondary" : "ghost"}
           >
             <Icon icon={ChartIcon} size={14} />
+          </Button>
+          <Button
+            className="h-8 w-8 rounded-lg p-0 transition-all"
+            onClick={() => onViewModeChange("map")}
+            size="sm"
+            variant={viewMode === "map" ? "secondary" : "ghost"}
+          >
+            <Icon icon={MapsLocation01Icon} size={14} />
           </Button>
         </div>
 

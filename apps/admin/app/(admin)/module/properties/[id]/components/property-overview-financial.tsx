@@ -1,4 +1,9 @@
-import { ChartIcon, Task01Icon } from "@hugeicons/core-free-icons";
+import {
+  Calendar03Icon,
+  ChartIcon,
+  Invoice03Icon,
+  Task01Icon,
+} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -99,6 +104,60 @@ export function PropertyOverviewFinancial({
             </p>
           </div>
 
+          {overview.collectedThisMonthPyg > 0 ||
+          overview.overdueCollectionAmountPyg > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
+                <p className="text-muted-foreground text-xs">
+                  {isEn ? "Collected this month" : "Cobrado este mes"}
+                </p>
+                <p className="font-semibold text-lg tabular-nums text-[var(--status-success-fg)]">
+                  {formatCurrency(
+                    overview.collectedThisMonthPyg,
+                    "PYG",
+                    locale
+                  )}
+                </p>
+              </div>
+              <div
+                className={cn(
+                  "rounded-xl border p-3",
+                  overview.overdueCollectionAmountPyg > 0
+                    ? "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)]"
+                    : "border-border/70 bg-muted/20"
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-xs",
+                    overview.overdueCollectionAmountPyg > 0
+                      ? "text-[var(--status-danger-fg)]"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {isEn ? "Overdue" : "Vencido"}
+                  {overview.overdueCollectionCount > 0
+                    ? ` (${overview.overdueCollectionCount})`
+                    : ""}
+                </p>
+                <p
+                  className={cn(
+                    "font-semibold text-lg tabular-nums",
+                    overview.overdueCollectionAmountPyg > 0
+                      ? "text-[var(--status-danger-fg)]"
+                      : "text-foreground"
+                  )}
+                >
+                  {formatCurrency(
+                    overview.overdueCollectionAmountPyg,
+                    "PYG",
+                    locale
+                  )}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
               <p className="text-muted-foreground text-xs">
@@ -170,6 +229,12 @@ export function PropertyOverviewFinancial({
                   </div>
                 );
               })}
+              {overview.totalExpenseCategoryCount > overview.expenseCategoryBreakdown.length ? (
+                <p className="text-muted-foreground text-xs">
+                  +{overview.totalExpenseCategoryCount - overview.expenseCategoryBreakdown.length}{" "}
+                  {isEn ? "more categories" : "categorias mas"}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -280,6 +345,54 @@ export function PropertyOverviewFinancial({
           )}
         </CardContent>
       </Card>
+      {overview.leasesExpiringSoon.length > 0 ? (
+        <Card className="border-border/80 bg-card/98">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <Icon icon={Calendar03Icon} size={18} />
+              {isEn ? "Lease renewals" : "Renovaciones de contrato"}
+            </CardTitle>
+            <CardDescription>
+              {isEn
+                ? "Leases expiring within 90 days."
+                : "Contratos que vencen en los próximos 90 días."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {overview.leasesExpiringSoon.map((lease) => {
+              const urgencyColor =
+                lease.daysLeft <= 30
+                  ? "status-tone-danger"
+                  : lease.daysLeft <= 60
+                    ? "status-tone-warning"
+                    : "status-tone-info";
+              return (
+                <div
+                  className="flex items-center justify-between rounded-xl border border-border/70 bg-background/72 p-3"
+                  key={lease.leaseId}
+                >
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="truncate font-medium text-sm">
+                      {lease.tenantName}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {lease.unitLabel}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                      urgencyColor
+                    )}
+                  >
+                    {lease.daysLeft}d
+                  </span>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
     </section>
   );
 }

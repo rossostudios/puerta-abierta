@@ -11,6 +11,16 @@
       "env": {
         "SUPABASE_ACCESS_TOKEN": "sbp_da2d736b5283f20d08f9b23dd90ab9609087dbfe"
       }
+    },
+    "mapbox": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@mapbox/mcp-server"
+      ],
+      "env": {
+        "MAPBOX_ACCESS_TOKEN": "pk.eyJ1IjoiY2hyaXNyb3Nzb3BtcCIsImEiOiJjbWlhbGR4bmgweW14MmtxNnlsNWIxcnh4In0.IfE2Izst8hGUjwCBcqKMfA"
+      }
     }
   }
 }

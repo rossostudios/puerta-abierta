@@ -4,7 +4,7 @@ export type PropertyRecord = components["schemas"]["Property"] &
   Record<string, unknown>;
 export type PropertyRelationRow = Record<string, unknown>;
 
-export type PropertyViewMode = "grid" | "table";
+export type PropertyViewMode = "grid" | "table" | "map";
 export type PropertyHealthState = "stable" | "watch" | "critical";
 
 export type PropertyStatusFilter = "all" | "active" | "inactive";
@@ -33,6 +33,14 @@ export type PropertyPortfolioSummary = {
   totalAssetValuePyg: number;
   averageOccupancy: number;
   averageRentPyg: number;
+  totalRevenueMtdPyg: number;
+  totalOverdueCollections: number;
+  totalOpenTasks: number;
+  totalUrgentTasks: number;
+  totalUnits: number;
+  totalActiveLeases: number;
+  totalVacantUnits: number;
+  vacancyCostPyg: number;
 };
 
 export type PropertyActivityItem = {

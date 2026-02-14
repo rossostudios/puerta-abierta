@@ -25,6 +25,7 @@ import {
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 import { PropertyDetailsCard } from "./components/property-details-card";
+import { PropertyLocationMiniMap } from "./components/property-location-mini-map";
 import { PropertyOverview } from "./components/property-overview";
 import { PropertyRelatedLinks } from "./components/property-related-links";
 import { loadPropertyDetailData } from "./data";
@@ -109,6 +110,7 @@ export default async function PropertyRecordPage({
 
   const { data } = result;
   const href = `/module/properties/${data.recordId}`;
+  const city = String(data.record.city ?? data.record.district ?? "asuncion");
 
   return (
     <div className="space-y-6">
@@ -145,6 +147,18 @@ export default async function PropertyRecordPage({
                       <Badge className="h-7 border-primary/20 bg-primary/5 font-bold text-[10px] text-primary uppercase tracking-wider backdrop-blur-sm">
                         {data.propertyCodeLabel ?? data.recordId}
                       </Badge>
+                      {data.overview ? (
+                        <span
+                          className={cn(
+                            "h-2.5 w-2.5 rounded-full shadow-sm",
+                            data.overview.health === "critical"
+                              ? "bg-[var(--status-danger-fg)] animate-pulse"
+                              : data.overview.health === "watch"
+                                ? "bg-[var(--status-warning-fg)]"
+                                : "bg-[var(--status-success-fg)]"
+                          )}
+                        />
+                      ) : null}
                     </div>
 
                     <div className="space-y-1">
@@ -171,6 +185,10 @@ export default async function PropertyRecordPage({
                   </div>
                 </div>
               </div>
+
+              <div className="hidden xl:flex xl:items-end">
+                <PropertyLocationMiniMap city={city} isEn={isEn} />
+              </div>
             </div>
           </section>
         </CardContent>
@@ -185,14 +203,14 @@ export default async function PropertyRecordPage({
         />
       ) : null}
 
+      <PropertyRelatedLinks isEn={isEn} links={data.relatedLinks} />
+
       <PropertyDetailsCard
         isEn={isEn}
         keys={data.keys}
         locale={locale}
         record={data.record}
       />
-
-      <PropertyRelatedLinks isEn={isEn} links={data.relatedLinks} />
     </div>
   );
 }

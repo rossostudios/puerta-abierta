@@ -114,12 +114,19 @@ export function PropertyOverviewOperations({
               )}
               href={`/module/units?property_id=${encodeURIComponent(recordId)}`}
             >
-              {isEn ? "View all units" : "Ver unidades"}
+              {overview.unitCount > overview.unitCards.length
+                ? isEn
+                  ? `View all ${overview.unitCount} units`
+                  : `Ver las ${overview.unitCount} unidades`
+                : isEn
+                  ? "View all units"
+                  : "Ver unidades"}
             </Link>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {overview.unitCards.length ? (
+            <>
             <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
               {overview.unitCards.map((unit) => {
                 const unitHref =
@@ -207,6 +214,14 @@ export function PropertyOverviewOperations({
                 );
               })}
             </div>
+            {overview.unitCount > overview.unitCards.length ? (
+              <p className="text-center text-muted-foreground text-xs">
+                {isEn
+                  ? `Showing ${overview.unitCards.length} of ${overview.unitCount} units`
+                  : `Mostrando ${overview.unitCards.length} de ${overview.unitCount} unidades`}
+              </p>
+            ) : null}
+            </>
           ) : (
             <div className="rounded-2xl border border-border/75 border-dashed bg-muted/20 p-5">
               <p className="font-medium text-sm">

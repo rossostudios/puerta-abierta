@@ -19,7 +19,7 @@ import {
   URGENT_TASK_PRIORITIES,
 } from "./data-helpers";
 import { buildAttentionItems } from "./data-overview-attention";
-import type { PropertyOverview } from "./types";
+import type { LeaseExpiringSoon, PropertyOverview } from "./types";
 
 const MAX_DATE = new Date(8_640_000_000_000_000);
 
@@ -236,6 +236,55 @@ export function buildPropertyOverview(params: {
     now,
   });
 
+  const overdueCollections = openCollections.filter((row) => {
+    const dueDate = toDate(row.due_date);
+    return dueDate !== null && dueDate.getTime() < now.getTime();
+  });
+  const overdueCollectionCount = overdueCollections.length;
+  const overdueCollectionAmountPyg = overdueCollections.reduce((total, row) => {
+    const amount = toNumber(row.amount) ?? 0;
+    const currency = asString(row.currency) || "PYG";
+    const fxRate = toNumber(row.fx_rate_to_pyg);
+    return total + convertAmountToPyg(amount, currency, fxRate);
+  }, 0);
+
+  const collectedThisMonthPyg = paidCollectionsThisMonth.reduce(
+    (total, row) => {
+      const amount = toNumber(row.amount) ?? 0;
+      const currency = asString(row.currency) || "PYG";
+      const fxRate = toNumber(row.fx_rate_to_pyg);
+      return total + convertAmountToPyg(amount, currency, fxRate);
+    },
+    0
+  );
+
+  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+  const leasesExpiringSoon: LeaseExpiringSoon[] = activeLeases
+    .map((lease) => {
+      const endsOn = toDate(lease.ends_on) ?? toDate(lease.end_date);
+      if (!endsOn) return null;
+      const daysLeft = Math.ceil(
+        (endsOn.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)
+      );
+      if (daysLeft < 0 || daysLeft > 90) return null;
+      const tenantName =
+        getFirstValue(lease, ["tenant_full_name", "tenant_name"]) ||
+        (isEn ? "Unknown tenant" : "Inquilino desconocido");
+      const unitId = asString(lease.unit_id);
+      const unit = units.find((u) => asString(u.id) === unitId);
+      const unitLabel = unit
+        ? getFirstValue(unit, ["code", "name"]) || unitId
+        : unitId || "-";
+      return {
+        tenantName,
+        unitLabel,
+        daysLeft,
+        leaseId: asString(lease.id),
+      };
+    })
+    .filter((item): item is LeaseExpiringSoon => item !== null)
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+
   const expenseByCategory = [...monthExpenses].reduce<Record<string, number>>(
     (acc, row) => {
       const key = getFirstValue(row, ["category", "vendor_name"]) || "other";
@@ -244,10 +293,39 @@ export function buildPropertyOverview(params: {
     },
     {}
   );
-  const expenseCategoryBreakdown = Object.entries(expenseByCategory)
+  const expenseCategorySorted = Object.entries(expenseByCategory)
     .map(([category, amount]) => ({ category, amount }))
-    .sort((left, right) => right.amount - left.amount)
-    .slice(0, 3);
+    .sort((left, right) => right.amount - left.amount);
+  const totalExpenseCategoryCount = expenseCategorySorted.length;
+  const expenseCategoryBreakdown = expenseCategorySorted.slice(0, 3);
+
+  const urgentTaskCount = openTasks.filter((task) => {
+    const dueDate = toDate(task.due_at);
+    const isPastDue = dueDate !== null && dueDate.getTime() < now.getTime();
+    const highPriority = URGENT_TASK_PRIORITIES.has(
+      normalizedStatus(task.priority)
+    );
+    return isPastDue || highPriority;
+  }).length;
+
+  const vacantUnitCount = units.length - occupiedUnitIds.size;
+  const avgRentPerUnit =
+    activeLeases.length > 0 ? projectedRentPyg / activeLeases.length : 0;
+  const vacancyCostPyg =
+    vacantUnitCount > 0 ? vacantUnitCount * avgRentPerUnit : 0;
+  const collectionRate =
+    projectedRentPyg > 0
+      ? Math.round((collectedThisMonthPyg / projectedRentPyg) * 100)
+      : null;
+
+  const health =
+    units.length > 0 && occupancyRate === 0
+      ? "critical"
+      : urgentTaskCount > 0 ||
+          overdueCollectionCount > 0 ||
+          (occupancyRate !== null && occupancyRate < 70)
+        ? "watch"
+        : "stable";
 
   return {
     unitCount: units.length,
@@ -264,9 +342,19 @@ export function buildPropertyOverview(params: {
     monthExpensePyg,
     monthNetIncomePyg,
     projectedRentPyg,
+    overdueCollectionCount,
+    overdueCollectionAmountPyg,
+    collectedThisMonthPyg,
+    leasesExpiringSoon,
     latestStatement: latestStatement ?? null,
     attentionItems,
     unitCards,
     expenseCategoryBreakdown,
+    health,
+    urgentTaskCount,
+    vacantUnitCount,
+    vacancyCostPyg,
+    collectionRate,
+    totalExpenseCategoryCount,
   };
 }
