@@ -64,7 +64,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
     return (
       <>
         {loadError && (
-          <Alert variant="destructive" className="mb-4">
+          <Alert className="mb-4" variant="destructive">
             <AlertTitle>
               {isEn ? "Connection error" : "Error de conexión"}
             </AlertTitle>
@@ -72,17 +72,17 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
           </Alert>
         )}
         <SetupWizard
-          key="no-org"
-          initialOrgId={null}
+          apiBaseUrl={getApiBaseUrl()}
           initialOrganization={null}
           initialOrganizations={organizations}
+          initialOrgId={null}
+          initialPlanId={plan}
           initialProperties={[]}
+          initialTab={tab}
           initialUnits={[]}
           integrations={[]}
+          key="no-org"
           locale={locale}
-          apiBaseUrl={getApiBaseUrl()}
-          initialTab={tab}
-          initialPlanId={plan}
         />
       </>
     );
@@ -246,12 +246,10 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
     organizations.find((row) => asString(row.id) === orgId) ??
     ({ id: orgId } as Row);
 
-  const dataFingerprint = `${orgId}-${properties.length}-${units.length}`;
-
   return (
     <>
       {warnings.length > 0 && (
-        <Alert variant="warning" className="mb-4">
+        <Alert className="mb-4" variant="warning">
           <AlertTitle>
             {isEn
               ? "Some data could not be loaded"
@@ -265,17 +263,17 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
         </Alert>
       )}
       <SetupWizard
-        key={dataFingerprint}
-        initialOrgId={orgId}
+        apiBaseUrl={getApiBaseUrl()}
         initialOrganization={activeOrganization}
         initialOrganizations={organizations}
+        initialOrgId={orgId}
+        initialPlanId={plan}
         initialProperties={properties}
+        initialTab={tab}
         initialUnits={units}
         integrations={integrations}
+        key={orgId}
         locale={locale}
-        apiBaseUrl={getApiBaseUrl()}
-        initialTab={tab}
-        initialPlanId={plan}
       />
     </>
   );

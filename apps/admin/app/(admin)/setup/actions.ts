@@ -7,6 +7,22 @@ import { deleteJson, fetchJson, patchJson, postJson } from "@/lib/api";
 import { shouldUseSecureCookie } from "@/lib/cookies";
 import { ORG_COOKIE_NAME } from "@/lib/org";
 
+/* ================================================================== */
+/*  This file contains TWO action families:                            */
+/*                                                                     */
+/*  1. wizard* actions (wizardCreateOrganization, wizardCreateProperty,*/
+/*     etc.) — return ActionResult<T> ({ ok, data } | { ok, error }).  */
+/*     Used by the SetupWizard client component for inline RPC where   */
+/*     the UI manages its own state and toasts.                        */
+/*                                                                     */
+/*  2. *Action actions (createOrganizationAction, createPropertyAction,*/
+/*     etc.) — use redirect() for control flow. Used by SetupManager   */
+/*     as progressive-enhancement form actions with server-side        */
+/*     redirect on success/error.                                      */
+/*                                                                     */
+/*  Both patterns are intentional and correct for their use cases.     */
+/* ================================================================== */
+
 /* ------------------------------------------------------------------ */
 /*  Wizard actions — return { ok, data } instead of redirecting        */
 /* ------------------------------------------------------------------ */
@@ -25,10 +41,14 @@ export async function wizardCreateOrganization(payload: {
   rental_mode?: string;
 }): Promise<ActionResult<{ id: string; name: string }>> {
   const name = payload.name.trim();
-  if (!name) return { ok: false, error: "El nombre de la organización es obligatorio." };
+  if (!name)
+    return { ok: false, error: "El nombre de la organización es obligatorio." };
 
-  const profile_type = normalizeOrganizationProfileType(payload.profile_type || "management_company");
-  if (!profile_type) return { ok: false, error: "Selecciona un tipo de organización válido." };
+  const profile_type = normalizeOrganizationProfileType(
+    payload.profile_type || "management_company"
+  );
+  if (!profile_type)
+    return { ok: false, error: "Selecciona un tipo de organización válido." };
 
   const rental_mode = normalizeRentalMode(payload.rental_mode || "both");
 
@@ -47,9 +67,15 @@ export async function wizardCreateOrganization(payload: {
     if (newOrgId) {
       // Verify the org is accessible (proves membership was committed)
       try {
-        await fetchJson<{ data?: unknown[] }>("/organizations", { org_id: newOrgId });
+        await fetchJson<{ data?: unknown[] }>("/organizations", {
+          org_id: newOrgId,
+        });
       } catch {
-        return { ok: false, error: "Organization created but access verification failed. Please refresh and try again." };
+        return {
+          ok: false,
+          error:
+            "Organization created but access verification failed. Please refresh and try again.",
+        };
       }
 
       const hdrs = await headers();
@@ -66,7 +92,10 @@ export async function wizardCreateOrganization(payload: {
     revalidatePath("/", "layout");
     return { ok: true, data: { id: newOrgId, name: created?.name ?? name } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -77,9 +106,11 @@ export async function wizardCreateProperty(payload: {
   address_line1?: string;
   city?: string;
 }): Promise<ActionResult<{ id: string; name: string }>> {
-  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.organization_id)
+    return { ok: false, error: "Falta contexto de organización." };
   const name = payload.name.trim();
-  if (!name) return { ok: false, error: "El nombre de la propiedad es obligatorio." };
+  if (!name)
+    return { ok: false, error: "El nombre de la propiedad es obligatorio." };
 
   try {
     const created = (await postJson("/properties", {
@@ -91,9 +122,15 @@ export async function wizardCreateProperty(payload: {
     })) as { id?: string; name?: string } | null;
 
     revalidatePath("/setup");
-    return { ok: true, data: { id: created?.id ?? "", name: created?.name ?? name } };
+    return {
+      ok: true,
+      data: { id: created?.id ?? "", name: created?.name ?? name },
+    };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -106,12 +143,22 @@ export async function wizardCreateUnit(payload: {
   bedrooms: number;
   bathrooms: number;
 }): Promise<ActionResult<{ id: string }>> {
-  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
-  if (!payload.property_id) return { ok: false, error: "El ID de la propiedad es obligatorio para una unidad." };
+  if (!payload.organization_id)
+    return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.property_id)
+    return {
+      ok: false,
+      error: "El ID de la propiedad es obligatorio para una unidad.",
+    };
   const code = payload.code.trim();
-  if (!code) return { ok: false, error: "El código de la unidad es obligatorio (p. ej., A1)." };
+  if (!code)
+    return {
+      ok: false,
+      error: "El código de la unidad es obligatorio (p. ej., A1).",
+    };
   const name = payload.name.trim();
-  if (!name) return { ok: false, error: "El nombre de la unidad es obligatorio." };
+  if (!name)
+    return { ok: false, error: "El nombre de la unidad es obligatorio." };
 
   try {
     const created = (await postJson("/units", {
@@ -140,14 +187,19 @@ export async function wizardCreateIntegration(payload: {
   public_name: string;
   ical_import_url?: string;
 }): Promise<ActionResult<{ id: string; name: string }>> {
-  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
-  if (!payload.unit_id) return { ok: false, error: "El ID de la unidad es obligatorio." };
+  if (!payload.organization_id)
+    return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.unit_id)
+    return { ok: false, error: "El ID de la unidad es obligatorio." };
   const kind = payload.kind.trim();
-  if (!kind) return { ok: false, error: "El tipo de integración es obligatorio." };
+  if (!kind)
+    return { ok: false, error: "El tipo de integración es obligatorio." };
   const channel_name = payload.channel_name.trim();
-  if (!channel_name) return { ok: false, error: "El nombre del canal es obligatorio." };
+  if (!channel_name)
+    return { ok: false, error: "El nombre del canal es obligatorio." };
   const public_name = payload.public_name.trim();
-  if (!public_name) return { ok: false, error: "El nombre público es obligatorio." };
+  if (!public_name)
+    return { ok: false, error: "El nombre público es obligatorio." };
 
   try {
     const created = (await postJson("/integrations", {
@@ -160,9 +212,15 @@ export async function wizardCreateIntegration(payload: {
     })) as { id?: string; name?: string } | null;
 
     revalidatePath("/setup");
-    return { ok: true, data: { id: created?.id ?? "", name: created?.name ?? public_name } };
+    return {
+      ok: true,
+      data: { id: created?.id ?? "", name: created?.name ?? public_name },
+    };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -179,11 +237,14 @@ export async function wizardCreateLease(payload: {
   monthly_rent: number;
   generate_first_collection?: boolean;
 }): Promise<ActionResult<{ id: string }>> {
-  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.organization_id)
+    return { ok: false, error: "Falta contexto de organización." };
   if (!payload.unit_id) return { ok: false, error: "Selecciona una unidad." };
   const name = payload.tenant_full_name.trim();
-  if (!name) return { ok: false, error: "El nombre del inquilino es obligatorio." };
-  if (!payload.starts_on) return { ok: false, error: "La fecha de inicio es obligatoria." };
+  if (!name)
+    return { ok: false, error: "El nombre del inquilino es obligatorio." };
+  if (!payload.starts_on)
+    return { ok: false, error: "La fecha de inicio es obligatoria." };
 
   try {
     const created = (await postJson("/leases", {
@@ -203,21 +264,28 @@ export async function wizardCreateLease(payload: {
     revalidatePath("/setup");
     return { ok: true, data: { id: created?.id ?? "" } };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
 export async function wizardSeedDemoData(payload: {
   organization_id: string;
 }): Promise<ActionResult> {
-  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.organization_id)
+    return { ok: false, error: "Falta contexto de organización." };
 
   try {
     await postJson("/demo/seed", { organization_id: payload.organization_id });
     revalidatePath("/setup");
     return { ok: true, data: {} };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
   }
 }
 
@@ -694,7 +762,9 @@ export async function updateIntegrationAction(formData: FormData) {
   const is_active = toStringValue(formData.get("is_active"));
 
   if (!id)
-    redirect(setupUrl({ tab, error: "El ID de la integración es obligatorio." }));
+    redirect(
+      setupUrl({ tab, error: "El ID de la integración es obligatorio." })
+    );
   if (!public_name)
     redirect(setupUrl({ tab, error: "El nombre público es obligatorio." }));
 
@@ -721,7 +791,9 @@ export async function syncIntegrationIcalAction(formData: FormData) {
   const tab = toStringValue(formData.get("tab")) || undefined;
   const id = toStringValue(formData.get("id"));
   if (!id)
-    redirect(setupUrl({ tab, error: "El ID de la integración es obligatorio." }));
+    redirect(
+      setupUrl({ tab, error: "El ID de la integración es obligatorio." })
+    );
 
   try {
     await postJson(`/integrations/${id}/sync-ical`, {});
@@ -755,7 +827,9 @@ export async function deleteIntegrationAction(formData: FormData) {
   const tab = toStringValue(formData.get("tab")) || undefined;
   const id = toStringValue(formData.get("id"));
   if (!id)
-    redirect(setupUrl({ tab, error: "El ID de la integración es obligatorio." }));
+    redirect(
+      setupUrl({ tab, error: "El ID de la integración es obligatorio." })
+    );
 
   try {
     await deleteJson(`/integrations/${id}`);

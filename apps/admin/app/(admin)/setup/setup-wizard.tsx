@@ -1,11 +1,10 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { FormEvent } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { DataImportSheet } from "@/components/import/data-import-sheet";
 import { Badge } from "@/components/ui/badge";
@@ -38,26 +37,26 @@ import {
 } from "./actions";
 import {
   ActiveStepCard,
+  asString,
   CompletedStepRow,
   CompletionCard,
   DemoSeedCallout,
   ExistingOrganizations,
+  isOrganizationProfileType,
+  isRentalMode,
   LockedStepRow,
   OptionalStepCard,
   OrganizationCoreFields,
   OrganizationProfileInputs,
-  ProgressStepper,
-  RentalModeInputs,
-  TechnicalDetails,
-  asString,
-  isOrganizationProfileType,
-  isRentalMode,
-  profileTypeLabel,
-  rentalModeLabel,
   type OrganizationProfileType,
+  ProgressStepper,
+  profileTypeLabel,
   type RentalMode,
+  RentalModeInputs,
   type Row,
+  rentalModeLabel,
   type StepDef,
+  TechnicalDetails,
 } from "./setup-components";
 import { SetupManager } from "./setup-manager";
 
@@ -143,6 +142,18 @@ export function SetupWizard({
   const [importLeaseOpen, setImportLeaseOpen] = useState(false);
   const [step4Done, setStep4Done] = useState(false);
   const [step4Skipped, setStep4Skipped] = useState(false);
+  const [step4View, setStep4View] = useState<"str" | "ltr">(
+    rentalMode === "ltr" ? "ltr" : "str"
+  );
+
+  // Close import sheets if org context is lost (prevents orphaned Radix portals)
+  useEffect(() => {
+    if (!orgId) {
+      setImportPropertyOpen(false);
+      setImportUnitOpen(false);
+      setImportLeaseOpen(false);
+    }
+  }, [orgId]);
 
   /* ---- Derived -------------------------------------------------- */
 
@@ -150,7 +161,7 @@ export function SetupWizard({
   const propertyDone = properties.length > 0;
   const unitDone = units.length > 0;
   const onboardingDone = orgDone && propertyDone && unitDone;
-  const activeStep = !orgDone ? 1 : !propertyDone ? 2 : !unitDone ? 3 : 0;
+  const activeStep = orgDone ? (propertyDone ? (unitDone ? 0 : 3) : 2) : 1;
 
   const propertyOptions = properties
     .map((row) => ({
@@ -294,15 +305,14 @@ export function SetupWizard({
     const rm = fd(form, "rental_mode");
     if (isRentalMode(rm)) setRentalMode(rm);
 
-    toast.success(
-      isEn ? "Organization created" : "Organización creada",
-      { description: result.data.name }
-    );
+    toast.success(isEn ? "Organization created" : "Organización creada", {
+      description: result.data.name,
+    });
 
     // Auto-subscribe to plan if planId is provided (from pricing page)
     if (initialPlanId && result.data.id) {
       try {
-        await fetch(`${apiBaseUrl}/billing/subscribe`, {
+        const subscribeRes = await fetch(`${apiBaseUrl}/billing/subscribe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -310,19 +320,35 @@ export function SetupWizard({
             plan_id: initialPlanId,
           }),
         });
-        toast.success(
-          isEn ? "Plan activated" : "Plan activado",
-          {
+        if (subscribeRes.ok) {
+          toast.success(isEn ? "Plan activated" : "Plan activado", {
             description: isEn
               ? "Your trial period has started."
               : "Tu período de prueba ha comenzado.",
+          });
+        } else {
+          toast.error(
+            isEn ? "Could not activate plan" : "No se pudo activar el plan",
+            {
+              description: isEn
+                ? "You can activate it later from Settings → Billing."
+                : "Puedes activarlo después desde Ajustes → Facturación.",
+            }
+          );
+        }
+      } catch {
+        toast.error(
+          isEn ? "Could not activate plan" : "No se pudo activar el plan",
+          {
+            description: isEn
+              ? "You can activate it later from Settings → Billing."
+              : "Puedes activarlo después desde Ajustes → Facturación.",
           }
         );
-      } catch {
-        // Subscription failed silently — user can set up later from billing
       }
     }
 
+    router.refresh();
     setSubmitting(null);
   };
 
@@ -342,9 +368,7 @@ export function SetupWizard({
 
     if (!result.ok) {
       toast.error(
-        isEn
-          ? "Could not create property"
-          : "No se pudo crear la propiedad",
+        isEn ? "Could not create property" : "No se pudo crear la propiedad",
         { description: result.error }
       );
       setSubmitting(null);
@@ -355,10 +379,9 @@ export function SetupWizard({
       ...prev,
       { id: result.data.id, name: result.data.name },
     ]);
-    toast.success(
-      isEn ? "Property created" : "Propiedad creada",
-      { description: result.data.name }
-    );
+    toast.success(isEn ? "Property created" : "Propiedad creada", {
+      description: result.data.name,
+    });
     setSubmitting(null);
   };
 
@@ -395,7 +418,9 @@ export function SetupWizard({
     setSubmitting(null);
   };
 
-  const handleCreateIntegrationStep4 = async (e: FormEvent<HTMLFormElement>) => {
+  const handleCreateIntegrationStep4 = async (
+    e: FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
     if (submitting || !orgId) return;
     setSubmitting("integration");
@@ -412,7 +437,9 @@ export function SetupWizard({
 
     if (!result.ok) {
       toast.error(
-        isEn ? "Could not create integration" : "No se pudo crear la integración",
+        isEn
+          ? "Could not create integration"
+          : "No se pudo crear la integración",
         { description: result.error }
       );
       setSubmitting(null);
@@ -472,23 +499,16 @@ export function SetupWizard({
     const result = await wizardSeedDemoData({ organization_id: orgId });
     if (!result.ok) {
       toast.error(
-        isEn
-          ? "Could not load demo data"
-          : "No se pudieron cargar datos demo",
+        isEn ? "Could not load demo data" : "No se pudieron cargar datos demo",
         { description: result.error }
       );
       setSubmitting(null);
       return;
     }
 
-    toast.success(
-      isEn ? "Demo data loaded" : "Datos demo cargados",
-      {
-        description: isEn
-          ? "Refreshing page..."
-          : "Actualizando página...",
-      }
-    );
+    toast.success(isEn ? "Demo data loaded" : "Datos demo cargados", {
+      description: isEn ? "Refreshing page..." : "Actualizando página...",
+    });
     setSubmitting(null);
     router.refresh();
   };
@@ -502,7 +522,7 @@ export function SetupWizard({
         <Badge className="mb-3" variant="outline">
           {isEn ? "Setup" : "Configuración"}
         </Badge>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-semibold text-2xl text-foreground tracking-tight">
           {onboardingDone
             ? isEn
               ? "You're all set"
@@ -515,7 +535,7 @@ export function SetupWizard({
                 ? "Set up your workspace"
                 : "Configura tu espacio de trabajo"}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-muted-foreground text-sm">
           {onboardingDone
             ? isEn
               ? "Your workspace is fully configured and ready to use."
@@ -533,36 +553,38 @@ export function SetupWizard({
       {showDemoSeed ? (
         <DemoSeedCallout
           isEn={isEn}
-          submitting={submitting === "seed"}
           onSeed={handleSeedDemo}
+          submitting={submitting === "seed"}
         />
       ) : null}
 
       {/* Completion card */}
       {onboardingDone ? (
-        <CompletionCard isEn={isEn} nextActionLinks={nextActionLinks} rentalMode={rentalMode} />
+        <CompletionCard
+          isEn={isEn}
+          nextActionLinks={nextActionLinks}
+          rentalMode={rentalMode}
+        />
       ) : null}
 
       {/* Step 1: Organization */}
       {orgDone ? (
         <CompletedStepRow
           stepNumber={1}
-          title={isEn ? "Organization" : "Organización"}
           summary={`${orgName || (isEn ? "Organization" : "Organización")} · ${profileTypeLabel(profileType, isEn)} · ${rentalModeLabel(rentalMode, isEn)}`}
+          title={isEn ? "Organization" : "Organización"}
         />
       ) : (
         <ActiveStepCard
-          stepNumber={1}
-          title={
-            isEn ? "Create your organization" : "Crea tu organización"
-          }
           description={
             isEn
               ? "Set up your workspace and choose your operating profile."
               : "Configura tu espacio y elige tu perfil operativo."
           }
+          stepNumber={1}
+          title={isEn ? "Create your organization" : "Crea tu organización"}
         >
-          <form onSubmit={handleCreateOrg} className="grid gap-3">
+          <form className="grid gap-3" onSubmit={handleCreateOrg}>
             <OrganizationProfileInputs
               defaultValue="management_company"
               isEn={isEn}
@@ -571,12 +593,12 @@ export function SetupWizard({
             <OrganizationCoreFields isEn={isEn} />
             <Button
               className="mt-1 w-full"
-              type="submit"
               disabled={submitting !== null}
+              type="submit"
             >
               {submitting === "org" ? (
                 <>
-                  <Spinner size="sm" className="text-primary-foreground" />
+                  <Spinner className="text-primary-foreground" size="sm" />
                   {isEn ? "Creating..." : "Creando..."}
                 </>
               ) : isEn ? (
@@ -593,56 +615,54 @@ export function SetupWizard({
       {propertyDone ? (
         <CompletedStepRow
           stepNumber={2}
+          summary={`${properties.length} ${isEn ? (properties.length === 1 ? "property" : "properties") : properties.length === 1 ? "propiedad" : "propiedades"}`}
           title={isEn ? "Property" : "Propiedad"}
-          summary={`${properties.length} ${isEn ? (properties.length === 1 ? "property" : "properties") : (properties.length === 1 ? "propiedad" : "propiedades")}`}
         />
       ) : activeStep === 2 ? (
         <ActiveStepCard
-          stepNumber={2}
-          title={
-            isEn
-              ? "Add your first property"
-              : "Agrega tu primera propiedad"
-          }
           description={
             isEn
               ? "Register your first asset in your portfolio."
               : "Registra tu primer activo del portafolio."
           }
+          stepNumber={2}
+          title={
+            isEn ? "Add your first property" : "Agrega tu primera propiedad"
+          }
         >
-          <form onSubmit={handleCreateProperty} className="grid gap-3">
+          <form className="grid gap-3" onSubmit={handleCreateProperty}>
             <label className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="font-medium text-muted-foreground text-xs">
                 {isEn ? "Property name" : "Nombre de propiedad"}
               </span>
               <Input name="name" placeholder="Villa Morra HQ" required />
             </label>
             <label className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="font-medium text-muted-foreground text-xs">
                 {isEn ? "Code" : "Código"}
               </span>
               <Input name="code" placeholder="VM-HQ" />
             </label>
             <label className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="font-medium text-muted-foreground text-xs">
                 {isEn ? "Address" : "Dirección"}
               </span>
               <Input name="address_line1" placeholder="Av. España 1234" />
             </label>
             <label className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="font-medium text-muted-foreground text-xs">
                 {isEn ? "City" : "Ciudad"}
               </span>
               <Input name="city" placeholder="Asunción" />
             </label>
             <Button
               className="mt-1 w-full"
-              type="submit"
               disabled={submitting !== null}
+              type="submit"
             >
               {submitting === "property" ? (
                 <>
-                  <Spinner size="sm" className="text-primary-foreground" />
+                  <Spinner className="text-primary-foreground" size="sm" />
                   {isEn ? "Creating..." : "Creando..."}
                 </>
               ) : isEn ? (
@@ -654,7 +674,7 @@ export function SetupWizard({
           </form>
           <div className="mt-3 text-center">
             <button
-              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="font-medium text-muted-foreground text-xs transition-colors hover:text-foreground"
               onClick={() => setImportPropertyOpen(true)}
               type="button"
             >
@@ -664,16 +684,14 @@ export function SetupWizard({
         </ActiveStepCard>
       ) : (
         <LockedStepRow
-          stepNumber={2}
-          title={
-            isEn
-              ? "Add your first property"
-              : "Agrega tu primera propiedad"
-          }
           description={
             isEn
               ? "Unlocked after creating an organization."
               : "Se habilita al crear una organización."
+          }
+          stepNumber={2}
+          title={
+            isEn ? "Add your first property" : "Agrega tu primera propiedad"
           }
         />
       )}
@@ -682,24 +700,22 @@ export function SetupWizard({
       {unitDone ? (
         <CompletedStepRow
           stepNumber={3}
+          summary={`${units.length} ${isEn ? (units.length === 1 ? "unit" : "units") : units.length === 1 ? "unidad" : "unidades"}`}
           title={isEn ? "Unit" : "Unidad"}
-          summary={`${units.length} ${isEn ? (units.length === 1 ? "unit" : "units") : (units.length === 1 ? "unidad" : "unidades")}`}
         />
       ) : activeStep === 3 ? (
         <ActiveStepCard
-          stepNumber={3}
-          title={
-            isEn ? "Create your first unit" : "Crea tu primera unidad"
-          }
           description={
             isEn
               ? "Add your first rentable unit to finish onboarding."
               : "Agrega tu primera unidad alquilable para finalizar el onboarding."
           }
+          stepNumber={3}
+          title={isEn ? "Create your first unit" : "Crea tu primera unidad"}
         >
-          <form onSubmit={handleCreateUnit} className="grid gap-3">
+          <form className="grid gap-3" onSubmit={handleCreateUnit}>
             <label className="grid gap-1">
-              <span className="text-xs font-medium text-muted-foreground">
+              <span className="font-medium text-muted-foreground text-xs">
                 {isEn ? "Property" : "Propiedad"}
               </span>
               <select
@@ -724,25 +740,21 @@ export function SetupWizard({
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {isEn ? "Unit code" : "Código de unidad"}
                 </span>
                 <Input name="code" placeholder="A1" required />
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {isEn ? "Unit name" : "Nombre de unidad"}
                 </span>
-                <Input
-                  name="name"
-                  placeholder="Departamento A1"
-                  required
-                />
+                <Input name="name" placeholder="Departamento A1" required />
               </label>
             </div>
-            <div className="grid gap-3 grid-cols-3">
+            <div className="grid grid-cols-3 gap-3">
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {isEn ? "Max guests" : "Máx. huéspedes"}
                 </span>
                 <Input
@@ -753,18 +765,13 @@ export function SetupWizard({
                 />
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {isEn ? "Bedrooms" : "Dormitorios"}
                 </span>
-                <Input
-                  defaultValue={1}
-                  min={0}
-                  name="bedrooms"
-                  type="number"
-                />
+                <Input defaultValue={1} min={0} name="bedrooms" type="number" />
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-muted-foreground">
+                <span className="font-medium text-muted-foreground text-xs">
                   {isEn ? "Bathrooms" : "Baños"}
                 </span>
                 <Input
@@ -778,12 +785,12 @@ export function SetupWizard({
             </div>
             <Button
               className="mt-1 w-full"
-              type="submit"
               disabled={submitting !== null}
+              type="submit"
             >
               {submitting === "unit" ? (
                 <>
-                  <Spinner size="sm" className="text-primary-foreground" />
+                  <Spinner className="text-primary-foreground" size="sm" />
                   {isEn ? "Creating..." : "Creando..."}
                 </>
               ) : isEn ? (
@@ -795,7 +802,7 @@ export function SetupWizard({
           </form>
           <div className="mt-3 text-center">
             <button
-              className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="font-medium text-muted-foreground text-xs transition-colors hover:text-foreground"
               onClick={() => setImportUnitOpen(true)}
               type="button"
             >
@@ -805,50 +812,84 @@ export function SetupWizard({
         </ActiveStepCard>
       ) : (
         <LockedStepRow
-          stepNumber={3}
-          title={
-            isEn ? "Create your first unit" : "Crea tu primera unidad"
-          }
           description={
-            isEn
-              ? "Complete step 2 first."
-              : "Completa el paso 2 primero."
+            isEn ? "Complete step 2 first." : "Completa el paso 2 primero."
           }
+          stepNumber={3}
+          title={isEn ? "Create your first unit" : "Crea tu primera unidad"}
         />
       )}
 
       {/* Step 4: Optional — Connect an integration or publish listing */}
       {onboardingDone && !step4Complete ? (
         <OptionalStepCard
-          stepNumber={4}
-          title={
-            rentalMode === "ltr"
-              ? isEn
-                ? "Create your first lease"
-                : "Crea tu primer contrato"
-              : isEn
-                ? "Connect an integration"
-                : "Conecta una integración"
-          }
           description={
-            rentalMode === "ltr"
+            rentalMode === "both"
               ? isEn
-                ? "Set up a tenant contract and auto-generate the collection schedule."
-                : "Configura un contrato de inquilino y genera el calendario de cobro automáticamente."
-              : isEn
-                ? "Link your OTA channels to start receiving reservations."
-                : "Conecta tus canales OTA para empezar a recibir reservas."
+                ? "Set up an OTA integration or create a tenant lease."
+                : "Configura una integración OTA o crea un contrato de inquilino."
+              : rentalMode === "ltr"
+                ? isEn
+                  ? "Set up a tenant contract and auto-generate the collection schedule."
+                  : "Configura un contrato de inquilino y genera el calendario de cobro automáticamente."
+                : isEn
+                  ? "Link your OTA channels to start receiving reservations."
+                  : "Conecta tus canales OTA para empezar a recibir reservas."
           }
           isEn={isEn}
+          stepNumber={4}
+          title={
+            rentalMode === "both"
+              ? isEn
+                ? "Connect or create a lease"
+                : "Conecta o crea un contrato"
+              : rentalMode === "ltr"
+                ? isEn
+                  ? "Create your first lease"
+                  : "Crea tu primer contrato"
+                : isEn
+                  ? "Connect an integration"
+                  : "Conecta una integración"
+          }
         >
-          {rentalMode !== "ltr" ? (
+          {rentalMode === "both" ? (
+            <div className="mb-3 flex rounded-lg border border-border bg-muted/30 p-0.5">
+              <button
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 font-medium text-xs transition-colors",
+                  step4View === "str"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setStep4View("str")}
+                type="button"
+              >
+                {isEn
+                  ? "Short-term (Integration)"
+                  : "Corto plazo (Integración)"}
+              </button>
+              <button
+                className={cn(
+                  "flex-1 rounded-md px-3 py-1.5 font-medium text-xs transition-colors",
+                  step4View === "ltr"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setStep4View("ltr")}
+                type="button"
+              >
+                {isEn ? "Long-term (Lease)" : "Largo plazo (Contrato)"}
+              </button>
+            </div>
+          ) : null}
+          {(rentalMode === "both" ? step4View : rentalMode) !== "ltr" ? (
             <div className="space-y-4">
               <form
-                onSubmit={handleCreateIntegrationStep4}
                 className="grid gap-3"
+                onSubmit={handleCreateIntegrationStep4}
               >
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Channel type" : "Tipo de canal"}
                   </span>
                   <select
@@ -863,19 +904,17 @@ export function SetupWizard({
                       {isEn ? "Direct" : "Directo"}
                     </option>
                     <option value="vrbo">Vrbo</option>
-                    <option value="other">
-                      {isEn ? "Other" : "Otro"}
-                    </option>
+                    <option value="other">{isEn ? "Other" : "Otro"}</option>
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Channel name" : "Nombre del canal"}
                   </span>
                   <Input name="channel_name" placeholder="Airbnb" required />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Unit" : "Unidad"}
                   </span>
                   <select
@@ -892,7 +931,7 @@ export function SetupWizard({
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Public name" : "Nombre público"}
                   </span>
                   <Input
@@ -906,7 +945,7 @@ export function SetupWizard({
                   />
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn
                       ? "iCal import URL (optional)"
                       : "URL de importación iCal (opcional)"}
@@ -919,14 +958,14 @@ export function SetupWizard({
                 <div className="flex items-center gap-2">
                   <Button
                     className="flex-1"
-                    type="submit"
                     disabled={submitting !== null}
+                    type="submit"
                   >
                     {submitting === "integration" ? (
                       <>
                         <Spinner
-                          size="sm"
                           className="text-primary-foreground"
+                          size="sm"
                         />
                         {isEn ? "Creating..." : "Creando..."}
                       </>
@@ -937,51 +976,21 @@ export function SetupWizard({
                     )}
                   </Button>
                   <Button
+                    onClick={() => setStep4Skipped(true)}
+                    size="sm"
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    onClick={() => setStep4Skipped(true)}
                   >
                     {isEn ? "Skip" : "Omitir"}
                   </Button>
                 </div>
               </form>
-
-              {rentalMode === "both" ? (
-                <div className="mt-1 space-y-2 border-t border-border/40 pt-3">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {isEn
-                      ? "Long-term rental setup"
-                      : "Configuración de alquiler a largo plazo"}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Link
-                      className={cn(
-                        buttonVariants({ variant: "outline", size: "sm" })
-                      )}
-                      href="/module/listings"
-                    >
-                      {isEn
-                        ? "Create marketplace listing"
-                        : "Crear anuncio en marketplace"}
-                    </Link>
-                    <Link
-                      className={cn(
-                        buttonVariants({ variant: "outline", size: "sm" })
-                      )}
-                      href="/module/pricing"
-                    >
-                      {isEn ? "Set up pricing" : "Configurar precios"}
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
             </div>
           ) : (
             <div className="space-y-4">
-              <form onSubmit={handleCreateLeaseStep4} className="grid gap-3">
+              <form className="grid gap-3" onSubmit={handleCreateLeaseStep4}>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Unit" : "Unidad"}
                   </span>
                   <select
@@ -998,34 +1007,54 @@ export function SetupWizard({
                   </select>
                 </label>
                 <label className="grid gap-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {isEn ? "Tenant full name" : "Nombre completo del inquilino"}
+                  <span className="font-medium text-muted-foreground text-xs">
+                    {isEn
+                      ? "Tenant full name"
+                      : "Nombre completo del inquilino"}
                   </span>
-                  <Input name="tenant_full_name" placeholder="Juan Pérez" required />
+                  <Input
+                    name="tenant_full_name"
+                    placeholder="Juan Pérez"
+                    required
+                  />
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "Email (optional)" : "Email (opcional)"}
                     </span>
-                    <Input name="tenant_email" type="email" placeholder="juan@email.com" />
+                    <Input
+                      name="tenant_email"
+                      placeholder="juan@email.com"
+                      type="email"
+                    />
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "Phone (optional)" : "Teléfono (opcional)"}
                     </span>
-                    <Input name="tenant_phone_e164" placeholder="+595 981 123456" />
+                    <Input
+                      name="tenant_phone_e164"
+                      placeholder="+595 981 123456"
+                    />
                   </label>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "Monthly rent" : "Renta mensual"}
                     </span>
-                    <Input name="monthly_rent" type="number" min={0} step="any" placeholder="2500000" required />
+                    <Input
+                      min={0}
+                      name="monthly_rent"
+                      placeholder="2500000"
+                      required
+                      step="any"
+                      type="number"
+                    />
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "Currency" : "Moneda"}
                     </span>
                     <select
@@ -1040,19 +1069,19 @@ export function SetupWizard({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "Start date" : "Fecha de inicio"}
                     </span>
-                    <Input name="starts_on" type="date" required />
+                    <Input name="starts_on" required type="date" />
                   </label>
                   <label className="grid gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground text-xs">
                       {isEn ? "End date (optional)" : "Fecha de fin (opcional)"}
                     </span>
                     <Input name="ends_on" type="date" />
                   </label>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {isEn
                     ? "A monthly collection schedule will be generated automatically."
                     : "Se generará un calendario de cobro mensual automáticamente."}
@@ -1060,12 +1089,15 @@ export function SetupWizard({
                 <div className="flex items-center gap-2">
                   <Button
                     className="flex-1"
-                    type="submit"
                     disabled={submitting !== null}
+                    type="submit"
                   >
                     {submitting === "lease" ? (
                       <>
-                        <Spinner size="sm" className="text-primary-foreground" />
+                        <Spinner
+                          className="text-primary-foreground"
+                          size="sm"
+                        />
                         {isEn ? "Creating..." : "Creando..."}
                       </>
                     ) : isEn ? (
@@ -1075,37 +1107,43 @@ export function SetupWizard({
                     )}
                   </Button>
                   <Button
+                    onClick={() => setStep4Skipped(true)}
+                    size="sm"
                     type="button"
                     variant="ghost"
-                    size="sm"
-                    onClick={() => setStep4Skipped(true)}
                   >
                     {isEn ? "Skip" : "Omitir"}
                   </Button>
                 </div>
               </form>
-              <div className="border-t border-border/40 pt-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium text-muted-foreground">
+              <div className="border-border/40 border-t pt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="font-medium text-muted-foreground text-xs">
                     {isEn ? "Or continue with:" : "O continúa con:"}
                   </p>
                   <button
-                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    className="font-medium text-muted-foreground text-xs transition-colors hover:text-foreground"
                     onClick={() => setImportLeaseOpen(true)}
                     type="button"
                   >
-                    {isEn ? "Import leases from CSV" : "Importar contratos desde CSV"}
+                    {isEn
+                      ? "Import leases from CSV"
+                      : "Importar contratos desde CSV"}
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Link
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" })
+                    )}
                     href="/module/listings"
                   >
                     {isEn ? "Publish listing" : "Publicar anuncio"}
                   </Link>
                   <Link
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" })
+                    )}
                     href="/module/pricing"
                   >
                     {isEn ? "Set up pricing" : "Configurar precios"}
@@ -1119,20 +1157,20 @@ export function SetupWizard({
 
       {/* Technical details */}
       <TechnicalDetails
-        isEn={isEn}
         apiBaseUrl={apiBaseUrl}
+        isEn={isEn}
         orgId={orgId}
         profileType={profileType}
       />
 
       {/* Existing organizations (for step 1) */}
-      {!orgDone ? (
+      {orgDone ? null : (
         <ExistingOrganizations
-          organizations={initialOrganizations}
-          locale={locale}
           isEn={isEn}
+          locale={locale}
+          organizations={initialOrganizations}
         />
-      ) : null}
+      )}
 
       {/* Separator + Advanced */}
       {orgDone ? (
@@ -1144,9 +1182,7 @@ export function SetupWizard({
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <CardTitle className="text-xl">
-                      {isEn
-                        ? "Advanced onboarding"
-                        : "Onboarding avanzado"}
+                      {isEn ? "Advanced onboarding" : "Onboarding avanzado"}
                     </CardTitle>
                     <CardDescription>
                       {isEn
@@ -1169,10 +1205,10 @@ export function SetupWizard({
               <CollapsibleContent>
                 <CardContent>
                   <SetupManager
-                    integrations={integrations}
                     initialTab={initialTab}
+                    integrations={integrations}
                     organizations={initialOrganizations}
-                    orgId={orgId!}
+                    orgId={orgId as string}
                     properties={properties}
                     units={units}
                   />
@@ -1184,7 +1220,7 @@ export function SetupWizard({
       ) : null}
 
       {/* Back link */}
-      {!orgDone ? (
+      {orgDone ? null : (
         <div className="flex justify-center">
           <a
             className={cn(
@@ -1196,7 +1232,7 @@ export function SetupWizard({
             {isEn ? "Back to dashboard" : "Volver al panel"}
           </a>
         </div>
-      ) : null}
+      )}
 
       {/* CSV Import sheets */}
       {orgId ? (
@@ -1216,7 +1252,10 @@ export function SetupWizard({
             onOpenChange={setImportUnitOpen}
             open={importUnitOpen}
             orgId={orgId}
-            properties={propertyOptions.map((p) => ({ id: p.id, name: p.label }))}
+            properties={propertyOptions.map((p) => ({
+              id: p.id,
+              name: p.label,
+            }))}
           />
           <DataImportSheet
             isEn={isEn}
