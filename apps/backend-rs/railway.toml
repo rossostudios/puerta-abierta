@@ -2,5 +2,5 @@
 watchPatterns = ["apps/backend-rs/**"]
 
 [deploy]
-startCommand = "cargo run --release"
+startCommand = "./bin/puerta-abierta-backend-rs"
 healthcheckPath = "/v1/health"

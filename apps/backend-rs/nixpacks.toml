@@ -5,4 +5,4 @@ nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl"]
 cmds = ["cargo build --release"]
 
 [start]
-cmd = "cargo run --release"
+cmd = "./bin/puerta-abierta-backend-rs"
