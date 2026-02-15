@@ -31,6 +31,15 @@ pub struct AppConfig {
     pub default_org_id: Option<String>,
     pub default_user_id: Option<String>,
     pub proxy_unmigrated_to: Option<String>,
+    pub internal_api_key: Option<String>,
+    pub whatsapp_phone_number_id: Option<String>,
+    pub whatsapp_access_token: Option<String>,
+    pub resend_api_key: Option<String>,
+    pub email_from_address: String,
+    pub stripe_secret_key: Option<String>,
+    pub stripe_webhook_secret: Option<String>,
+    pub stripe_trial_days: i32,
+    pub app_public_url: String,
 }
 
 impl AppConfig {
@@ -66,6 +75,15 @@ impl AppConfig {
             default_org_id: env_opt("DEFAULT_ORG_ID"),
             default_user_id: env_opt("DEFAULT_USER_ID"),
             proxy_unmigrated_to: env_opt("PROXY_UNMIGRATED_TO"),
+            internal_api_key: env_opt("INTERNAL_API_KEY"),
+            whatsapp_phone_number_id: env_opt("WHATSAPP_PHONE_NUMBER_ID"),
+            whatsapp_access_token: env_opt("WHATSAPP_ACCESS_TOKEN"),
+            resend_api_key: env_opt("RESEND_API_KEY"),
+            email_from_address: env_or("EMAIL_FROM_ADDRESS", "noreply@puertaabierta.com"),
+            stripe_secret_key: env_opt("STRIPE_SECRET_KEY"),
+            stripe_webhook_secret: env_opt("STRIPE_WEBHOOK_SECRET"),
+            stripe_trial_days: env_parse_or("STRIPE_TRIAL_DAYS", 14),
+            app_public_url: env_or("APP_PUBLIC_URL", "http://localhost:3000"),
         }
     }
 

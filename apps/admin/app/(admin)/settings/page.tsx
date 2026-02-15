@@ -1,8 +1,12 @@
 import {
   AuditIcon,
   Building01Icon,
+  CreditCardIcon,
+  FolderAttachmentIcon,
   UserCircle02Icon,
+  UserGroupIcon,
   WebhookIcon,
+  WorkflowSquare03Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +50,38 @@ export default async function SettingsPage() {
       description: isEn
         ? "Track critical changes and security-sensitive actions."
         : "Rastrea cambios críticos y acciones sensibles de seguridad.",
+    },
+    {
+      href: "/settings/team",
+      icon: UserGroupIcon,
+      title: isEn ? "Team" : "Equipo",
+      description: isEn
+        ? "Manage members and send invitations to your organization."
+        : "Gestiona miembros y envía invitaciones a tu organización.",
+    },
+    {
+      href: "/module/documents",
+      icon: FolderAttachmentIcon,
+      title: isEn ? "Documents" : "Documentos",
+      description: isEn
+        ? "Manage contracts, receipts, photos, and inspections."
+        : "Gestiona contratos, recibos, fotos e inspecciones.",
+    },
+    {
+      href: "/module/workflow-rules",
+      icon: WorkflowSquare03Icon,
+      title: isEn ? "Automations" : "Automatizaciones",
+      description: isEn
+        ? "Create rules to automate tasks, notifications, and workflows."
+        : "Crea reglas para automatizar tareas, notificaciones y flujos.",
+    },
+    {
+      href: "/module/billing",
+      icon: CreditCardIcon,
+      title: isEn ? "Billing" : "Facturación",
+      description: isEn
+        ? "Manage your subscription plan and usage limits."
+        : "Gestiona tu plan de suscripción y límites de uso.",
     },
   ];
 

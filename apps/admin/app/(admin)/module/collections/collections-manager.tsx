@@ -7,6 +7,7 @@ import { useMemo, useOptimistic, useState } from "react";
 
 import {
   createCollectionAction,
+  generatePaymentLinkAction,
   markCollectionPaidAction,
 } from "@/app/(admin)/module/collections/actions";
 import { Button } from "@/components/ui/button";
@@ -264,32 +265,43 @@ export function CollectionsManager({
           }
 
           return (
-            <Form
-              action={markCollectionPaidAction}
-              onSubmit={() =>
-                queueOptimisticRowUpdate({
-                  type: "mark-paid",
-                  collectionId: id,
-                  paidAt: new Date().toISOString(),
-                })
-              }
-            >
-              <input name="collection_id" type="hidden" value={id} />
-              <input
-                name="payment_method"
-                type="hidden"
-                value="bank_transfer"
-              />
-              <input
-                name="paid_at"
-                type="hidden"
-                value={new Date().toISOString()}
-              />
-              <input name="next" type="hidden" value={nextPath} />
-              <Button size="sm" type="submit" variant="secondary">
-                {isEn ? "Mark paid" : "Marcar pagado"}
-              </Button>
-            </Form>
+            <div className="flex items-center gap-2">
+              <Form
+                action={generatePaymentLinkAction}
+              >
+                <input name="collection_id" type="hidden" value={id} />
+                <input name="next" type="hidden" value={nextPath} />
+                <Button size="sm" type="submit" variant="outline">
+                  {isEn ? "Payment link" : "Link de pago"}
+                </Button>
+              </Form>
+              <Form
+                action={markCollectionPaidAction}
+                onSubmit={() =>
+                  queueOptimisticRowUpdate({
+                    type: "mark-paid",
+                    collectionId: id,
+                    paidAt: new Date().toISOString(),
+                  })
+                }
+              >
+                <input name="collection_id" type="hidden" value={id} />
+                <input
+                  name="payment_method"
+                  type="hidden"
+                  value="bank_transfer"
+                />
+                <input
+                  name="paid_at"
+                  type="hidden"
+                  value={new Date().toISOString()}
+                />
+                <input name="next" type="hidden" value={nextPath} />
+                <Button size="sm" type="submit" variant="secondary">
+                  {isEn ? "Mark paid" : "Marcar pagado"}
+                </Button>
+              </Form>
+            </div>
           );
         }}
       />

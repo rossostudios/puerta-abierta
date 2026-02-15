@@ -3,7 +3,7 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use serde_json::{json, Map, Value};
 
 use crate::{
@@ -36,6 +36,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/reports/transparency-summary",
             axum::routing::get(transparency_summary_report),
+        )
+        .route(
+            "/reports/finance-dashboard",
+            axum::routing::get(finance_dashboard),
         )
 }
 
@@ -571,6 +575,159 @@ async fn transparency_summary_report(
         "application_submit_failures": application_submit_failures,
         "application_event_write_failures": application_event_write_failures,
         "application_submit_failure_rate": application_submit_failure_rate,
+    })))
+}
+
+/// Finance dashboard: 6 months of monthly revenue, expenses, collection rates, and expense breakdown.
+async fn finance_dashboard(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsPeriodQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let end_date = parse_date(&query.to_date)?;
+    let months_back: u32 = 6;
+
+    // Build month boundaries
+    let mut month_boundaries: Vec<(NaiveDate, NaiveDate, String)> = Vec::new();
+    for i in 0..months_back {
+        let offset = months_back - 1 - i;
+        let (year, month) = {
+            let m = end_date.month() as i32 - offset as i32;
+            if m <= 0 {
+                (end_date.year() - 1 + (m - 1) / 12, ((m - 1) % 12 + 12) as u32 + 1)
+            } else {
+                (end_date.year(), m as u32)
+            }
+        };
+        let start = NaiveDate::from_ymd_opt(year, month, 1).unwrap_or(end_date);
+        let next_month = if month == 12 {
+            NaiveDate::from_ymd_opt(year + 1, 1, 1)
+        } else {
+            NaiveDate::from_ymd_opt(year, month + 1, 1)
+        }
+        .unwrap_or(end_date);
+        let label = format!("{:04}-{:02}", year, month);
+        month_boundaries.push((start, next_month, label));
+    }
+
+    let org_filter = json_map(&[("organization_id", Value::String(query.org_id.clone()))]);
+
+    // Fetch reservations
+    let reservations = list_rows(pool, "reservations", Some(&org_filter), 10000, 0, "created_at", false).await?;
+
+    // Fetch expenses
+    let expenses = list_rows(pool, "expenses", Some(&org_filter), 10000, 0, "created_at", false).await?;
+
+    // Fetch collections
+    let collections = list_rows(pool, "collection_records", Some(&org_filter), 20000, 0, "created_at", false).await?;
+
+    // Compute monthly data
+    let mut monthly_data: Vec<Value> = Vec::new();
+    for (month_start, month_end, label) in &month_boundaries {
+        // Revenue from reservations
+        let mut month_revenue = 0.0;
+        for reservation in &reservations {
+            let status = value_str(reservation, "status");
+            if !REPORTABLE_STATUSES.contains(&status.as_str()) {
+                continue;
+            }
+            let check_in = parse_date(&value_str(reservation, "check_in_date")).ok();
+            let check_out = parse_date(&value_str(reservation, "check_out_date")).ok();
+            let (Some(ci), Some(co)) = (check_in, check_out) else { continue };
+            if co <= *month_start || ci >= *month_end {
+                continue;
+            }
+            month_revenue += number_from_value(reservation.get("total_amount"));
+        }
+
+        // Revenue from collection records (for LTR)
+        for collection in &collections {
+            let status = value_str(collection, "status");
+            if status != "paid" {
+                continue;
+            }
+            if let Ok(due_date) = parse_date(&value_str(collection, "due_date")) {
+                if due_date >= *month_start && due_date < *month_end {
+                    month_revenue += number_from_value(collection.get("amount"));
+                }
+            }
+        }
+
+        // Expenses
+        let mut month_expenses = 0.0;
+        for expense in &expenses {
+            if let Ok(expense_date) = parse_date(&value_str(expense, "expense_date")) {
+                if expense_date >= *month_start && expense_date < *month_end {
+                    let (amount, _) = expense_amount_pyg(expense);
+                    month_expenses += amount;
+                }
+            }
+        }
+
+        // Collection rate for the month
+        let mut scheduled = 0_i64;
+        let mut paid = 0_i64;
+        for collection in &collections {
+            if let Ok(due_date) = parse_date(&value_str(collection, "due_date")) {
+                if due_date >= *month_start && due_date < *month_end {
+                    scheduled += 1;
+                    if value_str(collection, "status") == "paid" {
+                        paid += 1;
+                    }
+                }
+            }
+        }
+        let collection_rate = if scheduled > 0 { round4(paid as f64 / scheduled as f64) } else { 0.0 };
+
+        monthly_data.push(json!({
+            "month": label,
+            "revenue": round2(month_revenue),
+            "expenses": round2(month_expenses),
+            "net": round2(month_revenue - month_expenses),
+            "collections_scheduled": scheduled,
+            "collections_paid": paid,
+            "collection_rate": collection_rate,
+        }));
+    }
+
+    // Expense breakdown by category (full period)
+    let period_start = month_boundaries.first().map(|(s, _, _)| *s).unwrap_or(end_date);
+    let mut category_totals: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    for expense in &expenses {
+        if let Ok(expense_date) = parse_date(&value_str(expense, "expense_date")) {
+            if expense_date >= period_start && expense_date <= end_date {
+                let (amount, _) = expense_amount_pyg(expense);
+                let category = value_str(expense, "category");
+                let cat = if category.is_empty() { "other".to_string() } else { category };
+                *category_totals.entry(cat).or_insert(0.0) += amount;
+            }
+        }
+    }
+    let expense_breakdown: Vec<Value> = category_totals
+        .into_iter()
+        .map(|(category, total)| json!({ "category": category, "total": round2(total) }))
+        .collect();
+
+    // Outstanding collections
+    let outstanding: Vec<Value> = collections
+        .iter()
+        .filter(|c| {
+            let status = value_str(c, "status");
+            status == "pending" || status == "overdue"
+        })
+        .take(20)
+        .cloned()
+        .collect();
+
+    Ok(Json(json!({
+        "organization_id": query.org_id,
+        "months": monthly_data,
+        "expense_breakdown": expense_breakdown,
+        "outstanding_collections": outstanding,
     })))
 }
 

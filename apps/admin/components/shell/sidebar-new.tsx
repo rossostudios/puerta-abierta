@@ -8,8 +8,10 @@ import {
   CalendarCheckIn01Icon,
   Cancel01Icon,
   ChartIcon,
+  CreditCardIcon,
   Door01Icon,
   File01Icon,
+  FolderAttachmentIcon,
   GridViewIcon,
   Home01Icon,
   InboxIcon,
@@ -23,6 +25,7 @@ import {
   Task01Icon,
   UserGroupIcon,
   WebhookIcon,
+  WorkflowSquare03Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import { Separator } from "@base-ui/react/separator";
@@ -72,6 +75,9 @@ const MODULE_ICONS: Record<string, IconSvgElement> = {
   "integration-events": WebhookIcon,
   "audit-logs": AuditIcon,
   reports: ChartIcon,
+  documents: FolderAttachmentIcon,
+  "workflow-rules": WorkflowSquare03Icon,
+  billing: CreditCardIcon,
 };
 
 export type ViewportMode = "desktop" | "tablet" | "mobile";
@@ -225,6 +231,14 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Finance",
     },
     moduleSlugs: ["expenses", "pricing", "reports"],
+  },
+  {
+    key: "workspace",
+    label: {
+      "es-PY": "Espacio de trabajo",
+      "en-US": "Workspace",
+    },
+    moduleSlugs: ["documents", "workflow-rules", "billing"],
   },
 ];
 

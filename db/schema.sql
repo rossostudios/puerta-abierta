@@ -101,7 +101,52 @@ CREATE TYPE message_channel AS ENUM (
 CREATE TYPE message_status AS ENUM (
   'queued',
   'sent',
+  'delivered',
   'failed'
+);
+
+CREATE TYPE payment_instruction_status AS ENUM (
+  'active',
+  'expired',
+  'cancelled',
+  'paid'
+);
+
+CREATE TYPE maintenance_category AS ENUM (
+  'plumbing',
+  'electrical',
+  'structural',
+  'appliance',
+  'pest',
+  'general'
+);
+
+CREATE TYPE maintenance_urgency AS ENUM (
+  'low',
+  'medium',
+  'high',
+  'emergency'
+);
+
+CREATE TYPE maintenance_status AS ENUM (
+  'submitted',
+  'acknowledged',
+  'scheduled',
+  'in_progress',
+  'completed',
+  'closed'
+);
+
+CREATE TYPE notification_trigger_event AS ENUM (
+  'rent_due_3d',
+  'rent_due_1d',
+  'rent_overdue_1d',
+  'rent_overdue_7d',
+  'application_received',
+  'task_assigned',
+  'lease_expiring_30d',
+  'maintenance_submitted',
+  'payment_confirmed'
 );
 
 CREATE TYPE fee_line_type AS ENUM (
@@ -187,6 +232,10 @@ CREATE TABLE organizations (
   timezone text NOT NULL DEFAULT 'America/Asuncion',
   country_code char(2) NOT NULL DEFAULT 'PY',
   owner_user_id uuid NOT NULL REFERENCES app_users(id),
+  bank_name text,
+  bank_account_number text,
+  bank_account_holder text,
+  qr_image_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -840,6 +889,231 @@ CREATE INDEX idx_ai_chat_messages_chat_created
 CREATE INDEX idx_ai_chat_messages_org_user_created
   ON ai_chat_messages(organization_id, created_by_user_id, created_at DESC);
 
+-- ---------- Tenant access tokens ----------
+
+CREATE TABLE tenant_access_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  lease_id uuid NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
+  email citext NOT NULL,
+  phone_e164 text,
+  token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '24 hours'),
+  last_used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_tenant_access_tokens_lease ON tenant_access_tokens(lease_id);
+CREATE INDEX idx_tenant_access_tokens_email ON tenant_access_tokens(email);
+CREATE INDEX idx_tenant_access_tokens_hash ON tenant_access_tokens(token_hash);
+
+-- ---------- Maintenance requests ----------
+
+CREATE TABLE maintenance_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  lease_id uuid REFERENCES leases(id) ON DELETE SET NULL,
+  property_id uuid REFERENCES properties(id) ON DELETE SET NULL,
+  unit_id uuid REFERENCES units(id) ON DELETE SET NULL,
+  category maintenance_category NOT NULL DEFAULT 'general',
+  title text NOT NULL,
+  description text,
+  urgency maintenance_urgency NOT NULL DEFAULT 'medium',
+  photo_urls jsonb NOT NULL DEFAULT '[]'::jsonb,
+  status maintenance_status NOT NULL DEFAULT 'submitted',
+  task_id uuid REFERENCES tasks(id) ON DELETE SET NULL,
+  submitted_by_name text,
+  submitted_by_phone text,
+  submitted_by_email text,
+  acknowledged_at timestamptz,
+  scheduled_at timestamptz,
+  completed_at timestamptz,
+  resolution_notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_maintenance_requests_org_status
+  ON maintenance_requests(organization_id, status, created_at DESC);
+CREATE INDEX idx_maintenance_requests_lease ON maintenance_requests(lease_id);
+CREATE INDEX idx_maintenance_requests_property ON maintenance_requests(property_id);
+
+-- ---------- Payment instructions ----------
+
+CREATE TABLE payment_instructions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  collection_record_id uuid NOT NULL REFERENCES collection_records(id) ON DELETE CASCADE,
+  lease_id uuid NOT NULL REFERENCES leases(id) ON DELETE CASCADE,
+  reference_code text NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(8), 'hex'),
+  payment_method payment_method NOT NULL DEFAULT 'bank_transfer',
+  bank_name text,
+  account_number text,
+  account_holder text,
+  qr_payload_url text,
+  amount numeric(12, 2) NOT NULL CHECK (amount >= 0),
+  currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
+  status payment_instruction_status NOT NULL DEFAULT 'active',
+  expires_at timestamptz NOT NULL DEFAULT (now() + interval '7 days'),
+  tenant_name text,
+  tenant_phone_e164 text,
+  notes text,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_payment_instructions_org
+  ON payment_instructions(organization_id, status, created_at DESC);
+CREATE INDEX idx_payment_instructions_collection
+  ON payment_instructions(collection_record_id);
+CREATE INDEX idx_payment_instructions_reference
+  ON payment_instructions(reference_code);
+
+-- ---------- Notification rules ----------
+
+CREATE TABLE notification_rules (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  trigger_event notification_trigger_event NOT NULL,
+  message_template_id uuid REFERENCES message_templates(id) ON DELETE SET NULL,
+  channel message_channel NOT NULL DEFAULT 'whatsapp',
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, trigger_event, channel)
+);
+
+CREATE INDEX idx_notification_rules_org_active
+  ON notification_rules(organization_id, is_active);
+
+-- ---------- Documents ----------
+
+CREATE TYPE document_category AS ENUM (
+  'lease_contract', 'id_document', 'invoice', 'receipt',
+  'photo', 'inspection_report', 'other'
+);
+
+CREATE TABLE documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  entity_type text NOT NULL,
+  entity_id uuid,
+  file_name text NOT NULL,
+  file_url text NOT NULL,
+  file_size_bytes bigint,
+  mime_type text,
+  category document_category NOT NULL DEFAULT 'other',
+  uploaded_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_documents_org ON documents(organization_id, entity_type, entity_id);
+CREATE INDEX idx_documents_entity ON documents(entity_type, entity_id);
+
+CREATE TRIGGER trg_documents_updated_at
+  BEFORE UPDATE ON documents
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+CREATE POLICY documents_org_member_all
+  ON documents FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+-- ---------- Workflow rules ----------
+
+CREATE TYPE workflow_trigger_event AS ENUM (
+  'reservation_confirmed', 'checked_in', 'checked_out',
+  'lease_created', 'lease_activated', 'collection_overdue',
+  'application_received', 'maintenance_submitted'
+);
+
+CREATE TYPE workflow_action_type AS ENUM (
+  'create_task', 'send_notification', 'update_status', 'create_expense'
+);
+
+CREATE TABLE workflow_rules (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  trigger_event workflow_trigger_event NOT NULL,
+  action_type workflow_action_type NOT NULL,
+  action_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+  delay_minutes integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_workflow_rules_org_active
+  ON workflow_rules(organization_id, is_active, trigger_event);
+
+CREATE TRIGGER trg_workflow_rules_updated_at
+  BEFORE UPDATE ON workflow_rules
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+ALTER TABLE workflow_rules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY workflow_rules_org_member_all
+  ON workflow_rules FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+-- ---------- SaaS subscriptions ----------
+
+CREATE TYPE subscription_status AS ENUM ('trialing', 'active', 'past_due', 'cancelled');
+
+CREATE TABLE subscription_plans (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  stripe_price_id text,
+  max_properties integer NOT NULL DEFAULT 3,
+  max_units integer NOT NULL DEFAULT 10,
+  max_users integer NOT NULL DEFAULT 2,
+  features jsonb NOT NULL DEFAULT '{}'::jsonb,
+  price_usd numeric(8, 2) NOT NULL DEFAULT 0,
+  price_pyg numeric(12, 0) NOT NULL DEFAULT 0,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE org_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  plan_id uuid NOT NULL REFERENCES subscription_plans(id),
+  stripe_subscription_id text,
+  stripe_customer_id text,
+  status subscription_status NOT NULL DEFAULT 'trialing',
+  trial_ends_at timestamptz,
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancelled_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id)
+);
+
+CREATE INDEX idx_org_subscriptions_status ON org_subscriptions(status);
+CREATE INDEX idx_org_subscriptions_stripe
+  ON org_subscriptions(stripe_subscription_id)
+  WHERE stripe_subscription_id IS NOT NULL;
+
+CREATE TRIGGER trg_subscription_plans_updated_at
+  BEFORE UPDATE ON subscription_plans
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_org_subscriptions_updated_at
+  BEFORE UPDATE ON org_subscriptions
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE platform_admins (
+  user_id uuid PRIMARY KEY REFERENCES app_users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------- Integrations and audit ----------
 
 CREATE TABLE integration_events (
@@ -980,6 +1254,22 @@ CREATE TRIGGER trg_message_logs_updated_at
   BEFORE UPDATE ON message_logs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+CREATE TRIGGER trg_tenant_access_tokens_updated_at
+  BEFORE UPDATE ON tenant_access_tokens
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_maintenance_requests_updated_at
+  BEFORE UPDATE ON maintenance_requests
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_payment_instructions_updated_at
+  BEFORE UPDATE ON payment_instructions
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_notification_rules_updated_at
+  BEFORE UPDATE ON notification_rules
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TRIGGER trg_ai_agents_updated_at
   BEFORE UPDATE ON ai_agents
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -1074,6 +1364,9 @@ ALTER TABLE lease_charges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_instructions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notification_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
@@ -1180,6 +1473,21 @@ CREATE POLICY message_templates_org_member_all
 
 CREATE POLICY message_logs_org_member_all
   ON message_logs FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY maintenance_requests_org_member_all
+  ON maintenance_requests FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY payment_instructions_org_member_all
+  ON payment_instructions FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY notification_rules_org_member_all
+  ON notification_rules FOR ALL
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
 

@@ -1123,6 +1123,70 @@ pub struct PublicMarketplaceApplicationInput {
     pub metadata: serde_json::Map<String, serde_json::Value>,
 }
 
+// ---------- Payment instructions ----------
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct CreatePaymentInstructionInput {
+    pub payment_method: Option<String>,
+    pub bank_name: Option<String>,
+    pub account_number: Option<String>,
+    pub account_holder: Option<String>,
+    pub qr_payload_url: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct PaymentInstructionsQuery {
+    pub org_id: String,
+    pub status: Option<String>,
+    pub collection_record_id: Option<String>,
+    #[serde(default = "default_limit_200")]
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct PaymentInstructionPath {
+    pub instruction_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct PaymentReferencePath {
+    pub reference_code: String,
+}
+
+// ---------- Notification rules ----------
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct CreateNotificationRuleInput {
+    pub organization_id: String,
+    pub trigger_event: String,
+    pub message_template_id: Option<String>,
+    #[serde(default = "default_channel_whatsapp")]
+    pub channel: String,
+    #[serde(default = "default_true")]
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct UpdateNotificationRuleInput {
+    pub message_template_id: Option<String>,
+    pub channel: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct NotificationRulesQuery {
+    pub org_id: String,
+    pub is_active: Option<bool>,
+    #[serde(default = "default_limit_200")]
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct NotificationRulePath {
+    pub rule_id: String,
+}
+
 pub fn clamp_limit_in_range(limit: i64, minimum: i64, maximum: i64) -> i64 {
     limit.clamp(minimum, maximum)
 }

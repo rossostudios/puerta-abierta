@@ -12,23 +12,31 @@ pub mod calendar;
 pub mod channels;
 pub mod collections;
 pub mod demo;
+pub mod documents;
 pub mod expenses;
 pub mod guests;
 pub mod health;
 pub mod identity;
 pub mod integrations;
 pub mod leases;
+pub mod maintenance;
 pub mod marketplace;
 pub mod messaging;
+pub mod notifications;
 pub mod organizations;
 pub mod owner_statements;
+pub mod payments;
+pub mod platform;
 pub mod pricing;
 pub mod properties;
 pub mod proxy;
 pub mod public_ical;
+pub mod tenant;
 pub mod reports;
 pub mod reservations;
+pub mod subscriptions;
 pub mod tasks;
+pub mod workflows;
 
 pub fn v1_router() -> Router<AppState> {
     Router::new()
@@ -49,11 +57,19 @@ pub fn v1_router() -> Router<AppState> {
         .merge(applications::router())
         .merge(pricing::router())
         .merge(messaging::router())
+        .merge(payments::router())
+        .merge(notifications::router())
+        .merge(maintenance::router())
+        .merge(tenant::router())
         .merge(integrations::router())
         .merge(owner_statements::router())
         .merge(reports::router())
         .merge(marketplace::router())
         .merge(public_ical::router())
+        .merge(documents::router())
+        .merge(workflows::router())
+        .merge(subscriptions::router())
+        .merge(platform::router())
         .merge(demo::router())
         .fallback(any(proxy::proxy_unmigrated))
 }

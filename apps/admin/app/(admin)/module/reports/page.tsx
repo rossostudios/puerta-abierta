@@ -29,6 +29,17 @@ type HubSection = {
 
 const HUB_SECTIONS: HubSection[] = [
   {
+    href: "/module/reports/finance",
+    title: { "es-PY": "Dashboard financiero", "en-US": "Financial dashboard" },
+    description: {
+      "es-PY":
+        "Ingresos vs gastos, tendencia de cobro, desglose por categoría y cobros pendientes.",
+      "en-US":
+        "Revenue vs expenses, collection rate trend, expense breakdown, and outstanding collections.",
+    },
+    cta: { "es-PY": "Ver dashboard", "en-US": "Open dashboard" },
+  },
+  {
     href: "/module/reports/owner-summary",
     title: { "es-PY": "Resumen del propietario", "en-US": "Owner summary" },
     description: {

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MarketplaceListingViewModel } from "@/lib/features/marketplace/view-model";
 import { cn } from "@/lib/utils";
 
+import { ScheduleVisitButton } from "./schedule-visit-button";
+
 type ListingMoveInCardProps = {
   slug: string;
   isEn: boolean;
@@ -53,11 +55,18 @@ export function ListingMoveInCard({ slug, isEn, listing }: ListingMoveInCardProp
         </Link>
 
         {listing.whatsappUrl ? (
-          <WhatsAppContactButton
-            label={isEn ? "Contact via WhatsApp" : "Contactar por WhatsApp"}
-            listingSlug={slug}
-            whatsappUrl={listing.whatsappUrl}
-          />
+          <>
+            <WhatsAppContactButton
+              label={isEn ? "Contact via WhatsApp" : "Contactar por WhatsApp"}
+              listingSlug={slug}
+              whatsappUrl={listing.whatsappUrl}
+            />
+            <ScheduleVisitButton
+              isEn={isEn}
+              listing={listing}
+              slug={slug}
+            />
+          </>
         ) : null}
       </CardContent>
     </Card>

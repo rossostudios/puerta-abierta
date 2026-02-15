@@ -83,7 +83,7 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
-async function fetchJson<T>(
+export async function fetchJson<T>(
   path: string,
   query?: Record<string, QueryValue>,
   init?: RequestInit
@@ -305,6 +305,14 @@ export function fetchPublicMarketplaceListing(
 ): Promise<Record<string, unknown>> {
   return fetchJson<Record<string, unknown>>(
     `/public/marketplace/listings/${encodeURIComponent(slug)}`
+  );
+}
+
+export function fetchPublicPaymentInfo(
+  referenceCode: string
+): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>(
+    `/public/payment/${encodeURIComponent(referenceCode)}`
   );
 }
 

@@ -95,6 +95,45 @@ export default async function MarketplaceListingPage({
       addressCountry: "PY",
     },
     image: [listing.coverImageUrl, ...listing.galleryImageUrls].filter(Boolean),
+    ...(listing.latitude && listing.longitude
+      ? {
+          geo: {
+            "@type": "GeoCoordinates",
+            latitude: listing.latitude,
+            longitude: listing.longitude,
+          },
+        }
+      : {}),
+    ...(listing.monthlyRecurring > 0
+      ? {
+          offers: {
+            "@type": "Offer",
+            price: listing.monthlyRecurring,
+            priceCurrency: listing.currency || "PYG",
+            availability: "https://schema.org/InStock",
+            description: isEn ? "Monthly rent" : "Alquiler mensual",
+          },
+        }
+      : {}),
+    numberOfRooms: listing.raw.bedrooms
+      ? Number(listing.raw.bedrooms)
+      : undefined,
+    numberOfBathroomsTotal: listing.raw.bathrooms
+      ? Number(listing.raw.bathrooms)
+      : undefined,
+    floorSize: listing.raw.square_meters
+      ? {
+          "@type": "QuantitativeValue",
+          value: Number(listing.raw.square_meters),
+          unitCode: "MTK",
+        }
+      : undefined,
+    petsAllowed: listing.petPolicy === "allowed",
+    amenityFeature: listing.amenities.map((a) => ({
+      "@type": "LocationFeatureSpecification",
+      name: a,
+      value: true,
+    })),
   };
 
   return (

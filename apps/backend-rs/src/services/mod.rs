@@ -7,4 +7,6 @@ pub mod enrichment;
 pub mod fx;
 pub mod ical;
 pub mod lease_schedule;
+pub mod messaging;
 pub mod pricing;
+pub mod workflows;

@@ -197,6 +197,36 @@ export const MODULES: ModuleDef[] = [
     description_en:
       "Centralized hub for owner summary, statements, and transparency reports.",
   },
+  {
+    slug: "documents",
+    label: "Documentos",
+    label_en: "Documents",
+    endpoint: "/documents",
+    description:
+      "Gestiona contratos, recibos, fotos e inspecciones adjuntos a propiedades y contratos.",
+    description_en:
+      "Manage contracts, receipts, photos, and inspections attached to properties and leases.",
+  },
+  {
+    slug: "workflow-rules",
+    label: "Automatizaciones",
+    label_en: "Automations",
+    endpoint: "/workflow-rules",
+    description:
+      "Reglas automáticas: cuando ocurre un evento, ejecutar una acción.",
+    description_en:
+      "Automation rules: when an event occurs, execute an action.",
+  },
+  {
+    slug: "billing",
+    label: "Facturación",
+    label_en: "Billing",
+    endpoint: "/billing/current",
+    description:
+      "Plan de suscripción, uso y configuración de facturación.",
+    description_en:
+      "Subscription plan, usage, and billing configuration.",
+  },
 ];
 
 export const MODULE_BY_SLUG = new Map(

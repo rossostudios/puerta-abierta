@@ -102,6 +102,52 @@ export async function createCollectionAction(formData: FormData) {
   }
 }
 
+export async function generatePaymentLinkAction(formData: FormData) {
+  const collection_id = toStringValue(formData.get("collection_id"));
+  if (!collection_id) {
+    redirect(collectionsUrl({ error: "collection_id is required" }));
+  }
+
+  const next = normalizeNext(
+    toStringValue(formData.get("next")),
+    collectionsUrl()
+  );
+
+  const payload: Record<string, unknown> = {};
+  const bank_name = toStringValue(formData.get("bank_name"));
+  const account_number = toStringValue(formData.get("account_number"));
+  const account_holder = toStringValue(formData.get("account_holder"));
+  const qr_payload_url = toStringValue(formData.get("qr_payload_url"));
+
+  if (bank_name) payload.bank_name = bank_name;
+  if (account_number) payload.account_number = account_number;
+  if (account_holder) payload.account_holder = account_holder;
+  if (qr_payload_url) payload.qr_payload_url = qr_payload_url;
+
+  try {
+    const result = (await postJson(
+      `/collections/${encodeURIComponent(collection_id)}/payment-link`,
+      payload
+    )) as Record<string, unknown>;
+
+    const referenceCode =
+      typeof result.reference_code === "string" ? result.reference_code : "";
+
+    revalidatePath("/module/collections");
+    redirect(
+      withParams(next, {
+        success: referenceCode
+          ? `payment-link-created:${referenceCode}`
+          : "payment-link-created",
+      })
+    );
+  } catch (err) {
+    unstable_rethrow(err);
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(withParams(next, { error: message.slice(0, 240) }));
+  }
+}
+
 export async function markCollectionPaidAction(formData: FormData) {
   const collection_id = toStringValue(formData.get("collection_id"));
   if (!collection_id) {
