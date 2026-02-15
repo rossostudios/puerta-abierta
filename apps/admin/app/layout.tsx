@@ -1,3 +1,5 @@
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 
 import { ApiErrorToaster } from "@/components/shell/api-error-toaster";
@@ -74,7 +76,11 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getActiveLocale();
   return (
-    <html lang={locale} suppressHydrationWarning>
+    <html
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      lang={locale}
+      suppressHydrationWarning
+    >
       <body
         className="font-sans antialiased"
         data-base-ui-root

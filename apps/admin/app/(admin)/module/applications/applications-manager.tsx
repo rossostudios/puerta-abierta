@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
-import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useOptimistic, useState } from "react";
@@ -16,11 +15,10 @@ import {
   YAxis,
 } from "recharts";
 
-import {
-  assignApplicationAction,
-  convertApplicationToLeaseAction,
-  setApplicationStatusAction,
-} from "@/app/(admin)/module/applications/actions";
+import { setApplicationStatusAction } from "@/app/(admin)/module/applications/actions";
+import { useApplicationColumns } from "@/app/(admin)/module/applications/columns";
+import { AssignOwnerForm } from "@/components/applications/assign-owner-form";
+import { ConvertToLeaseInlineForm } from "@/components/applications/convert-to-lease-form";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,473 +33,34 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DataTable } from "@/components/ui/data-table";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import { formatCurrency } from "@/lib/format";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { BOARD_LANES } from "@/lib/features/applications/constants";
+import { buildMessageLinks } from "@/lib/features/applications/messaging";
+import type {
+  ApplicationRow,
+  MessageTemplateOption,
+} from "@/lib/features/applications/types";
+import {
+  asBoolean,
+  asNumber,
+  asString,
+  canConvert,
+  canMoveToQualified,
+  canMoveToScreening,
+  formatDateTimeLabel,
+  median,
+  normalizeSlaStatus,
+  qualificationBandClass,
+  qualificationBandLabel,
+  slaBadgeClass,
+  slaBadgeLabel,
+  statusBadgeClass,
+  statusLabel,
+} from "@/lib/features/applications/utils";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-
-const RESPONSE_SLA_TARGET_MINUTES = 120;
-
-type ApplicationRow = DataTableRow & {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_e164: string | null;
-  status: string;
-  status_label: string;
-  listing_title: string;
-  monthly_income: number;
-  first_response_minutes: number;
-  created_at: string;
-  assigned_user_id: string | null;
-  assigned_user_name: string | null;
-  response_sla_status: string;
-  response_sla_alert_level: string;
-  response_sla_due_at: string | null;
-  response_sla_remaining_minutes: number;
-  qualification_score: number;
-  qualification_band: string;
-  income_to_rent_ratio: number | null;
-};
-
-type MessageTemplateOption = {
-  id: string;
-  channel: string;
-  template_key: string;
-  name: string;
-  subject: string;
-  body: string;
-  is_active: boolean;
-};
-
-type BoardLane = {
-  key: string;
-  label: {
-    "es-PY": string;
-    "en-US": string;
-  };
-  statuses: string[];
-};
-
-const BOARD_LANES: BoardLane[] = [
-  {
-    key: "incoming",
-    label: {
-      "es-PY": "Ingresos",
-      "en-US": "Incoming",
-    },
-    statuses: ["new", "screening"],
-  },
-  {
-    key: "qualified",
-    label: {
-      "es-PY": "Calificación",
-      "en-US": "Qualified",
-    },
-    statuses: ["qualified", "visit_scheduled", "offer_sent"],
-  },
-  {
-    key: "converted",
-    label: {
-      "es-PY": "Convertidos",
-      "en-US": "Converted",
-    },
-    statuses: ["contract_signed"],
-  },
-  {
-    key: "closed",
-    label: {
-      "es-PY": "Cerrados",
-      "en-US": "Closed",
-    },
-    statuses: ["rejected", "lost"],
-  },
-];
-
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function statusLabel(value: string, isEn: boolean): string {
-  const normalized = value.trim().toLowerCase();
-  if (isEn) return normalized || "unknown";
-
-  if (normalized === "new") return "Nuevo";
-  if (normalized === "screening") return "Evaluación";
-  if (normalized === "qualified") return "Calificado";
-  if (normalized === "visit_scheduled") return "Visita agendada";
-  if (normalized === "offer_sent") return "Oferta enviada";
-  if (normalized === "contract_signed") return "Contrato firmado";
-  if (normalized === "rejected") return "Rechazado";
-  if (normalized === "lost") return "Perdido";
-  return normalized || "desconocido";
-}
-
-function canConvert(status: string): boolean {
-  return ["qualified", "visit_scheduled", "offer_sent"].includes(
-    status.trim().toLowerCase()
-  );
-}
-
-function canMoveToScreening(status: string): boolean {
-  return status.trim().toLowerCase() === "new";
-}
-
-function canMoveToQualified(status: string): boolean {
-  return ["screening", "visit_scheduled"].includes(status.trim().toLowerCase());
-}
-
-function normalizeSlaStatus(
-  row: ApplicationRow
-): "pending" | "met" | "breached" {
-  const normalized = asString(row.response_sla_status).trim().toLowerCase();
-  if (normalized === "pending") return "pending";
-  if (normalized === "met") return "met";
-  if (normalized === "breached") return "breached";
-
-  if (row.first_response_minutes > 0) {
-    return row.first_response_minutes <= RESPONSE_SLA_TARGET_MINUTES
-      ? "met"
-      : "breached";
-  }
-
-  const created = new Date(row.created_at);
-  if (Number.isNaN(created.valueOf())) return "pending";
-
-  const dueAtMs = created.valueOf() + RESPONSE_SLA_TARGET_MINUTES * 60_000;
-  return Date.now() > dueAtMs ? "breached" : "pending";
-}
-
-function slaBadgeLabel(
-  status: "pending" | "met" | "breached",
-  isEn: boolean
-): string {
-  if (status === "met") {
-    return isEn ? "SLA met" : "SLA cumplido";
-  }
-  if (status === "breached") {
-    return isEn ? "SLA breached" : "SLA vencido";
-  }
-  return isEn ? "Pending response" : "Pendiente de respuesta";
-}
-
-function formatDateTimeLabel(value: string, locale: "es-PY" | "en-US"): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.valueOf())) return "-";
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(parsed);
-}
-
-function statusBadgeClass(status: string): StatusTone {
-  const normalized = status.trim().toLowerCase();
-  if (normalized === "contract_signed") return "success";
-  if (normalized === "qualified" || normalized === "offer_sent") return "info";
-  if (normalized === "visit_scheduled") return "info";
-  if (normalized === "screening" || normalized === "new") return "warning";
-  if (normalized === "rejected" || normalized === "lost") return "danger";
-  return "neutral";
-}
-
-function slaBadgeClass(
-  status: "pending" | "met" | "breached",
-  alertLevel: string
-): StatusTone {
-  const normalizedLevel = alertLevel.trim().toLowerCase();
-  if (status === "breached" || normalizedLevel === "critical") return "danger";
-  if (normalizedLevel === "warning") return "warning";
-  if (status === "met") return "success";
-  return "neutral";
-}
-
-function qualificationBandLabel(band: string, isEn: boolean): string {
-  const normalized = band.trim().toLowerCase();
-  if (normalized === "strong") return isEn ? "Strong" : "Fuerte";
-  if (normalized === "moderate") return isEn ? "Moderate" : "Moderado";
-  if (normalized === "watch") return isEn ? "Watch" : "Revisar";
-  return isEn ? "Unscored" : "Sin puntuar";
-}
-
-function qualificationBandClass(band: string): StatusTone {
-  const normalized = band.trim().toLowerCase();
-  if (normalized === "strong") return "success";
-  if (normalized === "moderate") return "info";
-  if (normalized === "watch") return "warning";
-  return "neutral";
-}
-
-function median(values: number[]): number {
-  if (!values.length) return 0;
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[middle - 1] + sorted[middle]) / 2;
-  }
-  return sorted[middle];
-}
-
-function normalizePhoneForWhatsApp(value: string | null): string | null {
-  if (!value) return null;
-  const digits = value.replace(/\D+/g, "");
-  return digits || null;
-}
-
-function interpolateTemplate(
-  templateText: string,
-  context: Record<string, string>
-): string {
-  if (!templateText) return "";
-  return templateText.replace(
-    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
-    (_full, key) => {
-      const normalizedKey = String(key).trim().toLowerCase();
-      return context[normalizedKey] ?? "";
-    }
-  );
-}
-
-function selectTemplate(
-  templates: MessageTemplateOption[],
-  channel: "whatsapp" | "email",
-  status: string
-): MessageTemplateOption | null {
-  const filtered = templates.filter(
-    (template) =>
-      template.is_active && template.channel.trim().toLowerCase() === channel
-  );
-  if (!filtered.length) return null;
-
-  const normalizedStatus = status.trim().toLowerCase();
-
-  const byExactKey = filtered.find((template) => {
-    const templateKey = template.template_key.trim().toLowerCase();
-    return (
-      templateKey.includes("application") &&
-      templateKey.includes(normalizedStatus)
-    );
-  });
-  if (byExactKey) return byExactKey;
-
-  const byGeneric = filtered.find((template) =>
-    template.template_key.trim().toLowerCase().includes("application")
-  );
-  if (byGeneric) return byGeneric;
-
-  return filtered[0];
-}
-
-function buildMessageLinks(
-  row: ApplicationRow,
-  templates: MessageTemplateOption[],
-  isEn: boolean,
-  locale: "es-PY" | "en-US"
-): {
-  emailHref: string | null;
-  whatsappHref: string | null;
-} {
-  const whatsappTemplate = selectTemplate(templates, "whatsapp", row.status);
-  const emailTemplate = selectTemplate(templates, "email", row.status);
-
-  const monthlyIncomeLabel =
-    row.monthly_income > 0
-      ? formatCurrency(row.monthly_income, "PYG", locale)
-      : isEn
-        ? "not provided"
-        : "no declarado";
-
-  const context = {
-    full_name: row.full_name,
-    listing_title:
-      row.listing_title || (isEn ? "Property" : "Propiedad"),
-    status: row.status_label,
-    email: row.email,
-    phone_e164: row.phone_e164 ?? "",
-    monthly_income: monthlyIncomeLabel,
-  };
-
-  const whatsappBody = interpolateTemplate(
-    whatsappTemplate?.body ||
-      (isEn
-        ? "Hi {{full_name}}, this is the leasing team for {{listing_title}}. We are reviewing your application and will contact you shortly."
-        : "Hola {{full_name}}, te escribe el equipo de leasing de {{listing_title}}. Estamos revisando tu aplicación y te contactaremos pronto."),
-    context
-  );
-
-  const phone = normalizePhoneForWhatsApp(row.phone_e164);
-  const whatsappHref = phone
-    ? `https://wa.me/${phone}?text=${encodeURIComponent(whatsappBody)}`
-    : null;
-
-  const emailSubject = interpolateTemplate(
-    emailTemplate?.subject ||
-      (isEn
-        ? "Application update - {{listing_title}}"
-        : "Actualización de aplicación - {{listing_title}}"),
-    context
-  );
-
-  const emailBody = interpolateTemplate(
-    emailTemplate?.body ||
-      (isEn
-        ? "Hi {{full_name}},\n\nWe received your application for {{listing_title}}. Current status: {{status}}.\n\nBest regards,\nPuerta Abierta"
-        : "Hola {{full_name}},\n\nRecibimos tu aplicación para {{listing_title}}. Estado actual: {{status}}.\n\nSaludos,\nPuerta Abierta"),
-    context
-  );
-
-  const email = row.email.trim();
-  const emailHref = email
-    ? `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
-    : null;
-
-  return { emailHref, whatsappHref };
-}
-
-function ConvertToLeaseInlineForm({
-  applicationId,
-  nextPath,
-  defaultStartDate,
-  locale,
-  isEn,
-  onOptimisticConvert,
-}: {
-  applicationId: string;
-  nextPath: string;
-  defaultStartDate: string;
-  locale: "es-PY" | "en-US";
-  isEn: boolean;
-  onOptimisticConvert?: () => void;
-}) {
-  const [startsOn, setStartsOn] = useState(defaultStartDate);
-  const [platformFee, setPlatformFee] = useState("0");
-
-  return (
-    <form
-      action={convertApplicationToLeaseAction}
-      className="flex flex-wrap items-center gap-2"
-      onSubmit={onOptimisticConvert}
-    >
-      <input name="application_id" type="hidden" value={applicationId} />
-      <input name="next" type="hidden" value={nextPath} />
-
-      <DatePicker
-        className="h-8 min-w-[8.75rem] text-xs"
-        locale={locale}
-        name="starts_on"
-        onValueChange={setStartsOn}
-        value={startsOn}
-      />
-
-      <Input
-        className="h-8 w-[4.75rem] text-xs"
-        inputMode="decimal"
-        min={0}
-        name="platform_fee"
-        onChange={(event) => setPlatformFee(event.target.value)}
-        step="0.01"
-        type="number"
-        value={platformFee}
-      />
-
-      <Button disabled={!startsOn} size="sm" type="submit" variant="outline">
-        {isEn ? "Convert to lease" : "Convertir a contrato"}
-      </Button>
-    </form>
-  );
-}
-
-function AssignOwnerForm({
-  applicationId,
-  status,
-  assignedUserId,
-  assignedUserName,
-  memberOptions,
-  nextPath,
-  isEn,
-  onOptimisticAssign,
-}: {
-  applicationId: string;
-  status: string;
-  assignedUserId: string | null;
-  assignedUserName: string | null;
-  memberOptions: ComboboxOption[];
-  nextPath: string;
-  isEn: boolean;
-  onOptimisticAssign?: (assignment: {
-    assignedUserId: string | null;
-    assignedUserName: string | null;
-  }) => void;
-}) {
-  const [selectedUserId, setSelectedUserId] = useState(
-    assignedUserId ?? "__unassigned__"
-  );
-
-  const optionLabelByValue = useMemo(() => {
-    const index = new Map(
-      memberOptions.map((option) => [option.value, option.label] as const)
-    );
-    return index;
-  }, [memberOptions]);
-
-  return (
-    <form
-      action={assignApplicationAction}
-      className="space-y-2"
-      onSubmit={() => {
-        const nextAssignedUserId =
-          selectedUserId === "__unassigned__" ? null : selectedUserId;
-        const nextAssignedUserName =
-          selectedUserId === "__unassigned__"
-            ? null
-            : (optionLabelByValue.get(selectedUserId) ??
-              assignedUserName ??
-              null);
-        onOptimisticAssign?.({
-          assignedUserId: nextAssignedUserId,
-          assignedUserName: nextAssignedUserName,
-        });
-      }}
-    >
-      <input name="application_id" type="hidden" value={applicationId} />
-      <input name="status" type="hidden" value={status} />
-      <input name="next" type="hidden" value={nextPath} />
-      <input
-        name="note"
-        type="hidden"
-        value={isEn ? "Assignment updated" : "Asignación actualizada"}
-      />
-
-      <Combobox
-        className="h-8 text-xs"
-        emptyLabel={isEn ? "No members found" : "Sin miembros"}
-        name="assigned_user_id"
-        onValueChange={setSelectedUserId}
-        options={memberOptions}
-        placeholder={isEn ? "Select owner" : "Seleccionar responsable"}
-        searchPlaceholder={isEn ? "Search member..." : "Buscar miembro..."}
-        value={selectedUserId}
-      />
-
-      <Button className="w-full" size="sm" type="submit" variant="outline">
-        {isEn ? "Update owner" : "Actualizar responsable"}
-      </Button>
-    </form>
-  );
-}
 
 export function ApplicationsManager({
   applications,
@@ -589,9 +148,7 @@ export function ApplicationsManager({
         phone_e164: asString(application.phone_e164).trim() || null,
         status,
         status_label: statusLabel(status, isEn),
-        listing_title: asString(
-          application.listing_title
-        ).trim(),
+        listing_title: asString(application.listing_title).trim(),
         monthly_income: asNumber(application.monthly_income),
         first_response_minutes: asNumber(application.first_response_minutes),
         created_at: asString(application.created_at).trim(),
@@ -692,22 +249,10 @@ export function ApplicationsManager({
         value: "__all__",
         label: isEn ? "All SLA levels" : "Todos los niveles SLA",
       },
-      {
-        value: "normal",
-        label: isEn ? "Normal" : "Normal",
-      },
-      {
-        value: "warning",
-        label: isEn ? "Warning" : "Advertencia",
-      },
-      {
-        value: "critical",
-        label: isEn ? "Critical" : "Crítico",
-      },
-      {
-        value: "breached",
-        label: isEn ? "Breached" : "Vencido",
-      },
+      { value: "normal", label: isEn ? "Normal" : "Normal" },
+      { value: "warning", label: isEn ? "Warning" : "Advertencia" },
+      { value: "critical", label: isEn ? "Critical" : "Crítico" },
+      { value: "breached", label: isEn ? "Breached" : "Vencido" },
     ];
   }, [isEn]);
 
@@ -717,18 +262,9 @@ export function ApplicationsManager({
         value: "__all__",
         label: isEn ? "All qualification bands" : "Todas las bandas",
       },
-      {
-        value: "strong",
-        label: qualificationBandLabel("strong", isEn),
-      },
-      {
-        value: "moderate",
-        label: qualificationBandLabel("moderate", isEn),
-      },
-      {
-        value: "watch",
-        label: qualificationBandLabel("watch", isEn),
-      },
+      { value: "strong", label: qualificationBandLabel("strong", isEn) },
+      { value: "moderate", label: qualificationBandLabel("moderate", isEn) },
+      { value: "watch", label: qualificationBandLabel("watch", isEn) },
     ];
   }, [isEn]);
 
@@ -741,38 +277,29 @@ export function ApplicationsManager({
         .toLowerCase();
       const normalizedSlaStatus = normalizeSlaStatus(row);
 
-      if (statusFilter !== "__all__" && normalizedStatus !== statusFilter) {
+      if (statusFilter !== "__all__" && normalizedStatus !== statusFilter)
         return false;
-      }
-
-      if (assigneeFilter === "__unassigned__" && row.assigned_user_id) {
+      if (assigneeFilter === "__unassigned__" && row.assigned_user_id)
         return false;
-      }
       if (
         assigneeFilter !== "__all__" &&
         assigneeFilter !== "__unassigned__" &&
         row.assigned_user_id !== assigneeFilter
-      ) {
+      )
         return false;
-      }
-
-      if (slaFilter === "breached" && normalizedSlaStatus !== "breached") {
+      if (slaFilter === "breached" && normalizedSlaStatus !== "breached")
         return false;
-      }
       if (
         slaFilter !== "__all__" &&
         slaFilter !== "breached" &&
         normalizedSlaLevel !== slaFilter
-      ) {
+      )
         return false;
-      }
-
       if (
         qualificationFilter !== "__all__" &&
         normalizedBand !== qualificationFilter
-      ) {
+      )
         return false;
-      }
 
       return true;
     });
@@ -789,7 +316,6 @@ export function ApplicationsManager({
     const unassigned = filteredRows.filter(
       (row) => !row.assigned_user_id
     ).length;
-
     const slaBreached = filteredRows.filter(
       (row) => normalizeSlaStatus(row) === "breached"
     ).length;
@@ -797,20 +323,11 @@ export function ApplicationsManager({
       const level = row.response_sla_alert_level.trim().toLowerCase();
       return level === "warning" || level === "critical";
     }).length;
-
     const responseSamples = filteredRows
       .map((row) => row.first_response_minutes)
       .filter((value) => value > 0);
-
     const medianFirstResponse = median(responseSamples);
-
-    return {
-      total,
-      unassigned,
-      slaBreached,
-      slaAtRisk,
-      medianFirstResponse,
-    };
+    return { total, unassigned, slaBreached, slaAtRisk, medianFirstResponse };
   }, [filteredRows]);
 
   const funnelChartData = useMemo(() => {
@@ -844,10 +361,10 @@ export function ApplicationsManager({
 
   const responseTrendData = useMemo(() => {
     const days: string[] = [];
-    const today = new Date();
+    const todayDate = new Date();
     for (let index = 6; index >= 0; index -= 1) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - index);
+      const date = new Date(todayDate);
+      date.setDate(todayDate.getDate() - index);
       days.push(date.toISOString().slice(0, 10));
     }
 
@@ -897,139 +414,11 @@ export function ApplicationsManager({
         .sort((left, right) =>
           asString(right.created_at).localeCompare(asString(left.created_at))
         );
-      return {
-        lane,
-        rows: laneRows,
-      };
+      return { lane, rows: laneRows };
     });
   }, [filteredRows]);
 
-  const columns = useMemo<ColumnDef<DataTableRow>[]>(() => {
-    return [
-      {
-        accessorKey: "full_name",
-        header: isEn ? "Applicant" : "Solicitante",
-        cell: ({ row, getValue }) => {
-          const name = asString(getValue()).trim();
-          const email = asString(row.original.email).trim();
-          const phone = asString(row.original.phone_e164).trim();
-          return (
-            <div className="space-y-1">
-              <p className="font-medium">{name}</p>
-              <p className="text-muted-foreground text-xs">{email}</p>
-              {phone ? (
-                <p className="text-muted-foreground text-xs">{phone}</p>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "status_label",
-        header: isEn ? "Status" : "Estado",
-        cell: ({ row, getValue }) => {
-          const applicationRow = row.original as ApplicationRow;
-          const status = normalizeSlaStatus(applicationRow);
-          return (
-            <div className="space-y-1">
-              <StatusBadge
-                label={asString(getValue())}
-                tone={statusBadgeClass(applicationRow.status)}
-                value={applicationRow.status}
-              />
-              <StatusBadge
-                label={slaBadgeLabel(status, isEn)}
-                tone={slaBadgeClass(
-                  status,
-                  applicationRow.response_sla_alert_level
-                )}
-                value={status}
-              />
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "assigned_user_name",
-        header: isEn ? "Assigned" : "Asignado",
-        cell: ({ row }) => {
-          const assignedName = asString(row.original.assigned_user_name).trim();
-          const label = assignedName || (isEn ? "Unassigned" : "Sin asignar");
-          return (
-            <span className={cn(assignedName ? "" : "text-muted-foreground")}>
-              {label}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: "listing_title",
-        header: isEn ? "Listing" : "Anuncio",
-      },
-      {
-        accessorKey: "monthly_income",
-        header: isEn ? "Income" : "Ingreso",
-        cell: ({ getValue }) => {
-          const amount = asNumber(getValue());
-          if (amount <= 0) return "-";
-          return formatCurrency(amount, "PYG", locale);
-        },
-      },
-      {
-        accessorKey: "qualification_score",
-        header: isEn ? "Qualification" : "Calificación",
-        cell: ({ row }) => {
-          const score = asNumber(row.original.qualification_score);
-          const band = asString(row.original.qualification_band);
-          const ratio = asNumber(row.original.income_to_rent_ratio);
-          return (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <StatusBadge
-                  label={qualificationBandLabel(band, isEn)}
-                  tone={qualificationBandClass(band)}
-                  value={band}
-                />
-                <span className="font-medium text-xs">
-                  {score > 0 ? `${score}/100` : "-"}
-                </span>
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {ratio > 0
-                  ? `${isEn ? "Income/rent" : "Ingreso/renta"}: ${ratio.toFixed(2)}x`
-                  : isEn
-                    ? "Income/rent: n/a"
-                    : "Ingreso/renta: n/d"}
-              </p>
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "first_response_minutes",
-        header: isEn ? "First response (min)" : "Primera respuesta (min)",
-        cell: ({ getValue }) => {
-          const value = asNumber(getValue());
-          return value > 0 ? `${value.toFixed(1)}m` : "-";
-        },
-      },
-      {
-        accessorKey: "created_at",
-        header: isEn ? "Created" : "Creado",
-        cell: ({ getValue }) =>
-          formatDateTimeLabel(asString(getValue()), locale),
-      },
-      {
-        accessorKey: "response_sla_due_at",
-        header: isEn ? "SLA due" : "SLA vence",
-        cell: ({ row }) => {
-          const dueAt = asString(row.original.response_sla_due_at).trim();
-          if (!dueAt) return "-";
-          return formatDateTimeLabel(dueAt, locale);
-        },
-      },
-    ];
-  }, [isEn, locale]);
+  const columns = useApplicationColumns(isEn, locale);
 
   const slaAlertRows = useMemo(() => {
     return filteredRows
@@ -1040,9 +429,8 @@ export function ApplicationsManager({
       .sort((left, right) => {
         const leftLevel = left.response_sla_alert_level.trim().toLowerCase();
         const rightLevel = right.response_sla_alert_level.trim().toLowerCase();
-        if (leftLevel === rightLevel) {
+        if (leftLevel === rightLevel)
           return right.created_at.localeCompare(left.created_at);
-        }
         if (leftLevel === "critical") return -1;
         if (rightLevel === "critical") return 1;
         return 0;
@@ -1062,7 +450,6 @@ export function ApplicationsManager({
             <p className="font-semibold text-2xl">{metrics.total}</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-[13px] text-muted-foreground">
@@ -1073,7 +460,6 @@ export function ApplicationsManager({
             <p className="font-semibold text-2xl">{metrics.unassigned}</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-[13px] text-muted-foreground">
@@ -1084,7 +470,6 @@ export function ApplicationsManager({
             <p className="font-semibold text-2xl">{metrics.slaBreached}</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-[13px] text-muted-foreground">
@@ -1095,7 +480,6 @@ export function ApplicationsManager({
             <p className="font-semibold text-2xl">{metrics.slaAtRisk}</p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-[13px] text-muted-foreground">
@@ -1227,7 +611,6 @@ export function ApplicationsManager({
               <Icon icon={ArrowDown01Icon} size={14} />
             </CollapsibleTrigger>
           </div>
-
           <CollapsibleContent className="mt-3">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label className="space-y-1.5">
@@ -1243,7 +626,6 @@ export function ApplicationsManager({
                   value={statusFilter}
                 />
               </label>
-
               <label className="space-y-1.5">
                 <span className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "Assignee" : "Responsable"}
@@ -1257,7 +639,6 @@ export function ApplicationsManager({
                   value={assigneeFilter}
                 />
               </label>
-
               <label className="space-y-1.5">
                 <span className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "SLA level" : "Nivel SLA"}
@@ -1269,7 +650,6 @@ export function ApplicationsManager({
                   value={slaFilter}
                 />
               </label>
-
               <label className="space-y-1.5">
                 <span className="text-muted-foreground text-xs uppercase tracking-wide">
                   {isEn ? "Qualification" : "Calificación"}
@@ -1307,7 +687,6 @@ export function ApplicationsManager({
               <Icon icon={ArrowDown01Icon} size={14} />
             </CollapsibleTrigger>
           </div>
-
           <CollapsibleContent className="mt-3">
             {slaAlertRows.length === 0 ? (
               <p className="rounded-xl border border-border/80 border-dashed px-3 py-2 text-muted-foreground text-xs">
@@ -1388,7 +767,6 @@ export function ApplicationsManager({
                   value={lane.key}
                 />
               </div>
-
               <div className="max-h-[25rem] space-y-2 overflow-y-auto pr-1">
                 {laneRows.length === 0 ? (
                   <p className="rounded-xl border border-border/80 border-dashed px-3 py-2 text-muted-foreground text-xs">
@@ -1407,7 +785,6 @@ export function ApplicationsManager({
                       isEn,
                       locale
                     );
-
                     return (
                       <div
                         className="space-y-2 rounded-xl border border-border/80 bg-background/70 p-3"
@@ -1420,7 +797,6 @@ export function ApplicationsManager({
                               (isEn ? "No listing" : "Sin anuncio")}
                           </p>
                         </div>
-
                         <div className="flex flex-wrap gap-2">
                           <StatusBadge
                             label={row.status_label}
@@ -1436,21 +812,13 @@ export function ApplicationsManager({
                             value={slaStatus}
                           />
                           <StatusBadge
-                            label={`${qualificationBandLabel(
-                              row.qualification_band,
-                              isEn
-                            )} ${
-                              row.qualification_score > 0
-                                ? `· ${row.qualification_score}`
-                                : ""
-                            }`}
+                            label={`${qualificationBandLabel(row.qualification_band, isEn)} ${row.qualification_score > 0 ? `· ${row.qualification_score}` : ""}`}
                             tone={qualificationBandClass(
                               row.qualification_band
                             )}
                             value={row.qualification_band}
                           />
                         </div>
-
                         <p className="text-muted-foreground text-xs">
                           {isEn ? "Owner" : "Responsable"}: {assignedLabel}
                         </p>
@@ -1467,7 +835,6 @@ export function ApplicationsManager({
                               )
                             : "-"}
                         </p>
-
                         <AssignOwnerForm
                           applicationId={row.id}
                           assignedUserId={row.assigned_user_id}
@@ -1485,7 +852,6 @@ export function ApplicationsManager({
                           }
                           status={row.status}
                         />
-
                         <div className="flex flex-wrap gap-2">
                           {whatsappHref ? (
                             <Link
@@ -1502,7 +868,6 @@ export function ApplicationsManager({
                               WhatsApp
                             </Link>
                           ) : null}
-
                           {emailHref ? (
                             <Link
                               className={cn(
@@ -1556,7 +921,6 @@ export function ApplicationsManager({
                   WhatsApp
                 </Link>
               ) : null}
-
               {emailHref ? (
                 <Link
                   className={cn(
