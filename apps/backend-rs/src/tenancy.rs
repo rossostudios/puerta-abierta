@@ -105,7 +105,7 @@ pub async fn ensure_app_user(state: &AppState, user: &SupabaseUser) -> Result<Va
 pub async fn list_user_org_ids(state: &AppState, user_id: &str) -> Result<Vec<String>, AppError> {
     let pool = db_pool(state)?;
     let rows = sqlx::query(
-        "SELECT organization_id
+        "SELECT organization_id::text AS organization_id
          FROM organization_members
          WHERE user_id = $1::uuid
          LIMIT 500",
