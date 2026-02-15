@@ -1,7 +1,10 @@
 use axum::{
+    extract::State,
     routing::get,
+    Json,
     Router,
 };
+use serde_json::{json, Value};
 
 use crate::state::AppState;
 
@@ -29,6 +32,7 @@ pub mod platform;
 pub mod pricing;
 pub mod properties;
 pub mod public_ical;
+pub mod referrals;
 pub mod reports;
 pub mod reservations;
 pub mod subscriptions;
@@ -36,10 +40,16 @@ pub mod tasks;
 pub mod tenant;
 pub mod workflows;
 
+async fn public_fx_rate(State(state): State<AppState>) -> Json<Value> {
+    let rate = crate::services::fx::get_cached_usd_pyg_rate(&state.http_client).await;
+    Json(json!({ "usd_pyg": rate }))
+}
+
 pub fn v1_router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health::health))
         .route("/me", get(identity::me))
+        .route("/public/fx/usd-pyg", get(public_fx_rate))
         .merge(agent_chats::router())
         .merge(ai_agent::router())
         .merge(organizations::router())
@@ -66,6 +76,7 @@ pub fn v1_router() -> Router<AppState> {
         .merge(documents::router())
         .merge(workflows::router())
         .merge(subscriptions::router())
+        .merge(referrals::router())
         .merge(platform::router())
         .merge(demo::router())
 }

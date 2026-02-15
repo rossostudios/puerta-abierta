@@ -251,6 +251,37 @@ export function fetchOperationsSummary(
   });
 }
 
+export type KpiDashboard = {
+  organization_id?: string;
+  collection_rate?: number;
+  total_collections?: number;
+  paid_collections?: number;
+  avg_days_late?: number;
+  occupancy_rate?: number;
+  total_units?: number;
+  active_leases?: number;
+  revenue_per_unit?: number;
+  total_paid_amount?: number;
+  avg_maintenance_response_hours?: number | null;
+  median_maintenance_response_hours?: number | null;
+  open_maintenance_tasks?: number;
+  expiring_leases_60d?: number;
+};
+
+export function fetchKpiDashboard(orgId: string): Promise<KpiDashboard> {
+  const today = new Date();
+  const from = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10);
+  const to = today.toISOString().slice(0, 10);
+
+  return fetchJson<KpiDashboard>("/reports/kpi-dashboard", {
+    org_id: orgId,
+    from_date: from,
+    to_date: to,
+  });
+}
+
 export function postJson(
   path: string,
   payload: Record<string, unknown>
@@ -328,6 +359,17 @@ export function fetchPublicListing(
   return fetchJson<Record<string, unknown>>(
     `/public/listings/${encodeURIComponent(slug)}`
   );
+}
+
+/** Fetch the cached USD→PYG exchange rate from the backend. */
+export async function fetchUsdPygRate(): Promise<number> {
+  try {
+    const data = await fetchJson<{ usd_pyg: number }>("/public/fx/usd-pyg");
+    if (data.usd_pyg && data.usd_pyg > 0) return data.usd_pyg;
+  } catch {
+    /* fall through to default */
+  }
+  return 7500; // fallback
 }
 
 export function fetchPublicPaymentInfo(

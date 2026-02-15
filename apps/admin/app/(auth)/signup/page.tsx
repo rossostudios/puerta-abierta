@@ -37,6 +37,9 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState(
+    searchParams.get("ref") ?? ""
+  );
   const [busy, setBusy] = useState(false);
 
   const supabase = useMemo(() => {
@@ -104,6 +107,16 @@ export default function SignupPage() {
           }
         );
         return;
+      }
+
+      // Persist referral code for redemption after onboarding
+      const trimmedRef = referralCode.trim().toUpperCase();
+      if (trimmedRef) {
+        try {
+          localStorage.setItem("pa-referral-code", trimmedRef);
+        } catch {
+          /* ignore */
+        }
       }
 
       toast.success(isEn ? "Account created" : "Cuenta creada", {
@@ -194,6 +207,18 @@ export default function SignupPage() {
                 value={password}
               />
             </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block font-medium text-muted-foreground text-xs">
+              {isEn ? "Referral code (optional)" : "Código de referido (opcional)"}
+            </span>
+            <Input
+              className="font-mono uppercase"
+              onChange={(event) => setReferralCode(event.target.value)}
+              placeholder="PA-XXXXXXXX"
+              value={referralCode}
+            />
           </label>
 
           <Button className="group w-full gap-2" disabled={busy} type="submit">

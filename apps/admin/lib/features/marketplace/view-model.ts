@@ -8,12 +8,12 @@ import { formatCurrency, humanizeKey } from "@/lib/format";
 import type { Locale } from "@/lib/i18n";
 import { cityToCoordinates, jitter } from "./geo";
 
-/** Approximate PYG → USD rate. Update periodically. */
-export const PYG_TO_USD_APPROX = 7500;
+/** Default fallback PYG → USD rate. Overridden by live FX when available. */
+export const PYG_TO_USD_FALLBACK = 7500;
 
-function formatUsdApprox(pyg: number): string | null {
-  if (pyg <= 0) return null;
-  const usd = Math.round(pyg / PYG_TO_USD_APPROX);
+function formatUsdApprox(pyg: number, rate = PYG_TO_USD_FALLBACK): string | null {
+  if (pyg <= 0 || rate <= 0) return null;
+  const usd = Math.round(pyg / rate);
   return `~$${usd.toLocaleString("en-US")} USD`;
 }
 
@@ -114,8 +114,10 @@ export function toMarketplaceListingViewModel(params: {
   listing: MarketplaceListingRecord;
   locale: Locale;
   index?: number;
+  usdPygRate?: number;
 }): MarketplaceListingViewModel {
-  const { listing, locale, index = 0 } = params;
+  const { listing, locale, index = 0, usdPygRate } = params;
+  const fxRate = usdPygRate && usdPygRate > 0 ? usdPygRate : PYG_TO_USD_FALLBACK;
   const isEn = locale === "en-US";
 
   const currency = asText(listing.currency) || "PYG";
@@ -200,8 +202,8 @@ export function toMarketplaceListingViewModel(params: {
     latitude,
     longitude,
     monthlyRecurringUsdApprox:
-      currency === "PYG" ? formatUsdApprox(monthlyRecurring) : null,
+      currency === "PYG" ? formatUsdApprox(monthlyRecurring, fxRate) : null,
     totalMoveInUsdApprox:
-      currency === "PYG" ? formatUsdApprox(totalMoveIn) : null,
+      currency === "PYG" ? formatUsdApprox(totalMoveIn, fxRate) : null,
   };
 }

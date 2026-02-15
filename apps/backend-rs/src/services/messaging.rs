@@ -131,12 +131,17 @@ async fn resolve_message_body(pool: &sqlx::PgPool, msg: &Value) -> String {
 }
 
 /// Send a WhatsApp message via the Cloud API.
+/// Supports both plain text messages and template messages.
+///
+/// If the message payload contains `whatsapp_template_name`, sends a template message
+/// (required by Meta for business-initiated conversations outside the 24-hour window).
+/// Otherwise sends a plain text message.
 async fn send_whatsapp(
     http_client: &Client,
     config: &AppConfig,
     recipient: &str,
     body: &str,
-    _msg: &Value,
+    msg: &Value,
 ) -> Result<Option<Value>, String> {
     let phone_id = config
         .whatsapp_phone_number_id
@@ -152,19 +157,71 @@ async fn send_whatsapp(
 
     let url = format!("https://graph.facebook.com/v21.0/{phone_id}/messages");
 
-    let payload = json!({
-        "messaging_product": "whatsapp",
-        "to": recipient,
-        "type": "text",
-        "text": {
-            "body": body
+    // Check if this is a template message
+    let msg_payload = msg.as_object().and_then(|o| o.get("payload"));
+    let template_name = msg_payload
+        .and_then(Value::as_object)
+        .and_then(|o| o.get("whatsapp_template_name"))
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+
+    let api_payload = if let Some(tpl_name) = template_name {
+        // Template message (for business-initiated conversations)
+        let language_code = msg_payload
+            .and_then(Value::as_object)
+            .and_then(|o| o.get("whatsapp_template_language"))
+            .and_then(Value::as_str)
+            .unwrap_or("es");
+
+        let template_params = msg_payload
+            .and_then(Value::as_object)
+            .and_then(|o| o.get("whatsapp_template_params"))
+            .and_then(Value::as_array);
+
+        let mut template = json!({
+            "name": tpl_name,
+            "language": { "code": language_code }
+        });
+
+        // Add template parameter components if provided
+        if let Some(params) = template_params {
+            let components = json!([{
+                "type": "body",
+                "parameters": params.iter().map(|p| {
+                    json!({
+                        "type": "text",
+                        "text": p.as_str().unwrap_or_default()
+                    })
+                }).collect::<Vec<_>>()
+            }]);
+            template
+                .as_object_mut()
+                .unwrap()
+                .insert("components".to_string(), components);
         }
-    });
+
+        json!({
+            "messaging_product": "whatsapp",
+            "to": recipient,
+            "type": "template",
+            "template": template
+        })
+    } else {
+        // Plain text message (for replies within 24-hour window)
+        json!({
+            "messaging_product": "whatsapp",
+            "to": recipient,
+            "type": "text",
+            "text": {
+                "body": body
+            }
+        })
+    };
 
     let response = http_client
         .post(&url)
         .bearer_auth(access_token)
-        .json(&payload)
+        .json(&api_payload)
         .send()
         .await
         .map_err(|e| {

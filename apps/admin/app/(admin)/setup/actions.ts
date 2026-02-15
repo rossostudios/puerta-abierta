@@ -166,6 +166,47 @@ export async function wizardCreateIntegration(payload: {
   }
 }
 
+export async function wizardCreateLease(payload: {
+  organization_id: string;
+  unit_id: string;
+  tenant_full_name: string;
+  tenant_email?: string;
+  tenant_phone_e164?: string;
+  lease_status?: string;
+  starts_on: string;
+  ends_on?: string;
+  currency?: string;
+  monthly_rent: number;
+  generate_first_collection?: boolean;
+}): Promise<ActionResult<{ id: string }>> {
+  if (!payload.organization_id) return { ok: false, error: "Falta contexto de organización." };
+  if (!payload.unit_id) return { ok: false, error: "Selecciona una unidad." };
+  const name = payload.tenant_full_name.trim();
+  if (!name) return { ok: false, error: "El nombre del inquilino es obligatorio." };
+  if (!payload.starts_on) return { ok: false, error: "La fecha de inicio es obligatoria." };
+
+  try {
+    const created = (await postJson("/leases", {
+      organization_id: payload.organization_id,
+      unit_id: payload.unit_id,
+      tenant_full_name: name,
+      tenant_email: payload.tenant_email?.trim() || undefined,
+      tenant_phone_e164: payload.tenant_phone_e164?.trim() || undefined,
+      lease_status: payload.lease_status || "active",
+      starts_on: payload.starts_on,
+      ends_on: payload.ends_on || undefined,
+      currency: payload.currency || "PYG",
+      monthly_rent: payload.monthly_rent,
+      generate_first_collection: payload.generate_first_collection !== false,
+    })) as { id?: string } | null;
+
+    revalidatePath("/setup");
+    return { ok: true, data: { id: created?.id ?? "" } };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function wizardSeedDemoData(payload: {
   organization_id: string;
 }): Promise<ActionResult> {

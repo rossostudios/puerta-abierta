@@ -14,7 +14,11 @@ use crate::{
         clamp_limit, remove_nulls, serialize_to_map, CreatePropertyInput, CreateUnitInput,
         PropertiesQuery, PropertyPath, UnitPath, UnitsQuery, UpdatePropertyInput, UpdateUnitInput,
     },
-    services::{audit::write_audit_log, enrichment::enrich_units},
+    services::{
+        audit::write_audit_log,
+        enrichment::enrich_units,
+        plan_limits::{check_plan_limit, PlanResource},
+    },
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -83,6 +87,8 @@ async fn create_property(
     let user_id = require_user_id(&state, &headers).await?;
     assert_org_role(&state, &user_id, &payload.organization_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
+
+    check_plan_limit(pool, &payload.organization_id, PlanResource::Property).await?;
 
     let record = remove_nulls(serialize_to_map(&payload));
     let created = create_row(pool, "properties", &record).await?;
@@ -214,6 +220,8 @@ async fn create_unit(
     let user_id = require_user_id(&state, &headers).await?;
     assert_org_role(&state, &user_id, &payload.organization_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
+
+    check_plan_limit(pool, &payload.organization_id, PlanResource::Unit).await?;
 
     let code = payload.code.trim().to_string();
     if code.is_empty() {

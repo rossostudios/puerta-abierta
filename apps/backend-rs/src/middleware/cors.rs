@@ -5,6 +5,8 @@ use crate::config::AppConfig;
 
 pub fn build_cors_layer(config: &AppConfig) -> CorsLayer {
     let mut headers = vec![ACCEPT, AUTHORIZATION, CONTENT_TYPE];
+    // Tenant portal uses x-tenant-token for magic-link auth
+    headers.push(axum::http::header::HeaderName::from_static("x-tenant-token"));
     if config.auth_dev_overrides_enabled() {
         headers.push(axum::http::header::HeaderName::from_static("x-user-id"));
     }

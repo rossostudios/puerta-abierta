@@ -41,6 +41,10 @@ pub fn router() -> axum::Router<AppState> {
             "/reports/finance-dashboard",
             axum::routing::get(finance_dashboard),
         )
+        .route(
+            "/reports/kpi-dashboard",
+            axum::routing::get(kpi_dashboard),
+        )
 }
 
 async fn owner_summary_report(
@@ -772,6 +776,182 @@ async fn finance_dashboard(
         "months": monthly_data,
         "expense_breakdown": expense_breakdown,
         "outstanding_collections": outstanding,
+    })))
+}
+
+/// KPI Dashboard: collection rate, occupancy, avg days late, revenue per unit,
+/// maintenance response time. All computed over the given period.
+async fn kpi_dashboard(
+    State(state): State<AppState>,
+    Query(query): Query<ReportsPeriodQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let period_start = parse_date(&query.from_date)?;
+    let period_end = parse_date(&query.to_date)?;
+
+    let org_filter = json_map(&[("organization_id", Value::String(query.org_id.clone()))]);
+
+    // Fetch all needed data in parallel-ish style
+    let collections = list_rows(pool, "collection_records", Some(&org_filter), 20000, 0, "created_at", false).await?;
+    let units = list_rows(pool, "units", Some(&org_filter), 3000, 0, "created_at", false).await?;
+    let leases = list_rows(pool, "leases", Some(&org_filter), 5000, 0, "created_at", false).await?;
+    let tasks = list_rows(pool, "tasks", Some(&org_filter), 10000, 0, "created_at", false).await?;
+
+    // ── Collection Rate ──
+    let in_period_collections: Vec<&Value> = collections
+        .iter()
+        .filter(|c| {
+            c.get("due_date")
+                .and_then(Value::as_str)
+                .and_then(|d| parse_date(d).ok())
+                .is_some_and(|d| d >= period_start && d <= period_end)
+        })
+        .collect();
+    let total_collections = in_period_collections.len() as i64;
+    let paid_collections = in_period_collections
+        .iter()
+        .filter(|c| value_str(c, "status") == "paid")
+        .count() as i64;
+    let collection_rate = if total_collections > 0 {
+        round4(paid_collections as f64 / total_collections as f64)
+    } else {
+        0.0
+    };
+
+    // ── Average Days Late ──
+    let mut days_late_values: Vec<f64> = Vec::new();
+    for c in &in_period_collections {
+        let status = value_str(c, "status");
+        if status != "paid" {
+            continue;
+        }
+        let due_date = match c.get("due_date").and_then(Value::as_str).and_then(|d| parse_date(d).ok()) {
+            Some(d) => d,
+            None => continue,
+        };
+        let paid_at = c.get("paid_at").and_then(Value::as_str).and_then(|s| {
+            let trimmed = s.trim();
+            // Try date-only first, then datetime
+            parse_date(trimmed).ok().or_else(|| {
+                chrono::DateTime::parse_from_rfc3339(trimmed)
+                    .ok()
+                    .map(|dt| dt.date_naive())
+            })
+        });
+        if let Some(paid_date) = paid_at {
+            let days = (paid_date - due_date).num_days();
+            if days > 0 {
+                days_late_values.push(days as f64);
+            }
+        }
+    }
+    let avg_days_late = if days_late_values.is_empty() {
+        0.0
+    } else {
+        round2(days_late_values.iter().sum::<f64>() / days_late_values.len() as f64)
+    };
+
+    // ── Occupancy Rate (unit-months with active leases / total unit-months) ──
+    let total_units = units.len() as i64;
+    let active_leases = leases
+        .iter()
+        .filter(|l| {
+            let status = value_str(l, "lease_status");
+            status == "active" || status == "delinquent"
+        })
+        .count() as i64;
+    let occupancy_rate = if total_units > 0 {
+        round4(std::cmp::min(active_leases, total_units) as f64 / total_units as f64)
+    } else {
+        0.0
+    };
+
+    // ── Revenue Per Unit ──
+    let total_paid_amount: f64 = in_period_collections
+        .iter()
+        .filter(|c| value_str(c, "status") == "paid")
+        .map(|c| number_from_value(c.get("amount")))
+        .sum();
+    let revenue_per_unit = if total_units > 0 {
+        round2(total_paid_amount / total_units as f64)
+    } else {
+        0.0
+    };
+
+    // ── Maintenance Response Time (avg hours from task creation to completion) ──
+    let mut response_hours: Vec<f64> = Vec::new();
+    for task in &tasks {
+        if value_str(task, "type") != "maintenance" {
+            continue;
+        }
+        if value_str(task, "status") != "done" {
+            continue;
+        }
+        let created = datetime_or_none(task.get("created_at"));
+        let completed = datetime_or_none(task.get("completed_at"));
+        if let (Some(c), Some(d)) = (created, completed) {
+            let hours = (d - c).num_hours() as f64;
+            if hours >= 0.0 {
+                response_hours.push(hours);
+            }
+        }
+    }
+    let avg_maintenance_response_hours = if response_hours.is_empty() {
+        None
+    } else {
+        Some(round2(
+            response_hours.iter().sum::<f64>() / response_hours.len() as f64,
+        ))
+    };
+    let median_maintenance_response_hours = median(&response_hours).map(round2);
+
+    // ── Expiring Leases (next 60 days) ──
+    let today = Utc::now().date_naive();
+    let day_60 = today + chrono::Duration::days(60);
+    let expiring_leases = leases
+        .iter()
+        .filter(|l| {
+            let status = value_str(l, "lease_status");
+            if status != "active" {
+                return false;
+            }
+            l.get("ends_on")
+                .and_then(Value::as_str)
+                .and_then(|d| parse_date(d).ok())
+                .is_some_and(|d| d >= today && d <= day_60)
+        })
+        .count() as i64;
+
+    // ── Open Maintenance Requests ──
+    let open_maintenance = tasks
+        .iter()
+        .filter(|t| {
+            value_str(t, "type") == "maintenance"
+                && ACTIVE_TASK_STATUSES.contains(&value_str(t, "status").as_str())
+        })
+        .count() as i64;
+
+    Ok(Json(json!({
+        "organization_id": query.org_id,
+        "from": query.from_date,
+        "to": query.to_date,
+        "collection_rate": collection_rate,
+        "total_collections": total_collections,
+        "paid_collections": paid_collections,
+        "avg_days_late": avg_days_late,
+        "occupancy_rate": occupancy_rate,
+        "total_units": total_units,
+        "active_leases": active_leases,
+        "revenue_per_unit": revenue_per_unit,
+        "total_paid_amount": round2(total_paid_amount),
+        "avg_maintenance_response_hours": avg_maintenance_response_hours,
+        "median_maintenance_response_hours": median_maintenance_response_hours,
+        "open_maintenance_tasks": open_maintenance,
+        "expiring_leases_60d": expiring_leases,
     })))
 }
 

@@ -3,7 +3,7 @@ import Image from "next/image";
 
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
-import { PYG_TO_USD_APPROX } from "@/lib/features/marketplace/view-model";
+import { PYG_TO_USD_FALLBACK } from "@/lib/features/marketplace/view-model";
 import { formatCurrency } from "@/lib/format";
 import { getSafeWhatsAppUrl } from "@/lib/security/safe-external-url";
 import { FavoriteButton } from "./favorite-button";
@@ -70,7 +70,7 @@ export function MarketplaceListingCard({
   const monthlyRaw = asNumber(listing.monthly_recurring_total);
   const monthlyUsdApprox =
     currency === "PYG" && monthlyRaw > 0
-      ? `~$${Math.round(monthlyRaw / PYG_TO_USD_APPROX).toLocaleString("en-US")} USD`
+      ? `~$${Math.round(monthlyRaw / PYG_TO_USD_FALLBACK).toLocaleString("en-US")} USD`
       : null;
   const whatsappUrl = getSafeWhatsAppUrl(asText(listing.whatsapp_contact_url));
 

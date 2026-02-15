@@ -18,7 +18,10 @@ use crate::{
         CreateOrganizationMemberInput, ListOrganizationsQuery, OrgInvitePath, OrgMemberPath,
         OrgPath, UpdateOrganizationInput, UpdateOrganizationMemberInput,
     },
-    services::audit::write_audit_log,
+    services::{
+        audit::write_audit_log,
+        plan_limits::{check_plan_limit, PlanResource},
+    },
     state::AppState,
     tenancy::{
         assert_org_member, assert_org_role, ensure_app_user, ensure_org_membership,
@@ -521,6 +524,8 @@ async fn add_member(
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
+
+    check_plan_limit(pool, &path.org_id, PlanResource::User).await?;
 
     let _target_user = get_row(pool, "app_users", &payload.user_id, "id").await?;
     ensure_org_membership(

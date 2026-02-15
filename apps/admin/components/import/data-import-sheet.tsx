@@ -5,6 +5,7 @@ import Papa from "papaparse";
 import { useCallback, useMemo, useState } from "react";
 
 import {
+  batchCreateLeases,
   batchCreateProperties,
   batchCreateUnits,
   type ImportRowResult,
@@ -18,12 +19,13 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   autoDetectMappings,
   ColumnMapper,
+  LEASE_FIELDS,
   PROPERTY_FIELDS,
   UNIT_FIELDS,
 } from "./column-mapper";
 import { ImportProgress } from "./import-progress";
 
-type ImportMode = "properties" | "units";
+type ImportMode = "properties" | "units" | "leases";
 
 type DataImportSheetProps = {
   open: boolean;
@@ -33,6 +35,8 @@ type DataImportSheetProps = {
   isEn: boolean;
   /** For unit imports: resolve property_name to property_id */
   properties?: Array<{ id: string; name: string; code?: string }>;
+  /** For lease imports: resolve unit_name to unit_id */
+  units?: Array<{ id: string; name: string; code?: string }>;
   onImportComplete?: () => void;
 };
 
@@ -73,6 +77,7 @@ export function DataImportSheet({
   orgId,
   isEn,
   properties = [],
+  units = [],
   onImportComplete,
 }: DataImportSheetProps) {
   const [data, setData] = useState<DataRow[]>([]);
@@ -90,15 +95,24 @@ export function DataImportSheet({
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [pickingSheet, setPickingSheet] = useState(false);
 
-  const targetFields = mode === "properties" ? PROPERTY_FIELDS : UNIT_FIELDS;
+  const targetFields =
+    mode === "properties"
+      ? PROPERTY_FIELDS
+      : mode === "units"
+        ? UNIT_FIELDS
+        : LEASE_FIELDS;
   const csvTemplateUrl =
     mode === "properties"
       ? "/templates/properties-template.csv"
-      : "/templates/units-template.csv";
+      : mode === "units"
+        ? "/templates/units-template.csv"
+        : "/templates/leases-template.csv";
   const xlsxTemplateUrl =
     mode === "properties"
       ? "/templates/properties-template.xlsx"
-      : "/templates/units-template.xlsx";
+      : mode === "units"
+        ? "/templates/units-template.xlsx"
+        : "/templates/leases-template.xlsx";
 
   const reset = useCallback(() => {
     setData([]);
@@ -304,6 +318,28 @@ export function DataImportSheet({
       setImportResults(result.rows);
       setImportProcessed(result.total);
       setImportDone(true);
+    } else if (mode === "leases") {
+      const leasePayloads = mappedRows.map((row) => {
+        const unitName = row.unit_name ?? "";
+        const unitId = resolvePropertyId(unitName, units.map((u) => ({ id: u.id, name: u.name, code: u.code })));
+        return {
+          unit_id: unitId ?? "",
+          tenant_full_name: row.tenant_full_name ?? "",
+          tenant_email: row.tenant_email,
+          tenant_phone_e164: row.tenant_phone_e164,
+          starts_on: row.starts_on ?? "",
+          ends_on: row.ends_on,
+          monthly_rent: row.monthly_rent ? Number(row.monthly_rent) : 0,
+          currency: row.currency || "PYG",
+          security_deposit: row.security_deposit ? Number(row.security_deposit) : undefined,
+          service_fee_flat: row.service_fee_flat ? Number(row.service_fee_flat) : undefined,
+          notes: row.notes,
+        };
+      });
+      const result = await batchCreateLeases(orgId, leasePayloads);
+      setImportResults(result.rows);
+      setImportProcessed(result.total);
+      setImportDone(true);
     } else {
       const unitPayloads = mappedRows.map((row) => {
         const propertyName = row.property_name ?? "";
@@ -354,9 +390,13 @@ export function DataImportSheet({
           ? isEn
             ? "Import properties from a CSV or Excel file."
             : "Importar propiedades desde un archivo CSV o Excel."
-          : isEn
-            ? "Import units from a CSV or Excel file."
-            : "Importar unidades desde un archivo CSV o Excel."
+          : mode === "units"
+            ? isEn
+              ? "Import units from a CSV or Excel file."
+              : "Importar unidades desde un archivo CSV o Excel."
+            : isEn
+              ? "Import leases from a CSV or Excel file."
+              : "Importar contratos desde un archivo CSV o Excel."
       }
       onOpenChange={(next) => {
         if (!next) reset();
@@ -368,9 +408,13 @@ export function DataImportSheet({
           ? isEn
             ? "Import properties"
             : "Importar propiedades"
-          : isEn
-            ? "Import units"
-            : "Importar unidades"
+          : mode === "units"
+            ? isEn
+              ? "Import units"
+              : "Importar unidades"
+            : isEn
+              ? "Import leases"
+              : "Importar contratos"
       }
     >
       <div className="space-y-5">

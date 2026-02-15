@@ -1392,6 +1392,126 @@ async fn seed_demo(
     summary.insert("notification_rule_count".into(), json!(notif_defs.len()));
 
     // ──────────────────────────────────────────
+    // 17. Message templates (WhatsApp rent cycle)
+    // ──────────────────────────────────────────
+    let msg_templates = [
+        (
+            "tpl:rent-reminder-3d",
+            "rent_reminder_3d",
+            "Recordatorio de pago (3 días)",
+            "whatsapp",
+            "es-PY",
+            "Hola {{tenant_name}} 👋\n\nTe recordamos que tu pago de alquiler de {{amount}} vence el {{due_date}}.\n\nPuedes ver los detalles y realizar tu pago en:\n{{payment_link}}\n\nGracias por tu puntualidad.\n— Puerta Abierta",
+        ),
+        (
+            "tpl:rent-reminder-1d",
+            "rent_reminder_1d",
+            "Recordatorio de pago (1 día)",
+            "whatsapp",
+            "es-PY",
+            "Hola {{tenant_name}},\n\nTu pago de {{amount}} vence mañana ({{due_date}}).\n\nSi ya realizaste el pago, por favor envía tu comprobante.\n{{payment_link}}\n\n— Puerta Abierta",
+        ),
+        (
+            "tpl:rent-due-today",
+            "rent_due_today",
+            "Pago vence hoy",
+            "whatsapp",
+            "es-PY",
+            "⚠️ {{tenant_name}}, hoy vence tu pago de alquiler de {{amount}}.\n\nPor favor realiza tu pago hoy para evitar recargos.\n{{payment_link}}\n\n— Puerta Abierta",
+        ),
+        (
+            "tpl:rent-late",
+            "rent_late_notice",
+            "Aviso de pago atrasado",
+            "whatsapp",
+            "es-PY",
+            "🔴 {{tenant_name}}, tu pago de {{amount}} (vencimiento: {{due_date}}) está atrasado.\n\nPor favor regulariza tu situación lo antes posible.\n{{payment_link}}\n\nSi ya realizaste el pago, envía tu comprobante.\n— Puerta Abierta",
+        ),
+        (
+            "tpl:payment-confirmed",
+            "payment_confirmed",
+            "Confirmación de pago",
+            "whatsapp",
+            "es-PY",
+            "✅ {{tenant_name}}, tu pago de {{amount}} ha sido confirmado.\n\nGracias por tu puntualidad.\n— Puerta Abierta",
+        ),
+        (
+            "tpl:maintenance-update",
+            "maintenance_update",
+            "Actualización de mantenimiento",
+            "whatsapp",
+            "es-PY",
+            "🔧 Hola {{tenant_name}},\n\nTu solicitud de mantenimiento \"{{request_title}}\" ha sido actualizada.\nEstado: {{status}}\n\n— Puerta Abierta",
+        ),
+    ];
+
+    for (key, template_key, name, channel, lang, body) in &msg_templates {
+        let tid = demo_uuid(&ns, key);
+        ins(
+            pool,
+            "message_templates",
+            json!({
+                "id": tid.to_string(),
+                "organization_id": org_id,
+                "template_key": template_key,
+                "name": name,
+                "channel": channel,
+                "language_code": lang,
+                "body": body,
+                "variables": ["tenant_name", "amount", "due_date", "payment_link"],
+            }),
+        )
+        .await?;
+    }
+    summary.insert("message_template_count".into(), json!(msg_templates.len()));
+
+    // ──────────────────────────────────────────
+    // 18. Pricing template (transparent fee breakdown)
+    // ──────────────────────────────────────────
+    let pt_id = demo_uuid(&ns, "pricing:standard-ltr");
+    ins(
+        pool,
+        "pricing_templates",
+        json!({
+            "id": pt_id.to_string(),
+            "organization_id": org_id,
+            "name": "Alquiler Estándar Paraguay",
+            "description": "Desglose transparente de costos para alquiler a largo plazo en Paraguay.",
+            "is_active": true,
+            "currency": "PYG",
+        }),
+    )
+    .await?;
+
+    let fee_lines = [
+        ("Alquiler mensual", "rent", "100", true),
+        ("Comisión de servicio (10%)", "service_fee", "10", true),
+        ("IVA (10% sobre alquiler)", "tax", "10", true),
+        ("Depósito de garantía (2 meses)", "security_deposit", "200", false),
+        ("Garantía inmobiliaria (1 mes)", "guarantee_fee", "100", false),
+    ];
+
+    for (i, (label, fee_type, pct, is_recurring)) in fee_lines.iter().enumerate() {
+        let fl_id = demo_uuid(&ns, &format!("pricing:line:{i}"));
+        ins(
+            pool,
+            "pricing_template_lines",
+            json!({
+                "id": fl_id.to_string(),
+                "pricing_template_id": pt_id.to_string(),
+                "fee_type": fee_type,
+                "label": label,
+                "amount": 0,
+                "percentage_of_rent": pct.parse::<f64>().unwrap_or(0.0),
+                "is_recurring": is_recurring,
+                "sort_order": i + 1,
+            }),
+        )
+        .await?;
+    }
+    summary.insert("pricing_template_count".into(), json!(1));
+
+    // ──────────────────────────────────────────
     // Done
     // ──────────────────────────────────────────
     Ok((

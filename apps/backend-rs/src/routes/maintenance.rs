@@ -194,6 +194,69 @@ async fn update_maintenance_request(
         }
     }
 
+    // Notify tenant of status changes via WhatsApp
+    if let Some(status) = &payload.status {
+        let tenant_phone = val_str(&updated, "submitted_by_phone");
+        let tenant_name = val_str(&updated, "submitted_by_name");
+        let title = val_str(&updated, "title");
+
+        if !tenant_phone.is_empty() && !org_id.is_empty() {
+            let body = match status.as_str() {
+                "acknowledged" => Some(format!(
+                    "✅ Solicitud recibida\n\n\
+                     Hola {tenant_name}, tu solicitud de mantenimiento \"{title}\" fue recibida.\n\
+                     Estamos revisándola y te contactaremos pronto.\n\
+                     — Puerta Abierta"
+                )),
+                "scheduled" => Some(format!(
+                    "📅 Mantenimiento programado\n\n\
+                     Hola {tenant_name}, el mantenimiento \"{title}\" fue programado.\n\
+                     Te contactaremos con los detalles de fecha y hora.\n\
+                     — Puerta Abierta"
+                )),
+                "completed" | "closed" => {
+                    let resolution = payload.resolution_notes.as_deref().unwrap_or("");
+                    let notes_part = if resolution.is_empty() {
+                        String::new()
+                    } else {
+                        format!("\nNotas: {resolution}")
+                    };
+                    Some(format!(
+                        "🔧 Mantenimiento completado\n\n\
+                         Hola {tenant_name}, el mantenimiento \"{title}\" fue completado.{notes_part}\n\n\
+                         Si tienes algún problema, envía una nueva solicitud.\n\
+                         — Puerta Abierta"
+                    ))
+                }
+                _ => None,
+            };
+
+            if let Some(body) = body {
+                let mut msg = Map::new();
+                msg.insert("organization_id".to_string(), Value::String(org_id.clone()));
+                msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+                msg.insert("recipient".to_string(), Value::String(tenant_phone));
+                msg.insert("status".to_string(), Value::String("queued".to_string()));
+                msg.insert(
+                    "scheduled_at".to_string(),
+                    Value::String(chrono::Utc::now().to_rfc3339()),
+                );
+                let mut pl = Map::new();
+                pl.insert("body".to_string(), Value::String(body));
+                pl.insert(
+                    "reminder_type".to_string(),
+                    Value::String(format!("maintenance_{status}")),
+                );
+                pl.insert(
+                    "maintenance_request_id".to_string(),
+                    Value::String(path.request_id.clone()),
+                );
+                msg.insert("payload".to_string(), Value::Object(pl));
+                let _ = create_row(pool, "message_logs", &msg).await;
+            }
+        }
+    }
+
     write_audit_log(
         state.db_pool.as_ref(),
         Some(&org_id),

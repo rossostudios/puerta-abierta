@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { PublicFooter } from "@/components/marketplace/public-footer";
 import { PublicHeader } from "@/components/marketplace/public-header";
-import { fetchPublicListings } from "@/lib/api";
+import { fetchPublicListings, fetchUsdPygRate } from "@/lib/api";
 import {
   countMarketplaceActiveFilters,
   marketplaceSortLabel,
@@ -29,10 +29,32 @@ type MarketplacePageProps = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
+  const title = "Puerta Abierta Marketplace";
+  const description =
+    "Alquileres de largo plazo con precios transparentes en Paraguay. Long-term rentals with transparent pricing in Paraguay.";
+
   return {
-    title: "Puerta Abierta Marketplace",
-    description:
-      "Alquileres de largo plazo con precios transparentes en Paraguay.",
+    title,
+    description,
+    alternates: {
+      languages: {
+        "es-PY": "/marketplace",
+        "en-US": "/marketplace",
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      siteName: "Puerta Abierta",
+      locale: "es_PY",
+      alternateLocale: "en_US",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
   };
 }
 
@@ -50,9 +72,12 @@ export default async function MarketplacePage({
   let apiError: string | null = null;
 
   try {
-    const response = await fetchPublicListings(
-      toMarketplaceListParams(filters, defaultOrgId || undefined)
-    );
+    const [response, usdPygRate] = await Promise.all([
+      fetchPublicListings(
+        toMarketplaceListParams(filters, defaultOrgId || undefined)
+      ),
+      fetchUsdPygRate(),
+    ]);
     const records = sortMarketplaceListings(
       (response.data ?? []) as Record<string, unknown>[],
       filters.sort
@@ -62,6 +87,7 @@ export default async function MarketplacePage({
         listing: record,
         locale,
         index,
+        usdPygRate,
       })
     );
   } catch (err) {

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format";
@@ -229,6 +230,115 @@ export function BillingManager({
           })}
         </div>
       </div>
+
+      {/* Referral program */}
+      <ReferralCard isEn={isEn} orgId={orgId} />
+    </div>
+  );
+}
+
+function ReferralCard({ orgId, isEn }: { orgId: string; isEn: boolean }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [redemptions, setRedemptions] = useState<Record<string, unknown>[]>([]);
+
+  const loadCode = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/referrals/my-code?org_id=${encodeURIComponent(orgId)}`,
+        { method: "GET", headers: { Accept: "application/json" } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const referral = data.referral;
+        if (referral?.code) setCode(String(referral.code));
+      }
+
+      const histRes = await fetch(
+        `${API_BASE}/referrals/history?org_id=${encodeURIComponent(orgId)}`,
+        { method: "GET", headers: { Accept: "application/json" } }
+      );
+      if (histRes.ok) {
+        const histData = await histRes.json();
+        setRedemptions(Array.isArray(histData.data) ? histData.data : []);
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setLoading(false);
+    }
+  }, [orgId]);
+
+  useEffect(() => {
+    loadCode();
+  }, [loadCode]);
+
+  function handleCopy() {
+    if (!code) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="rounded-lg border p-4">
+      <h3 className="mb-2 text-lg font-semibold">
+        {isEn ? "Refer & Earn" : "Refiere y Gana"}
+      </h3>
+      <p className="text-muted-foreground mb-3 text-sm">
+        {isEn
+          ? "Share your referral code with other property managers. When they subscribe, both of you earn 1 free month."
+          : "Comparte tu código de referido con otros administradores. Cuando se suscriban, ambos ganan 1 mes gratis."}
+      </p>
+
+      {loading ? (
+        <p className="text-muted-foreground text-sm">
+          {isEn ? "Loading..." : "Cargando..."}
+        </p>
+      ) : code ? (
+        <div className="flex items-center gap-2">
+          <Input className="font-mono text-lg" readOnly value={code} />
+          <Button onClick={handleCopy} size="sm" variant="outline">
+            {copied
+              ? isEn
+                ? "Copied!"
+                : "Copiado!"
+              : isEn
+                ? "Copy"
+                : "Copiar"}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          {isEn
+            ? "Could not load referral code."
+            : "No se pudo cargar el código de referido."}
+        </p>
+      )}
+
+      {redemptions.length > 0 && (
+        <div className="mt-4">
+          <h4 className="mb-1 text-sm font-medium">
+            {isEn ? "Referral History" : "Historial de Referidos"} ({redemptions.length})
+          </h4>
+          <ul className="text-muted-foreground space-y-1 text-sm">
+            {redemptions.map((r, i) => (
+              <li className="flex items-center gap-2" key={i}>
+                <StatusBadge
+                  label={String(r.status ?? "pending")}
+                  value={String(r.status ?? "pending")}
+                />
+                <span>
+                  {String(r.created_at ?? "").slice(0, 10)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,8 @@ use crate::{
         MessageTemplatesQuery, SendMessageInput, TemplatePath,
     },
     services::audit::write_audit_log,
+    services::collection_cycle::run_daily_collection_cycle,
+    services::lease_renewal::run_lease_renewal_scan,
     services::messaging::process_queued_messages,
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
@@ -35,6 +37,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/internal/process-messages",
             axum::routing::post(process_messages),
+        )
+        .route(
+            "/internal/collection-cycle",
+            axum::routing::post(run_collection_cycle),
         )
         .route(
             "/webhooks/whatsapp",
@@ -212,8 +218,60 @@ async fn process_messages(
     Ok(Json(json!({ "sent": sent, "failed": failed })))
 }
 
+/// Internal cron-compatible endpoint that runs the daily collection cycle.
+/// Activates upcoming collections, sends reminders, marks late, escalates.
+async fn run_collection_cycle(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let api_key = headers
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let expected_key = state.config.internal_api_key.as_deref().unwrap_or_default();
+    if !expected_key.is_empty() && api_key != expected_key {
+        return Err(AppError::Unauthorized(
+            "Invalid or missing API key.".to_string(),
+        ));
+    }
+
+    let pool = db_pool(&state)?;
+
+    // Optional org_id filter from query/body
+    let org_id: Option<String> = headers
+        .get("x-org-id")
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    let collection_result = run_daily_collection_cycle(
+        pool,
+        org_id.as_deref(),
+        &state.config.app_public_url,
+    )
+    .await;
+
+    let renewal_result = run_lease_renewal_scan(
+        pool,
+        org_id.as_deref(),
+        &state.config.app_public_url,
+    )
+    .await;
+
+    Ok(Json(json!({
+        "collections": serde_json::to_value(&collection_result).unwrap_or_default(),
+        "renewals": {
+            "offers_sent_60d": renewal_result.offers_sent_60d,
+            "reminders_sent_30d": renewal_result.reminders_sent_30d,
+            "expired": renewal_result.expired,
+        },
+    })))
+}
+
 /// WhatsApp webhook verification (GET) — responds to Meta verification challenge.
 async fn whatsapp_webhook_verify(
+    State(state): State<AppState>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> AppResult<impl IntoResponse> {
     let mode = params.get("hub.mode").map(String::as_str).unwrap_or("");
@@ -226,7 +284,16 @@ async fn whatsapp_webhook_verify(
         .map(String::as_str)
         .unwrap_or("");
 
-    if mode == "subscribe" && !token.is_empty() {
+    let expected_token = state
+        .config
+        .whatsapp_verify_token
+        .as_deref()
+        .unwrap_or_default();
+
+    if mode == "subscribe"
+        && !token.is_empty()
+        && (expected_token.is_empty() || token == expected_token)
+    {
         Ok(challenge.to_string())
     } else {
         Err(AppError::Forbidden(

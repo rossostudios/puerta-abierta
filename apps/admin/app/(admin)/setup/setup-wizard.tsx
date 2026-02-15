@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 
 import {
   wizardCreateIntegration,
+  wizardCreateLease,
   wizardCreateOrganization,
   wizardCreateProperty,
   wizardCreateUnit,
@@ -74,6 +75,7 @@ export type SetupWizardProps = {
   locale: Locale;
   apiBaseUrl: string;
   initialTab?: string;
+  initialPlanId?: string;
 };
 
 /* ------------------------------------------------------------------ */
@@ -106,6 +108,7 @@ export function SetupWizard({
   locale,
   apiBaseUrl,
   initialTab,
+  initialPlanId,
 }: SetupWizardProps) {
   const router = useRouter();
   const isEn = locale === "en-US";
@@ -132,10 +135,12 @@ export function SetupWizard({
   const [properties, setProperties] = useState<Row[]>(initialProperties);
   const [units, setUnits] = useState<Row[]>(initialUnits);
   const [submitting, setSubmitting] = useState<
-    null | "org" | "property" | "unit" | "seed" | "integration"
+    null | "org" | "property" | "unit" | "seed" | "integration" | "lease"
   >(null);
+  const [leaseDone, setLeaseDone] = useState(false);
   const [importPropertyOpen, setImportPropertyOpen] = useState(false);
   const [importUnitOpen, setImportUnitOpen] = useState(false);
+  const [importLeaseOpen, setImportLeaseOpen] = useState(false);
   const [step4Done, setStep4Done] = useState(false);
   const [step4Skipped, setStep4Skipped] = useState(false);
 
@@ -161,7 +166,7 @@ export function SetupWizard({
     }))
     .filter((item) => item.id);
 
-  const step4Complete = step4Skipped || step4Done;
+  const step4Complete = step4Skipped || step4Done || leaseDone;
 
   const showDemoSeed =
     orgDone &&
@@ -182,16 +187,16 @@ export function SetupWizard({
 
   const ltrLinks = [
     {
+      href: "/module/leases",
+      label: isEn ? "Manage leases" : "Gestionar contratos",
+    },
+    {
+      href: "/module/collections",
+      label: isEn ? "View collections" : "Ver cobros",
+    },
+    {
       href: "/module/listings",
       label: isEn ? "Publish listing" : "Publicar anuncio",
-    },
-    {
-      href: "/module/pricing",
-      label: isEn ? "Set up pricing" : "Configurar precios",
-    },
-    {
-      href: "/module/applications",
-      label: isEn ? "Receive applications" : "Recibir aplicaciones",
     },
   ];
 
@@ -225,7 +230,14 @@ export function SetupWizard({
       ? [
           {
             number: 4,
-            label: isEn ? "Connect" : "Conectar",
+            label:
+              rentalMode === "ltr"
+                ? isEn
+                  ? "Lease"
+                  : "Contrato"
+                : isEn
+                  ? "Connect"
+                  : "Conectar",
             done: step4Complete,
             active: !step4Complete,
           },
@@ -286,6 +298,31 @@ export function SetupWizard({
       isEn ? "Organization created" : "Organización creada",
       { description: result.data.name }
     );
+
+    // Auto-subscribe to plan if planId is provided (from pricing page)
+    if (initialPlanId && result.data.id) {
+      try {
+        await fetch(`${apiBaseUrl}/billing/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organization_id: result.data.id,
+            plan_id: initialPlanId,
+          }),
+        });
+        toast.success(
+          isEn ? "Plan activated" : "Plan activado",
+          {
+            description: isEn
+              ? "Your trial period has started."
+              : "Tu período de prueba ha comenzado.",
+          }
+        );
+      } catch {
+        // Subscription failed silently — user can set up later from billing
+      }
+    }
+
     setSubmitting(null);
   };
 
@@ -385,6 +422,45 @@ export function SetupWizard({
     setStep4Done(true);
     toast.success(isEn ? "Integration created" : "Integración creada", {
       description: result.data.name,
+    });
+    setSubmitting(null);
+  };
+
+  const handleCreateLeaseStep4 = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submitting || !orgId) return;
+    setSubmitting("lease");
+
+    const form = e.currentTarget;
+    const result = await wizardCreateLease({
+      organization_id: orgId,
+      unit_id: fd(form, "unit_id"),
+      tenant_full_name: fd(form, "tenant_full_name"),
+      tenant_email: fd(form, "tenant_email") || undefined,
+      tenant_phone_e164: fd(form, "tenant_phone_e164") || undefined,
+      lease_status: "active",
+      starts_on: fd(form, "starts_on"),
+      ends_on: fd(form, "ends_on") || undefined,
+      currency: fd(form, "currency") || "PYG",
+      monthly_rent: fdNum(form, "monthly_rent", 0),
+      generate_first_collection: true,
+    });
+
+    if (!result.ok) {
+      toast.error(
+        isEn ? "Could not create lease" : "No se pudo crear el contrato",
+        { description: result.error }
+      );
+      setSubmitting(null);
+      return;
+    }
+
+    setLeaseDone(true);
+    setStep4Done(true);
+    toast.success(isEn ? "Lease created" : "Contrato creado", {
+      description: isEn
+        ? "Collection schedule generated automatically."
+        : "Calendario de cobro generado automáticamente.",
     });
     setSubmitting(null);
   };
@@ -748,8 +824,8 @@ export function SetupWizard({
           title={
             rentalMode === "ltr"
               ? isEn
-                ? "Publish your first listing"
-                : "Publica tu primer anuncio"
+                ? "Create your first lease"
+                : "Crea tu primer contrato"
               : isEn
                 ? "Connect an integration"
                 : "Conecta una integración"
@@ -757,8 +833,8 @@ export function SetupWizard({
           description={
             rentalMode === "ltr"
               ? isEn
-                ? "Get your units in front of potential tenants."
-                : "Muestra tus unidades a potenciales inquilinos."
+                ? "Set up a tenant contract and auto-generate the collection schedule."
+                : "Configura un contrato de inquilino y genera el calendario de cobro automáticamente."
               : isEn
                 ? "Link your OTA channels to start receiving reservations."
                 : "Conecta tus canales OTA para empezar a recibir reservas."
@@ -902,37 +978,140 @@ export function SetupWizard({
               ) : null}
             </div>
           ) : (
-            <div className="grid gap-3">
-              <p className="text-sm text-muted-foreground">
-                {isEn
-                  ? "Get started with long-term rental management:"
-                  : "Comienza con la gestión de alquileres a largo plazo:"}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                  href="/module/listings"
-                >
+            <div className="space-y-4">
+              <form onSubmit={handleCreateLeaseStep4} className="grid gap-3">
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEn ? "Unit" : "Unidad"}
+                  </span>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    defaultValue={unitOptions[0]?.id ?? ""}
+                    name="unit_id"
+                    required
+                  >
+                    {unitOptions.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {isEn ? "Tenant full name" : "Nombre completo del inquilino"}
+                  </span>
+                  <Input name="tenant_full_name" placeholder="Juan Pérez" required />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "Email (optional)" : "Email (opcional)"}
+                    </span>
+                    <Input name="tenant_email" type="email" placeholder="juan@email.com" />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "Phone (optional)" : "Teléfono (opcional)"}
+                    </span>
+                    <Input name="tenant_phone_e164" placeholder="+595 981 123456" />
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "Monthly rent" : "Renta mensual"}
+                    </span>
+                    <Input name="monthly_rent" type="number" min={0} step="any" placeholder="2500000" required />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "Currency" : "Moneda"}
+                    </span>
+                    <select
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      defaultValue="PYG"
+                      name="currency"
+                    >
+                      <option value="PYG">PYG (₲)</option>
+                      <option value="USD">USD ($)</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "Start date" : "Fecha de inicio"}
+                    </span>
+                    <Input name="starts_on" type="date" required />
+                  </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isEn ? "End date (optional)" : "Fecha de fin (opcional)"}
+                    </span>
+                    <Input name="ends_on" type="date" />
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">
                   {isEn
-                    ? "Create marketplace listing"
-                    : "Crear anuncio en marketplace"}
-                </Link>
-                <Link
-                  className={cn(buttonVariants({ variant: "outline" }))}
-                  href="/module/pricing"
-                >
-                  {isEn ? "Set up pricing" : "Configurar precios"}
-                </Link>
+                    ? "A monthly collection schedule will be generated automatically."
+                    : "Se generará un calendario de cobro mensual automáticamente."}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    className="flex-1"
+                    type="submit"
+                    disabled={submitting !== null}
+                  >
+                    {submitting === "lease" ? (
+                      <>
+                        <Spinner size="sm" className="text-primary-foreground" />
+                        {isEn ? "Creating..." : "Creando..."}
+                      </>
+                    ) : isEn ? (
+                      "Create lease"
+                    ) : (
+                      "Crear contrato"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStep4Skipped(true)}
+                  >
+                    {isEn ? "Skip" : "Omitir"}
+                  </Button>
+                </div>
+              </form>
+              <div className="border-t border-border/40 pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {isEn ? "Or continue with:" : "O continúa con:"}
+                  </p>
+                  <button
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setImportLeaseOpen(true)}
+                    type="button"
+                  >
+                    {isEn ? "Import leases from CSV" : "Importar contratos desde CSV"}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    href="/module/listings"
+                  >
+                    {isEn ? "Publish listing" : "Publicar anuncio"}
+                  </Link>
+                  <Link
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                    href="/module/pricing"
+                  >
+                    {isEn ? "Set up pricing" : "Configurar precios"}
+                  </Link>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-fit"
-                onClick={() => setStep4Skipped(true)}
-              >
-                {isEn ? "Skip for now" : "Omitir por ahora"}
-              </Button>
             </div>
           )}
         </OptionalStepCard>
@@ -1038,6 +1217,15 @@ export function SetupWizard({
             open={importUnitOpen}
             orgId={orgId}
             properties={propertyOptions.map((p) => ({ id: p.id, name: p.label }))}
+          />
+          <DataImportSheet
+            isEn={isEn}
+            mode="leases"
+            onImportComplete={() => router.refresh()}
+            onOpenChange={setImportLeaseOpen}
+            open={importLeaseOpen}
+            orgId={orgId}
+            units={unitOptions.map((u) => ({ id: u.id, name: u.label }))}
           />
         </>
       ) : null}

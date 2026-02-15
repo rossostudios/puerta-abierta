@@ -10,6 +10,10 @@ import {
   createLeaseAction,
   setLeaseStatusAction,
 } from "@/app/(admin)/module/leases/actions";
+import {
+  generateLeaseContractPdf,
+  type LeaseContractData,
+} from "@/components/reports/lease-contract-pdf";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { type DataTableRow } from "@/components/ui/data-table";
 import { NotionDataTable } from "@/components/ui/notion-data-table";
@@ -251,8 +255,43 @@ export function LeasesManager({
           const id = asString(row.id);
           const status = asString(row.lease_status);
 
+          const handleDownloadContract = async () => {
+            const unitId = asString(row.unit_id);
+            const unit = units.find((u) => asString(u.id) === unitId);
+            const propId = asString(unit?.property_id ?? row.property_id);
+            const prop = properties.find((p) => asString(p.id) === propId);
+
+            const contractData: LeaseContractData = {
+              tenantName: asString(row.tenant_full_name),
+              tenantEmail: asString(row.tenant_email),
+              tenantPhone: asString(row.tenant_phone_e164),
+              propertyName: asString(prop?.name),
+              unitName: asString(unit?.name ?? unit?.code),
+              startsOn: asString(row.starts_on),
+              endsOn: asString(row.ends_on),
+              monthlyRent: asNumber(row.monthly_rent),
+              serviceFee: asNumber(row.service_fee_flat),
+              securityDeposit: asNumber(row.security_deposit),
+              guaranteeFee: asNumber(row.guarantee_option_fee),
+              taxIva: asNumber(row.tax_iva),
+              totalMoveIn: asNumber(row.total_move_in),
+              monthlyTotal: asNumber(row.monthly_recurring_total),
+              currency: asString(row.currency) || "PYG",
+              notes: asString(row.notes),
+              orgName: "Puerta Abierta",
+            };
+            await generateLeaseContractPdf(contractData, isEn);
+          };
+
           return (
             <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDownloadContract}
+              >
+                {isEn ? "Contract" : "Contrato"}
+              </Button>
               <Link
                 className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}
                 href="/module/collections"

@@ -49,9 +49,24 @@ const THEME_INIT_SCRIPT = `
 `;
 
 export const metadata: Metadata = {
-  title: "Puerta Abierta",
+  title: {
+    default: "Puerta Abierta",
+    template: "%s | Puerta Abierta",
+  },
   description:
-    "Marketplace y sistema operativo para alquileres de largo plazo en Paraguay.",
+    "Marketplace y sistema operativo para alquileres de largo plazo en Paraguay. Property management for long-term rentals in Paraguay.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://puertaabierta.com"
+  ),
+  openGraph: {
+    type: "website",
+    siteName: "Puerta Abierta",
+    locale: "es_PY",
+    alternateLocale: "en_US",
+  },
+  twitter: {
+    card: "summary",
+  },
 };
 
 export default async function RootLayout({

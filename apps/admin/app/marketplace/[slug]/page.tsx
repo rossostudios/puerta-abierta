@@ -8,7 +8,7 @@ import { PublicFooter } from "@/components/marketplace/public-footer";
 import { PublicHeader } from "@/components/marketplace/public-header";
 import { TrustBadges } from "@/components/marketplace/trust-badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchPublicListing } from "@/lib/api";
+import { fetchPublicListing, fetchUsdPygRate } from "@/lib/api";
 import { toMarketplaceListingViewModel } from "@/lib/features/marketplace/view-model";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { ListingAmenities } from "./components/listing-amenities";
@@ -48,11 +48,39 @@ export async function generateMetadata({
     const listing = await resolveListing(slug);
     const vm = toMarketplaceListingViewModel({ listing, locale });
 
+    const title = `${vm.title} | Puerta Abierta`;
+    const description =
+      vm.summary ||
+      "Anuncio de alquiler de largo plazo con desglose transparente de costos.";
+    const images = vm.coverImageUrl
+      ? [{ url: vm.coverImageUrl, width: 1200, height: 630, alt: vm.title }]
+      : [];
+
     return {
-      title: `${vm.title} | Puerta Abierta`,
-      description:
-        vm.summary ||
-        "Anuncio de alquiler de largo plazo con desglose transparente de costos.",
+      title,
+      description,
+      alternates: {
+        canonical: `/marketplace/${slug}`,
+        languages: {
+          "es-PY": `/marketplace/${slug}`,
+          "en-US": `/marketplace/${slug}`,
+        },
+      },
+      openGraph: {
+        title,
+        description,
+        type: "article",
+        siteName: "Puerta Abierta",
+        locale: "es_PY",
+        alternateLocale: "en_US",
+        images,
+      },
+      twitter: {
+        card: images.length > 0 ? "summary_large_image" : "summary",
+        title,
+        description,
+        images: vm.coverImageUrl ? [vm.coverImageUrl] : [],
+      },
     };
   } catch {
     return {
@@ -69,10 +97,14 @@ export default async function MarketplaceListingPage({
   const defaultOrgId = process.env.NEXT_PUBLIC_DEFAULT_ORG_ID?.trim();
   const { slug } = await params;
 
-  const rawListing = await resolveListing(slug);
+  const [rawListing, usdPygRate] = await Promise.all([
+    resolveListing(slug),
+    fetchUsdPygRate(),
+  ]);
   const listing = toMarketplaceListingViewModel({
     listing: rawListing,
     locale,
+    usdPygRate,
   });
 
   if (

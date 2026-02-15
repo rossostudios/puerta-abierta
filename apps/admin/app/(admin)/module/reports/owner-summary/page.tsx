@@ -1,6 +1,7 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
+import { OwnerStatementPdfButton } from "@/components/reports/owner-statement-pdf";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -90,6 +91,15 @@ export default async function OwnerSummaryReportPage() {
     value: typeof value === "number" ? value : String(value ?? "-"),
   }));
 
+  const today = new Date();
+  const monthNames = isEn
+    ? ["January","February","March","April","May","June","July","August","September","October","November","December"]
+    : ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  const periodLabel = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+  const orgName = typeof report.organization_name === "string"
+    ? report.organization_name
+    : isEn ? "Organization" : "Organización";
+
   return (
     <div className="space-y-6">
       <Card>
@@ -98,13 +108,22 @@ export default async function OwnerSummaryReportPage() {
             <Badge variant="outline">
               {isEn ? "Report detail" : "Detalle de reporte"}
             </Badge>
-            <Link
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-              href="/module/reports"
-            >
-              <Icon icon={ArrowLeft01Icon} size={16} />
-              {isEn ? "Back to reports" : "Volver a reportes"}
-            </Link>
+            <div className="flex items-center gap-2">
+              <OwnerStatementPdfButton
+                reportData={report}
+                orgName={orgName}
+                periodLabel={periodLabel}
+                locale={locale}
+                isEn={isEn}
+              />
+              <Link
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                href="/module/reports"
+              >
+                <Icon icon={ArrowLeft01Icon} size={16} />
+                {isEn ? "Back to reports" : "Volver a reportes"}
+              </Link>
+            </div>
           </div>
           <CardTitle className="text-2xl">
             {isEn ? "Owner summary" : "Resumen del propietario"}

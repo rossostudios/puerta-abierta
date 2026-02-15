@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 use serde_json::{json, Map, Value};
 
 use crate::{
@@ -31,6 +31,14 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/leases/{lease_id}",
             axum::routing::get(get_lease).patch(update_lease),
+        )
+        .route(
+            "/leases/{lease_id}/renew",
+            axum::routing::post(send_renewal_offer),
+        )
+        .route(
+            "/leases/{lease_id}/renewal-accept",
+            axum::routing::post(accept_renewal),
         )
 }
 
@@ -589,4 +597,241 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
 
 fn round2(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
+}
+
+// ── Renewal endpoints ──────────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+struct RenewalOfferInput {
+    offered_rent: Option<f64>,
+    notes: Option<String>,
+}
+
+/// Send a renewal offer to the tenant for an expiring lease.
+async fn send_renewal_offer(
+    State(state): State<AppState>,
+    Path(path): Path<LeasePath>,
+    headers: HeaderMap,
+    Json(payload): Json<RenewalOfferInput>,
+) -> AppResult<Json<Value>> {
+    ensure_lease_collections_enabled(&state)?;
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    let lease = get_row(pool, "leases", &path.lease_id, "id").await?;
+    let org_id = value_str(&lease, "organization_id");
+    assert_org_role(&state, &user_id, &org_id, &["owner_admin"]).await?;
+
+    let app_public_url = std::env::var("APP_PUBLIC_URL")
+        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+
+    let updated = crate::services::lease_renewal::send_renewal_offer(
+        pool,
+        &path.lease_id,
+        payload.offered_rent,
+        payload.notes.as_deref(),
+        &app_public_url,
+    )
+    .await
+    .map_err(|e| AppError::BadRequest(e))?;
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&org_id),
+        Some(&user_id),
+        "renewal_offer",
+        "leases",
+        Some(&path.lease_id),
+        Some(lease),
+        Some(updated.clone()),
+    )
+    .await;
+
+    Ok(Json(json!({
+        "message": "Renewal offer sent.",
+        "lease": updated,
+    })))
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct AcceptRenewalInput {
+    /// Number of months for the new lease (default 12).
+    duration_months: Option<i32>,
+    notes: Option<String>,
+}
+
+/// Accept a renewal offer, creating a new lease linked to the original.
+async fn accept_renewal(
+    State(state): State<AppState>,
+    Path(path): Path<LeasePath>,
+    headers: HeaderMap,
+    Json(payload): Json<AcceptRenewalInput>,
+) -> AppResult<impl IntoResponse> {
+    ensure_lease_collections_enabled(&state)?;
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    let original = get_row(pool, "leases", &path.lease_id, "id").await?;
+    let org_id = value_str(&original, "organization_id");
+    assert_org_role(&state, &user_id, &org_id, LEASE_EDIT_ROLES).await?;
+
+    let renewal_status = value_str(&original, "renewal_status");
+    if renewal_status != "offered" && renewal_status != "pending" {
+        return Err(AppError::BadRequest(
+            "Lease must have an active renewal offer to accept.".to_string(),
+        ));
+    }
+
+    // Get the offered rent (or use current rent)
+    let offered_rent = original
+        .as_object()
+        .and_then(|o| o.get("renewal_offered_rent"))
+        .and_then(|v| v.as_f64())
+        .unwrap_or_else(|| {
+            original
+                .as_object()
+                .and_then(|o| o.get("monthly_rent"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0)
+        });
+
+    let ends_on_str = value_str(&original, "ends_on");
+    let new_starts_on = if !ends_on_str.is_empty() {
+        // New lease starts the day after old one ends
+        chrono::NaiveDate::parse_from_str(&ends_on_str, "%Y-%m-%d")
+            .map(|d| d + chrono::Duration::days(1))
+            .map(|d| d.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|_| Utc::now().date_naive().format("%Y-%m-%d").to_string())
+    } else {
+        Utc::now().date_naive().format("%Y-%m-%d").to_string()
+    };
+
+    let duration_months = payload.duration_months.unwrap_or(12);
+    let new_ends_on = chrono::NaiveDate::parse_from_str(&new_starts_on, "%Y-%m-%d")
+        .map(|d| {
+            let month = d.month0() as i32 + duration_months;
+            let year = d.year() + month / 12;
+            let m = (month % 12) as u32;
+            chrono::NaiveDate::from_ymd_opt(year, m + 1, d.day().min(28))
+                .unwrap_or(d)
+                .format("%Y-%m-%d")
+                .to_string()
+        })
+        .unwrap_or_default();
+
+    // Mark original lease as completed with accepted renewal
+    let mut original_patch = Map::new();
+    original_patch.insert(
+        "renewal_status".to_string(),
+        Value::String("accepted".to_string()),
+    );
+    original_patch.insert(
+        "renewal_decided_at".to_string(),
+        Value::String(Utc::now().to_rfc3339()),
+    );
+    let _ = update_row(pool, "leases", &path.lease_id, &original_patch, "id").await;
+
+    // Create the new renewal lease
+    let mut new_lease = Map::new();
+    new_lease.insert("organization_id".to_string(), Value::String(org_id.clone()));
+    new_lease.insert("parent_lease_id".to_string(), Value::String(path.lease_id.clone()));
+    new_lease.insert("is_renewal".to_string(), Value::Bool(true));
+
+    // Copy over fields from original
+    for field in &[
+        "property_id",
+        "unit_id",
+        "tenant_full_name",
+        "tenant_email",
+        "tenant_phone_e164",
+        "currency",
+        "service_fee_flat",
+        "security_deposit",
+        "guarantee_option_fee",
+        "tax_iva",
+        "platform_fee",
+    ] {
+        if let Some(val) = original.as_object().and_then(|o| o.get(*field)) {
+            if !val.is_null() {
+                new_lease.insert(field.to_string(), val.clone());
+            }
+        }
+    }
+
+    new_lease.insert(
+        "monthly_rent".to_string(),
+        json!(offered_rent),
+    );
+    new_lease.insert("lease_status".to_string(), Value::String("active".to_string()));
+    new_lease.insert("starts_on".to_string(), Value::String(new_starts_on));
+    new_lease.insert("ends_on".to_string(), Value::String(new_ends_on));
+    if let Some(notes) = &payload.notes {
+        new_lease.insert("renewal_notes".to_string(), Value::String(notes.clone()));
+    }
+
+    // Compute totals
+    let totals = compute_totals(&new_lease);
+    new_lease.insert("total_move_in".to_string(), json!(totals.total_move_in));
+    new_lease.insert(
+        "monthly_recurring_total".to_string(),
+        json!(totals.monthly_recurring_total),
+    );
+
+    let created = create_row(pool, "leases", &new_lease).await?;
+    let new_lease_id = value_str(&created, "id");
+
+    // Auto-generate collection schedule for the new lease
+    if !new_lease_id.is_empty() {
+        let starts = value_str(&created, "starts_on");
+        let ends = value_str(&created, "ends_on");
+        let rent = created
+            .as_object()
+            .and_then(|o| o.get("monthly_rent"))
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        let cur = value_str(&created, "currency");
+
+        let _ = ensure_monthly_lease_schedule(
+            pool,
+            &org_id,
+            &new_lease_id,
+            &starts,
+            None,
+            if ends.is_empty() { None } else { Some(ends.as_str()) },
+            Some(duration_months),
+            rent,
+            &cur,
+            Some(user_id.as_str()),
+        )
+        .await;
+    }
+
+    // Complete the original lease
+    let mut complete_patch = Map::new();
+    complete_patch.insert(
+        "lease_status".to_string(),
+        Value::String("completed".to_string()),
+    );
+    let _ = update_row(pool, "leases", &path.lease_id, &complete_patch, "id").await;
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&org_id),
+        Some(&user_id),
+        "renewal_accept",
+        "leases",
+        Some(&path.lease_id),
+        Some(original),
+        Some(created.clone()),
+    )
+    .await;
+
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(json!({
+            "message": "Renewal accepted. New lease created.",
+            "original_lease_id": path.lease_id,
+            "new_lease": created,
+        })),
+    ))
 }

@@ -9,15 +9,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { fetchList, fetchOrganizations, getApiBaseUrl } from "@/lib/api";
+import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { asString, type Row } from "./setup-components";
 import { SetupWizard } from "./setup-wizard";
 
+/** Extract rows from a settled promise, or fall back to [] and record a warning. */
+function settledOrEmpty(
+  result: PromiseSettledResult<unknown[]>,
+  label: string,
+  warnings: string[]
+): Row[] {
+  if (result.status === "fulfilled") return result.value as Row[];
+  console.error(`Setup: failed to load ${label}:`, result.reason);
+  warnings.push(label);
+  return [];
+}
+
 type SetupPageProps = {
   searchParams: Promise<{
     tab?: string;
+    plan?: string;
   }>;
 };
 
@@ -26,7 +40,7 @@ type SetupPageProps = {
 /* ================================================================== */
 
 export default async function SetupPage({ searchParams }: SetupPageProps) {
-  const { tab } = await searchParams;
+  const { tab, plan } = await searchParams;
   const orgId = await getActiveOrgId();
   const locale = await getActiveLocale();
   const isEn = locale === "en-US";
@@ -41,8 +55,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
     try {
       organizations = (await fetchOrganizations(25)) as Row[];
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Failed to load organizations:", message);
+      console.error("Failed to load organizations:", errorMessage(err));
       loadError = isEn
         ? "Could not load your organizations. Please check that the backend is running and try again."
         : "No se pudieron cargar tus organizaciones. Verifica que el backend esté corriendo e intenta de nuevo.";
@@ -69,6 +82,7 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
           locale={locale}
           apiBaseUrl={getApiBaseUrl()}
           initialTab={tab}
+          initialPlanId={plan}
         />
       </>
     );
@@ -78,28 +92,15 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
   /*  Org selected — load data                                         */
   /* ---------------------------------------------------------------- */
 
+  /* Phase A — Critical: organizations (must succeed) */
   let organizations: Row[] = [];
-  let properties: Row[] = [];
-  let units: Row[] = [];
-  let integrations: Row[] = [];
-
   try {
-    const [orgs, props, unitRows, integrationRows] = await Promise.all([
-      fetchOrganizations(25),
-      fetchList("/properties", orgId, 25),
-      fetchList("/units", orgId, 25),
-      fetchList("/integrations", orgId, 50),
-    ]);
-
-    organizations = orgs as Row[];
-    properties = props as Row[];
-    units = unitRows as Row[];
-    integrations = integrationRows as Row[];
+    organizations = (await fetchOrganizations(25)) as Row[];
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
 
     /* Forbidden: membership removed */
-    if (message.includes("Forbidden: not a member of this organization")) {
+    if (isOrgMembershipError(message)) {
       let availableOrgs: Row[] = [];
       try {
         availableOrgs = (await fetchOrganizations(25)) as Row[];
@@ -212,6 +213,31 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
     );
   }
 
+  /* Phase B — Non-critical: properties, units, integrations */
+  const warnings: string[] = [];
+  const [propsResult, unitsResult, integrationsResult] =
+    await Promise.allSettled([
+      fetchList("/properties", orgId, 25),
+      fetchList("/units", orgId, 25),
+      fetchList("/integrations", orgId, 50),
+    ]);
+
+  const properties = settledOrEmpty(
+    propsResult,
+    isEn ? "properties" : "propiedades",
+    warnings
+  );
+  const units = settledOrEmpty(
+    unitsResult,
+    isEn ? "units" : "unidades",
+    warnings
+  );
+  const integrations = settledOrEmpty(
+    integrationsResult,
+    isEn ? "integrations" : "integraciones",
+    warnings
+  );
+
   /* ---------------------------------------------------------------- */
   /*  Derive initial state for the wizard                              */
   /* ---------------------------------------------------------------- */
@@ -223,17 +249,34 @@ export default async function SetupPage({ searchParams }: SetupPageProps) {
   const dataFingerprint = `${orgId}-${properties.length}-${units.length}`;
 
   return (
-    <SetupWizard
-      key={dataFingerprint}
-      initialOrgId={orgId}
-      initialOrganization={activeOrganization}
-      initialOrganizations={organizations}
-      initialProperties={properties}
-      initialUnits={units}
-      integrations={integrations}
-      locale={locale}
-      apiBaseUrl={getApiBaseUrl()}
-      initialTab={tab}
-    />
+    <>
+      {warnings.length > 0 && (
+        <Alert variant="warning" className="mb-4">
+          <AlertTitle>
+            {isEn
+              ? "Some data could not be loaded"
+              : "Algunos datos no se pudieron cargar"}
+          </AlertTitle>
+          <AlertDescription>
+            {isEn
+              ? `Could not load: ${warnings.join(", ")}. You can still continue setup — the affected steps will show empty data.`
+              : `No se pudieron cargar: ${warnings.join(", ")}. Puedes continuar con la configuración — los pasos afectados mostrarán datos vacíos.`}
+          </AlertDescription>
+        </Alert>
+      )}
+      <SetupWizard
+        key={dataFingerprint}
+        initialOrgId={orgId}
+        initialOrganization={activeOrganization}
+        initialOrganizations={organizations}
+        initialProperties={properties}
+        initialUnits={units}
+        integrations={integrations}
+        locale={locale}
+        apiBaseUrl={getApiBaseUrl()}
+        initialTab={tab}
+        initialPlanId={plan}
+      />
+    </>
   );
 }

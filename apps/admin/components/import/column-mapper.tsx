@@ -51,6 +51,16 @@ function autoMatch(header: string, fields: TargetField[]): string {
     check_in_time: ["checkin", "checkintime", "horaentrada"],
     check_out_time: ["checkout", "checkouttime", "horasalida"],
     is_active: ["activo", "active", "isactive"],
+    tenant_full_name: ["inquilino", "tenant", "tenantname", "nombreinquilino", "arrendatario"],
+    tenant_email: ["emailinquilino", "tenantemail", "correo"],
+    tenant_phone_e164: ["telefonoinquilino", "tenantphone", "celular", "whatsapp", "telefono", "phone"],
+    unit_name: ["unidad", "unit", "unitname", "nombreunidad", "depto", "departamento"],
+    starts_on: ["inicio", "startson", "startdate", "fechainicio", "desde"],
+    ends_on: ["fin", "endson", "enddate", "fechafin", "hasta", "vencimiento"],
+    monthly_rent: ["renta", "alquiler", "rent", "monthlyrent", "rentamensual", "monto"],
+    security_deposit: ["deposito", "garantia", "deposit", "securitydeposit"],
+    service_fee_flat: ["cuotaservicio", "servicefee", "servicioflat"],
+    notes: ["notas", "observaciones", "comentarios"],
   };
   for (const [key, aliases] of Object.entries(partials)) {
     if (fields.some((f) => f.key === key) && aliases.some((a) => normalized.includes(a))) {
@@ -147,6 +157,20 @@ export const PROPERTY_FIELDS: TargetField[] = [
   { key: "country_code", label: "Country / País", required: false },
   { key: "latitude", label: "Latitude / Latitud", required: false },
   { key: "longitude", label: "Longitude / Longitud", required: false },
+];
+
+export const LEASE_FIELDS: TargetField[] = [
+  { key: "tenant_full_name", label: "Tenant Name / Inquilino", required: true },
+  { key: "unit_name", label: "Unit / Unidad", required: true },
+  { key: "tenant_email", label: "Email", required: false },
+  { key: "tenant_phone_e164", label: "Phone / Teléfono", required: false },
+  { key: "starts_on", label: "Start Date / Inicio", required: true },
+  { key: "ends_on", label: "End Date / Fin", required: false },
+  { key: "monthly_rent", label: "Monthly Rent / Renta", required: true },
+  { key: "currency", label: "Currency / Moneda", required: false },
+  { key: "security_deposit", label: "Deposit / Depósito", required: false },
+  { key: "service_fee_flat", label: "Service Fee / Cuota servicio", required: false },
+  { key: "notes", label: "Notes / Notas", required: false },
 ];
 
 export const UNIT_FIELDS: TargetField[] = [

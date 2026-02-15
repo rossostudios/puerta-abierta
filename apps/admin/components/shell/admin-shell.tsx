@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShortcutsHelp } from "@/components/shell/shortcuts-help";
-import type { ViewportMode } from "@/components/shell/sidebar-new";
+import type { MemberRole, ViewportMode } from "@/components/shell/sidebar-new";
 import { SidebarNew } from "@/components/shell/sidebar-new";
 import { Topbar } from "@/components/shell/topbar";
 import {
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 type AdminShellProps = {
   orgId: string | null;
   locale: Locale;
+  role?: MemberRole | null;
   onboardingProgress: {
     completedSteps: number;
     totalSteps: number;
@@ -129,6 +130,7 @@ function useShellHotkeys(locale: Locale) {
 function AdminShellV2({
   orgId,
   locale,
+  role,
   onboardingProgress,
   children,
 }: AdminShellProps) {
@@ -230,6 +232,7 @@ function AdminShellV2({
               onboardingProgress={onboardingProgress}
               onMobileDrawerOpenChange={setIsMobileDrawerOpen}
               orgId={orgId}
+              role={role}
               viewportMode={viewportMode}
             />
           </ResizablePanel>
@@ -261,6 +264,7 @@ function AdminShellV2({
         onboardingProgress={onboardingProgress}
         onMobileDrawerOpenChange={setIsMobileDrawerOpen}
         orgId={orgId}
+        role={role}
         viewportMode={viewportMode}
       />
       {contentColumn}
@@ -272,6 +276,7 @@ function AdminShellV2({
 export function AdminShell({
   orgId,
   locale,
+  role,
   onboardingProgress,
   children,
 }: AdminShellProps) {
@@ -280,6 +285,7 @@ export function AdminShell({
       locale={locale}
       onboardingProgress={onboardingProgress}
       orgId={orgId}
+      role={role}
     >
       {children}
     </AdminShellV2>

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     response::IntoResponse,
     Json,
@@ -25,6 +25,14 @@ pub fn router() -> axum::Router<AppState> {
         .route("/tenant/me", axum::routing::get(tenant_me))
         .route("/tenant/payments", axum::routing::get(tenant_payments))
         .route(
+            "/tenant/payments/{collection_id}/submit",
+            axum::routing::post(tenant_submit_payment),
+        )
+        .route(
+            "/tenant/payment-instructions/{collection_id}",
+            axum::routing::get(tenant_payment_instructions),
+        )
+        .route(
             "/tenant/maintenance-requests",
             axum::routing::get(tenant_list_maintenance).post(tenant_create_maintenance),
         )
@@ -48,6 +56,19 @@ struct TenantPaymentsQuery {
 
 fn default_limit() -> i64 {
     200
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct SubmitPaymentInput {
+    payment_method: Option<String>,
+    payment_reference: Option<String>,
+    receipt_url: Option<String>,
+    notes: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct CollectionIdPath {
+    collection_id: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -314,6 +335,212 @@ async fn tenant_payments(
     }
 
     Ok(Json(json!({ "data": enriched })))
+}
+
+/// Get payment instructions for a specific collection.
+async fn tenant_payment_instructions(
+    State(state): State<AppState>,
+    Path(path): Path<CollectionIdPath>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, lease_id) = require_tenant(&state, &headers).await?;
+
+    // Verify the collection belongs to this tenant's lease
+    let collection = get_row(pool, "collection_records", &path.collection_id, "id").await?;
+    if val_str(&collection, "lease_id") != lease_id {
+        return Err(AppError::Forbidden(
+            "This collection does not belong to your lease.".to_string(),
+        ));
+    }
+
+    // Fetch payment instructions for this collection
+    let mut pi_filters = Map::new();
+    pi_filters.insert(
+        "collection_record_id".to_string(),
+        Value::String(path.collection_id.clone()),
+    );
+    pi_filters.insert("status".to_string(), Value::String("active".to_string()));
+    let instructions = list_rows(
+        pool,
+        "payment_instructions",
+        Some(&pi_filters),
+        10,
+        0,
+        "created_at",
+        false,
+    )
+    .await?;
+
+    // Also fetch org bank details for manual transfer
+    let org_id = val_str(&collection, "organization_id");
+    let org = if !org_id.is_empty() {
+        get_row(pool, "organizations", &org_id, "id").await.ok()
+    } else {
+        None
+    };
+
+    let bank_details = org
+        .as_ref()
+        .and_then(Value::as_object)
+        .map(|o| {
+            json!({
+                "bank_name": o.get("bank_name").cloned().unwrap_or(Value::Null),
+                "bank_account_number": o.get("bank_account_number").cloned().unwrap_or(Value::Null),
+                "bank_account_holder": o.get("bank_account_holder").cloned().unwrap_or(Value::Null),
+                "bank_ruc": o.get("ruc").cloned().unwrap_or(Value::Null),
+            })
+        })
+        .unwrap_or(Value::Null);
+
+    Ok(Json(json!({
+        "collection": collection,
+        "payment_instructions": instructions,
+        "bank_details": bank_details,
+    })))
+}
+
+/// Submit a payment reference/receipt for a collection.
+/// This notifies the property manager for confirmation.
+async fn tenant_submit_payment(
+    State(state): State<AppState>,
+    Path(path): Path<CollectionIdPath>,
+    headers: HeaderMap,
+    Json(payload): Json<SubmitPaymentInput>,
+) -> AppResult<Json<Value>> {
+    let (pool, lease_id) = require_tenant(&state, &headers).await?;
+
+    // Verify the collection belongs to this tenant's lease
+    let collection = get_row(pool, "collection_records", &path.collection_id, "id").await?;
+    if val_str(&collection, "lease_id") != lease_id {
+        return Err(AppError::Forbidden(
+            "This collection does not belong to your lease.".to_string(),
+        ));
+    }
+
+    let status = val_str(&collection, "status");
+    if status == "paid" || status == "waived" {
+        return Err(AppError::BadRequest(
+            "This collection has already been settled.".to_string(),
+        ));
+    }
+
+    // Update the collection with payment submission info
+    let mut patch = Map::new();
+    if let Some(ref method) = payload.payment_method {
+        patch.insert(
+            "payment_method".to_string(),
+            Value::String(method.clone()),
+        );
+    }
+    if let Some(ref reference) = payload.payment_reference {
+        patch.insert(
+            "payment_reference".to_string(),
+            Value::String(reference.clone()),
+        );
+    }
+    if let Some(ref notes) = payload.notes {
+        patch.insert("notes".to_string(), Value::String(notes.clone()));
+    }
+
+    // Store receipt URL in notes or a dedicated field
+    if let Some(ref receipt_url) = payload.receipt_url {
+        let existing_notes = val_str(&collection, "notes");
+        let updated_notes = if existing_notes.is_empty() {
+            format!("Comprobante: {receipt_url}")
+        } else {
+            format!("{existing_notes}\nComprobante: {receipt_url}")
+        };
+        patch.insert("notes".to_string(), Value::String(updated_notes));
+    }
+
+    let updated = if !patch.is_empty() {
+        update_row(pool, "collection_records", &path.collection_id, &patch, "id").await?
+    } else {
+        collection.clone()
+    };
+
+    // Notify the property manager that a payment was submitted
+    let org_id = val_str(&collection, "organization_id");
+    let lease = get_row(pool, "leases", &lease_id, "id").await.ok();
+    let tenant_name = lease
+        .as_ref()
+        .map(|l| val_str(l, "tenant_full_name"))
+        .unwrap_or_default();
+    let amount = collection
+        .as_object()
+        .and_then(|o| o.get("amount"))
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let currency = val_str(&collection, "currency");
+    let due_date = val_str(&collection, "due_date");
+
+    let amount_display = if currency == "PYG" {
+        format!("₲{}", amount as i64)
+    } else {
+        format!("${:.2}", amount)
+    };
+
+    // Find owner_admin members to notify
+    if !org_id.is_empty() {
+        let mut member_filters = Map::new();
+        member_filters.insert(
+            "organization_id".to_string(),
+            Value::String(org_id.clone()),
+        );
+        member_filters.insert("role".to_string(), Value::String("owner_admin".to_string()));
+
+        if let Ok(members) = list_rows(pool, "organization_members", Some(&member_filters), 5, 0, "created_at", true).await {
+            for member in &members {
+                let user_id = val_str(member, "user_id");
+                if user_id.is_empty() {
+                    continue;
+                }
+                if let Ok(user) = get_row(pool, "app_users", &user_id, "id").await {
+                    let owner_phone = val_str(&user, "phone_e164");
+                    if !owner_phone.is_empty() {
+                        let ref_info = payload.payment_reference.as_deref().unwrap_or("sin referencia");
+                        let body = format!(
+                            "💰 Pago reportado\n\n\
+                             {tenant_name} reportó un pago de {amount_display} (vencimiento: {due_date}).\n\
+                             Referencia: {ref_info}\n\n\
+                             Confirma o rechaza en tu panel de administración.\n\
+                             — Puerta Abierta"
+                        );
+
+                        let mut msg = Map::new();
+                        msg.insert(
+                            "organization_id".to_string(),
+                            Value::String(org_id.clone()),
+                        );
+                        msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+                        msg.insert("recipient".to_string(), Value::String(owner_phone));
+                        msg.insert("status".to_string(), Value::String("queued".to_string()));
+                        msg.insert(
+                            "scheduled_at".to_string(),
+                            Value::String(Utc::now().to_rfc3339()),
+                        );
+                        let mut pl = Map::new();
+                        pl.insert("body".to_string(), Value::String(body));
+                        pl.insert(
+                            "reminder_type".to_string(),
+                            Value::String("payment_submitted".to_string()),
+                        );
+                        pl.insert(
+                            "collection_id".to_string(),
+                            Value::String(path.collection_id.clone()),
+                        );
+                        msg.insert("payload".to_string(), Value::Object(pl));
+                        let _ = create_row(pool, "message_logs", &msg).await;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(Json(json!({
+        "message": "Pago reportado exitosamente. Tu administrador será notificado para confirmar.",
+        "collection": updated,
+    })))
 }
 
 /// List tenant's maintenance requests.

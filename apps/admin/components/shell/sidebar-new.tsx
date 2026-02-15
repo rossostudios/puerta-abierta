@@ -99,6 +99,13 @@ type RouteLinkDef = {
   };
 };
 
+export type MemberRole =
+  | "owner_admin"
+  | "operator"
+  | "cleaner"
+  | "accountant"
+  | "viewer";
+
 type SectionDef = {
   key: SectionKey;
   label: {
@@ -107,6 +114,8 @@ type SectionDef = {
   };
   routeLinks?: RouteLinkDef[];
   moduleSlugs: string[];
+  /** When set, only users with one of these roles see this section. */
+  roles?: MemberRole[];
 };
 
 type ResolvedLink = {
@@ -205,6 +214,7 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Leasing",
     },
     moduleSlugs: ["listings", "leases"],
+    roles: ["owner_admin", "operator"],
   },
   {
     key: "operations",
@@ -213,6 +223,7 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Operations",
     },
     moduleSlugs: ["tasks", "reservations", "calendar", "guests"],
+    roles: ["owner_admin", "operator", "cleaner"],
   },
   {
     key: "portfolio",
@@ -221,6 +232,7 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Portfolio",
     },
     moduleSlugs: ["properties", "units", "integrations"],
+    roles: ["owner_admin", "operator"],
   },
   {
     key: "finance",
@@ -229,6 +241,7 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Finance",
     },
     moduleSlugs: ["expenses", "pricing", "reports"],
+    roles: ["owner_admin", "accountant"],
   },
   {
     key: "workspace",
@@ -237,6 +250,7 @@ const SECTIONS: SectionDef[] = [
       "en-US": "Workspace",
     },
     moduleSlugs: ["documents", "workflow-rules", "billing"],
+    roles: ["owner_admin"],
   },
 ];
 
@@ -281,8 +295,15 @@ function resolveModuleLink(slug: string, locale: Locale): ResolvedLink | null {
   };
 }
 
-function resolveSections(locale: Locale): ResolvedSection[] {
-  const resolved = SECTIONS.map((section) => {
+function resolveSections(
+  locale: Locale,
+  role?: MemberRole | null
+): ResolvedSection[] {
+  const visibleSections = role
+    ? SECTIONS.filter((s) => !s.roles || s.roles.includes(role))
+    : SECTIONS;
+
+  const resolved = visibleSections.map((section) => {
     const routeLinks = (section.routeLinks ?? []).map((link) => ({
       href: link.href,
       iconElement: link.icon,
@@ -308,7 +329,7 @@ function resolveSections(locale: Locale): ResolvedSection[] {
   }
   const extras = MODULES.filter((module) => !knownSlugs.has(module.slug));
 
-  if (extras.length) {
+  if (extras.length && (!role || role === "owner_admin")) {
     resolved.push({
       key: "other",
       label: locale === "en-US" ? "Other" : "Otros",
@@ -504,10 +525,11 @@ function SidebarContent({
   locale,
   orgId,
   onboardingProgress,
+  role,
 }: SidebarContentProps) {
   const pathname = usePathname();
   const activeTab = resolvePrimaryTab(pathname);
-  const sections = useMemo(() => resolveSections(locale), [locale]);
+  const sections = useMemo(() => resolveSections(locale, role), [locale, role]);
   const [collapsedSections, toggleSection] = useCollapsedSections();
   const [onboardingHubClosed, setOnboardingHubClosed] = useState(false);
   const isEn = locale === "en-US";
@@ -1043,6 +1065,7 @@ type SidebarContentProps = {
   locale: Locale;
   orgId: string | null;
   onboardingProgress?: OnboardingProgress;
+  role?: MemberRole | null;
 };
 
 // ... existing code ...
@@ -1051,6 +1074,7 @@ export function SidebarNew({
   locale,
   orgId,
   onboardingProgress,
+  role,
   viewportMode,
   isMobileDrawerOpen,
   onMobileDrawerOpenChange,
@@ -1058,6 +1082,7 @@ export function SidebarNew({
   locale: Locale;
   orgId: string | null;
   onboardingProgress?: OnboardingProgress;
+  role?: MemberRole | null;
   viewportMode: ViewportMode;
   isMobileDrawerOpen: boolean;
   onMobileDrawerOpenChange: (next: boolean) => void;
@@ -1071,6 +1096,7 @@ export function SidebarNew({
           locale={locale}
           orgId={orgId}
           onboardingProgress={onboardingProgress}
+          role={role}
         />
       </aside>
     );
@@ -1090,6 +1116,7 @@ export function SidebarNew({
           locale={locale}
           orgId={orgId}
           onboardingProgress={onboardingProgress}
+          role={role}
         />
       </div>
     </Drawer>
