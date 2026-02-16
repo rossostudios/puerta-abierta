@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 
-import { postJson } from "@/lib/api";
+import { deleteJson, postJson } from "@/lib/api";
 
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
@@ -69,6 +69,61 @@ export async function createReservationAction(formData: FormData) {
 
     revalidatePath("/module/reservations");
     redirect(reservationsUrl({ success: "reservation-created" }));
+  } catch (err) {
+    unstable_rethrow(err);
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(reservationsUrl({ error: message.slice(0, 240) }));
+  }
+}
+
+export async function createCalendarBlockAction(formData: FormData) {
+  const organization_id = toStringValue(formData.get("organization_id"));
+  const unit_id = toStringValue(formData.get("unit_id"));
+  const starts_on = toStringValue(formData.get("starts_on"));
+  const ends_on = toStringValue(formData.get("ends_on"));
+  const reason = toStringValue(formData.get("reason")) || undefined;
+
+  if (!organization_id) {
+    redirect(reservationsUrl({ error: "Missing organization context." }));
+  }
+  if (!unit_id) {
+    redirect(reservationsUrl({ error: "unit_id is required" }));
+  }
+  if (!(starts_on && ends_on)) {
+    redirect(reservationsUrl({ error: "starts_on and ends_on are required" }));
+  }
+
+  try {
+    await postJson("/calendar/blocks", {
+      organization_id,
+      unit_id,
+      starts_on,
+      ends_on,
+      source: "manual",
+      ...(reason ? { reason } : {}),
+    });
+
+    revalidatePath("/module/reservations");
+    redirect(reservationsUrl({ success: "block-created" }));
+  } catch (err) {
+    unstable_rethrow(err);
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(reservationsUrl({ error: message.slice(0, 240) }));
+  }
+}
+
+export async function deleteCalendarBlockAction(formData: FormData) {
+  const block_id = toStringValue(formData.get("block_id"));
+
+  if (!block_id) {
+    redirect(reservationsUrl({ error: "block_id is required" }));
+  }
+
+  try {
+    await deleteJson(`/calendar/blocks/${encodeURIComponent(block_id)}`);
+
+    revalidatePath("/module/reservations");
+    redirect(reservationsUrl({ success: "block-deleted" }));
   } catch (err) {
     unstable_rethrow(err);
     const message = err instanceof Error ? err.message : String(err);

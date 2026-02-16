@@ -12,12 +12,6 @@ export function ReservationHeaderButtons({ isEn }: { isEn: boolean }) {
     <div className="flex flex-wrap items-center gap-2">
       <Link
         className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-        href="/module/calendar"
-      >
-        {isEn ? "Calendar" : "Calendario"}
-      </Link>
-      <Link
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
         href="/module/tasks"
       >
         {isEn ? "Tasks" : "Tareas"}

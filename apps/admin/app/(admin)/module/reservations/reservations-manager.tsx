@@ -1,19 +1,25 @@
 "use client";
 
 import {
+  Calendar02Icon,
   Home01Icon,
+  LeftToRightListBulletIcon,
   Login03Icon,
   Logout03Icon,
   Money01Icon,
+  PlusSignIcon,
 } from "@hugeicons/core-free-icons";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import {
+  createCalendarBlockAction,
   createReservationAction,
+  deleteCalendarBlockAction,
   transitionReservationStatusAction,
 } from "@/app/(admin)/module/reservations/actions";
+import { WeeklyCalendar } from "@/app/(admin)/module/reservations/weekly-calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +36,7 @@ import {
 import { type DataTableRow } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Form } from "@/components/ui/form";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { Select } from "@/components/ui/select";
@@ -212,10 +219,14 @@ function ReservationRowActions({ row }: { row: DataTableRow }) {
 }
 
 export function ReservationsManager({
+  blocks,
+  defaultView = "list",
   orgId,
   reservations,
   units,
 }: {
+  blocks: Record<string, unknown>[];
+  defaultView?: "list" | "calendar";
   orgId: string;
   reservations: Record<string, unknown>[];
   units: Record<string, unknown>[];
@@ -225,6 +236,8 @@ export function ReservationsManager({
   const router = useRouter();
 
   const [open, setOpen] = useState(false);
+  const [blockSheetOpen, setBlockSheetOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">(defaultView);
 
   // Listen for header button custom event
   useEffect(() => {
@@ -686,213 +699,278 @@ export function ReservationsManager({
         />
       </div>
 
-      {/* Quick-filter tabs */}
-      <div className="flex flex-wrap gap-1.5">
-        {quickFilterTabs.map((tab) => (
+      {/* Quick-filter tabs + view toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {quickFilterTabs.map((tab) => (
+            <Button
+              key={tab.key}
+              onClick={() => applyQuickFilter(tab.key)}
+              size="sm"
+              variant={quickFilter === tab.key ? "secondary" : "ghost"}
+            >
+              {tab.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-background/40 p-1">
           <Button
-            key={tab.key}
-            onClick={() => applyQuickFilter(tab.key)}
+            className="h-8 w-8 rounded-lg p-0 transition-all"
+            onClick={() => setViewMode("list")}
             size="sm"
-            variant={quickFilter === tab.key ? "secondary" : "ghost"}
+            variant={viewMode === "list" ? "secondary" : "ghost"}
           >
-            {tab.label}
+            <Icon icon={LeftToRightListBulletIcon} size={14} />
           </Button>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="grid w-full gap-2 md:grid-cols-4">
-          <label className="space-y-1">
-            <span className="block font-medium text-muted-foreground text-xs">
-              {isEn ? "Search" : "Buscar"}
-            </span>
-            <Input
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={
-                isEn ? "Guest, unit, status..." : "Huésped, unidad, estado..."
-              }
-              value={query}
-            />
-          </label>
-
-          <label className="space-y-1">
-            <span className="block font-medium text-muted-foreground text-xs">
-              {isEn ? "Status" : "Estado"}
-            </span>
-            <Select
-              onChange={(event) => {
-                setStatus(event.target.value);
-                if (event.target.value !== "all") setQuickFilter("all");
-              }}
-              value={status}
-            >
-              <option value="all">{isEn ? "All" : "Todos"}</option>
-              <option value="pending">{humanizeStatus("pending", isEn)}</option>
-              <option value="confirmed">
-                {humanizeStatus("confirmed", isEn)}
-              </option>
-              <option value="checked_in">
-                {humanizeStatus("checked_in", isEn)}
-              </option>
-              <option value="checked_out">
-                {humanizeStatus("checked_out", isEn)}
-              </option>
-              <option value="cancelled">
-                {humanizeStatus("cancelled", isEn)}
-              </option>
-              <option value="no_show">
-                {humanizeStatus("no_show", isEn)}
-              </option>
-            </Select>
-          </label>
-
-          <label className="space-y-1">
-            <span className="block font-medium text-muted-foreground text-xs">
-              {isEn ? "Unit" : "Unidad"}
-            </span>
-            <Select
-              onChange={(event) => setUnitId(event.target.value)}
-              value={unitId}
-            >
-              <option value="all">{isEn ? "All units" : "Todas"}</option>
-              {unitOptions.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-
-          <div className="grid grid-cols-2 gap-2">
-            <label className="space-y-1">
-              <span className="block font-medium text-muted-foreground text-xs">
-                {isEn ? "From" : "Desde"}
-              </span>
-              <DatePicker
-                locale={locale}
-                max={to || undefined}
-                onValueChange={setFrom}
-                value={from}
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="block font-medium text-muted-foreground text-xs">
-                {isEn ? "To" : "Hasta"}
-              </span>
-              <DatePicker
-                locale={locale}
-                min={from || undefined}
-                onValueChange={setTo}
-                value={to}
-              />
-            </label>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="text-muted-foreground text-sm">
-            {total} {isEn ? "records" : "registros"}
-          </div>
+          <Button
+            className="h-8 w-8 rounded-lg p-0 transition-all"
+            onClick={() => setViewMode("calendar")}
+            size="sm"
+            variant={viewMode === "calendar" ? "secondary" : "ghost"}
+          >
+            <Icon icon={Calendar02Icon} size={14} />
+          </Button>
         </div>
       </div>
 
-      {/* Collapsible trend chart */}
-      <Collapsible defaultOpen={false}>
-        <section className="rounded-3xl border border-border/80 bg-card/85 p-3.5">
-          <CollapsibleTrigger className="flex w-full items-center justify-between">
-            <div>
-              <p className="font-semibold text-sm">
-                {isEn
-                  ? "Check-in / check-out trend"
-                  : "Tendencia check-in/check-out"}
-              </p>
-              <p className="text-muted-foreground text-xs">
-                {isEn
-                  ? "Next 7 days from current filters"
-                  : "Próximos 7 días con filtros actuales"}
-              </p>
-            </div>
-            <span className="text-muted-foreground text-xs">
-              {isEn ? "Toggle" : "Mostrar"}
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2">
-              <ChartContainer
-                className="h-52 w-full"
-                config={reservationsTrendConfig}
-              >
-                <LineChart
-                  data={reservationsTrendData}
-                  margin={{ left: 2, right: 8 }}
+      {viewMode === "list" ? (
+        <>
+          {/* Filters */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div className="grid w-full gap-2 md:grid-cols-4">
+              <label className="space-y-1">
+                <span className="block font-medium text-muted-foreground text-xs">
+                  {isEn ? "Search" : "Buscar"}
+                </span>
+                <Input
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={
+                    isEn ? "Guest, unit, status..." : "Huésped, unidad, estado..."
+                  }
+                  value={query}
+                />
+              </label>
+
+              <label className="space-y-1">
+                <span className="block font-medium text-muted-foreground text-xs">
+                  {isEn ? "Status" : "Estado"}
+                </span>
+                <Select
+                  onChange={(event) => {
+                    setStatus(event.target.value);
+                    if (event.target.value !== "all") setQuickFilter("all");
+                  }}
+                  value={status}
                 >
-                  <CartesianGrid vertical={false} />
-                  <XAxis
-                    axisLine={false}
-                    dataKey="day"
-                    tickLine={false}
-                    tickMargin={8}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <ChartTooltip
-                    content={(props) => (
-                      <ChartTooltipContent
-                        {...props}
-                        headerFormatter={() =>
-                          isEn
-                            ? "Reservations trend"
-                            : "Tendencia de reservas"
-                        }
-                      />
-                    )}
-                  />
-                  <Line
-                    dataKey="checkIns"
-                    dot={{ r: 3 }}
-                    stroke="var(--color-checkIns)"
-                    strokeWidth={2}
-                    type="monotone"
-                  />
-                  <Line
-                    dataKey="checkOuts"
-                    dot={{ r: 3 }}
-                    stroke="var(--color-checkOuts)"
-                    strokeWidth={2}
-                    type="monotone"
-                  />
-                </LineChart>
-              </ChartContainer>
-            </div>
-          </CollapsibleContent>
-        </section>
-      </Collapsible>
+                  <option value="all">{isEn ? "All" : "Todos"}</option>
+                  <option value="pending">{humanizeStatus("pending", isEn)}</option>
+                  <option value="confirmed">
+                    {humanizeStatus("confirmed", isEn)}
+                  </option>
+                  <option value="checked_in">
+                    {humanizeStatus("checked_in", isEn)}
+                  </option>
+                  <option value="checked_out">
+                    {humanizeStatus("checked_out", isEn)}
+                  </option>
+                  <option value="cancelled">
+                    {humanizeStatus("cancelled", isEn)}
+                  </option>
+                  <option value="no_show">
+                    {humanizeStatus("no_show", isEn)}
+                  </option>
+                </Select>
+              </label>
 
-      <NotionDataTable
-        columns={reservationColumns}
-        data={filteredRows}
-        footer={
-          footerRow ? (
-            <TableRow>
-              <TableCell className="py-2 font-semibold text-xs" colSpan={8}>
-                {isEn ? "Total" : "Total"}
-              </TableCell>
-              <TableCell className="py-2 text-right font-semibold tabular-nums text-xs">
-                {formatCurrency(footerRow.sum, footerRow.currency, locale)}
-              </TableCell>
-            </TableRow>
-          ) : undefined
-        }
-        hideSearch
-        isEn={isEn}
-        onRowClick={handleRowClick}
-        renderRowActions={(row) => <ReservationRowActions row={row} />}
-        rowActionsHeader={isEn ? "Actions" : "Acciones"}
-      />
+              <label className="space-y-1">
+                <span className="block font-medium text-muted-foreground text-xs">
+                  {isEn ? "Unit" : "Unidad"}
+                </span>
+                <Select
+                  onChange={(event) => setUnitId(event.target.value)}
+                  value={unitId}
+                >
+                  <option value="all">{isEn ? "All units" : "Todas"}</option>
+                  {unitOptions.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1">
+                  <span className="block font-medium text-muted-foreground text-xs">
+                    {isEn ? "From" : "Desde"}
+                  </span>
+                  <DatePicker
+                    locale={locale}
+                    max={to || undefined}
+                    onValueChange={setFrom}
+                    value={from}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="block font-medium text-muted-foreground text-xs">
+                    {isEn ? "To" : "Hasta"}
+                  </span>
+                  <DatePicker
+                    locale={locale}
+                    min={from || undefined}
+                    onValueChange={setTo}
+                    value={to}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-muted-foreground text-sm">
+                {total} {isEn ? "records" : "registros"}
+              </div>
+            </div>
+          </div>
+
+          {/* Collapsible trend chart */}
+          <Collapsible defaultOpen={false}>
+            <section className="rounded-3xl border border-border/80 bg-card/85 p-3.5">
+              <CollapsibleTrigger className="flex w-full items-center justify-between">
+                <div>
+                  <p className="font-semibold text-sm">
+                    {isEn
+                      ? "Check-in / check-out trend"
+                      : "Tendencia check-in/check-out"}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {isEn
+                      ? "Next 7 days from current filters"
+                      : "Próximos 7 días con filtros actuales"}
+                  </p>
+                </div>
+                <span className="text-muted-foreground text-xs">
+                  {isEn ? "Toggle" : "Mostrar"}
+                </span>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-2">
+                  <ChartContainer
+                    className="h-52 w-full"
+                    config={reservationsTrendConfig}
+                  >
+                    <LineChart
+                      data={reservationsTrendData}
+                      margin={{ left: 2, right: 8 }}
+                    >
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        axisLine={false}
+                        dataKey="day"
+                        tickLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis
+                        allowDecimals={false}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <ChartTooltip
+                        content={(props) => (
+                          <ChartTooltipContent
+                            {...props}
+                            headerFormatter={() =>
+                              isEn
+                                ? "Reservations trend"
+                                : "Tendencia de reservas"
+                            }
+                          />
+                        )}
+                      />
+                      <Line
+                        dataKey="checkIns"
+                        dot={{ r: 3 }}
+                        stroke="var(--color-checkIns)"
+                        strokeWidth={2}
+                        type="monotone"
+                      />
+                      <Line
+                        dataKey="checkOuts"
+                        dot={{ r: 3 }}
+                        stroke="var(--color-checkOuts)"
+                        strokeWidth={2}
+                        type="monotone"
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
+              </CollapsibleContent>
+            </section>
+          </Collapsible>
+
+          <NotionDataTable
+            columns={reservationColumns}
+            data={filteredRows}
+            footer={
+              footerRow ? (
+                <TableRow>
+                  <TableCell className="py-2 font-semibold text-xs" colSpan={8}>
+                    {isEn ? "Total" : "Total"}
+                  </TableCell>
+                  <TableCell className="py-2 text-right font-semibold tabular-nums text-xs">
+                    {formatCurrency(footerRow.sum, footerRow.currency, locale)}
+                  </TableCell>
+                </TableRow>
+              ) : undefined
+            }
+            hideSearch
+            isEn={isEn}
+            onRowClick={handleRowClick}
+            renderRowActions={(row) => <ReservationRowActions row={row} />}
+            rowActionsHeader={isEn ? "Actions" : "Acciones"}
+          />
+        </>
+      ) : (
+        <>
+          {/* Calendar view */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {unitId !== "all" ? (
+                <span className="text-muted-foreground text-sm">
+                  {isEn ? "Filtered by unit" : "Filtrado por unidad"}
+                </span>
+              ) : null}
+            </div>
+            <Button
+              onClick={() => setBlockSheetOpen(true)}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              <Icon icon={PlusSignIcon} size={14} />
+              {isEn ? "New block" : "Nuevo bloqueo"}
+            </Button>
+          </div>
+
+          <WeeklyCalendar
+            blocks={
+              unitId !== "all"
+                ? blocks.filter(
+                    (b) => asString((b as Record<string, unknown>).unit_id).trim() === unitId
+                  )
+                : blocks
+            }
+            isEn={isEn}
+            locale={locale}
+            reservations={
+              unitId !== "all"
+                ? filteredRows.map((r) => r as unknown as Record<string, unknown>)
+                : reservations
+            }
+            units={unitOptions}
+          />
+        </>
+      )}
 
       <Sheet
         description={
@@ -1058,6 +1136,79 @@ export function ReservationsManager({
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               onClick={() => setOpen(false)}
+              type="button"
+              variant="outline"
+            >
+              {isEn ? "Cancel" : "Cancelar"}
+            </Button>
+            <Button type="submit" variant="secondary">
+              {isEn ? "Create" : "Crear"}
+            </Button>
+          </div>
+        </Form>
+      </Sheet>
+
+      <Sheet
+        description={
+          isEn
+            ? "Create a manual availability block (maintenance, owner use, etc.)."
+            : "Crea un bloqueo manual de disponibilidad (mantenimiento, uso del propietario, etc.)."
+        }
+        onOpenChange={setBlockSheetOpen}
+        open={blockSheetOpen}
+        title={isEn ? "New calendar block" : "Nuevo bloqueo"}
+      >
+        <Form action={createCalendarBlockAction} className="space-y-4">
+          <input name="organization_id" type="hidden" value={orgId} />
+
+          <label className="block space-y-1">
+            <span className="block font-medium text-muted-foreground text-xs">
+              {isEn ? "Unit" : "Unidad"}
+            </span>
+            <Select defaultValue="" name="unit_id" required>
+              <option disabled value="">
+                {isEn ? "Select a unit" : "Selecciona una unidad"}
+              </option>
+              {unitOptions.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="block font-medium text-muted-foreground text-xs">
+                {isEn ? "Starts" : "Inicio"}
+              </span>
+              <DatePicker locale={locale} name="starts_on" />
+            </label>
+            <label className="block space-y-1">
+              <span className="block font-medium text-muted-foreground text-xs">
+                {isEn ? "Ends" : "Fin"}
+              </span>
+              <DatePicker locale={locale} name="ends_on" />
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="block font-medium text-muted-foreground text-xs">
+              {isEn ? "Reason (optional)" : "Motivo (opcional)"}
+            </span>
+            <Input
+              name="reason"
+              placeholder={
+                isEn
+                  ? "Maintenance, owner use..."
+                  : "Mantenimiento, uso propietario..."
+              }
+            />
+          </label>
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              onClick={() => setBlockSheetOpen(false)}
               type="button"
               variant="outline"
             >

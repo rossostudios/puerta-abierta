@@ -20,7 +20,7 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { id: "go-tasks", keys: ["G", "T"], label: { en: "Go to Tasks", es: "Ir a Tareas" }, category: "navigation" },
   { id: "go-expenses", keys: ["G", "E"], label: { en: "Go to Expenses", es: "Ir a Gastos" }, category: "navigation" },
   { id: "go-leases", keys: ["G", "L"], label: { en: "Go to Leases", es: "Ir a Contratos" }, category: "navigation" },
-  { id: "go-calendar", keys: ["G", "A"], label: { en: "Go to Calendar", es: "Ir al Calendario" }, category: "navigation" },
+  { id: "go-calendar", keys: ["G", "A"], label: { en: "Go to Calendar View", es: "Ir a Vista Calendario" }, category: "navigation" },
   { id: "go-settings", keys: ["G", "S"], label: { en: "Go to Settings", es: "Ir a Configuración" }, category: "navigation" },
 
   // Global
@@ -55,7 +55,7 @@ export const SHORTCUT_BY_HREF: Record<string, string[]> = {
   "/module/tasks": ["G", "T"],
   "/module/expenses": ["G", "E"],
   "/module/leases": ["G", "L"],
-  "/module/calendar": ["G", "A"],
+  "/module/reservations?view=calendar": ["G", "A"],
   "/settings": ["G", "S"],
 };
 

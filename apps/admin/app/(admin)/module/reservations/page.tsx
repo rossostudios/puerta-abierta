@@ -22,6 +22,7 @@ type PageProps = {
     error?: string;
     guest_id?: string;
     guestId?: string;
+    view?: string;
   }>;
 };
 
@@ -87,20 +88,23 @@ export default async function ReservationsModulePage({
   }
 
   let reservations: Record<string, unknown>[] = [];
+  let blocks: Record<string, unknown>[] = [];
   let units: Record<string, unknown>[] = [];
 
   try {
-    const [reservationRows, unitRows] = await Promise.all([
+    const [reservationRows, blockRows, unitRows] = await Promise.all([
       fetchList(
         "/reservations",
         orgId,
         1000,
         guestFilter ? { guest_id: guestFilter } : undefined
       ),
+      fetchList("/calendar/blocks", orgId, 1000),
       fetchList("/units", orgId, 500),
     ]);
 
     reservations = reservationRows as Record<string, unknown>[];
+    blocks = blockRows as Record<string, unknown>[];
     units = unitRows as Record<string, unknown>[];
   } catch (err) {
     const message = errorMessage(err);
@@ -185,6 +189,8 @@ export default async function ReservationsModulePage({
           ) : null}
 
           <ReservationsManager
+            blocks={blocks}
+            defaultView={sp.view === "calendar" ? "calendar" : "list"}
             orgId={orgId}
             reservations={reservations}
             units={units}

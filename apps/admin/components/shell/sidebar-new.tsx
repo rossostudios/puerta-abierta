@@ -222,7 +222,7 @@ const SECTIONS: SectionDef[] = [
       "es-PY": "Operaciones",
       "en-US": "Operations",
     },
-    moduleSlugs: ["tasks", "reservations", "calendar", "guests"],
+    moduleSlugs: ["tasks", "reservations", "guests"],
     roles: ["owner_admin", "operator", "cleaner"],
   },
   {

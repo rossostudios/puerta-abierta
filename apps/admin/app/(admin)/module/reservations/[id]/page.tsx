@@ -191,7 +191,7 @@ export default async function ReservationDetailPage({ params }: PageProps) {
                     buttonVariants({ variant: "outline", size: "sm" }),
                     "w-full justify-start"
                   )}
-                  href={`/module/calendar?unit_id=${r.unit_id}`}
+                  href={`/module/reservations?view=calendar`}
                 >
                   {isEn ? "Calendar" : "Calendario"}
                 </Link>
