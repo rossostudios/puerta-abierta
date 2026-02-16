@@ -1,7 +1,7 @@
 "use client";
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -254,6 +254,45 @@ export function ExpensesManager({
     setEditOpen(true);
   };
 
+  const exportCsv = useCallback(() => {
+    const headers = [
+      "date",
+      "category",
+      "vendor",
+      "amount",
+      "currency",
+      "payment_method",
+      "property",
+      "unit",
+      "invoice_number",
+      "notes",
+    ];
+    const csvRows = [headers.join(",")];
+    for (const row of rows) {
+      csvRows.push(
+        [
+          row.expense_date,
+          row.category,
+          (row.vendor_name ?? "").replace(/,/g, " "),
+          row.amount,
+          row.currency,
+          row.payment_method,
+          (row.property_name ?? "").replace(/,/g, " "),
+          (row.unit_name ?? "").replace(/,/g, " "),
+          row.invoice_number ?? "",
+          (row.notes ?? "").replace(/,/g, " ").replace(/\n/g, " "),
+        ].join(",")
+      );
+    }
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `expenses-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [rows]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -409,6 +448,9 @@ export function ExpensesManager({
             ) : null}
           </div>
 
+          <Button onClick={exportCsv} type="button" variant="outline">
+            {isEn ? "Export CSV" : "Exportar CSV"}
+          </Button>
           <Button
             disabled={roleStatus === "ok" ? !canManage : false}
             onClick={() => {

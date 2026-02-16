@@ -164,11 +164,13 @@ export async function markCollectionPaidAction(formData: FormData) {
   const payment_reference = toStringValue(formData.get("payment_reference"));
   const paid_at = toStringValue(formData.get("paid_at"));
   const notes = toStringValue(formData.get("notes"));
+  const receipt_url = toStringValue(formData.get("receipt_url"));
 
   if (payment_method) payload.payment_method = payment_method;
   if (payment_reference) payload.payment_reference = payment_reference;
   if (paid_at) payload.paid_at = paid_at;
   if (notes) payload.notes = notes;
+  if (receipt_url) payload.receipt_url = receipt_url;
 
   try {
     await postJson(

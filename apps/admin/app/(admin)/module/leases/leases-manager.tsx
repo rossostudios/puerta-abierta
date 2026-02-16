@@ -1,14 +1,17 @@
 "use client";
 
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useMemo, useOptimistic, useState } from "react";
+import { useCallback, useMemo, useOptimistic, useState } from "react";
 
 import {
   createLeaseAction,
+  generateCollectionsAction,
+  renewLeaseAction,
   setLeaseStatusAction,
+  updateLeaseAction,
 } from "@/app/(admin)/module/leases/actions";
 import {
   generateLeaseContractPdf,
@@ -68,6 +71,21 @@ type LeaseRow = DataTableRow & {
   id: string;
   lease_status: string;
   lease_status_label: string;
+  tenant_full_name: string;
+  tenant_email: string | null;
+  tenant_phone_e164: string | null;
+  property_id: string | null;
+  unit_id: string | null;
+  starts_on: string;
+  ends_on: string | null;
+  currency: string;
+  monthly_rent: number;
+  service_fee_flat: number;
+  security_deposit: number;
+  guarantee_option_fee: number;
+  tax_iva: number;
+  platform_fee: number;
+  notes: string | null;
 };
 
 export function LeasesManager({
@@ -92,7 +110,25 @@ export function LeasesManager({
   }, [pathname, searchParams]);
 
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<LeaseRow | null>(null);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const openCreate = useCallback(() => {
+    setEditing(null);
+    setOpen(true);
+  }, []);
+
+  const openEdit = useCallback((row: LeaseRow) => {
+    setEditing(row);
+    setOpen(true);
+  }, []);
+
+  const [generatingFor, setGeneratingFor] = useState<LeaseRow | null>(null);
+  const [renewingFrom, setRenewingFrom] = useState<LeaseRow | null>(null);
+
+  function canRenew(status: string): boolean {
+    return ["active", "completed"].includes(status.trim().toLowerCase());
+  }
 
   const rows = useMemo<LeaseRow[]>(() => {
     return leases.map((row) => {
@@ -104,16 +140,24 @@ export function LeasesManager({
         tenant_phone_e164: asString(row.tenant_phone_e164).trim() || null,
         lease_status: status,
         lease_status_label: statusLabel(status, isEn),
+        property_id: asString(row.property_id).trim() || null,
         property_name: asString(row.property_name).trim() || null,
+        unit_id: asString(row.unit_id).trim() || null,
         unit_name: asString(row.unit_name).trim() || null,
         starts_on: asString(row.starts_on).trim(),
         ends_on: asString(row.ends_on).trim() || null,
         currency: asString(row.currency).trim().toUpperCase() || "PYG",
         monthly_rent: asNumber(row.monthly_rent),
+        service_fee_flat: asNumber(row.service_fee_flat),
+        security_deposit: asNumber(row.security_deposit),
+        guarantee_option_fee: asNumber(row.guarantee_option_fee),
+        tax_iva: asNumber(row.tax_iva),
+        platform_fee: asNumber(row.platform_fee),
         total_move_in: asNumber(row.total_move_in),
         monthly_recurring_total: asNumber(row.monthly_recurring_total),
         collection_count: asNumber(row.collection_count),
         collection_paid_count: asNumber(row.collection_paid_count),
+        notes: asString(row.notes).trim() || null,
       } satisfies LeaseRow;
     });
   }, [leases, isEn]);
@@ -240,7 +284,7 @@ export function LeasesManager({
         <p className="text-muted-foreground text-sm">
           {optimisticRows.length} {isEn ? "leases" : "contratos"}
         </p>
-        <Button onClick={() => setOpen(true)} type="button">
+        <Button onClick={openCreate} type="button">
           <Icon icon={PlusSignIcon} size={16} />
           {isEn ? "New lease" : "Nuevo contrato"}
         </Button>
@@ -288,6 +332,14 @@ export function LeasesManager({
               <Button
                 size="sm"
                 variant="ghost"
+                onClick={() => openEdit(row as unknown as LeaseRow)}
+              >
+                <Icon icon={Edit02Icon} size={14} />
+                {isEn ? "Edit" : "Editar"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
                 onClick={handleDownloadContract}
               >
                 {isEn ? "Contract" : "Contrato"}
@@ -298,6 +350,27 @@ export function LeasesManager({
               >
                 {isEn ? "Collections" : "Cobros"}
               </Link>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  setGeneratingFor(row as unknown as LeaseRow)
+                }
+              >
+                {isEn ? "Generate" : "Generar"}
+              </Button>
+
+              {canRenew(status) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() =>
+                    setRenewingFrom(row as unknown as LeaseRow)
+                  }
+                >
+                  {isEn ? "Renew" : "Renovar"}
+                </Button>
+              ) : null}
 
               {canActivate(status) ? (
                 <Form
@@ -366,38 +439,70 @@ export function LeasesManager({
       <Sheet
         contentClassName="max-w-2xl"
         description={
-          isEn
-            ? "Create a lease and optionally generate the first collection record."
-            : "Crea un contrato y opcionalmente genera el primer registro de cobro."
+          editing
+            ? isEn
+              ? "Edit lease details. Status changes use the separate action buttons."
+              : "Edita los detalles del contrato. Los cambios de estado usan los botones de acción."
+            : isEn
+              ? "Create a lease and optionally generate the first collection record."
+              : "Crea un contrato y opcionalmente genera el primer registro de cobro."
         }
         onOpenChange={setOpen}
         open={open}
-        title={isEn ? "New lease" : "Nuevo contrato"}
+        title={
+          editing
+            ? isEn
+              ? "Edit lease"
+              : "Editar contrato"
+            : isEn
+              ? "New lease"
+              : "Nuevo contrato"
+        }
       >
-        <Form action={createLeaseAction} className="space-y-4">
-          <input name="organization_id" type="hidden" value={orgId} />
+        <Form
+          action={editing ? updateLeaseAction : createLeaseAction}
+          className="space-y-4"
+          key={editing?.id ?? "create"}
+        >
+          {editing ? (
+            <input name="lease_id" type="hidden" value={editing.id} />
+          ) : (
+            <input name="organization_id" type="hidden" value={orgId} />
+          )}
           <input name="next" type="hidden" value={nextPath} />
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm md:col-span-2">
               <span>{isEn ? "Tenant full name" : "Nombre completo"}</span>
-              <Input name="tenant_full_name" required />
+              <Input
+                defaultValue={editing?.tenant_full_name ?? ""}
+                name="tenant_full_name"
+                required
+              />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Email" : "Correo"}</span>
-              <Input name="tenant_email" type="email" />
+              <Input
+                defaultValue={editing?.tenant_email ?? ""}
+                name="tenant_email"
+                type="email"
+              />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Phone" : "Teléfono"}</span>
-              <Input name="tenant_phone_e164" placeholder="+595..." />
+              <Input
+                defaultValue={editing?.tenant_phone_e164 ?? ""}
+                name="tenant_phone_e164"
+                placeholder="+595..."
+              />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Start date" : "Fecha de inicio"}</span>
               <DatePicker
-                defaultValue={today}
+                defaultValue={editing?.starts_on ?? today}
                 locale={locale}
                 name="starts_on"
               />
@@ -405,12 +510,19 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "End date" : "Fecha de término"}</span>
-              <DatePicker locale={locale} name="ends_on" />
+              <DatePicker
+                defaultValue={editing?.ends_on ?? ""}
+                locale={locale}
+                name="ends_on"
+              />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Property" : "Propiedad"}</span>
-              <Select defaultValue="" name="property_id">
+              <Select
+                defaultValue={editing?.property_id ?? ""}
+                name="property_id"
+              >
                 <option value="">
                   {isEn ? "Select property" : "Seleccionar"}
                 </option>
@@ -424,7 +536,7 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Unit" : "Unidad"}</span>
-              <Select defaultValue="" name="unit_id">
+              <Select defaultValue={editing?.unit_id ?? ""} name="unit_id">
                 <option value="">{isEn ? "Select unit" : "Seleccionar"}</option>
                 {unitOptions.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -436,25 +548,31 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Currency" : "Moneda"}</span>
-              <Select defaultValue="PYG" name="currency">
+              <Select
+                defaultValue={editing?.currency ?? "PYG"}
+                name="currency"
+              >
                 <option value="PYG">PYG</option>
                 <option value="USD">USD</option>
               </Select>
             </label>
 
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Lease status" : "Estado del contrato"}</span>
-              <Select defaultValue="active" name="lease_status">
-                <option value="draft">{isEn ? "Draft" : "Borrador"}</option>
-                <option value="active">{isEn ? "Active" : "Activo"}</option>
-              </Select>
-            </label>
+            {!editing ? (
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Lease status" : "Estado del contrato"}</span>
+                <Select defaultValue="active" name="lease_status">
+                  <option value="draft">{isEn ? "Draft" : "Borrador"}</option>
+                  <option value="active">{isEn ? "Active" : "Activo"}</option>
+                </Select>
+              </label>
+            ) : null}
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Monthly rent" : "Alquiler mensual"}</span>
               <Input
+                defaultValue={editing?.monthly_rent ?? ""}
                 min={0}
                 name="monthly_rent"
                 required
@@ -465,12 +583,19 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>IVA</span>
-              <Input min={0} name="tax_iva" step="0.01" type="number" />
+              <Input
+                defaultValue={editing?.tax_iva ?? ""}
+                min={0}
+                name="tax_iva"
+                step="0.01"
+                type="number"
+              />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>
               <Input
+                defaultValue={editing?.service_fee_flat ?? ""}
                 min={0}
                 name="service_fee_flat"
                 step="0.01"
@@ -481,6 +606,7 @@ export function LeasesManager({
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Security deposit" : "Depósito de garantía"}</span>
               <Input
+                defaultValue={editing?.security_deposit ?? ""}
                 min={0}
                 name="security_deposit"
                 step="0.01"
@@ -491,6 +617,7 @@ export function LeasesManager({
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Guarantee option fee" : "Costo de garantía"}</span>
               <Input
+                defaultValue={editing?.guarantee_option_fee ?? ""}
                 min={0}
                 name="guarantee_option_fee"
                 step="0.01"
@@ -500,44 +627,339 @@ export function LeasesManager({
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Platform fee" : "Tarifa plataforma"}</span>
-              <Input min={0} name="platform_fee" step="0.01" type="number" />
-            </label>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span>
-                {isEn ? "Generate first collection" : "Generar primer cobro"}
-              </span>
-              <Select defaultValue="1" name="generate_first_collection">
-                <option value="1">{isEn ? "Yes" : "Sí"}</option>
-                <option value="0">{isEn ? "No" : "No"}</option>
-              </Select>
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>
-                {isEn ? "First collection due" : "Vencimiento primer cobro"}
-              </span>
-              <DatePicker
-                defaultValue={today}
-                locale={locale}
-                name="first_collection_due_date"
+              <Input
+                defaultValue={editing?.platform_fee ?? ""}
+                min={0}
+                name="platform_fee"
+                step="0.01"
+                type="number"
               />
             </label>
           </div>
 
+          {!editing ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span>
+                  {isEn ? "Generate first collection" : "Generar primer cobro"}
+                </span>
+                <Select defaultValue="1" name="generate_first_collection">
+                  <option value="1">{isEn ? "Yes" : "Sí"}</option>
+                  <option value="0">{isEn ? "No" : "No"}</option>
+                </Select>
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>
+                  {isEn ? "First collection due" : "Vencimiento primer cobro"}
+                </span>
+                <DatePicker
+                  defaultValue={today}
+                  locale={locale}
+                  name="first_collection_due_date"
+                />
+              </label>
+            </div>
+          ) : null}
+
           <label className="space-y-1 text-sm">
             <span>{isEn ? "Notes" : "Notas"}</span>
-            <Textarea name="notes" rows={3} />
+            <Textarea
+              defaultValue={editing?.notes ?? ""}
+              name="notes"
+              rows={3}
+            />
           </label>
 
           <div className="flex justify-end">
             <Button type="submit">
-              {isEn ? "Create lease" : "Crear contrato"}
+              {editing
+                ? isEn
+                  ? "Save changes"
+                  : "Guardar cambios"
+                : isEn
+                  ? "Create lease"
+                  : "Crear contrato"}
             </Button>
           </div>
         </Form>
+      </Sheet>
+
+      <Sheet
+        contentClassName="max-w-md"
+        description={
+          isEn
+            ? `Generate monthly collection records for ${generatingFor?.tenant_full_name ?? "this lease"}.`
+            : `Genera registros de cobro mensual para ${generatingFor?.tenant_full_name ?? "este contrato"}.`
+        }
+        onOpenChange={(v) => {
+          if (!v) setGeneratingFor(null);
+        }}
+        open={!!generatingFor}
+        title={isEn ? "Generate collections" : "Generar cobros"}
+      >
+        {generatingFor ? (
+          <Form
+            action={generateCollectionsAction}
+            className="space-y-4"
+            key={generatingFor.id}
+          >
+            <input name="organization_id" type="hidden" value={orgId} />
+            <input name="lease_id" type="hidden" value={generatingFor.id} />
+            <input name="currency" type="hidden" value={generatingFor.currency} />
+            <input name="next" type="hidden" value={nextPath} />
+
+            <label className="space-y-1 text-sm">
+              <span>
+                {isEn ? "Number of months" : "Cantidad de meses"}
+              </span>
+              <Input
+                defaultValue={12}
+                max={36}
+                min={1}
+                name="count"
+                required
+                type="number"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Starting from" : "A partir de"}</span>
+              <DatePicker
+                defaultValue={today}
+                locale={locale}
+                name="start_date"
+              />
+            </label>
+
+            <label className="space-y-1 text-sm">
+              <span>
+                {isEn ? "Amount per month" : "Monto mensual"} (
+                {generatingFor.currency})
+              </span>
+              <Input
+                defaultValue={
+                  asNumber(generatingFor.monthly_recurring_total) ||
+                  generatingFor.monthly_rent ||
+                  0
+                }
+                min={0}
+                name="amount"
+                required
+                step="0.01"
+                type="number"
+              />
+            </label>
+
+            <div className="flex justify-end">
+              <Button type="submit">
+                {isEn ? "Generate" : "Generar"}
+              </Button>
+            </div>
+          </Form>
+        ) : null}
+      </Sheet>
+
+      <Sheet
+        contentClassName="max-w-2xl"
+        description={
+          isEn
+            ? `Renew lease for ${renewingFrom?.tenant_full_name ?? "tenant"}. A new active lease will be created and the current one marked as completed.`
+            : `Renovar contrato para ${renewingFrom?.tenant_full_name ?? "inquilino"}. Se creará un nuevo contrato activo y el actual se marcará como completado.`
+        }
+        onOpenChange={(v) => {
+          if (!v) setRenewingFrom(null);
+        }}
+        open={!!renewingFrom}
+        title={isEn ? "Renew lease" : "Renovar contrato"}
+      >
+        {renewingFrom ? (
+          <Form
+            action={renewLeaseAction}
+            className="space-y-4"
+            key={`renew-${renewingFrom.id}`}
+          >
+            <input
+              name="old_lease_id"
+              type="hidden"
+              value={renewingFrom.id}
+            />
+            <input name="organization_id" type="hidden" value={orgId} />
+            <input name="next" type="hidden" value={nextPath} />
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="space-y-1 text-sm md:col-span-2">
+                <span>{isEn ? "Tenant full name" : "Nombre completo"}</span>
+                <Input
+                  defaultValue={renewingFrom.tenant_full_name}
+                  name="tenant_full_name"
+                  required
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Email" : "Correo"}</span>
+                <Input
+                  defaultValue={renewingFrom.tenant_email ?? ""}
+                  name="tenant_email"
+                  type="email"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Phone" : "Teléfono"}</span>
+                <Input
+                  defaultValue={renewingFrom.tenant_phone_e164 ?? ""}
+                  name="tenant_phone_e164"
+                  placeholder="+595..."
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "New start date" : "Nueva fecha inicio"}</span>
+                <DatePicker
+                  defaultValue={renewingFrom.ends_on ?? today}
+                  locale={locale}
+                  name="starts_on"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "New end date" : "Nueva fecha término"}</span>
+                <DatePicker locale={locale} name="ends_on" />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Property" : "Propiedad"}</span>
+                <Select
+                  defaultValue={renewingFrom.property_id ?? ""}
+                  name="property_id"
+                >
+                  <option value="">
+                    {isEn ? "Select property" : "Seleccionar"}
+                  </option>
+                  {propertyOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Unit" : "Unidad"}</span>
+                <Select
+                  defaultValue={renewingFrom.unit_id ?? ""}
+                  name="unit_id"
+                >
+                  <option value="">
+                    {isEn ? "Select unit" : "Seleccionar"}
+                  </option>
+                  {unitOptions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Currency" : "Moneda"}</span>
+                <Select
+                  defaultValue={renewingFrom.currency}
+                  name="currency"
+                >
+                  <option value="PYG">PYG</option>
+                  <option value="USD">USD</option>
+                </Select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Monthly rent" : "Alquiler mensual"}</span>
+                <Input
+                  defaultValue={renewingFrom.monthly_rent}
+                  min={0}
+                  name="monthly_rent"
+                  required
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>IVA</span>
+                <Input
+                  defaultValue={renewingFrom.tax_iva}
+                  min={0}
+                  name="tax_iva"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>
+                <Input
+                  defaultValue={renewingFrom.service_fee_flat}
+                  min={0}
+                  name="service_fee_flat"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>
+                  {isEn ? "Security deposit" : "Depósito de garantía"}
+                </span>
+                <Input
+                  defaultValue={renewingFrom.security_deposit}
+                  min={0}
+                  name="security_deposit"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>
+                  {isEn ? "Guarantee option fee" : "Costo de garantía"}
+                </span>
+                <Input
+                  defaultValue={renewingFrom.guarantee_option_fee}
+                  min={0}
+                  name="guarantee_option_fee"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Platform fee" : "Tarifa plataforma"}</span>
+                <Input
+                  defaultValue={renewingFrom.platform_fee}
+                  min={0}
+                  name="platform_fee"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+            </div>
+
+            <label className="space-y-1 text-sm">
+              <span>{isEn ? "Notes" : "Notas"}</span>
+              <Textarea name="notes" rows={3} />
+            </label>
+
+            <div className="flex justify-end">
+              <Button type="submit">
+                {isEn ? "Renew lease" : "Renovar contrato"}
+              </Button>
+            </div>
+          </Form>
+        ) : null}
       </Sheet>
     </div>
   );

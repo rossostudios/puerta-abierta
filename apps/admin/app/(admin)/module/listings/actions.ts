@@ -5,8 +5,7 @@ import { redirect, unstable_rethrow } from "next/navigation";
 
 import { patchJson, postJson } from "@/lib/api";
 
-const NEWLINE_SPLIT_REGEX = /\r?\n/;
-const AMENITIES_SPLIT_REGEX = /[\n,]/;
+const COMMA_SPLIT_REGEX = /,/;
 
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
@@ -23,19 +22,33 @@ function toOptionalNumber(value: FormDataEntryValue | null): number | null {
 function parseGalleryImageUrls(value: FormDataEntryValue | null): string[] {
   const text = toStringValue(value);
   if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) {
+      return parsed.map((item) => String(item).trim()).filter(Boolean);
+    }
+  } catch {
+    // fall through to line-split for backwards compat
+  }
   return text
-    .split(NEWLINE_SPLIT_REGEX)
+    .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
 
-function parseAmenities(value: FormDataEntryValue | null): string[] {
-  const text = toStringValue(value);
-  if (!text) return [];
-  return text
-    .split(AMENITIES_SPLIT_REGEX)
+function parseCombinedAmenities(
+  checked: FormDataEntryValue | null,
+  custom: FormDataEntryValue | null
+): string[] {
+  const checkedList = toStringValue(checked)
+    .split(COMMA_SPLIT_REGEX)
     .map((item) => item.trim())
     .filter(Boolean);
+  const customList = toStringValue(custom)
+    .split(COMMA_SPLIT_REGEX)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return [...new Set([...checkedList, ...customList])];
 }
 
 function toOptionalBoolean(value: FormDataEntryValue | null): boolean | null {
@@ -118,13 +131,17 @@ export async function createListingAction(formData: FormData) {
   const square_meters = toOptionalNumber(formData.get("square_meters"));
   const property_type = toStringValue(formData.get("property_type"));
   const furnished = toOptionalBoolean(formData.get("furnished"));
-  const pet_policy = toStringValue(formData.get("pet_policy"));
+  const pet_policy_raw = toStringValue(formData.get("pet_policy"));
+  const pet_policy = pet_policy_raw || null;
   const parking_spaces = toOptionalNumber(formData.get("parking_spaces"));
   const minimum_lease_months = toOptionalNumber(
     formData.get("minimum_lease_months")
   );
   const available_from = toStringValue(formData.get("available_from"));
-  const amenities = parseAmenities(formData.get("amenities"));
+  const amenities = parseCombinedAmenities(
+    formData.get("amenities_checked"),
+    formData.get("amenities_custom")
+  );
   const maintenance_fee = toOptionalNumber(formData.get("maintenance_fee"));
   const pricing_template_id = toStringValue(
     formData.get("pricing_template_id")
@@ -160,6 +177,98 @@ export async function createListingAction(formData: FormData) {
     revalidatePath("/module/listings");
     revalidatePath("/marketplace");
     redirect(withParams(next, { success: "listing-created" }));
+  } catch (err) {
+    unstable_rethrow(err);
+    const message = err instanceof Error ? err.message : String(err);
+    redirect(withParams(next, { error: message.slice(0, 240) }));
+  }
+}
+
+export async function updateListingAction(formData: FormData) {
+  const listing_id = toStringValue(formData.get("listing_id"));
+  if (!listing_id) {
+    redirect(listingsUrl({ error: "listing_id is required" }));
+  }
+
+  const next = normalizeNext(
+    toStringValue(formData.get("next")),
+    listingsUrl()
+  );
+
+  const title = toStringValue(formData.get("title"));
+  if (!title) {
+    redirect(withParams(next, { error: "title is required" }));
+  }
+
+  const payload: Record<string, unknown> = { title };
+
+  const public_slug = toStringValue(formData.get("public_slug"));
+  if (public_slug) payload.public_slug = public_slug;
+
+  const city = toStringValue(formData.get("city"));
+  if (city) payload.city = city;
+
+  const country_code = toStringValue(formData.get("country_code"));
+  if (country_code) payload.country_code = country_code;
+
+  const currency = toStringValue(formData.get("currency"));
+  if (currency) payload.currency = currency.toUpperCase();
+
+  const summary = toStringValue(formData.get("summary"));
+  const description = toStringValue(formData.get("description"));
+  const neighborhood = toStringValue(formData.get("neighborhood"));
+  const cover_image_url = toStringValue(formData.get("cover_image_url"));
+  const gallery_image_urls = parseGalleryImageUrls(
+    formData.get("gallery_image_urls")
+  );
+  const bedrooms = toOptionalNumber(formData.get("bedrooms"));
+  const bathrooms = toOptionalNumber(formData.get("bathrooms"));
+  const square_meters = toOptionalNumber(formData.get("square_meters"));
+  const property_type = toStringValue(formData.get("property_type"));
+  const furnished = toOptionalBoolean(formData.get("furnished"));
+  const pet_policy_raw = toStringValue(formData.get("pet_policy"));
+  const pet_policy = pet_policy_raw || null;
+  const parking_spaces = toOptionalNumber(formData.get("parking_spaces"));
+  const minimum_lease_months = toOptionalNumber(
+    formData.get("minimum_lease_months")
+  );
+  const available_from = toStringValue(formData.get("available_from"));
+  const amenities = parseCombinedAmenities(
+    formData.get("amenities_checked"),
+    formData.get("amenities_custom")
+  );
+  const maintenance_fee = toOptionalNumber(formData.get("maintenance_fee"));
+  const pricing_template_id = toStringValue(
+    formData.get("pricing_template_id")
+  );
+  const property_id = toStringValue(formData.get("property_id"));
+  const unit_id = toStringValue(formData.get("unit_id"));
+
+  payload.summary = summary || null;
+  payload.description = description || null;
+  payload.neighborhood = neighborhood || null;
+  payload.cover_image_url = cover_image_url || null;
+  payload.gallery_image_urls = gallery_image_urls;
+  payload.bedrooms = bedrooms;
+  payload.bathrooms = bathrooms;
+  payload.square_meters = square_meters;
+  payload.property_type = property_type || null;
+  payload.furnished = furnished;
+  payload.pet_policy = pet_policy;
+  payload.parking_spaces = parking_spaces;
+  payload.minimum_lease_months = minimum_lease_months;
+  payload.available_from = available_from || null;
+  payload.amenities = amenities;
+  payload.maintenance_fee = maintenance_fee;
+  payload.pricing_template_id = pricing_template_id || null;
+  payload.property_id = property_id || null;
+  payload.unit_id = unit_id || null;
+
+  try {
+    await patchJson(`/listings/${encodeURIComponent(listing_id)}`, payload);
+    revalidatePath("/module/listings");
+    revalidatePath("/marketplace");
+    redirect(withParams(next, { success: "listing-updated" }));
   } catch (err) {
     unstable_rethrow(err);
     const message = err instanceof Error ? err.message : String(err);

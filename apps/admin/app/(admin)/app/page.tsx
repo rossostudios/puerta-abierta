@@ -135,7 +135,7 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
         labelEn: "Owner payouts",
         labelEs: "Pagos a propietarios",
         detailEn: "Track statements and reconciliation deltas.",
-        detailEs: "Revisa estados y diferencias de conciliación.",
+        detailEs: "Revisa estados y diferencias de conciliacion.",
         icon: Invoice01Icon,
       },
       {
@@ -180,7 +180,7 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
         labelEn: "Reporting hub",
         labelEs: "Centro de reportes",
         detailEn: "Export financial and operations summaries.",
-        detailEs: "Exporta resúmenes financieros y operativos.",
+        detailEs: "Exporta resumenes financieros y operativos.",
         icon: ChartIcon,
       },
     ];
@@ -192,15 +192,15 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
       labelEn: "Portfolio performance",
       labelEs: "Rendimiento del portafolio",
       detailEn: "Review revenue, occupancy, and net payout.",
-      detailEs: "Revisa ingresos, ocupación y pago neto.",
+      detailEs: "Revisa ingresos, ocupacion y pago neto.",
       icon: ChartIcon,
     },
     {
       href: "/module/reservations",
       labelEn: "Upcoming stays",
-      labelEs: "Próximas estadías",
+      labelEs: "Proximas estadias",
       detailEn: "Track upcoming check-ins and check-outs.",
-      detailEs: "Sigue check-ins y check-outs próximos.",
+      detailEs: "Sigue check-ins y check-outs proximos.",
       icon: CalendarCheckIn01Icon,
     },
     {
@@ -208,7 +208,7 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
       labelEn: "Operations risks",
       labelEs: "Riesgos operativos",
       detailEn: "See overdue tasks and SLA risk signals.",
-      detailEs: "Visualiza tareas vencidas y señales de riesgo SLA.",
+      detailEs: "Visualiza tareas vencidas y senales de riesgo SLA.",
       icon: Task01Icon,
     },
   ];
@@ -333,6 +333,16 @@ async function safeAuthUser(): Promise<Record<string, unknown>> {
   }
 }
 
+type NeedsAttentionItem = {
+  key: string;
+  labelEn: string;
+  labelEs: string;
+  href: string;
+  ctaEn: string;
+  ctaEs: string;
+  priority: number;
+};
+
 type DashboardPageProps = {
   searchParams: Promise<{ onboarding?: string }>;
 };
@@ -354,12 +364,12 @@ export default async function DashboardPage({
           <CardTitle>
             {isEn
               ? "Missing organization context"
-              : "Falta contexto de organización"}
+              : "Falta contexto de organizacion"}
           </CardTitle>
           <CardDescription>
             {isEn
               ? "Select an organization to load portfolio data."
-              : "Selecciona una organización para cargar los datos del portafolio."}
+              : "Selecciona una organizacion para cargar los datos del portafolio."}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
@@ -374,8 +384,8 @@ export default async function DashboardPage({
             <>
               Abre{" "}
               <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>{" "}
-              para crear tu primera organización, o usa el selector de
-              organización en la barra superior.
+              para crear tu primera organizacion, o usa el selector de
+              organizacion en la barra superior.
             </>
           )}
         </CardContent>
@@ -510,7 +520,9 @@ export default async function DashboardPage({
   const occupancyRate =
     typeof summary.occupancy_rate === "number"
       ? `${(summary.occupancy_rate * 100).toFixed(1)}%`
-      : "0%";
+      : kpiDashboard.occupancy_rate != null
+        ? `${(numberOrZero(kpiDashboard.occupancy_rate) * 100).toFixed(1)}%`
+        : "0%";
 
   const revenueSnapshot = apiAvailable
     ? {
@@ -540,23 +552,16 @@ export default async function DashboardPage({
     applications as Record<string, unknown>[]
   ).filter((row) => qualifiedLikeStatuses.has(String(row.status ?? ""))).length;
 
+  const pendingApplications = (
+    applications as Record<string, unknown>[]
+  ).filter((row) => String(row.status ?? "").toLowerCase() === "pending").length;
+
   const paidCollections = (collections as Record<string, unknown>[]).filter(
     (row) => String(row.status ?? "") === "paid"
   ).length;
   const collectionRate =
     collections.length > 0
       ? `${((paidCollections / collections.length) * 100).toFixed(1)}%`
-      : "0%";
-
-  const publishedListings = (
-    listings as Record<string, unknown>[]
-  ).filter((row) => Boolean(row.is_published));
-  const transparentListings = publishedListings.filter((row) =>
-    Boolean(row.fee_breakdown_complete)
-  ).length;
-  const transparentListingsPct =
-    publishedListings.length > 0
-      ? `${((transparentListings / publishedListings.length) * 100).toFixed(1)}%`
       : "0%";
 
   const operationsKpis = {
@@ -580,144 +585,105 @@ export default async function DashboardPage({
     applications as Record<string, unknown>[]
   ).filter((row) => !row.assigned_user_id).length;
 
-  const opsAlertsCards = [
-    operationsKpis.slaBreachedTasks > 0
-      ? {
-          key: "sla-breaches",
-          variant: "destructive" as const,
-          title: isEn
-            ? "SLA breaches detected"
-            : "Incumplimientos SLA detectados",
-          description: isEn
-            ? `${operationsKpis.slaBreachedTasks} tasks crossed SLA targets.`
-            : `${operationsKpis.slaBreachedTasks} tareas excedieron el SLA.`,
-        }
-      : null,
-    operationsKpis.overdueTasks > 0
-      ? {
-          key: "overdue-turnovers",
-          variant: "warning" as const,
-          title: isEn
-            ? "Overdue operations tasks"
-            : "Tareas operativas vencidas",
-          description: isEn
-            ? `${operationsKpis.overdueTasks} open tasks are overdue.`
-            : `${operationsKpis.overdueTasks} tareas abiertas están vencidas.`,
-        }
-      : null,
-    unassignedApplications > 0
-      ? {
-          key: "assignment-gaps",
-          variant: "info" as const,
-          title: isEn ? "Assignment gaps" : "Brechas de asignación",
-          description: isEn
-            ? `${unassignedApplications} applications are still unassigned.`
-            : `${unassignedApplications} aplicaciones siguen sin responsable.`,
-        }
-      : null,
-    opsAlerts.length > 0
-      ? {
-          key: "integration-alerts",
-          variant: "warning" as const,
-          title: isEn ? "Integration alerts" : "Alertas de integración",
-          description: isEn
-            ? `${opsAlerts.length} failed alert events need review.`
-            : `${opsAlerts.length} eventos fallidos requieren revisión.`,
-        }
-      : null,
-  ].filter(Boolean) as Array<{
-    key: string;
-    variant: "destructive" | "warning" | "info";
-    title: string;
-    description: string;
-  }>;
+  // ── Needs Attention items ────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const overdueCollections = (collections as Record<string, unknown>[]).filter(
+    (row) => {
+      const status = String(row.status ?? "").toLowerCase();
+      if (status === "paid" || status === "waived") return false;
+      const dueDate = String(row.due_date ?? "");
+      return dueDate < todayStr && /^\d{4}-\d{2}-\d{2}$/.test(dueDate);
+    }
+  );
 
-  const roleKpis =
-    activeRole === "operator"
-      ? [
-          {
-            label: isEn ? "Upcoming check-ins" : "Check-ins próximos",
-            value: String(operationsKpis.upcomingCheckIns),
-            helper: isEn ? "Next 7 days" : "Próximos 7 días",
-            icon: CalendarCheckIn01Icon,
-          },
-          {
-            label: isEn ? "Upcoming check-outs" : "Check-outs próximos",
-            value: String(operationsKpis.upcomingCheckOuts),
-            helper: isEn ? "Next 7 days" : "Próximos 7 días",
-            icon: CalendarCheckIn01Icon,
-          },
-          {
-            label: isEn ? "Turnover on-time rate" : "Turnovers a tiempo",
-            value: `${(operationsKpis.turnoverOnTimeRate * 100).toFixed(1)}%`,
-            helper: `${operationsKpis.turnoversOnTime}/${operationsKpis.turnoversDue}`,
-            icon: Task01Icon,
-          },
-        ]
-      : activeRole === "owner_admin"
-        ? [
-            {
-              label: isEn ? "Portfolio occupancy" : "Ocupación portafolio",
-              value: occupancyRate,
-              helper: isEn ? "Current period" : "Periodo actual",
-              icon: Home01Icon,
-            },
-            {
-              label: isEn ? "Collections paid" : "Cobranzas pagadas",
-              value: collectionRate,
-              helper: `${paidCollections}/${collections.length}`,
-              icon: Invoice01Icon,
-            },
-            {
-              label: isEn ? "Transparent listings" : "Anuncios transparentes",
-              value: transparentListingsPct,
-              helper: `${transparentListings}/${publishedListings.length}`,
-              icon: ChartIcon,
-            },
-          ]
-        : activeRole === "accountant"
-          ? [
-              {
-                label: isEn ? "Net payout" : "Pago neto",
-                value: reportNet,
-                helper: isEn ? "Current period" : "Periodo actual",
-                icon: Invoice01Icon,
-              },
-              {
-                label: isEn ? "Gross revenue" : "Ingresos brutos",
-                value: reportGross,
-                helper: isEn ? "Current period" : "Periodo actual",
-                icon: ChartIcon,
-              },
-              {
-                label: isEn ? "SLA breached tasks" : "Tareas SLA vencido",
-                value: String(operationsKpis.slaBreachedTasks),
-                helper: isEn ? "Ops risk signal" : "Señal de riesgo operativo",
-                icon: Task01Icon,
-              },
-            ]
-          : [
-              {
-                label: isEn ? "Properties" : "Propiedades",
-                value: String(properties.length),
-                helper: isEn ? "Portfolio scope" : "Alcance de portafolio",
-                icon: Home01Icon,
-              },
-              {
-                label: isEn ? "Open tasks" : "Tareas abiertas",
-                value: String(operationsKpis.openTasks),
-                helper: isEn ? "Current queue" : "Cola actual",
-                icon: Task01Icon,
-              },
-              {
-                label: isEn
-                  ? "Qualified applications"
-                  : "Aplicaciones calificadas",
-                value: String(qualifiedApplications),
-                helper: isEn ? "Leasing pipeline" : "Pipeline de leasing",
-                icon: File01Icon,
-              },
-            ];
+  const draftListingsOld = (listings as Record<string, unknown>[]).filter(
+    (row) => {
+      if (row.is_published) return false;
+      const created = String(row.created_at ?? "").slice(0, 10);
+      if (!created || !/^\d{4}-\d{2}-\d{2}$/.test(created)) return false;
+      const sevenDaysAgo = new Date(
+        Date.now() - 7 * 86_400_000
+      ).toISOString().slice(0, 10);
+      return created < sevenDaysAgo;
+    }
+  );
+
+  const expiringLeases = (leases as Record<string, unknown>[]).filter(
+    (row) => {
+      const status = String(row.lease_status ?? "").toLowerCase();
+      if (status !== "active") return false;
+      const endsOn = String(row.ends_on ?? "");
+      if (!endsOn || !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) return false;
+      const thirtyDaysOut = new Date(
+        Date.now() + 30 * 86_400_000
+      ).toISOString().slice(0, 10);
+      return endsOn <= thirtyDaysOut && endsOn >= todayStr;
+    }
+  );
+
+  const needsAttention: NeedsAttentionItem[] = [];
+
+  if (overdueCollections.length > 0) {
+    needsAttention.push({
+      key: "overdue-collections",
+      labelEn: `${overdueCollections.length} overdue collection${overdueCollections.length > 1 ? "s" : ""}`,
+      labelEs: `${overdueCollections.length} cobro${overdueCollections.length > 1 ? "s" : ""} vencido${overdueCollections.length > 1 ? "s" : ""}`,
+      href: "/module/collections",
+      ctaEn: "Review",
+      ctaEs: "Revisar",
+      priority: 1,
+    });
+  }
+
+  if (draftListingsOld.length > 0) {
+    needsAttention.push({
+      key: "draft-listings",
+      labelEn: `${draftListingsOld.length} draft listing${draftListingsOld.length > 1 ? "s" : ""} never published`,
+      labelEs: `${draftListingsOld.length} anuncio${draftListingsOld.length > 1 ? "s" : ""} borrador sin publicar`,
+      href: "/module/listings",
+      ctaEn: "Publish",
+      ctaEs: "Publicar",
+      priority: 3,
+    });
+  }
+
+  if (unassignedApplications > 0) {
+    needsAttention.push({
+      key: "unassigned-apps",
+      labelEn: `${unassignedApplications} unassigned application${unassignedApplications > 1 ? "s" : ""}`,
+      labelEs: `${unassignedApplications} aplicacion${unassignedApplications > 1 ? "es" : ""} sin asignar`,
+      href: "/module/applications",
+      ctaEn: "Assign",
+      ctaEs: "Asignar",
+      priority: 2,
+    });
+  }
+
+  if (expiringLeases.length > 0) {
+    needsAttention.push({
+      key: "expiring-leases",
+      labelEn: `${expiringLeases.length} lease${expiringLeases.length > 1 ? "s" : ""} expiring in 30 days`,
+      labelEs: `${expiringLeases.length} contrato${expiringLeases.length > 1 ? "s" : ""} por vencer en 30 dias`,
+      href: "/module/leases",
+      ctaEn: "Review",
+      ctaEs: "Revisar",
+      priority: 4,
+    });
+  }
+
+  if (operationsKpis.slaBreachedTasks > 0) {
+    needsAttention.push({
+      key: "sla-breaches",
+      labelEn: `${operationsKpis.slaBreachedTasks} SLA breach${operationsKpis.slaBreachedTasks > 1 ? "es" : ""}`,
+      labelEs: `${operationsKpis.slaBreachedTasks} incumplimiento${operationsKpis.slaBreachedTasks > 1 ? "s" : ""} SLA`,
+      href: "/module/tasks",
+      ctaEn: "View",
+      ctaEs: "Ver",
+      priority: 1,
+    });
+  }
+
+  needsAttention.sort((a, b) => a.priority - b.priority);
 
   const checklistItems = getChecklistItems(orgRentalMode, {
     integrations: integrations.length,
@@ -777,7 +743,7 @@ export default async function DashboardPage({
           <AlertDescription>
             {isEn
               ? "Great start. Continue with integrations, listings, and daily operations."
-              : "Excelente inicio. Continúa con integraciones, anuncios y la operación diaria."}
+              : "Excelente inicio. Continua con integraciones, anuncios y la operacion diaria."}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -786,40 +752,91 @@ export default async function DashboardPage({
         <GettingStartedChecklist items={checklistItems} locale={locale} />
       ) : null}
 
-      {opsAlertsCards.length > 0 ? (
-        <section className="grid gap-3 md:grid-cols-2">
-          {opsAlertsCards.map((item) => (
-            <Alert key={item.key} variant={item.variant}>
-              <AlertTitle>{item.title}</AlertTitle>
-              <AlertDescription>{item.description}</AlertDescription>
-            </Alert>
-          ))}
+      {/* ── 1A: Hero metrics ────────────────────────────────── */}
+      <section
+        aria-label={isEn ? "Key metrics" : "Metricas clave"}
+        className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"
+      >
+        <Link href="/module/leases">
+          <StatCard
+            icon={Home01Icon}
+            label={isEn ? "Occupancy rate" : "Tasa de ocupacion"}
+            value={occupancyRate}
+            helper={
+              kpiDashboard.active_leases != null
+                ? `${numberOrZero(kpiDashboard.active_leases)}/${numberOrZero(kpiDashboard.total_units)} ${isEn ? "units" : "unidades"}`
+                : isEn
+                  ? "Current period"
+                  : "Periodo actual"
+            }
+          />
+        </Link>
+        <Link href="/module/reports/finance">
+          <StatCard
+            icon={ChartIcon}
+            label={isEn ? "Monthly revenue" : "Ingresos mensuales"}
+            value={reportGross}
+            helper={
+              revenueSnapshot
+                ? `${isEn ? "Net" : "Neto"}: ${reportNet}`
+                : isEn
+                  ? "Current month"
+                  : "Este mes"
+            }
+          />
+        </Link>
+        <Link href="/module/collections">
+          <StatCard
+            icon={Invoice01Icon}
+            label={isEn ? "Collection rate" : "Tasa de cobro"}
+            value={collectionRate}
+            helper={`${paidCollections}/${collections.length} ${isEn ? "paid" : "pagados"}`}
+          />
+        </Link>
+        <Link href="/module/applications">
+          <StatCard
+            icon={File01Icon}
+            label={isEn ? "Pipeline" : "Pipeline"}
+            value={String(qualifiedApplications + pendingApplications)}
+            helper={`${qualifiedApplications} ${isEn ? "qualified" : "calificados"} · ${pendingApplications} ${isEn ? "pending" : "pendientes"}`}
+          />
+        </Link>
+      </section>
+
+      {/* ── 1B: Needs Attention ─────────────────────────────── */}
+      {needsAttention.length > 0 ? (
+        <section className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5">
+          <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+            {isEn ? "Needs attention" : "Requiere atencion"}
+          </h2>
+          <div className="divide-y divide-border/60">
+            {needsAttention.map((item) => (
+              <div
+                className="flex items-center justify-between gap-3 py-2.5"
+                key={item.key}
+              >
+                <p className="text-sm">
+                  {isEn ? item.labelEn : item.labelEs}
+                </p>
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "shrink-0"
+                  )}
+                  href={item.href}
+                >
+                  {isEn ? item.ctaEn : item.ctaEs}
+                  <Icon icon={ArrowRight01Icon} size={13} />
+                </Link>
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
 
+      {/* ── Operations ──────────────────────────────────────── */}
       <section
-        aria-label={isEn ? "Role control center" : "Centro de control por rol"}
-        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
-      >
-        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-          {isEn ? "Role control center" : "Centro de control por rol"}
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {roleKpis.map((item) => (
-            <StatCard
-              helper={item.helper}
-              icon={item.icon}
-              key={item.label}
-              label={item.label}
-              value={item.value}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ── KPI stats ───────────────────────────────────────── */}
-      <section
-        aria-label={isEn ? "Key metrics" : "Métricas clave"}
+        aria-label={isEn ? "Operations" : "Operaciones"}
         className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
       >
         <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
@@ -834,10 +851,10 @@ export default async function DashboardPage({
           />
           <StatCard
             helper={
-              isEn ? "Check-ins next 7 days" : "Check-ins próximos 7 días"
+              isEn ? "Check-ins next 7 days" : "Check-ins proximos 7 dias"
             }
             icon={CalendarCheckIn01Icon}
-            label={isEn ? "Upcoming check-ins" : "Check-ins próximos"}
+            label={isEn ? "Upcoming check-ins" : "Check-ins proximos"}
             value={String(operationsKpis.upcomingCheckIns)}
           />
           <StatCard
@@ -845,67 +862,6 @@ export default async function DashboardPage({
             icon={Task01Icon}
             label={isEn ? "Open tasks" : "Tareas abiertas"}
             value={String(operationsKpis.openTasks)}
-          />
-        </div>
-      </section>
-
-      {/* ── Finance stats ───────────────────────────────────── */}
-      <section
-        aria-label={isEn ? "Financial overview" : "Resumen financiero"}
-        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
-      >
-        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-          {isEn ? "Finance" : "Finanzas"}
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <StatCard
-            helper={isEn ? "Generated this period" : "Generados este período"}
-            icon={File01Icon}
-            label={isEn ? "Portfolio" : "Portafolio"}
-            value={String(properties.length)}
-          />
-          <StatCard
-            helper={isEn ? "Monthly snapshot" : "Resumen del mes"}
-            icon={ChartIcon}
-            label={isEn ? "Gross revenue" : "Ingresos brutos"}
-            value={reportGross}
-          />
-          <StatCard
-            helper={`${isEn ? "Occupancy" : "Ocupación"} ${occupancyRate}`}
-            icon={Invoice01Icon}
-            label={isEn ? "Net payout" : "Pago neto"}
-            value={reportNet}
-          />
-        </div>
-      </section>
-
-      <section
-        aria-label={isEn ? "Leasing metrics" : "Métricas de arriendos"}
-        className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
-      >
-        <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-          {isEn ? "Leasing pipeline" : "Pipeline de arriendos"}
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <StatCard
-            helper={isEn ? "Current cycle" : "Ciclo actual"}
-            icon={File01Icon}
-            label={isEn ? "Qualified applications" : "Aplicaciones calificadas"}
-            value={String(qualifiedApplications)}
-          />
-          <StatCard
-            helper={`${paidCollections}/${collections.length}`}
-            icon={Invoice01Icon}
-            label={
-              isEn ? "Lease collection rate" : "Tasa de cobro de contratos"
-            }
-            value={collectionRate}
-          />
-          <StatCard
-            helper={`${transparentListings}/${publishedListings.length}`}
-            icon={ChartIcon}
-            label={isEn ? "Transparent listings %" : "Anuncios transparentes %"}
-            value={transparentListingsPct}
           />
         </div>
       </section>
@@ -1033,7 +989,7 @@ export default async function DashboardPage({
             <Card key={module.slug}>
               <CardHeader className="space-y-2">
                 <Badge className="w-fit" variant="secondary">
-                  {isEn ? "Module" : "Módulo"}
+                  {isEn ? "Module" : "Modulo"}
                 </Badge>
                 <CardTitle className="text-lg">{label}</CardTitle>
                 <CardDescription>{description}</CardDescription>
@@ -1045,7 +1001,7 @@ export default async function DashboardPage({
                   )}
                   href={`/module/${module.slug}`}
                 >
-                  {isEn ? "Open module" : "Abrir módulo"}
+                  {isEn ? "Open module" : "Abrir modulo"}
                   <Icon icon={ArrowRight01Icon} size={14} />
                 </Link>
               </CardContent>

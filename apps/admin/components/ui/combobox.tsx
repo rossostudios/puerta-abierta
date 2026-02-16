@@ -30,6 +30,9 @@ type ComboboxProps = {
   id?: string;
   className?: string;
   disabled?: boolean;
+  /** When true, allows free-text entry via a "Use: [typed text]" option */
+  allowCustom?: boolean;
+  customLabel?: (text: string) => string;
 };
 
 export function Combobox({
@@ -44,15 +47,32 @@ export function Combobox({
   id,
   className,
   disabled = false,
+  allowCustom = false,
+  customLabel = (text) => `Use: "${text}"`,
 }: ComboboxProps) {
   const [internalValue, setInternalValue] = useState(defaultValue ?? "");
+  const [inputText, setInputText] = useState("");
 
   const isControlled = value !== undefined;
   const resolvedValue = isControlled ? value : internalValue;
 
+  const items = useMemo(() => {
+    if (!allowCustom || !inputText.trim()) return options;
+    const trimmed = inputText.trim();
+    const lc = trimmed.toLowerCase();
+    const exactMatch = options.some(
+      (o) => o.value.toLowerCase() === lc || o.label.toLowerCase() === lc
+    );
+    if (exactMatch) return options;
+    return [
+      { value: trimmed, label: customLabel(trimmed) },
+      ...options,
+    ];
+  }, [options, allowCustom, inputText, customLabel]);
+
   const selectedOption = useMemo(() => {
-    return options.find((option) => option.value === resolvedValue) ?? null;
-  }, [options, resolvedValue]);
+    return items.find((option) => option.value === resolvedValue) ?? null;
+  }, [items, resolvedValue]);
 
   function update(next: string) {
     if (!isControlled) {
@@ -61,15 +81,22 @@ export function Combobox({
     onValueChange?.(next);
   }
 
+  const displayLabel = useMemo(() => {
+    if (selectedOption) return selectedOption.label;
+    if (allowCustom && resolvedValue) return resolvedValue;
+    return null;
+  }, [selectedOption, allowCustom, resolvedValue]);
+
   return (
     <>
       {name ? <input name={name} type="hidden" value={resolvedValue} /> : null}
       <BaseCombobox.Root<ComboboxOption>
         autoHighlight
         disabled={disabled}
-        items={options}
+        items={items}
         itemToStringLabel={(item) => item?.label ?? ""}
         itemToStringValue={(item) => item?.value ?? ""}
+        onInputValueChange={(val) => setInputText(val ?? "")}
         onValueChange={(next) => update(next?.value ?? "")}
         value={selectedOption}
       >
@@ -77,13 +104,13 @@ export function Combobox({
           className={cn(
             "inline-flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-left text-sm shadow-sm transition-colors",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-            selectedOption ? "text-foreground" : "text-muted-foreground",
+            displayLabel ? "text-foreground" : "text-muted-foreground",
             className
           )}
           id={id}
         >
           <BaseCombobox.Value placeholder={placeholder}>
-            {(selected) => selected?.label ?? placeholder}
+            {() => displayLabel ?? placeholder}
           </BaseCombobox.Value>
           <Icon
             className="text-muted-foreground"
@@ -157,9 +184,11 @@ export function Combobox({
                 )}
               </BaseCombobox.List>
 
-              <BaseCombobox.Empty className="px-2 py-3 text-muted-foreground text-sm">
-                {emptyLabel}
-              </BaseCombobox.Empty>
+              {allowCustom ? null : (
+                <BaseCombobox.Empty className="px-2 py-3 text-muted-foreground text-sm">
+                  {emptyLabel}
+                </BaseCombobox.Empty>
+              )}
             </BaseCombobox.Popup>
           </BaseCombobox.Positioner>
         </BaseCombobox.Portal>

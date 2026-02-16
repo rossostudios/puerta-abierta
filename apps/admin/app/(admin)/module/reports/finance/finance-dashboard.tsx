@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -27,6 +28,9 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/ui/stat-card";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import type { Locale } from "@/lib/i18n";
@@ -51,6 +55,10 @@ type FinanceDashboardProps = {
   expenseBreakdown: ExpenseCategory[];
   outstandingCollections: Record<string, unknown>[];
   locale: Locale;
+  filterFrom: string;
+  filterTo: string;
+  filterPropertyId: string;
+  properties: Record<string, unknown>[];
 };
 
 const PIE_COLORS = [
@@ -80,8 +88,54 @@ export function FinanceDashboard({
   expenseBreakdown,
   outstandingCollections,
   locale,
+  filterFrom,
+  filterTo,
+  filterPropertyId,
+  properties,
 }: FinanceDashboardProps) {
   const isEn = locale === "en-US";
+  const router = useRouter();
+
+  const [from, setFrom] = useState(filterFrom);
+  const [to, setTo] = useState(filterTo);
+  const [propId, setPropId] = useState(filterPropertyId);
+
+  const propertyOptions = useMemo(() => {
+    return properties
+      .map((p) => {
+        const id = asString(p.id).trim();
+        if (!id) return null;
+        return { id, label: asString(p.name).trim() || id };
+      })
+      .filter((p): p is { id: string; label: string } => Boolean(p));
+  }, [properties]);
+
+  const applyFilters = useCallback(() => {
+    const qs = new URLSearchParams();
+    if (from) qs.set("from", from);
+    if (to) qs.set("to", to);
+    if (propId) qs.set("property_id", propId);
+    const suffix = qs.toString();
+    router.push(suffix ? `?${suffix}` : "?");
+  }, [from, to, propId, router]);
+
+  const applyPreset = useCallback(
+    (months: number) => {
+      const now = new Date();
+      const newTo = now.toISOString().slice(0, 10);
+      const newFrom = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
+        .toISOString()
+        .slice(0, 10);
+      setFrom(newFrom);
+      setTo(newTo);
+      const qs = new URLSearchParams();
+      qs.set("from", newFrom);
+      qs.set("to", newTo);
+      if (propId) qs.set("property_id", propId);
+      router.push(`?${qs.toString()}`);
+    },
+    [propId, router]
+  );
 
   // Summary KPIs
   const totals = useMemo(() => {
@@ -167,6 +221,89 @@ export function FinanceDashboard({
 
   return (
     <div className="space-y-6">
+      {/* Filter toolbar */}
+      <section className="flex flex-wrap items-end gap-3">
+        <div className="flex gap-1">
+          <Button
+            onClick={() => applyPreset(1)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isEn ? "This month" : "Este mes"}
+          </Button>
+          <Button
+            onClick={() => applyPreset(3)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isEn ? "3 months" : "3 meses"}
+          </Button>
+          <Button
+            onClick={() => applyPreset(6)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isEn ? "6 months" : "6 meses"}
+          </Button>
+          <Button
+            onClick={() => applyPreset(12)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isEn ? "1 year" : "1 año"}
+          </Button>
+        </div>
+
+        <label className="space-y-1 text-sm">
+          <span className="block text-muted-foreground text-xs">
+            {isEn ? "From" : "Desde"}
+          </span>
+          <DatePicker
+            locale={locale}
+            onValueChange={setFrom}
+            value={from}
+          />
+        </label>
+
+        <label className="space-y-1 text-sm">
+          <span className="block text-muted-foreground text-xs">
+            {isEn ? "To" : "Hasta"}
+          </span>
+          <DatePicker
+            locale={locale}
+            onValueChange={setTo}
+            value={to}
+          />
+        </label>
+
+        {propertyOptions.length > 0 ? (
+          <label className="space-y-1 text-sm">
+            <span className="block text-muted-foreground text-xs">
+              {isEn ? "Property" : "Propiedad"}
+            </span>
+            <Select
+              onChange={(e) => setPropId(e.target.value)}
+              value={propId}
+            >
+              <option value="">{isEn ? "All" : "Todas"}</option>
+              {propertyOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </Select>
+          </label>
+        ) : null}
+
+        <Button onClick={applyFilters} size="sm" type="button">
+          {isEn ? "Apply" : "Aplicar"}
+        </Button>
+      </section>
+
       {/* KPI cards */}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard
@@ -191,6 +328,47 @@ export function FinanceDashboard({
         />
       </section>
 
+      {/* P&L Summary */}
+      <Card className="overflow-hidden border-border/80">
+        <CardHeader className="space-y-1 border-border/70 border-b pb-4">
+          <CardTitle className="text-base">
+            {isEn ? "P&L Summary" : "Resumen P&G"}
+          </CardTitle>
+          <CardDescription>
+            {from} — {to}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="space-y-2 font-mono text-sm">
+            <div className="flex justify-between">
+              <span>
+                {isEn ? "Revenue (collections paid)" : "Ingresos (cobros pagados)"}
+              </span>
+              <span className="font-medium">
+                {formatCurrency(totals.revenue, "PYG", locale)}
+              </span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>- {isEn ? "Expenses" : "Gastos"}</span>
+              <span>({formatCurrency(totals.expenses, "PYG", locale)})</span>
+            </div>
+            <hr className="border-border" />
+            <div className="flex justify-between font-bold">
+              <span>
+                {isEn ? "Net Operating Income" : "Ingreso Operativo Neto"}
+              </span>
+              <span
+                className={
+                  totals.net >= 0 ? "text-emerald-600" : "text-destructive"
+                }
+              >
+                {formatCurrency(totals.net, "PYG", locale)}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Charts row */}
       <section className="grid gap-4 lg:grid-cols-2">
         {/* Revenue vs Expenses */}
@@ -200,7 +378,7 @@ export function FinanceDashboard({
               {isEn ? "Revenue vs Expenses" : "Ingresos vs Gastos"}
             </CardTitle>
             <CardDescription>
-              {isEn ? "Last 6 months" : "Últimos 6 meses"}
+              {from} — {to}
             </CardDescription>
           </CardHeader>
           <CardContent className="min-w-0 pt-4">

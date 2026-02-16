@@ -35,7 +35,11 @@ type FinanceDashboardData = {
   outstanding_collections?: Record<string, unknown>[];
 };
 
-export default async function FinanceDashboardPage() {
+export default async function FinanceDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const locale = await getActiveLocale();
   const isEn = locale === "en-US";
   const orgId = await getActiveOrgId();
@@ -57,17 +61,39 @@ export default async function FinanceDashboardPage() {
     );
   }
 
+  const params = await searchParams;
   const today = new Date();
-  const to = today.toISOString().slice(0, 10);
-  const from = new Date(today.getFullYear(), today.getMonth() - 5, 1)
+  const defaultTo = today.toISOString().slice(0, 10);
+  const defaultFrom = new Date(today.getFullYear(), today.getMonth() - 5, 1)
     .toISOString()
     .slice(0, 10);
 
+  const from =
+    typeof params.from === "string" && params.from ? params.from : defaultFrom;
+  const to =
+    typeof params.to === "string" && params.to ? params.to : defaultTo;
+  const propertyId =
+    typeof params.property_id === "string" ? params.property_id : "";
+
   let data: FinanceDashboardData = {};
+  const apiParams: Record<string, string> = { org_id: orgId, from, to };
+  if (propertyId) apiParams.property_id = propertyId;
+
+  let properties: Record<string, unknown>[] = [];
+  try {
+    const propResult = await fetchJson<{ items?: Record<string, unknown>[] }>(
+      "/properties",
+      { org_id: orgId }
+    );
+    properties = propResult.items ?? [];
+  } catch {
+    // non-critical — filter will just be empty
+  }
+
   try {
     data = await fetchJson<FinanceDashboardData>(
       "/reports/finance-dashboard",
-      { org_id: orgId, from, to }
+      apiParams
     );
   } catch (err) {
     if (isOrgMembershipError(errorMessage(err)))
@@ -111,17 +137,21 @@ export default async function FinanceDashboardPage() {
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Revenue, expenses, collection rates, and expense breakdown across the last 6 months."
-              : "Ingresos, gastos, tasas de cobro y desglose de gastos de los últimos 6 meses."}
+              ? "Revenue, expenses, collection rates, and expense breakdown."
+              : "Ingresos, gastos, tasas de cobro y desglose de gastos."}
           </CardDescription>
         </CardHeader>
       </Card>
 
       <FinanceDashboard
         expenseBreakdown={data.expense_breakdown ?? []}
+        filterFrom={from}
+        filterPropertyId={propertyId}
+        filterTo={to}
         locale={locale}
         months={data.months ?? []}
         outstandingCollections={data.outstanding_collections ?? []}
+        properties={properties}
       />
     </div>
   );

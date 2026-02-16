@@ -17,6 +17,23 @@ export const CITY_CENTERS: Record<string, LatLng> = {
   "san bernardino": { lat: -25.3085, lng: -57.2909 },
 };
 
+export const CITY_DISPLAY_NAMES: Record<string, string> = {
+  asuncion: "Asunción",
+  "ciudad del este": "Ciudad del Este",
+  encarnacion: "Encarnación",
+  luque: "Luque",
+  "san lorenzo": "San Lorenzo",
+  lambare: "Lambaré",
+  "fernando de la mora": "Fernando de la Mora",
+  capiata: "Capiatá",
+  "mariano roque alonso": "Mariano Roque Alonso",
+  itaugua: "Itauguá",
+  "villa elisa": "Villa Elisa",
+  aregua: "Areguá",
+  ypacarai: "Ypacaraí",
+  "san bernardino": "San Bernardino",
+};
+
 export const DEFAULT_CENTER: LatLng = CITY_CENTERS.asuncion;
 export const DEFAULT_ZOOM = 11;
 
