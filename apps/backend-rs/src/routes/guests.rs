@@ -31,6 +31,14 @@ pub fn router() -> axum::Router<AppState> {
                 .patch(update_guest)
                 .delete(delete_guest),
         )
+        .route(
+            "/guests/{guest_id}/verification",
+            axum::routing::post(submit_verification).patch(review_verification),
+        )
+        .route(
+            "/public/guest-verification/{guest_id}",
+            axum::routing::post(public_submit_verification),
+        )
 }
 
 async fn list_guests(
@@ -155,6 +163,146 @@ async fn delete_guest(
     )
     .await;
     Ok(Json(deleted))
+}
+
+// ── Guest Verification ──────────────────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+struct SubmitVerificationInput {
+    id_document_url: String,
+    selfie_url: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ReviewVerificationInput {
+    verification_status: String, // "verified" or "rejected"
+    notes: Option<String>,
+}
+
+/// Admin submits verification documents on behalf of a guest.
+async fn submit_verification(
+    State(state): State<AppState>,
+    Path(path): Path<GuestPath>,
+    headers: HeaderMap,
+    Json(payload): Json<SubmitVerificationInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    let record = get_row(pool, "guests", &path.guest_id, "id").await?;
+    let org_id = value_str(&record, "organization_id");
+    assert_org_role(&state, &user_id, &org_id, &["owner_admin", "operator"]).await?;
+
+    let mut patch = serde_json::Map::new();
+    patch.insert(
+        "id_document_url".to_string(),
+        Value::String(payload.id_document_url),
+    );
+    if let Some(selfie) = payload.selfie_url {
+        patch.insert("selfie_url".to_string(), Value::String(selfie));
+    }
+    patch.insert(
+        "verification_status".to_string(),
+        Value::String("pending".to_string()),
+    );
+
+    let updated = update_row(pool, "guests", &path.guest_id, &patch, "id").await?;
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&org_id),
+        Some(&user_id),
+        "verification_submit",
+        "guests",
+        Some(&path.guest_id),
+        Some(record),
+        Some(updated.clone()),
+    )
+    .await;
+
+    Ok(Json(updated))
+}
+
+/// Admin reviews (approve/reject) a guest verification.
+async fn review_verification(
+    State(state): State<AppState>,
+    Path(path): Path<GuestPath>,
+    headers: HeaderMap,
+    Json(payload): Json<ReviewVerificationInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    let record = get_row(pool, "guests", &path.guest_id, "id").await?;
+    let org_id = value_str(&record, "organization_id");
+    assert_org_role(&state, &user_id, &org_id, &["owner_admin"]).await?;
+
+    if !matches!(payload.verification_status.as_str(), "verified" | "rejected") {
+        return Err(AppError::BadRequest(
+            "verification_status must be 'verified' or 'rejected'.".to_string(),
+        ));
+    }
+
+    let mut patch = serde_json::Map::new();
+    patch.insert(
+        "verification_status".to_string(),
+        Value::String(payload.verification_status.clone()),
+    );
+    if payload.verification_status == "verified" {
+        patch.insert(
+            "verified_at".to_string(),
+            Value::String(chrono::Utc::now().to_rfc3339()),
+        );
+    }
+
+    let updated = update_row(pool, "guests", &path.guest_id, &patch, "id").await?;
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&org_id),
+        Some(&user_id),
+        "verification_review",
+        "guests",
+        Some(&path.guest_id),
+        Some(record),
+        Some(updated.clone()),
+    )
+    .await;
+
+    Ok(Json(updated))
+}
+
+/// Public endpoint for guests to submit their own verification documents.
+async fn public_submit_verification(
+    State(state): State<AppState>,
+    Path(path): Path<GuestPath>,
+    Json(payload): Json<SubmitVerificationInput>,
+) -> AppResult<Json<Value>> {
+    let pool = db_pool(&state)?;
+
+    let record = get_row(pool, "guests", &path.guest_id, "id").await?;
+    let current_status = value_str(&record, "verification_status");
+    if current_status == "verified" {
+        return Err(AppError::BadRequest(
+            "Guest is already verified.".to_string(),
+        ));
+    }
+
+    let mut patch = serde_json::Map::new();
+    patch.insert(
+        "id_document_url".to_string(),
+        Value::String(payload.id_document_url),
+    );
+    if let Some(selfie) = payload.selfie_url {
+        patch.insert("selfie_url".to_string(), Value::String(selfie));
+    }
+    patch.insert(
+        "verification_status".to_string(),
+        Value::String("pending".to_string()),
+    );
+
+    let updated = update_row(pool, "guests", &path.guest_id, &patch, "id").await?;
+    Ok(Json(updated))
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {

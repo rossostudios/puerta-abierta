@@ -16,7 +16,7 @@ use crate::{
         clamp_limit_in_range, remove_nulls, serialize_to_map, CreateReservationInput,
         ReservationPath, ReservationStatusInput, ReservationsQuery, UpdateReservationInput,
     },
-    services::{audit::write_audit_log, enrichment::enrich_reservations},
+    services::{audit::write_audit_log, enrichment::enrich_reservations, sequences::enroll_in_sequences, workflows::fire_trigger},
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -310,6 +310,80 @@ async fn transition_status(
     .await;
 
     let _ = sync_turnover_tasks_for_status(pool, &updated, &user_id).await;
+
+    // Fire workflow triggers based on new status
+    let trigger_event = match payload.status.as_str() {
+        "confirmed" => Some("reservation_confirmed"),
+        "checked_in" => Some("checked_in"),
+        "checked_out" => Some("checked_out"),
+        _ => None,
+    };
+    if let Some(trigger) = trigger_event {
+        let mut ctx = Map::new();
+        ctx.insert(
+            "reservation_id".to_string(),
+            Value::String(path.reservation_id.clone()),
+        );
+        if let Some(obj) = updated.as_object() {
+            for field in &[
+                "property_id",
+                "unit_id",
+                "guest_id",
+                "check_in_date",
+                "check_out_date",
+                "notes",
+            ] {
+                if let Some(val) = obj.get(*field) {
+                    if !val.is_null() {
+                        ctx.insert(field.to_string(), val.clone());
+                    }
+                }
+            }
+            // Add guest name from notes or a lookup
+            if let Some(guest_name) = obj.get("guest_name").and_then(Value::as_str) {
+                ctx.insert(
+                    "guest_name".to_string(),
+                    Value::String(guest_name.to_string()),
+                );
+            }
+        }
+
+        // Look up guest phone for sequences
+        let guest_id_str = ctx.get("guest_id").and_then(Value::as_str).unwrap_or_default().to_string();
+        if !guest_id_str.is_empty() {
+            if let Ok(guest) = get_row(pool, "guests", &guest_id_str, "id").await {
+                let phone = value_str(&guest, "phone_e164");
+                if !phone.is_empty() {
+                    ctx.insert("guest_phone_e164".to_string(), Value::String(phone.clone()));
+                }
+                let name = value_str(&guest, "full_name");
+                if !name.is_empty() && !ctx.contains_key("guest_name") {
+                    ctx.insert("guest_name".to_string(), Value::String(name));
+                }
+            }
+        }
+
+        fire_trigger(pool, &org_id, trigger, &ctx).await;
+
+        // Enroll in communication sequences matching this trigger
+        let guest_phone = ctx
+            .get("guest_phone_e164")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        if !guest_phone.is_empty() {
+            enroll_in_sequences(
+                pool,
+                &org_id,
+                trigger,
+                "reservation",
+                &path.reservation_id,
+                &guest_phone,
+                &ctx,
+            )
+            .await;
+        }
+    }
 
     Ok(Json(updated))
 }

@@ -1,10 +1,10 @@
 use serde_json::{json, Map, Value};
+use tracing::warn;
 
 use crate::repository::table_service::{create_row, list_rows};
 
 /// Fire a workflow trigger event for an organization.
 /// Looks up active workflow_rules matching the trigger_event and executes actions.
-#[allow(dead_code)]
 pub async fn fire_trigger(
     pool: &sqlx::PgPool,
     org_id: &str,
@@ -44,21 +44,55 @@ pub async fn fire_trigger(
             .and_then(|o| o.get("action_config"))
             .cloned()
             .unwrap_or(json!({}));
+        let delay_minutes = rule
+            .as_object()
+            .and_then(|o| o.get("delay_minutes"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
 
-        match action_type.as_str() {
-            "create_task" => {
-                execute_create_task(pool, org_id, &action_config, context).await;
-            }
-            "send_notification" => {
-                execute_send_notification(pool, org_id, &action_config, context).await;
-            }
-            "update_status" => {
-                // Status updates are handled inline by the triggering route
-            }
-            "create_expense" => {
-                execute_create_expense(pool, org_id, &action_config, context).await;
-            }
-            _ => {}
+        if delay_minutes > 0 {
+            // Spawn a delayed execution
+            let pool = pool.clone();
+            let org_id = org_id.to_string();
+            let context = context.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(delay_minutes as u64 * 60)).await;
+                execute_action(&pool, &org_id, &action_type, &action_config, &context).await;
+            });
+        } else {
+            execute_action(pool, org_id, &action_type, &action_config, context).await;
+        }
+    }
+}
+
+async fn execute_action(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    action_type: &str,
+    action_config: &Value,
+    context: &Map<String, Value>,
+) {
+    match action_type {
+        "create_task" => {
+            execute_create_task(pool, org_id, action_config, context).await;
+        }
+        "send_notification" => {
+            execute_send_notification(pool, org_id, action_config, context).await;
+        }
+        "send_whatsapp" => {
+            execute_send_whatsapp(pool, org_id, action_config, context).await;
+        }
+        "update_status" => {
+            // Status updates are handled inline by the triggering route
+        }
+        "create_expense" => {
+            execute_create_expense(pool, org_id, action_config, context).await;
+        }
+        "assign_task_round_robin" => {
+            execute_create_task(pool, org_id, action_config, context).await;
+        }
+        other => {
+            warn!("Unknown workflow action type: {other}");
         }
     }
 }
@@ -173,6 +207,68 @@ async fn execute_send_notification(
         msg.insert("template_id".to_string(), Value::String(tid.to_string()));
     }
     msg.insert("variables".to_string(), Value::Object(context.clone()));
+
+    let _ = create_row(pool, "message_logs", &msg).await;
+}
+
+async fn execute_send_whatsapp(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    config: &Value,
+    context: &Map<String, Value>,
+) {
+    let recipient = config
+        .as_object()
+        .and_then(|o| o.get("recipient_field"))
+        .and_then(Value::as_str)
+        .and_then(|field| context.get(field))
+        .and_then(Value::as_str)
+        .or_else(|| context.get("recipient").and_then(Value::as_str))
+        .or_else(|| context.get("tenant_phone_e164").and_then(Value::as_str))
+        .or_else(|| context.get("guest_phone").and_then(Value::as_str))
+        .unwrap_or_default();
+
+    if recipient.is_empty() {
+        return;
+    }
+
+    let body_template = config
+        .as_object()
+        .and_then(|o| o.get("body"))
+        .and_then(Value::as_str)
+        .unwrap_or("Notification from Puerta Abierta");
+
+    let body = resolve_template(body_template, context);
+
+    let mut msg = Map::new();
+    msg.insert(
+        "organization_id".to_string(),
+        Value::String(org_id.to_string()),
+    );
+    msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+    msg.insert(
+        "recipient".to_string(),
+        Value::String(recipient.to_string()),
+    );
+    msg.insert("status".to_string(), Value::String("queued".to_string()));
+    msg.insert("direction".to_string(), Value::String("outbound".to_string()));
+
+    let mut payload = Map::new();
+    payload.insert("body".to_string(), Value::String(body));
+
+    // Forward WhatsApp template config if present
+    if let Some(tpl_name) = config
+        .as_object()
+        .and_then(|o| o.get("whatsapp_template_name"))
+        .and_then(Value::as_str)
+    {
+        payload.insert(
+            "whatsapp_template_name".to_string(),
+            Value::String(tpl_name.to_string()),
+        );
+    }
+
+    msg.insert("payload".to_string(), Value::Object(payload));
 
     let _ = create_row(pool, "message_logs", &msg).await;
 }

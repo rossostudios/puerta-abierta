@@ -1,8 +1,18 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { PublicFooter } from "@/components/marketplace/public-footer";
 import { PublicHeader } from "@/components/marketplace/public-header";
 import { getActiveLocale } from "@/lib/i18n/server";
+
+export const metadata: Metadata = {
+  manifest: "/manifest.json",
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "Puerta Abierta",
+  },
+};
 
 export default async function TenantLayout({
   children,

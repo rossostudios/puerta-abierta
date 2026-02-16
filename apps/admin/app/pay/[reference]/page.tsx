@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PublicFooter } from "@/components/marketplace/public-footer";
 import { PublicHeader } from "@/components/marketplace/public-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StripeCheckoutButton } from "./stripe-checkout-button";
 import { fetchPublicPaymentInfo } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -175,6 +176,22 @@ export default async function PublicPaymentPage({ params }: PaymentPageProps) {
             </CardContent>
           </Card>
         )}
+
+        {/* Pay with card (Stripe) */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">
+              {isEn ? "Pay with Card" : "Pagar con Tarjeta"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StripeCheckoutButton
+              formattedAmount={formattedAmount}
+              isEn={isEn}
+              referenceCode={referenceCode}
+            />
+          </CardContent>
+        </Card>
 
         {/* WhatsApp share */}
         <div className="flex justify-center">

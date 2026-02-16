@@ -5,11 +5,12 @@ use tracing::{info, warn};
 
 use crate::{
     config::AppConfig,
-    repository::table_service::{get_row, list_rows, update_row},
+    repository::table_service::{create_row, get_row, list_rows, update_row},
 };
 
 /// Process all queued messages — poll `message_logs` where status = 'queued',
 /// send via appropriate channel, update status.
+/// Also retries failed messages with retry_count < 3.
 pub async fn process_queued_messages(
     pool: &sqlx::PgPool,
     http_client: &Client,
@@ -18,10 +19,11 @@ pub async fn process_queued_messages(
     let mut sent = 0u32;
     let mut failed = 0u32;
 
+    // Fetch queued messages
     let mut filters = Map::new();
     filters.insert("status".to_string(), Value::String("queued".to_string()));
 
-    let messages = match list_rows(
+    let mut messages = match list_rows(
         pool,
         "message_logs",
         Some(&filters),
@@ -39,6 +41,33 @@ pub async fn process_queued_messages(
         }
     };
 
+    // Also fetch failed messages with retry_count < 3 for retry
+    let mut retry_filters = Map::new();
+    retry_filters.insert("status".to_string(), Value::String("failed".to_string()));
+
+    if let Ok(failed_msgs) = list_rows(
+        pool,
+        "message_logs",
+        Some(&retry_filters),
+        50,
+        0,
+        "created_at",
+        true,
+    )
+    .await
+    {
+        for msg in failed_msgs {
+            let retry_count = msg
+                .as_object()
+                .and_then(|o| o.get("retry_count"))
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            if retry_count < 3 {
+                messages.push(msg);
+            }
+        }
+    }
+
     for msg in messages {
         let id = val_str(&msg, "id");
         let channel = val_str(&msg, "channel");
@@ -54,11 +83,18 @@ pub async fn process_queued_messages(
         let result = match channel.as_str() {
             "whatsapp" => send_whatsapp(http_client, config, &recipient, &body, &msg).await,
             "email" => send_email(http_client, config, &recipient, &body, &msg).await,
+            "sms" => send_sms(http_client, config, &recipient, &body).await,
             _ => {
                 warn!("Unknown channel '{channel}' for message {id}");
                 Err("unsupported channel".to_string())
             }
         };
+
+        let current_retry = msg
+            .as_object()
+            .and_then(|o| o.get("retry_count"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
 
         let mut patch = Map::new();
         match result {
@@ -76,6 +112,10 @@ pub async fn process_queued_messages(
             Err(err_msg) => {
                 patch.insert("status".to_string(), Value::String("failed".to_string()));
                 patch.insert("error_message".to_string(), Value::String(err_msg));
+                patch.insert(
+                    "retry_count".to_string(),
+                    Value::Number(serde_json::Number::from((current_retry + 1) as i64)),
+                );
                 failed += 1;
             }
         }
@@ -307,6 +347,109 @@ async fn send_email(
             .unwrap_or("Unknown Resend API error");
         Err(format!("Resend API error ({status}): {error_msg}"))
     }
+}
+
+/// Send an SMS via Twilio API.
+async fn send_sms(
+    http_client: &Client,
+    config: &AppConfig,
+    recipient: &str,
+    body: &str,
+) -> Result<Option<Value>, String> {
+    let account_sid = config
+        .twilio_account_sid
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "TWILIO_ACCOUNT_SID not configured".to_string())?;
+
+    let auth_token = config
+        .twilio_auth_token
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "TWILIO_AUTH_TOKEN not configured".to_string())?;
+
+    let from_number = config
+        .twilio_phone_number
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| "TWILIO_PHONE_NUMBER not configured".to_string())?;
+
+    let url = format!(
+        "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
+    );
+
+    let response = http_client
+        .post(&url)
+        .basic_auth(account_sid, Some(auth_token))
+        .form(&[
+            ("To", recipient),
+            ("From", from_number),
+            ("Body", body),
+        ])
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Twilio API request failed");
+            "Twilio API request failed.".to_string()
+        })?;
+
+    let status = response.status();
+    let resp_body: Value = response
+        .json()
+        .await
+        .unwrap_or(json!({"error": "failed to parse response"}));
+
+    if status.is_success() || status.as_u16() == 201 {
+        Ok(Some(resp_body))
+    } else {
+        let error_msg = resp_body
+            .as_object()
+            .and_then(|o| o.get("message"))
+            .and_then(Value::as_str)
+            .unwrap_or("Unknown Twilio API error");
+        Err(format!("Twilio API error ({status}): {error_msg}"))
+    }
+}
+
+/// Create an inbound message log entry from a WhatsApp message.
+pub async fn create_inbound_message(
+    pool: &sqlx::PgPool,
+    org_id: Option<&str>,
+    sender_phone: &str,
+    message_text: &str,
+    media_url: Option<&str>,
+    wa_message_id: &str,
+) -> Result<Value, String> {
+    let mut msg = Map::new();
+    if let Some(oid) = org_id {
+        msg.insert("organization_id".to_string(), Value::String(oid.to_string()));
+    }
+    msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+    msg.insert(
+        "recipient".to_string(),
+        Value::String(sender_phone.to_string()),
+    );
+    msg.insert("direction".to_string(), Value::String("inbound".to_string()));
+    msg.insert("status".to_string(), Value::String("delivered".to_string()));
+    msg.insert(
+        "sent_at".to_string(),
+        Value::String(Utc::now().to_rfc3339()),
+    );
+
+    let mut payload = Map::new();
+    payload.insert("body".to_string(), Value::String(message_text.to_string()));
+    if let Some(url) = media_url {
+        payload.insert("media_url".to_string(), Value::String(url.to_string()));
+    }
+    payload.insert(
+        "wa_message_id".to_string(),
+        Value::String(wa_message_id.to_string()),
+    );
+    msg.insert("payload".to_string(), Value::Object(payload));
+
+    create_row(pool, "message_logs", &msg)
+        .await
+        .map_err(|e| format!("Failed to create inbound message log: {e}"))
 }
 
 fn val_str(row: &Value, key: &str) -> String {

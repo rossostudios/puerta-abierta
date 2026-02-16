@@ -12,6 +12,7 @@ use crate::{
     error::{AppError, AppResult},
     repository::table_service::{create_row, get_row, list_rows, update_row},
     schemas::clamp_limit_in_range,
+    services::workflows::fire_trigger,
     state::AppState,
 };
 
@@ -36,6 +37,8 @@ pub fn router() -> axum::Router<AppState> {
             "/tenant/maintenance-requests",
             axum::routing::get(tenant_list_maintenance).post(tenant_create_maintenance),
         )
+        .route("/tenant/documents", axum::routing::get(tenant_documents))
+        .route("/tenant/messages", axum::routing::get(tenant_messages))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -628,12 +631,12 @@ async fn tenant_create_maintenance(
 
     // Auto-create a task linked to this maintenance request
     let mut task = Map::new();
-    task.insert("organization_id".to_string(), Value::String(org_id));
+    task.insert("organization_id".to_string(), Value::String(org_id.clone()));
     if !property_id.is_empty() {
-        task.insert("property_id".to_string(), Value::String(property_id));
+        task.insert("property_id".to_string(), Value::String(property_id.clone()));
     }
     if !unit_id.is_empty() {
-        task.insert("unit_id".to_string(), Value::String(unit_id));
+        task.insert("unit_id".to_string(), Value::String(unit_id.clone()));
     }
     task.insert("type".to_string(), Value::String("maintenance".to_string()));
     task.insert("status".to_string(), Value::String("todo".to_string()));
@@ -659,7 +662,73 @@ async fn tenant_create_maintenance(
         }
     }
 
+    // Fire maintenance_submitted workflow trigger
+    if !org_id.is_empty() {
+        let mut ctx = serde_json::Map::new();
+        ctx.insert(
+            "maintenance_request_id".to_string(),
+            Value::String(mr_id),
+        );
+        ctx.insert("property_id".to_string(), Value::String(property_id));
+        ctx.insert("unit_id".to_string(), Value::String(unit_id));
+        ctx.insert(
+            "tenant_full_name".to_string(),
+            Value::String(val_str(&lease, "tenant_full_name")),
+        );
+        ctx.insert(
+            "tenant_phone_e164".to_string(),
+            Value::String(val_str(&lease, "tenant_phone_e164")),
+        );
+        ctx.insert("title".to_string(), Value::String(val_str(&created, "title")));
+        fire_trigger(pool, &org_id, "maintenance_submitted", &ctx).await;
+    }
+
     Ok((axum::http::StatusCode::CREATED, Json(created)))
+}
+
+/// List documents for this tenant's lease.
+async fn tenant_documents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, lease_id) = require_tenant(&state, &headers).await?;
+
+    let lease = get_row(pool, "leases", &lease_id, "id").await?;
+    let org_id = val_str(&lease, "organization_id");
+
+    // Fetch documents linked to this lease
+    let mut filters = Map::new();
+    filters.insert("organization_id".to_string(), Value::String(org_id));
+    filters.insert("entity_type".to_string(), Value::String("lease".to_string()));
+    filters.insert("entity_id".to_string(), Value::String(lease_id));
+
+    let rows = list_rows(pool, "documents", Some(&filters), 100, 0, "created_at", false).await?;
+
+    Ok(Json(json!({ "data": rows })))
+}
+
+/// List message history for this tenant.
+async fn tenant_messages(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, lease_id) = require_tenant(&state, &headers).await?;
+
+    let lease = get_row(pool, "leases", &lease_id, "id").await?;
+    let tenant_phone = val_str(&lease, "tenant_phone_e164");
+    let org_id = val_str(&lease, "organization_id");
+
+    if tenant_phone.is_empty() {
+        return Ok(Json(json!({ "data": [] })));
+    }
+
+    let mut filters = Map::new();
+    filters.insert("organization_id".to_string(), Value::String(org_id));
+    filters.insert("recipient".to_string(), Value::String(tenant_phone));
+
+    let rows = list_rows(pool, "message_logs", Some(&filters), 200, 0, "created_at", false).await?;
+
+    Ok(Json(json!({ "data": rows })))
 }
 
 /// Authenticate a tenant from the x-tenant-token header.

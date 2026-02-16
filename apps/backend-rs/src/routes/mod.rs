@@ -38,6 +38,8 @@ pub mod reservations;
 pub mod subscriptions;
 pub mod tasks;
 pub mod tenant;
+pub mod sequences;
+pub mod booking;
 pub mod workflows;
 
 async fn public_fx_rate(State(state): State<AppState>) -> Json<Value> {
@@ -78,5 +80,7 @@ pub fn v1_router() -> Router<AppState> {
         .merge(subscriptions::router())
         .merge(referrals::router())
         .merge(platform::router())
+        .merge(sequences::router())
+        .merge(booking::router())
         .merge(demo::router())
 }

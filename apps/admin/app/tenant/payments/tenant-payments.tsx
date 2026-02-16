@@ -92,7 +92,7 @@ export function TenantPayments({ locale }: { locale: string }) {
   const [notes, setNotes] = useState("");
 
   const getToken = useCallback(() => {
-    const token = sessionStorage.getItem("tenant_token");
+    const token = localStorage.getItem("tenant_token");
     if (!token) {
       router.push("/tenant/login");
       return null;
@@ -108,7 +108,7 @@ export function TenantPayments({ locale }: { locale: string }) {
         headers: { "x-tenant-token": token },
       });
       if (res.status === 401) {
-        sessionStorage.clear();
+        localStorage.clear();
         router.push("/tenant/login");
         return;
       }

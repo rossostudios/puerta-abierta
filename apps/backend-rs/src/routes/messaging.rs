@@ -17,8 +17,10 @@ use crate::{
     },
     services::audit::write_audit_log,
     services::collection_cycle::run_daily_collection_cycle,
+    services::ical::sync_all_ical_integrations,
     services::lease_renewal::run_lease_renewal_scan,
     services::messaging::process_queued_messages,
+    services::sequences::process_sequences,
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -45,6 +47,14 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/webhooks/whatsapp",
             axum::routing::post(whatsapp_webhook).get(whatsapp_webhook_verify),
+        )
+        .route(
+            "/internal/sync-ical",
+            axum::routing::post(sync_ical),
+        )
+        .route(
+            "/internal/process-sequences",
+            axum::routing::post(process_sequences_endpoint),
         )
 }
 
@@ -269,6 +279,28 @@ async fn run_collection_cycle(
     })))
 }
 
+/// Internal cron-compatible endpoint that syncs all iCal integrations.
+async fn sync_ical(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let api_key = headers
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let expected_key = state.config.internal_api_key.as_deref().unwrap_or_default();
+    if !expected_key.is_empty() && api_key != expected_key {
+        return Err(AppError::Unauthorized(
+            "Invalid or missing API key.".to_string(),
+        ));
+    }
+
+    let pool = db_pool(&state)?;
+    let result = sync_all_ical_integrations(pool, &state.http_client).await;
+
+    Ok(Json(result))
+}
+
 /// WhatsApp webhook verification (GET) — responds to Meta verification challenge.
 async fn whatsapp_webhook_verify(
     State(state): State<AppState>,
@@ -302,7 +334,7 @@ async fn whatsapp_webhook_verify(
     }
 }
 
-/// WhatsApp webhook (POST) — receives delivery status updates.
+/// WhatsApp webhook (POST) — receives delivery status updates AND inbound messages.
 async fn whatsapp_webhook(
     State(state): State<AppState>,
     Json(payload): Json<Value>,
@@ -314,8 +346,91 @@ async fn whatsapp_webhook(
         for entry in entries {
             if let Some(changes) = entry.get("changes").and_then(Value::as_array) {
                 for change in changes {
-                    if let Some(statuses) = change
-                        .get("value")
+                    let value_obj = change.get("value");
+
+                    // ── Handle inbound messages ──
+                    if let Some(messages) = value_obj
+                        .and_then(|v| v.get("messages"))
+                        .and_then(Value::as_array)
+                    {
+                        for msg in messages {
+                            let sender_phone = msg
+                                .get("from")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default();
+                            let wa_msg_id = msg
+                                .get("id")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default();
+                            let msg_type = msg
+                                .get("type")
+                                .and_then(Value::as_str)
+                                .unwrap_or("text");
+
+                            if sender_phone.is_empty() {
+                                continue;
+                            }
+
+                            let text = match msg_type {
+                                "text" => msg
+                                    .get("text")
+                                    .and_then(|t| t.get("body"))
+                                    .and_then(Value::as_str)
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                "image" | "document" | "video" | "audio" => {
+                                    format!("[{msg_type} attachment]")
+                                }
+                                _ => format!("[{msg_type}]"),
+                            };
+
+                            let media_url = msg
+                                .get(msg_type)
+                                .and_then(|m| m.get("link").or(m.get("url")))
+                                .and_then(Value::as_str);
+
+                            // Try to match sender to a guest or tenant
+                            let org_id = match_phone_to_org(pool, sender_phone).await;
+
+                            let _ = crate::services::messaging::create_inbound_message(
+                                pool,
+                                org_id.as_deref(),
+                                sender_phone,
+                                &text,
+                                media_url,
+                                wa_msg_id,
+                            )
+                            .await;
+
+                            // AI auto-reply for guest messages
+                            if let Some(oid) = &org_id {
+                                if msg_type == "text" && !text.is_empty() {
+                                    let pool = pool.clone();
+                                    let http = state.http_client.clone();
+                                    let config = state.config.clone();
+                                    let oid = oid.clone();
+                                    let phone = sender_phone.to_string();
+                                    let body = text.clone();
+                                    tokio::spawn(async move {
+                                        if let Some((reply, confidence)) =
+                                            crate::services::ai_guest_reply::generate_ai_reply(
+                                                &pool, &http, &config, &oid, &phone, &body,
+                                            )
+                                            .await
+                                        {
+                                            crate::services::ai_guest_reply::queue_ai_reply(
+                                                &pool, &oid, &phone, &reply, confidence,
+                                            )
+                                            .await;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+
+                    // ── Handle delivery status updates ──
+                    if let Some(statuses) = value_obj
                         .and_then(|v| v.get("statuses"))
                         .and_then(Value::as_array)
                     {
@@ -397,4 +512,61 @@ async fn whatsapp_webhook(
     }
 
     Ok(axum::http::StatusCode::OK)
+}
+
+/// Internal cron-compatible endpoint that processes communication sequences.
+async fn process_sequences_endpoint(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let api_key = headers
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    let expected_key = state.config.internal_api_key.as_deref().unwrap_or_default();
+    if !expected_key.is_empty() && api_key != expected_key {
+        return Err(AppError::Unauthorized(
+            "Invalid or missing API key.".to_string(),
+        ));
+    }
+
+    let pool = db_pool(&state)?;
+    let (sent, errors) = process_sequences(pool).await;
+
+    Ok(Json(json!({ "sent": sent, "errors": errors })))
+}
+
+/// Try to find an organization by matching a phone number to guests or tenants.
+async fn match_phone_to_org(pool: &sqlx::PgPool, phone: &str) -> Option<String> {
+    // Check guests first
+    let mut filters = serde_json::Map::new();
+    filters.insert(
+        "phone_e164".to_string(),
+        Value::String(phone.to_string()),
+    );
+    if let Ok(guests) = list_rows(pool, "guests", Some(&filters), 1, 0, "created_at", false).await {
+        if let Some(guest) = guests.first() {
+            let org_id = value_str(guest, "organization_id");
+            if !org_id.is_empty() {
+                return Some(org_id);
+            }
+        }
+    }
+
+    // Check leases (tenant phone)
+    let mut lease_filters = serde_json::Map::new();
+    lease_filters.insert(
+        "tenant_phone_e164".to_string(),
+        Value::String(phone.to_string()),
+    );
+    if let Ok(leases) = list_rows(pool, "leases", Some(&lease_filters), 1, 0, "created_at", false).await {
+        if let Some(lease) = leases.first() {
+            let org_id = value_str(lease, "organization_id");
+            if !org_id.is_empty() {
+                return Some(org_id);
+            }
+        }
+    }
+
+    None
 }

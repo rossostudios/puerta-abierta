@@ -15,7 +15,7 @@ use crate::{
         clamp_limit_in_range, remove_nulls, serialize_to_map, CreateLeaseInput, LeasePath,
         LeasesQuery, UpdateLeaseInput,
     },
-    services::{audit::write_audit_log, lease_schedule::ensure_monthly_lease_schedule},
+    services::{audit::write_audit_log, lease_schedule::ensure_monthly_lease_schedule, sequences::enroll_in_sequences, workflows::fire_trigger},
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -187,6 +187,48 @@ async fn create_lease(
     )
     .await;
 
+    // Fire workflow trigger for lease_created
+    {
+        let mut ctx = Map::new();
+        ctx.insert("lease_id".to_string(), Value::String(lease_id.clone()));
+        ctx.insert(
+            "property_id".to_string(),
+            Value::String(value_str(&lease, "property_id")),
+        );
+        ctx.insert(
+            "unit_id".to_string(),
+            Value::String(value_str(&lease, "unit_id")),
+        );
+        ctx.insert(
+            "tenant_full_name".to_string(),
+            Value::String(value_str(&lease, "tenant_full_name")),
+        );
+        ctx.insert(
+            "tenant_phone_e164".to_string(),
+            Value::String(value_str(&lease, "tenant_phone_e164")),
+        );
+        ctx.insert(
+            "starts_on".to_string(),
+            Value::String(value_str(&lease, "starts_on")),
+        );
+        fire_trigger(pool, &payload.organization_id, "lease_created", &ctx).await;
+
+        // Enroll in communication sequences for lease_created
+        let tenant_phone = value_str(&lease, "tenant_phone_e164");
+        if !tenant_phone.is_empty() {
+            enroll_in_sequences(
+                pool,
+                &payload.organization_id,
+                "lease_created",
+                "lease",
+                &lease_id,
+                &tenant_phone,
+                &ctx,
+            )
+            .await;
+        }
+    }
+
     let mut enriched = enrich_leases(pool, vec![lease]).await?;
     let lease_payload = enriched.pop().unwrap_or_else(|| Value::Object(Map::new()));
 
@@ -340,10 +382,50 @@ async fn update_lease(
         "update",
         "leases",
         Some(&path.lease_id),
-        Some(record),
+        Some(record.clone()),
         Some(updated.clone()),
     )
     .await;
+
+    // Fire lease_activated trigger when status changes to active
+    let old_status = value_str(&record, "lease_status");
+    let new_status = value_str(&updated, "lease_status");
+    if new_status == "active" && old_status != "active" {
+        let mut ctx = Map::new();
+        ctx.insert("lease_id".to_string(), Value::String(path.lease_id.clone()));
+        ctx.insert(
+            "property_id".to_string(),
+            Value::String(value_str(&updated, "property_id")),
+        );
+        ctx.insert(
+            "unit_id".to_string(),
+            Value::String(value_str(&updated, "unit_id")),
+        );
+        ctx.insert(
+            "tenant_full_name".to_string(),
+            Value::String(value_str(&updated, "tenant_full_name")),
+        );
+        ctx.insert(
+            "tenant_phone_e164".to_string(),
+            Value::String(value_str(&updated, "tenant_phone_e164")),
+        );
+        fire_trigger(pool, &org_id, "lease_activated", &ctx).await;
+
+        // Enroll in communication sequences for lease_activated
+        let tenant_phone = value_str(&updated, "tenant_phone_e164");
+        if !tenant_phone.is_empty() {
+            enroll_in_sequences(
+                pool,
+                &org_id,
+                "lease_activated",
+                "lease",
+                &path.lease_id,
+                &tenant_phone,
+                &ctx,
+            )
+            .await;
+        }
+    }
 
     let mut enriched = enrich_leases(pool, vec![updated]).await?;
     Ok(Json(

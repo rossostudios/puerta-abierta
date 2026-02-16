@@ -29,7 +29,7 @@ export function TenantDashboard({ locale }: { locale: string }) {
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
-    const token = sessionStorage.getItem("tenant_token");
+    const token = localStorage.getItem("tenant_token");
     if (!token) {
       router.push("/tenant/login");
       return;
@@ -39,7 +39,7 @@ export function TenantDashboard({ locale }: { locale: string }) {
         headers: { "x-tenant-token": token },
       });
       if (res.status === 401) {
-        sessionStorage.clear();
+        localStorage.clear();
         router.push("/tenant/login");
         return;
       }
@@ -143,7 +143,7 @@ export function TenantDashboard({ locale }: { locale: string }) {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <Link href="/tenant/payments">
           <Card className="hover:border-primary cursor-pointer transition-colors">
             <CardContent className="p-4 text-center">
@@ -158,9 +158,23 @@ export function TenantDashboard({ locale }: { locale: string }) {
             </CardContent>
           </Card>
         </Link>
+        <Link href="/tenant/documents">
+          <Card className="hover:border-primary cursor-pointer transition-colors">
+            <CardContent className="p-4 text-center">
+              <p className="font-medium">{isEn ? "Documents" : "Documentos"}</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/tenant/messages">
+          <Card className="hover:border-primary cursor-pointer transition-colors">
+            <CardContent className="p-4 text-center">
+              <p className="font-medium">{isEn ? "Messages" : "Mensajes"}</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Button
           className="h-auto"
-          onClick={() => { sessionStorage.clear(); router.push("/tenant/login"); }}
+          onClick={() => { localStorage.clear(); router.push("/tenant/login"); }}
           variant="outline"
         >
           {isEn ? "Sign Out" : "Cerrar Sesión"}

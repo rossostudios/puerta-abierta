@@ -52,13 +52,82 @@ const TRIGGER_EVENTS = [
   { value: "collection_overdue", en: "Collection overdue", es: "Cobro vencido" },
   { value: "application_received", en: "Application received", es: "Aplicación recibida" },
   { value: "maintenance_submitted", en: "Maintenance submitted", es: "Mantenimiento enviado" },
+  { value: "task_completed", en: "Task completed", es: "Tarea completada" },
+  { value: "payment_received", en: "Payment received", es: "Pago recibido" },
+  { value: "lease_expiring", en: "Lease expiring", es: "Contrato por vencer" },
 ];
 
 const ACTION_TYPES = [
   { value: "create_task", en: "Create task", es: "Crear tarea" },
   { value: "send_notification", en: "Send notification", es: "Enviar notificación" },
+  { value: "send_whatsapp", en: "Send WhatsApp", es: "Enviar WhatsApp" },
   { value: "update_status", en: "Update status", es: "Actualizar estado" },
   { value: "create_expense", en: "Create expense", es: "Crear gasto" },
+  { value: "assign_task_round_robin", en: "Assign task (round-robin)", es: "Asignar tarea (rotativa)" },
+];
+
+type WorkflowTemplate = {
+  name_en: string;
+  name_es: string;
+  desc_en: string;
+  desc_es: string;
+  trigger_event: string;
+  action_type: string;
+  delay_minutes: number;
+  action_config: Record<string, unknown>;
+};
+
+const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  {
+    name_en: "Auto-create cleaning task on checkout",
+    name_es: "Crear tarea de limpieza al checkout",
+    desc_en: "Creates a high-priority cleaning task when a guest checks out.",
+    desc_es: "Crea una tarea de limpieza prioritaria al hacer checkout.",
+    trigger_event: "checked_out",
+    action_type: "create_task",
+    delay_minutes: 0,
+    action_config: { title: "Turnover: limpieza post check-out", type: "cleaning", priority: "high" },
+  },
+  {
+    name_en: "Send WhatsApp on check-in",
+    name_es: "Enviar WhatsApp al check-in",
+    desc_en: "Sends a welcome message via WhatsApp when a guest checks in.",
+    desc_es: "Envía un mensaje de bienvenida por WhatsApp al hacer check-in.",
+    trigger_event: "checked_in",
+    action_type: "send_whatsapp",
+    delay_minutes: 0,
+    action_config: { body: "Welcome! We're happy to have you. Let us know if you need anything." },
+  },
+  {
+    name_en: "Create expense on checkout",
+    name_es: "Crear gasto al checkout",
+    desc_en: "Automatically log a cleaning expense when a guest checks out.",
+    desc_es: "Registra automáticamente un gasto de limpieza al checkout.",
+    trigger_event: "checked_out",
+    action_type: "create_expense",
+    delay_minutes: 0,
+    action_config: { category: "cleaning", description: "Turnover cleaning" },
+  },
+  {
+    name_en: "Notify owner on maintenance request",
+    name_es: "Notificar al propietario por mantenimiento",
+    desc_en: "Sends a notification when a tenant submits a maintenance request.",
+    desc_es: "Envía notificación al recibir una solicitud de mantenimiento.",
+    trigger_event: "maintenance_submitted",
+    action_type: "send_notification",
+    delay_minutes: 0,
+    action_config: { channel: "email", subject: "New maintenance request submitted" },
+  },
+  {
+    name_en: "Send pre-arrival message 24h before",
+    name_es: "Enviar mensaje pre-llegada 24h antes",
+    desc_en: "Sends check-in instructions via WhatsApp 24h before confirmed reservation.",
+    desc_es: "Envía instrucciones de check-in por WhatsApp 24h antes de la reserva confirmada.",
+    trigger_event: "reservation_confirmed",
+    action_type: "send_whatsapp",
+    delay_minutes: 1440,
+    action_config: { body: "Your stay starts tomorrow! Here are your check-in instructions..." },
+  },
 ];
 
 export function WorkflowRulesManager({
@@ -90,12 +159,19 @@ export function WorkflowRulesManager({
     setSubmitting(true);
     const fd = new FormData(e.currentTarget);
     try {
+      let parsedConfig: Record<string, unknown> = {};
+      try {
+        const raw = (fd.get("action_config") as string) || "{}";
+        parsedConfig = JSON.parse(raw);
+      } catch {
+        /* use empty config */
+      }
       await apiPost("/workflow-rules", {
         organization_id: orgId,
         name: fd.get("name"),
         trigger_event: fd.get("trigger_event"),
         action_type: fd.get("action_type"),
-        action_config: {},
+        action_config: parsedConfig,
         delay_minutes: Number(fd.get("delay_minutes")) || 0,
         is_active: true,
       });
@@ -129,6 +205,30 @@ export function WorkflowRulesManager({
     }
   }
 
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
+
+  async function handleApplyTemplate(template: WorkflowTemplate) {
+    setApplyingTemplate(template.name_en);
+    try {
+      await apiPost("/workflow-rules", {
+        organization_id: orgId,
+        name: isEn ? template.name_en : template.name_es,
+        trigger_event: template.trigger_event,
+        action_type: template.action_type,
+        action_config: template.action_config,
+        delay_minutes: template.delay_minutes,
+        is_active: true,
+      });
+      router.refresh();
+      setShowTemplates(false);
+    } catch {
+      /* ignore */
+    } finally {
+      setApplyingTemplate(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
@@ -141,7 +241,59 @@ export function WorkflowRulesManager({
               ? "New Rule"
               : "Nueva Regla"}
         </Button>
+        <Button
+          onClick={() => setShowTemplates(!showTemplates)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {showTemplates
+            ? isEn ? "Hide Templates" : "Ocultar Plantillas"
+            : isEn ? "Templates" : "Plantillas"}
+        </Button>
       </div>
+
+      {showTemplates && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {WORKFLOW_TEMPLATES.map((template) => (
+            <div
+              className="bg-muted/30 space-y-2 rounded-lg border p-3"
+              key={template.name_en}
+            >
+              <p className="text-sm font-medium">
+                {isEn ? template.name_en : template.name_es}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {isEn ? template.desc_en : template.desc_es}
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="bg-muted rounded px-1.5 py-0.5">
+                  {triggerLabel(template.trigger_event)}
+                </span>
+                <span>→</span>
+                <span className="bg-muted rounded px-1.5 py-0.5">
+                  {actionLabel(template.action_type)}
+                </span>
+                {template.delay_minutes > 0 && (
+                  <span className="text-muted-foreground">
+                    ({template.delay_minutes} min)
+                  </span>
+                )}
+              </div>
+              <Button
+                disabled={applyingTemplate === template.name_en}
+                onClick={() => handleApplyTemplate(template)}
+                size="sm"
+                variant="outline"
+              >
+                {applyingTemplate === template.name_en
+                  ? isEn ? "Creating..." : "Creando..."
+                  : isEn ? "Enable" : "Activar"}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showForm && (
         <form
@@ -178,6 +330,22 @@ export function WorkflowRulesManager({
               <Input defaultValue="0" min="0" name="delay_minutes" type="number" />
             </label>
           </div>
+          <label className="space-y-1 text-sm">
+            <span>
+              {isEn ? "Action config (JSON)" : "Config. de acción (JSON)"}
+            </span>
+            <textarea
+              className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[60px] w-full rounded-md border px-3 py-2 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              defaultValue="{}"
+              name="action_config"
+              rows={3}
+            />
+            <span className="text-muted-foreground text-xs">
+              {isEn
+                ? "e.g. {\"title\": \"...\", \"type\": \"cleaning\", \"priority\": \"high\"}"
+                : "ej. {\"title\": \"...\", \"type\": \"cleaning\", \"priority\": \"high\"}"}
+            </span>
+          </label>
           <Button disabled={submitting} size="sm" type="submit">
             {submitting
               ? isEn

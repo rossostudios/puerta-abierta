@@ -11,5 +11,8 @@ pub mod plan_limits;
 pub mod ical;
 pub mod lease_schedule;
 pub mod messaging;
+pub mod payments;
 pub mod pricing;
+pub mod sequences;
+pub mod ai_guest_reply;
 pub mod workflows;

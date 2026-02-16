@@ -40,6 +40,14 @@ pub fn router() -> axum::Router<AppState> {
             "/public/payment/{reference_code}",
             axum::routing::get(get_public_payment_info),
         )
+        .route(
+            "/public/payment/{reference_code}/checkout",
+            axum::routing::post(create_stripe_checkout),
+        )
+        .route(
+            "/webhooks/stripe",
+            axum::routing::post(stripe_webhook),
+        )
 }
 
 async fn create_payment_link(
@@ -314,6 +322,222 @@ fn value_str_opt(row: &Value, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
+}
+
+/// Create a Stripe Checkout Session for a public payment.
+async fn create_stripe_checkout(
+    State(state): State<AppState>,
+    Path(path): Path<PaymentReferencePath>,
+) -> AppResult<Json<Value>> {
+    let pool = db_pool(&state)?;
+
+    let record = get_row(
+        pool,
+        "payment_instructions",
+        &path.reference_code,
+        "reference_code",
+    )
+    .await?;
+
+    let status = value_str(&record, "status");
+    if status != "active" {
+        return Err(AppError::Gone(
+            "This payment link is no longer active.".to_string(),
+        ));
+    }
+
+    let amount = record
+        .as_object()
+        .and_then(|obj| obj.get("amount"))
+        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok())))
+        .unwrap_or(0.0);
+    let currency = value_str(&record, "currency");
+    let tenant_name = value_str(&record, "tenant_name");
+    let reference_code = value_str(&record, "reference_code");
+
+    let org_id = value_str(&record, "organization_id");
+    let org_name = if !org_id.is_empty() {
+        get_row(pool, "organizations", &org_id, "id")
+            .await
+            .ok()
+            .map(|org| value_str(&org, "name"))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let session = crate::services::payments::create_stripe_checkout_session(
+        &state.http_client,
+        &state.config,
+        amount,
+        &currency,
+        &reference_code,
+        &tenant_name,
+        &org_name,
+    )
+    .await
+    .map_err(|e| AppError::Dependency(e))?;
+
+    // Store the checkout session ID
+    let session_id = session
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let checkout_url = session
+        .get("url")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    if !session_id.is_empty() {
+        let instruction_id = value_str(&record, "id");
+        let mut patch = serde_json::Map::new();
+        patch.insert(
+            "stripe_checkout_session_id".to_string(),
+            Value::String(session_id.to_string()),
+        );
+        let _ = update_row(pool, "payment_instructions", &instruction_id, &patch, "id").await;
+    }
+
+    Ok(Json(json!({
+        "checkout_url": checkout_url,
+        "session_id": session_id,
+    })))
+}
+
+/// Stripe webhook handler — processes payment events.
+async fn stripe_webhook(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> AppResult<impl IntoResponse> {
+    let pool = db_pool(&state)?;
+
+    let event_type = payload
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    match event_type {
+        "checkout.session.completed" => {
+            let session = payload.get("data").and_then(|d| d.get("object"));
+            if let Some(session) = session {
+                let session_id = session
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let reference_code = session
+                    .get("metadata")
+                    .and_then(|m| m.get("reference_code"))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+
+                if !reference_code.is_empty() {
+                    // Find the payment instruction
+                    if let Ok(instruction) =
+                        get_row(pool, "payment_instructions", reference_code, "reference_code")
+                            .await
+                    {
+                        let instruction_id = value_str(&instruction, "id");
+                        let collection_id = value_str(&instruction, "collection_record_id");
+
+                        // Mark payment_instructions as paid
+                        let mut pi_patch = serde_json::Map::new();
+                        pi_patch.insert(
+                            "status".to_string(),
+                            Value::String("paid".to_string()),
+                        );
+                        let _ = update_row(
+                            pool,
+                            "payment_instructions",
+                            &instruction_id,
+                            &pi_patch,
+                            "id",
+                        )
+                        .await;
+
+                        // Mark collection_record as paid
+                        if !collection_id.is_empty() {
+                            let mut cr_patch = serde_json::Map::new();
+                            cr_patch.insert(
+                                "status".to_string(),
+                                Value::String("paid".to_string()),
+                            );
+                            cr_patch.insert(
+                                "paid_at".to_string(),
+                                Value::String(Utc::now().to_rfc3339()),
+                            );
+                            cr_patch.insert(
+                                "payment_method".to_string(),
+                                Value::String("card".to_string()),
+                            );
+                            cr_patch.insert(
+                                "payment_reference".to_string(),
+                                Value::String(format!("stripe:{session_id}")),
+                            );
+                            let _ = update_row(
+                                pool,
+                                "collection_records",
+                                &collection_id,
+                                &cr_patch,
+                                "id",
+                            )
+                            .await;
+                        }
+
+                        // Queue WhatsApp receipt notification to tenant
+                        let tenant_phone = value_str(&instruction, "tenant_phone_e164");
+                        let org_id = value_str(&instruction, "organization_id");
+                        let amount = instruction
+                            .as_object()
+                            .and_then(|o| o.get("amount"))
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0);
+                        let currency = value_str(&instruction, "currency");
+                        let amount_display = if currency == "PYG" {
+                            format!("₲{}", amount as i64)
+                        } else {
+                            format!("${:.2}", amount)
+                        };
+
+                        if !tenant_phone.is_empty() && !org_id.is_empty() {
+                            let body = format!(
+                                "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {reference_code}) ha sido procesado exitosamente.\n\n— Puerta Abierta"
+                            );
+                            let mut msg = serde_json::Map::new();
+                            msg.insert(
+                                "organization_id".to_string(),
+                                Value::String(org_id),
+                            );
+                            msg.insert(
+                                "channel".to_string(),
+                                Value::String("whatsapp".to_string()),
+                            );
+                            msg.insert(
+                                "recipient".to_string(),
+                                Value::String(tenant_phone),
+                            );
+                            msg.insert(
+                                "status".to_string(),
+                                Value::String("queued".to_string()),
+                            );
+                            msg.insert(
+                                "direction".to_string(),
+                                Value::String("outbound".to_string()),
+                            );
+                            let mut pl = serde_json::Map::new();
+                            pl.insert("body".to_string(), Value::String(body));
+                            msg.insert("payload".to_string(), Value::Object(pl));
+                            let _ = create_row(pool, "message_logs", &msg).await;
+                        }
+                    }
+                }
+            }
+        }
+        _ => {
+            tracing::debug!("Unhandled Stripe event type: {event_type}");
+        }
+    }
+
+    Ok(axum::http::StatusCode::OK)
 }
 
 fn non_empty_opt(value: Option<&str>) -> Option<String> {

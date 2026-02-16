@@ -29,11 +29,11 @@ export function TenantMaintenance({ locale }: { locale: string }) {
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
-    const token = sessionStorage.getItem("tenant_token");
+    const token = localStorage.getItem("tenant_token");
     if (!token) { router.push("/tenant/login"); return; }
     try {
       const res = await fetch(`${API_BASE}/tenant/maintenance-requests`, { headers: { "x-tenant-token": token } });
-      if (res.status === 401) { sessionStorage.clear(); router.push("/tenant/login"); return; }
+      if (res.status === 401) { localStorage.clear(); router.push("/tenant/login"); return; }
       const json = await res.json();
       setRequests(
         ((json.data ?? []) as Record<string, unknown>[]).map((r) => ({
@@ -49,7 +49,7 @@ export function TenantMaintenance({ locale }: { locale: string }) {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    const token = sessionStorage.getItem("tenant_token");
+    const token = localStorage.getItem("tenant_token");
     if (!token) return;
     const fd = new FormData(e.currentTarget);
     try {

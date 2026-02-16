@@ -33,9 +33,9 @@ export function TenantLoginForm({ locale }: { locale: string }) {
         });
         const data = await res.json();
         if (data.authenticated) {
-          sessionStorage.setItem("tenant_token", token);
-          sessionStorage.setItem("tenant_lease_id", data.lease_id ?? "");
-          sessionStorage.setItem("tenant_email", data.email ?? "");
+          localStorage.setItem("tenant_token", token);
+          localStorage.setItem("tenant_lease_id", data.lease_id ?? "");
+          localStorage.setItem("tenant_email", data.email ?? "");
           router.push("/tenant/dashboard");
         } else {
           setError(

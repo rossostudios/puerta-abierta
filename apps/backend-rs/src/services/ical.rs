@@ -187,6 +187,88 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
 }
 
 // ---------------------------------------------------------------------------
+// iCal sync all integrations
+// ---------------------------------------------------------------------------
+
+/// Sync all active iCal integrations across all organizations.
+pub async fn sync_all_ical_integrations(
+    pool: &PgPool,
+    client: &Client,
+) -> Value {
+    let mut filters = Map::new();
+    filters.insert("is_active".to_string(), Value::Bool(true));
+
+    let integrations = match list_rows(pool, "integrations", Some(&filters), 1000, 0, "created_at", true).await {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to fetch integrations for iCal sync");
+            return serde_json::json!({
+                "error": "Failed to fetch integrations",
+                "synced": 0,
+                "failed": 0,
+            });
+        }
+    };
+
+    let mut synced = 0u32;
+    let mut failed = 0u32;
+    let mut skipped = 0u32;
+
+    for integration in &integrations {
+        let ical_url = string_value(
+            integration
+                .as_object()
+                .and_then(|o| o.get("ical_import_url")),
+        );
+        if ical_url.is_none() {
+            skipped += 1;
+            continue;
+        }
+
+        let integration_id = string_value(
+            integration.as_object().and_then(|o| o.get("id")),
+        )
+        .unwrap_or_default();
+
+        match sync_listing_ical_reservations(pool, client, integration, "system").await {
+            Ok(_result) => {
+                // Update last_ical_sync_at, clear error
+                let mut patch = Map::new();
+                patch.insert(
+                    "last_ical_sync_at".to_string(),
+                    Value::String(Utc::now().to_rfc3339()),
+                );
+                patch.insert("ical_sync_error".to_string(), Value::Null);
+                let _ = update_row(pool, "integrations", &integration_id, &patch, "id").await;
+                synced += 1;
+            }
+            Err(e) => {
+                let error_msg = format!("{e}");
+                let mut patch = Map::new();
+                patch.insert(
+                    "last_ical_sync_at".to_string(),
+                    Value::String(Utc::now().to_rfc3339()),
+                );
+                patch.insert(
+                    "ical_sync_error".to_string(),
+                    Value::String(error_msg),
+                );
+                let _ = update_row(pool, "integrations", &integration_id, &patch, "id").await;
+                failed += 1;
+            }
+        }
+    }
+
+    serde_json::json!({
+        "total_integrations": integrations.len(),
+        "synced": synced,
+        "failed": failed,
+        "skipped": skipped,
+        "synced_at": Utc::now().to_rfc3339(),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // iCal import / sync
 // ---------------------------------------------------------------------------
 

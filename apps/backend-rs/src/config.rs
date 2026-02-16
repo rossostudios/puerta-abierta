@@ -40,6 +40,9 @@ pub struct AppConfig {
     pub stripe_secret_key: Option<String>,
     pub stripe_webhook_secret: Option<String>,
     pub stripe_trial_days: i32,
+    pub twilio_account_sid: Option<String>,
+    pub twilio_auth_token: Option<String>,
+    pub twilio_phone_number: Option<String>,
     pub app_public_url: String,
 }
 
@@ -85,6 +88,9 @@ impl AppConfig {
             stripe_secret_key: env_opt("STRIPE_SECRET_KEY"),
             stripe_webhook_secret: env_opt("STRIPE_WEBHOOK_SECRET"),
             stripe_trial_days: env_parse_or("STRIPE_TRIAL_DAYS", 14),
+            twilio_account_sid: env_opt("TWILIO_ACCOUNT_SID"),
+            twilio_auth_token: env_opt("TWILIO_AUTH_TOKEN"),
+            twilio_phone_number: env_opt("TWILIO_PHONE_NUMBER"),
             app_public_url: env_or("APP_PUBLIC_URL", "http://localhost:3000"),
         }
     }
