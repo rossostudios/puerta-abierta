@@ -33,7 +33,7 @@ export function TableCard({
           <CardDescription className="text-[11px] uppercase tracking-[0.13em]">
             {subtitle}
           </CardDescription>
-          <CardTitle className="mt-1 text-[1.45rem] tracking-[-0.01em]">
+          <CardTitle className="mt-1 text-xl">
             {title}
           </CardTitle>
         </div>

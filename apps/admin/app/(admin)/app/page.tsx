@@ -134,8 +134,8 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
         href: "/module/owner-statements",
         labelEn: "Owner payouts",
         labelEs: "Pagos a propietarios",
-        detailEn: "Track statements and reconciliation deltas.",
-        detailEs: "Revisa estados y diferencias de conciliacion.",
+        detailEn: "View monthly payout statements.",
+        detailEs: "Revisa estados de pago mensuales.",
         icon: Invoice01Icon,
       },
       {
@@ -148,8 +148,8 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
       },
       {
         href: "/module/listings",
-        labelEn: "Marketplace quality",
-        labelEs: "Calidad de anuncios",
+        labelEn: "Review listings",
+        labelEs: "Revisar anuncios",
         detailEn: "Publish complete listings with transparent pricing.",
         detailEs: "Publica anuncios completos con precios transparentes.",
         icon: Home01Icon,
@@ -171,8 +171,8 @@ function roleQuickActions(role: DashboardRole): QuickAction[] {
         href: "/module/owner-statements",
         labelEn: "Reconcile statements",
         labelEs: "Conciliar estados",
-        detailEn: "Validate lease/collection line-item consistency.",
-        detailEs: "Valida consistencia de line items y cobranzas.",
+        detailEn: "Match lease and collection records.",
+        detailEs: "Verifica consistencia de contratos y cobros.",
         icon: File01Icon,
       },
       {
@@ -276,7 +276,7 @@ function roleGreeting(locale: string, isEn: boolean): string {
     return isEn ? "Welcome back" : "Bienvenido de nuevo";
   }
   if (hour < 12) {
-    return isEn ? "Good morning" : "Buenos dias";
+    return isEn ? "Good morning" : "Buenos días";
   }
   if (hour < 18) {
     return isEn ? "Good afternoon" : "Buenas tardes";
@@ -364,12 +364,12 @@ export default async function DashboardPage({
           <CardTitle>
             {isEn
               ? "Missing organization context"
-              : "Falta contexto de organizacion"}
+              : "Falta contexto de organización"}
           </CardTitle>
           <CardDescription>
             {isEn
               ? "Select an organization to load portfolio data."
-              : "Selecciona una organizacion para cargar los datos del portafolio."}
+              : "Selecciona una organización para cargar los datos del portafolio."}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
@@ -384,8 +384,8 @@ export default async function DashboardPage({
             <>
               Abre{" "}
               <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>{" "}
-              para crear tu primera organizacion, o usa el selector de
-              organizacion en la barra superior.
+              para crear tu primera organización, o usa el selector de
+              organización en la barra superior.
             </>
           )}
         </CardContent>
@@ -702,13 +702,13 @@ export default async function DashboardPage({
       {/* ── Page header ─────────────────────────────────────── */}
       <header className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card/98 p-5 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="font-semibold text-[2rem] tracking-[-0.02em]">
+          <h1 className="font-semibold text-2xl">
             {greetingTitle}
           </h1>
           <p className="text-muted-foreground/90 text-sm">
             {isEn
               ? "Here is your portfolio pulse and what needs attention next."
-              : "Aqui tienes el pulso de tu portafolio y lo que requiere atencion ahora."}
+              : "Aqui tienes el pulso de tu portafolio y lo que requiere atención ahora."}
           </p>
         </div>
 
@@ -743,7 +743,7 @@ export default async function DashboardPage({
           <AlertDescription>
             {isEn
               ? "Great start. Continue with integrations, listings, and daily operations."
-              : "Excelente inicio. Continua con integraciones, anuncios y la operacion diaria."}
+              : "Excelente inicio. Continúa con integraciones, anuncios y la operación diaria."}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -807,7 +807,7 @@ export default async function DashboardPage({
       {needsAttention.length > 0 ? (
         <section className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5">
           <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-            {isEn ? "Needs attention" : "Requiere atencion"}
+            {isEn ? "Needs attention" : "Requiere atención"}
           </h2>
           <div className="divide-y divide-border/60">
             {needsAttention.map((item) => (
@@ -851,10 +851,10 @@ export default async function DashboardPage({
           />
           <StatCard
             helper={
-              isEn ? "Check-ins next 7 days" : "Check-ins proximos 7 dias"
+              isEn ? "Check-ins next 7 days" : "Check-ins próximos 7 días"
             }
             icon={CalendarCheckIn01Icon}
-            label={isEn ? "Upcoming check-ins" : "Check-ins proximos"}
+            label={isEn ? "Upcoming check-ins" : "Check-ins próximos"}
             value={String(operationsKpis.upcomingCheckIns)}
           />
           <StatCard
@@ -947,7 +947,7 @@ export default async function DashboardPage({
             />
             <StatCard
               helper={
-                isEn ? "Next 60 days" : "Proximos 60 dias"
+                isEn ? "Next 60 days" : "Próximos 60 días"
               }
               icon={File01Icon}
               label={isEn ? "Expiring leases" : "Contratos por vencer"}

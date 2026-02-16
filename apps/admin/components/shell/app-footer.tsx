@@ -14,7 +14,7 @@ export function AppFooter({ locale }: { locale: Locale }) {
     <footer className="flex h-9 shrink-0 items-center justify-between border-t border-border/40 bg-background px-4 text-[11px] text-muted-foreground/70">
       <div className="flex items-center gap-4">
         <Link className="transition-colors hover:text-foreground" href="/documentation">
-          {isEn ? "Docs" : "Docs"}
+          {isEn ? "Docs" : "Documentación"}
         </Link>
         <Link className="transition-colors hover:text-foreground" href="/settings">
           {isEn ? "Settings" : "Ajustes"}
@@ -34,16 +34,16 @@ export function AppFooter({ locale }: { locale: Locale }) {
       <Image
         alt="Stoa"
         className="dark:hidden"
-        height={16}
+        height={20}
         src="/stoa-logo-dark.svg"
-        width={70}
+        width={88}
       />
       <Image
         alt="Stoa"
         className="hidden dark:block"
-        height={16}
+        height={20}
         src="/stoa-logo-all-white.svg"
-        width={70}
+        width={88}
       />
 
       <div className="flex items-center gap-4">

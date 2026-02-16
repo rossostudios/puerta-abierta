@@ -31,7 +31,7 @@ export function StatCard({ label, value, helper, icon }: StatCardProps) {
           ) : null}
           {label}
         </CardDescription>
-        <CardTitle className="text-[2rem] tabular-nums tracking-[-0.02em]">
+        <CardTitle className="text-2xl tabular-nums">
           {value}
         </CardTitle>
       </CardHeader>

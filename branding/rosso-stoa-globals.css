@@ -1,0 +1,147 @@
+/* ============================================================
+   ROSSO STOA — Property Management SaaS
+   shadcn/ui Theme · Geist Sans + Geist Mono
+   
+   Install: npm install geist
+   
+   layout.tsx:
+     import { GeistSans } from 'geist/font/sans'
+     import { GeistMono } from 'geist/font/mono'
+   ============================================================ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 98%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 349 79% 49%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 349 82% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 349 79% 49%;
+    --radius: 0.625rem;
+
+    --sidebar: 349 68% 12%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 349 79% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 349 68% 19%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 349 50% 18%;
+    --sidebar-ring: 349 79% 49%;
+
+    --chart-1: 349 79% 49%;
+    --chart-2: 349 68% 35%;
+    --chart-3: 349 60% 25%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 48 96% 53%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 240 10% 3.9%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 7%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 349 79% 49%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 349 82% 49%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 349 79% 49%;
+
+    --sidebar: 240 6% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 349 79% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 12%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 349 79% 49%;
+
+    --chart-1: 349 82% 55%;
+    --chart-2: 349 72% 45%;
+    --chart-3: 349 62% 36%;
+    --chart-4: 142 71% 45%;
+    --chart-5: 48 96% 53%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 48 96% 53%;
+    --warning-foreground: 240 10% 3.9%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  .bg-stoa-gradient {
+    background: linear-gradient(135deg, hsl(349 68% 12%) 0%, hsl(349 74% 39%) 100%);
+  }
+  .bg-stoa-gradient-warm {
+    background: linear-gradient(135deg, hsl(349 68% 14%) 0%, hsl(349 82% 49%) 100%);
+  }
+  .bg-stoa-gradient-hero {
+    background: linear-gradient(to right, hsl(349 68% 14%), hsl(349 82% 49%));
+  }
+  .bg-stoa-gradient-subtle {
+    background: linear-gradient(135deg, hsl(349 100% 97%) 0%, hsl(349 100% 94%) 100%);
+  }
+  .dark .bg-stoa-gradient-subtle {
+    background: linear-gradient(135deg, hsl(349 68% 8%) 0%, hsl(349 60% 12%) 100%);
+  }
+  .text-stoa-gradient {
+    background: linear-gradient(135deg, hsl(349 74% 39%), hsl(349 82% 49%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .shadow-stoa {
+    box-shadow: 0 0 0 1px hsl(349 79% 49% / 0.08), 0 2px 8px hsl(349 79% 49% / 0.1);
+  }
+  .dark .shadow-stoa {
+    box-shadow: 0 0 0 1px hsl(349 79% 49% / 0.12), 0 2px 8px hsl(349 79% 49% / 0.08);
+  }
+}

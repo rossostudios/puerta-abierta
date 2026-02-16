@@ -598,7 +598,7 @@ export function ListingsManager({
               : "Nuevo anuncio marketplace"
         }
       >
-        <Form
+        <form
           action={formAction}
           className="space-y-4"
           key={editing?.id ?? "create"}
@@ -613,7 +613,7 @@ export function ListingsManager({
 
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1 text-sm md:col-span-2">
-              <span>{isEn ? "Title" : "Titulo"}</span>
+              <span>{isEn ? "Title" : "Título"}</span>
               <Input
                 defaultValue={editing?.title ?? ""}
                 name="title"
@@ -703,7 +703,7 @@ export function ListingsManager({
             </div>
 
             <div className="space-y-1 text-sm md:col-span-2">
-              <span>{isEn ? "Gallery images" : "Imagenes de galeria"}</span>
+              <span>{isEn ? "Gallery images" : "Imágenes de galería"}</span>
               <ImageUpload
                 defaultValue={
                   editing?.gallery_image_urls?.map((u) => String(u)) ??
@@ -711,7 +711,7 @@ export function ListingsManager({
                 }
                 isEn={isEn}
                 labelEn="Upload multiple gallery images"
-                labelEs="Sube varias imagenes de galeria"
+                labelEs="Sube varias imágenes de galería"
                 multiple
                 name="gallery_image_urls"
                 orgId={orgId}
@@ -729,7 +729,7 @@ export function ListingsManager({
             </label>
 
             <label className="space-y-1 text-sm">
-              <span>{isEn ? "Bathrooms" : "Banos"}</span>
+              <span>{isEn ? "Bathrooms" : "Baños"}</span>
               <Input
                 defaultValue={editing?.bathrooms || ""}
                 min={0}
@@ -740,7 +740,7 @@ export function ListingsManager({
             </label>
 
             <label className="space-y-1 text-sm">
-              <span>{isEn ? "Area (m2)" : "Area (m2)"}</span>
+              <span>{isEn ? "Area (m²)" : "Área (m²)"}</span>
               <Input
                 defaultValue={editing?.square_meters || ""}
                 min={0}
@@ -782,7 +782,7 @@ export function ListingsManager({
 
             <label className="space-y-1 text-sm">
               <span>
-                {isEn ? "Minimum lease (months)" : "Contrato minimo (meses)"}
+                {isEn ? "Minimum lease (months)" : "Contrato mínimo (meses)"}
               </span>
               <Input
                 defaultValue={editing?.minimum_lease_months || ""}
@@ -902,7 +902,7 @@ export function ListingsManager({
             </div>
 
             <label className="space-y-1 text-sm md:col-span-2">
-              <span>{isEn ? "Description" : "Descripcion"}</span>
+              <span>{isEn ? "Description" : "Descripción"}</span>
               <Textarea
                 defaultValue={editing?.description ?? ""}
                 name="description"
@@ -921,7 +921,7 @@ export function ListingsManager({
                   : "Crear anuncio"}
             </Button>
           </div>
-        </Form>
+        </form>
       </Sheet>
     </div>
   );
