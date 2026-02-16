@@ -10,13 +10,22 @@ pub async fn health(State(state): State<AppState>) -> Json<Value> {
     let db_ok = if let Some(pool) = &state.db_pool {
         // Wrap in a short timeout so the healthcheck always responds quickly,
         // even if the first DB connection hangs (e.g. DNS, SSL, TCP).
-        tokio::time::timeout(
+        match tokio::time::timeout(
             Duration::from_secs(3),
             sqlx::query("SELECT 1").fetch_one(pool),
         )
         .await
-        .map(|r| r.is_ok())
-        .unwrap_or(false)
+        {
+            Ok(Ok(_)) => true,
+            Ok(Err(e)) => {
+                tracing::error!(error = %e, "Health check DB query failed");
+                false
+            }
+            Err(_) => {
+                tracing::error!("Health check DB query timed out (3s)");
+                false
+            }
+        }
     } else {
         true // no DB configured — skip check
     };
