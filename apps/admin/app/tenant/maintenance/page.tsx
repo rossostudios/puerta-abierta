@@ -5,7 +5,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { TenantMaintenance } from "./tenant-maintenance";
 
 export const metadata: Metadata = {
-  title: "Mantenimiento | Portal del Inquilino | Puerta Abierta",
+  title: "Mantenimiento | Portal del Inquilino | Stoa",
   robots: { index: false, follow: false },
 };
 

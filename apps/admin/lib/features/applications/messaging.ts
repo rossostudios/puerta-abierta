@@ -103,8 +103,8 @@ export function buildMessageLinks(
   const emailBody = interpolateTemplate(
     emailTemplate?.body ||
       (isEn
-        ? "Hi {{full_name}},\n\nWe received your application for {{listing_title}}. Current status: {{status}}.\n\nBest regards,\nPuerta Abierta"
-        : "Hola {{full_name}},\n\nRecibimos tu aplicación para {{listing_title}}. Estado actual: {{status}}.\n\nSaludos,\nPuerta Abierta"),
+        ? "Hi {{full_name}},\n\nWe received your application for {{listing_title}}. Current status: {{status}}.\n\nBest regards,\nStoa"
+        : "Hola {{full_name}},\n\nRecibimos tu aplicación para {{listing_title}}. Estado actual: {{status}}.\n\nSaludos,\nStoa"),
     context
   );
 

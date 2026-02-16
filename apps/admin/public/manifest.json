@@ -1,12 +1,12 @@
 {
-  "name": "Puerta Abierta – Tenant Portal",
-  "short_name": "Puerta Abierta",
+  "name": "Stoa – Tenant Portal",
+  "short_name": "Stoa",
   "description": "Portal del inquilino – pagos, mantenimiento y documentos",
   "start_url": "/tenant/dashboard",
   "scope": "/tenant/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#2563eb",
+  "theme_color": "#DA1E37",
   "icons": [
     {
       "src": "/icon-192.png",

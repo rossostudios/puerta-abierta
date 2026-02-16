@@ -5,7 +5,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { TenantDashboard } from "./tenant-dashboard";
 
 export const metadata: Metadata = {
-  title: "Mi Portal | Puerta Abierta",
+  title: "Mi Portal | Stoa",
   robots: { index: false, follow: false },
 };
 

@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
+import { StoaLogo } from "@/components/ui/stoa-logo";
 import {
   FAVORITES_CHANGE_EVENT,
   getFavoritesCount,
@@ -96,10 +97,8 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
             className="inline-flex h-11 items-center gap-2 rounded-2xl border border-border/75 bg-card/90 px-3 font-semibold text-[0.95rem] tracking-tight transition-colors hover:bg-accent"
             href="/"
           >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/12 text-primary text-xs font-bold">
-              PA
-            </span>
-            <span className="hidden sm:inline">Puerta Abierta</span>
+            <StoaLogo className="text-primary" size={20} />
+            <span className="hidden sm:inline">Stoa</span>
           </Link>
 
           <nav className="hidden items-center gap-1 lg:flex">
@@ -186,7 +185,7 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
         onOpenChange={setMobileOpen}
         open={mobileOpen}
         side="left"
-        title="Puerta Abierta"
+        title="Stoa"
       >
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => {

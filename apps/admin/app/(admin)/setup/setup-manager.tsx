@@ -652,7 +652,7 @@ export function SetupManager({
                   <span className="font-mono">
                     Solicitar sincronización iCal
                   </span>{" "}
-                  para importar reservas/bloqueos en Puerta Abierta.
+                  para importar reservas/bloqueos en Stoa.
                 </p>
               </div>
             ) : null}
@@ -670,7 +670,7 @@ export function SetupManager({
                   <label className="font-medium text-xs">Nombre</label>
                   <Input
                     name="name"
-                    placeholder="Puerta Abierta Holdings"
+                    placeholder="Stoa Holdings"
                     required
                   />
                 </div>
@@ -678,7 +678,7 @@ export function SetupManager({
                   <label className="font-medium text-xs">
                     Razón social (opcional)
                   </label>
-                  <Input name="legal_name" placeholder="Puerta Abierta S.A." />
+                  <Input name="legal_name" placeholder="Stoa S.A." />
                 </div>
                 <div className="grid gap-1">
                   <label className="font-medium text-xs">RUC (opcional)</label>

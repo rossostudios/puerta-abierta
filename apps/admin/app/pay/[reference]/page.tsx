@@ -18,7 +18,7 @@ export async function generateMetadata({
 }: PaymentPageProps): Promise<Metadata> {
   const { reference } = await params;
   return {
-    title: `Pago | ${reference} | Puerta Abierta`,
+    title: `Pago | ${reference} | Stoa`,
     robots: { index: false, follow: false },
   };
 }

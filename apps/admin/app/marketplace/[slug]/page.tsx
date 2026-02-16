@@ -49,7 +49,7 @@ export async function generateMetadata({
     const listing = await resolveListing(slug);
     const vm = toMarketplaceListingViewModel({ listing, locale });
 
-    const title = `${vm.title} | Puerta Abierta`;
+    const title = `${vm.title} | Stoa`;
     const description =
       vm.summary ||
       "Anuncio de alquiler de largo plazo con desglose transparente de costos.";
@@ -71,7 +71,7 @@ export async function generateMetadata({
         title,
         description,
         type: "article",
-        siteName: "Puerta Abierta",
+        siteName: "Stoa",
         locale: "es_PY",
         alternateLocale: "en_US",
         images,
@@ -85,7 +85,7 @@ export async function generateMetadata({
     };
   } catch {
     return {
-      title: "Marketplace listing | Puerta Abierta",
+      title: "Marketplace listing | Stoa",
     };
   }
 }

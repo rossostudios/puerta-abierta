@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 
 import { Icon } from "@/components/ui/icon";
+import { StoaLogo } from "@/components/ui/stoa-logo";
 
 const POPULAR_CITIES = [
   { label: "Asunción", param: "Asuncion" },
@@ -33,12 +34,8 @@ export function PublicFooter({ locale }: { locale: "es-PY" | "en-US" }) {
           {/* Brand */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/12 text-primary text-xs font-bold">
-                PA
-              </span>
-              <span className="font-semibold tracking-tight">
-                Puerta Abierta
-              </span>
+              <StoaLogo className="text-primary" size={20} />
+              <span className="font-semibold tracking-tight">Stoa</span>
             </div>
             <p className="max-w-xs text-muted-foreground text-sm leading-relaxed">
               {isEn
@@ -144,10 +141,10 @@ export function PublicFooter({ locale }: { locale: "es-PY" | "en-US" }) {
               <li>
                 <a
                   className="inline-flex items-center gap-1.5 text-muted-foreground transition-colors hover:text-foreground"
-                  href="mailto:info@puertaabierta.com.py"
+                  href="mailto:info@stoa.com.py"
                 >
                   <Icon icon={Mail01Icon} size={14} />
-                  info@puertaabierta.com.py
+                  info@stoa.com.py
                 </a>
               </li>
             </ul>
@@ -157,7 +154,7 @@ export function PublicFooter({ locale }: { locale: "es-PY" | "en-US" }) {
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-border/60 border-t pt-6 sm:flex-row">
           <p className="text-muted-foreground text-xs">
-            &copy; {new Date().getFullYear()} Puerta Abierta.{" "}
+            &copy; {new Date().getFullYear()} Stoa.{" "}
             {isEn ? "All rights reserved." : "Todos los derechos reservados."}
           </p>
           <div className="flex items-center gap-4 text-muted-foreground text-xs">

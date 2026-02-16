@@ -3,7 +3,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { TenantDocuments } from "./tenant-documents";
 
 export const metadata = {
-  title: "Documents | Tenant Portal | Puerta Abierta",
+  title: "Documents | Tenant Portal | Stoa",
   robots: { index: false, follow: false },
 };
 

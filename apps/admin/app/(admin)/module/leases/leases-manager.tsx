@@ -322,7 +322,7 @@ export function LeasesManager({
               monthlyTotal: asNumber(row.monthly_recurring_total),
               currency: asString(row.currency) || "PYG",
               notes: asString(row.notes),
-              orgName: "Puerta Abierta",
+              orgName: "Stoa",
             };
             await generateLeaseContractPdf(contractData, isEn);
           };

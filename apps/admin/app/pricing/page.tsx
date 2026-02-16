@@ -14,7 +14,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "Pricing — Puerta Abierta",
+  title: "Pricing — Stoa",
   description:
     "Planes transparentes para administrar tus propiedades de alquiler en Paraguay.",
 };

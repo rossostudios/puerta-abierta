@@ -15,7 +15,7 @@ const MARKETPLACE_V2_ENABLED = process.env.NEXT_PUBLIC_MARKETPLACE_V2 === "1";
 const BRAND_V1_ENABLED = process.env.NEXT_PUBLIC_BRAND_V1 !== "0";
 
 export const metadata: Metadata = {
-  title: "Puerta Abierta",
+  title: "Stoa",
   description:
     "Marketplace de alquileres de largo plazo en Paraguay con precios transparentes.",
 };

@@ -24,7 +24,7 @@ export async function generateMetadata({
 }: MarketplaceApplyPageProps): Promise<Metadata> {
   const { slug } = await params;
   return {
-    title: `Apply | ${slug} | Puerta Abierta`,
+    title: `Apply | ${slug} | Stoa`,
     robots: {
       index: false,
       follow: true,

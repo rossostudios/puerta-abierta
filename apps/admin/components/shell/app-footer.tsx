@@ -16,7 +16,7 @@ export function AppFooter({ locale }: { locale: Locale }) {
       </div>
 
       <span className="font-[family-name:var(--font-pixel)] text-[12px] tracking-wide text-muted-foreground/50">
-        Puerta Abierta
+        Stoa
       </span>
 
       <div className="flex items-center gap-4">
