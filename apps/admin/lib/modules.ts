@@ -62,14 +62,6 @@ export const MODULES: ModuleDef[] = [
     description_en: "Reservation lifecycle and payout-ready data.",
   },
   {
-    slug: "calendar",
-    label: "Calendario",
-    label_en: "Calendar",
-    endpoint: "/calendar/blocks",
-    description: "Calendario operativo y gestión de disponibilidad manual.",
-    description_en: "Operational calendar and manual availability management.",
-  },
-  {
     slug: "tasks",
     label: "Tareas",
     label_en: "Tasks",

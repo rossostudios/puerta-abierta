@@ -1,4 +1,10 @@
+"use client";
+
+import { KeyboardIcon } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 import Link from "next/link";
+
+import { Icon } from "@/components/ui/icon";
 import type { Locale } from "@/lib/i18n";
 
 export function AppFooter({ locale }: { locale: Locale }) {
@@ -13,11 +19,32 @@ export function AppFooter({ locale }: { locale: Locale }) {
         <Link className="transition-colors hover:text-foreground" href="/settings">
           {isEn ? "Settings" : "Ajustes"}
         </Link>
+        <button
+          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+          onClick={() =>
+            window.dispatchEvent(new CustomEvent("pa:show-shortcuts-help"))
+          }
+          type="button"
+        >
+          <Icon icon={KeyboardIcon} size={12} />
+          <span className="hidden sm:inline">{isEn ? "Shortcuts" : "Atajos"}</span>
+        </button>
       </div>
 
-      <span className="font-[family-name:var(--font-pixel)] text-[12px] tracking-wide text-muted-foreground/50">
-        Stoa
-      </span>
+      <Image
+        alt="Stoa"
+        className="dark:hidden"
+        height={16}
+        src="/stoa-logo-dark.svg"
+        width={70}
+      />
+      <Image
+        alt="Stoa"
+        className="hidden dark:block"
+        height={16}
+        src="/stoa-logo-all-white.svg"
+        width={70}
+      />
 
       <div className="flex items-center gap-4">
         <Link className="transition-colors hover:text-foreground" href="/setup">

@@ -4,7 +4,6 @@ import {
   AiVoiceGeneratorIcon,
   AuditIcon,
   Building01Icon,
-  Calendar02Icon,
   CalendarCheckIn01Icon,
   Cancel01Icon,
   ChartIcon,
@@ -63,7 +62,6 @@ const MODULE_ICONS: Record<string, IconSvgElement> = {
   integrations: Link01Icon,
   guests: UserGroupIcon,
   reservations: CalendarCheckIn01Icon,
-  calendar: Calendar02Icon,
   tasks: Task01Icon,
   expenses: Invoice01Icon,
   "owner-statements": File01Icon,
@@ -466,8 +464,8 @@ function NavLinkRow({
       className={cn(
         "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
-          ? "bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.05)] ring-1 ring-border/40"
-          : "text-sidebar-foreground hover:bg-muted/60 hover:text-foreground"
+          ? "bg-sidebar-accent text-sidebar-foreground"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
       )}
       href={href}
     >
@@ -475,8 +473,8 @@ function NavLinkRow({
         className={cn(
           "shrink-0 transition-colors",
           active
-            ? "text-primary"
-            : "text-sidebar-foreground/60 group-hover/nav:text-foreground/80"
+            ? "text-sidebar-primary"
+            : "text-sidebar-foreground/50 group-hover/nav:text-sidebar-foreground/75"
         )}
         icon={icon}
         size={16}
@@ -519,7 +517,7 @@ function ShortcutBlock({
 }) {
   return (
     <section className="space-y-1.5">
-      <h3 className="px-2 font-medium text-[10px] text-muted-foreground/55 uppercase tracking-[0.08em]">
+      <h3 className="px-2 font-medium text-[10px] text-sidebar-foreground/40 uppercase tracking-[0.08em]">
         {label[locale]}
       </h3>
       <div className="space-y-0.5">
@@ -754,7 +752,7 @@ function SidebarContent({
       </div>
 
       <div className="px-3 pb-2">
-        <div className="flex items-center gap-1 rounded-xl border border-border/60 bg-background/70 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 p-1">
           <div className="flex min-w-0 flex-1 items-center gap-0.5">
             {PRIMARY_TABS.map((tab) => {
               const active = tab.key === activeTab;
@@ -764,8 +762,8 @@ function SidebarContent({
                   className={cn(
                     "inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium text-[12px] transition-colors",
                     active
-                      ? "bg-muted text-foreground"
-                      : "text-muted-foreground/75 hover:text-foreground"
+                      ? "bg-sidebar-accent text-sidebar-foreground"
+                      : "text-sidebar-foreground/55 hover:text-sidebar-foreground"
                   )}
                   href={tab.href}
                 >
@@ -798,7 +796,7 @@ function SidebarContent({
               <TooltipTrigger asChild>
                 <button
                   aria-label={isEn ? "Search" : "Buscar"}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
                   onClick={openSearch}
                   type="button"
                 >
@@ -834,11 +832,11 @@ function SidebarContent({
 
             <section className="space-y-1.5">
               <div className="flex items-center justify-between px-2">
-                <h3 className="font-medium text-[10px] text-muted-foreground/55 uppercase tracking-[0.08em]">
+                <h3 className="font-medium text-[10px] text-sidebar-foreground/40 uppercase tracking-[0.08em]">
                   {isEn ? "Agent catalog" : "Catálogo de agentes"}
                 </h3>
                 <Link
-                  className="text-[11px] text-muted-foreground/80 hover:text-foreground"
+                  className="text-[11px] text-sidebar-foreground/55 hover:text-sidebar-foreground"
                   href="/app/agents"
                 >
                   {isEn ? "Open" : "Abrir"}
@@ -855,7 +853,7 @@ function SidebarContent({
                   />
                 ))}
                 {!chatLoading && chatAgents.length === 0 ? (
-                  <p className="px-2 py-1.5 text-[12px] text-muted-foreground/70">
+                  <p className="px-2 py-1.5 text-[12px] text-sidebar-foreground/50">
                     {isEn
                       ? "No agents available."
                       : "No hay agentes disponibles."}
@@ -866,11 +864,11 @@ function SidebarContent({
 
             <section className="space-y-1.5">
               <div className="flex items-center justify-between px-2">
-                <h3 className="font-medium text-[10px] text-muted-foreground/55 uppercase tracking-[0.08em]">
+                <h3 className="font-medium text-[10px] text-sidebar-foreground/40 uppercase tracking-[0.08em]">
                   {isEn ? "Recent chats" : "Chats recientes"}
                 </h3>
                 <button
-                  className="text-[11px] text-muted-foreground/80 hover:text-foreground"
+                  className="text-[11px] text-sidebar-foreground/55 hover:text-sidebar-foreground"
                   onClick={() => {
                     setShowArchivedChats((value) => !value);
                     setChatDeleteArmedId(null);
@@ -888,7 +886,7 @@ function SidebarContent({
               </div>
 
               {chatError ? (
-                <p className="px-2 py-1 text-[11px] text-destructive">
+                <p className="px-2 py-1 text-[11px] text-red-400">
                   {chatError}
                 </p>
               ) : null}
@@ -899,17 +897,17 @@ function SidebarContent({
                     className={cn(
                       "group flex items-center gap-1 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
                       isRouteActive(pathname, search, `/app/chats/${chat.id}`)
-                        ? "bg-background ring-1 ring-border/40"
-                        : "hover:bg-muted/60"
+                        ? "bg-sidebar-accent"
+                        : "hover:bg-sidebar-accent/50"
                     )}
                     key={chat.id}
                   >
                     <Link
-                      className="min-w-0 flex-1 text-[12px] text-foreground/90"
+                      className="min-w-0 flex-1 text-[12px] text-sidebar-foreground/90"
                       href={`/app/chats/${encodeURIComponent(chat.id)}`}
                     >
                       <div className="truncate font-medium">{chat.title}</div>
-                      <div className="truncate text-[11px] text-muted-foreground/75">
+                      <div className="truncate text-[11px] text-sidebar-foreground/50">
                         {chat.latest_message_preview ||
                           (isEn
                             ? "No messages yet."
@@ -919,7 +917,7 @@ function SidebarContent({
 
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                       <button
-                        className="rounded px-1.5 py-1 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="rounded px-1.5 py-1 text-[10px] text-sidebar-foreground/55 hover:bg-sidebar-accent hover:text-sidebar-foreground"
                         disabled={chatBusyId !== null}
                         onClick={() => {
                           const action = chat.is_archived
@@ -940,7 +938,7 @@ function SidebarContent({
                             : "Arch."}
                       </button>
                       <button
-                        className="rounded px-1.5 py-1 text-[10px] text-destructive/85 hover:bg-destructive/10 hover:text-destructive"
+                        className="rounded px-1.5 py-1 text-[10px] text-red-400/85 hover:bg-red-500/10 hover:text-red-400"
                         disabled={chatBusyId !== null}
                         onClick={() => {
                           if (chatDeleteArmedId !== chat.id) {
@@ -967,7 +965,7 @@ function SidebarContent({
                 ))}
 
                 {!chatLoading && recentChats.length === 0 ? (
-                  <p className="px-2 py-1.5 text-[12px] text-muted-foreground/70">
+                  <p className="px-2 py-1.5 text-[12px] text-sidebar-foreground/50">
                     {showArchivedChats
                       ? isEn
                         ? "No archived chats."
@@ -980,7 +978,7 @@ function SidebarContent({
               </div>
 
               <Link
-                className="inline-flex w-full items-center justify-center rounded-lg border border-border/60 px-2 py-1.5 text-[12px] text-muted-foreground/85 hover:text-foreground"
+                className="inline-flex w-full items-center justify-center rounded-lg border border-sidebar-border/50 px-2 py-1.5 text-[12px] text-sidebar-foreground/60 hover:text-sidebar-foreground"
                 href={
                   showArchivedChats ? "/app/chats?archived=1" : "/app/chats"
                 }
@@ -1014,17 +1012,17 @@ function SidebarContent({
           <nav className="space-y-3">
             {showOnboardingHub && !onboardingCompleted ? (
               <Link
-                className="group block rounded-xl border border-border/70 bg-background/80 p-3 transition-colors hover:border-primary/30 hover:bg-primary/[0.03]"
+                className="group block rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 p-3 transition-colors hover:border-sidebar-primary/30 hover:bg-sidebar-accent/60"
                 href="/setup"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <Icon
-                      className="text-primary/70"
+                      className="text-sidebar-primary/80"
                       icon={Settings03Icon}
                       size={15}
                     />
-                    <span className="truncate font-semibold text-[13px] text-foreground">
+                    <span className="truncate font-semibold text-[13px] text-sidebar-foreground">
                       {isEn ? "Setup" : "Configuración"}
                     </span>
                   </div>
@@ -1034,7 +1032,7 @@ function SidebarContent({
                         ? "Dismiss setup widget"
                         : "Cerrar widget de configuración"
                     }
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground/50 transition-colors hover:bg-muted hover:text-foreground"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -1047,10 +1045,10 @@ function SidebarContent({
                 </div>
                 <Progress
                   aria-valuetext={`${completionPercent}%`}
-                  className="mt-2.5 h-2 bg-muted/90"
+                  className="mt-2.5 h-2 bg-sidebar-accent"
                   value={completionPercent}
                 />
-                <p className="mt-1.5 font-medium text-[12px] text-muted-foreground">
+                <p className="mt-1.5 font-medium text-[12px] text-sidebar-foreground/55">
                   {isEn
                     ? `${completionPercent}% complete`
                     : `${completionPercent}% completado`}
@@ -1074,7 +1072,7 @@ function SidebarContent({
                       <svg
                         aria-hidden="true"
                         className={cn(
-                          "h-3 w-3 shrink-0 text-muted-foreground/40 transition-transform duration-150",
+                          "h-3 w-3 shrink-0 text-sidebar-foreground/30 transition-transform duration-150",
                           isCollapsed ? "-rotate-90" : "rotate-0"
                         )}
                         fill="none"
@@ -1087,7 +1085,7 @@ function SidebarContent({
                       >
                         <path d="m6 9 6 6 6-6" />
                       </svg>
-                      <span className="font-medium text-[10px] text-muted-foreground/50 uppercase tracking-[0.08em]">
+                      <span className="font-medium text-[10px] text-sidebar-foreground/40 uppercase tracking-[0.08em]">
                         {section.label}
                       </span>
                     </CollapsibleTrigger>
@@ -1114,7 +1112,7 @@ function SidebarContent({
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
         <Link
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 font-medium text-[13px] text-foreground transition-colors hover:bg-muted"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-sidebar-border/60 bg-sidebar-accent/50 px-3 font-medium text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
           href="/app/agents?new=1"
         >
           <Icon icon={AiVoiceGeneratorIcon} size={14} />

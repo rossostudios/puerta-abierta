@@ -279,6 +279,16 @@
     background: var(--background);
   }
 
+  /* Scope semantic tokens inside the sidebar so child components
+     using text-foreground, bg-muted, etc. resolve to sidebar-safe values. */
+  .bg-sidebar,
+  [data-sidebar] {
+    --foreground: var(--sidebar-foreground);
+    --muted-foreground: color-mix(in srgb, var(--sidebar-foreground) 50%, transparent);
+    --border: var(--sidebar-border);
+    --input: var(--sidebar-border);
+  }
+
   .pa-marketplace-root {
     background: var(--marketplace-surface);
   }
