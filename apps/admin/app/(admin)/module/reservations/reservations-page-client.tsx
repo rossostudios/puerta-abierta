@@ -7,7 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
-function HeaderButtons({ isEn }: { isEn: boolean }) {
+export function ReservationHeaderButtons({ isEn }: { isEn: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link
@@ -37,4 +37,3 @@ function HeaderButtons({ isEn }: { isEn: boolean }) {
   );
 }
 
-export const ReservationsPageClient = { HeaderButtons };

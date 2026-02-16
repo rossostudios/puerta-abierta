@@ -14,7 +14,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { ReservationsManager } from "./reservations-manager";
-import { ReservationsPageClient } from "./reservations-page-client";
+import { ReservationHeaderButtons } from "./reservations-page-client";
 
 type PageProps = {
   searchParams: Promise<{
@@ -162,7 +162,7 @@ export default async function ReservationsModulePage({
               </CardDescription>
             </div>
 
-            <ReservationsPageClient.HeaderButtons isEn={isEn} />
+            <ReservationHeaderButtons isEn={isEn} />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
