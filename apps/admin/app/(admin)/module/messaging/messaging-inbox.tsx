@@ -40,13 +40,23 @@ type MessagingInboxProps = {
   conversations: Conversation[];
   templates: MessageTemplate[];
   orgId: string;
+  initialStatus?: string;
+  initialSegment?: string;
 };
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-type FilterKey = "all" | "sent" | "failed" | "scheduled";
+type FilterKey =
+  | "all"
+  | "sent"
+  | "failed"
+  | "scheduled"
+  | "unread"
+  | "awaiting"
+  | "resolved"
+  | "starred";
 
 function initials(value: string): string {
   const trimmed = value.trim();
@@ -128,10 +138,29 @@ function statusDot(status: string) {
 
 function matchesFilter(convo: Conversation, filter: FilterKey): boolean {
   if (filter === "all") return true;
-  const s = convo.lastMessage?.status?.toLowerCase() ?? "";
+  const last = convo.lastMessage;
+  const s = last?.status?.toLowerCase() ?? "";
   if (filter === "sent") return s === "sent" || s === "delivered";
   if (filter === "failed") return s === "failed";
   if (filter === "scheduled") return s === "scheduled" || s === "queued";
+  // "unread" — last message is inbound with no outbound reply after it
+  if (filter === "unread") {
+    if (!last) return false;
+    const lastIdx = convo.messages.findIndex((m) => m.id === last.id);
+    if (last.direction !== "inbound") return false;
+    return !convo.messages.slice(lastIdx + 1).some((m) => m.direction === "outbound");
+  }
+  // "awaiting" — last message direction is inbound (guest waiting for reply)
+  if (filter === "awaiting") return last?.direction === "inbound";
+  // "resolved" — last message is outbound and sent/delivered
+  if (filter === "resolved") {
+    return (
+      last?.direction === "outbound" &&
+      (s === "sent" || s === "delivered")
+    );
+  }
+  // "starred" — future feature, no conversations match yet
+  if (filter === "starred") return false;
   return true;
 }
 
@@ -657,27 +686,50 @@ function ComposeSheet({
 // Main component
 // ---------------------------------------------------------------------------
 
+const STATUS_TO_FILTER: Record<string, FilterKey> = {
+  unread: "unread",
+  awaiting: "awaiting",
+  resolved: "resolved",
+  starred: "starred",
+};
+
 export function MessagingInbox({
   conversations,
   templates,
   orgId,
+  initialStatus,
+  initialSegment,
 }: MessagingInboxProps) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
 
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const derivedInitialFilter: FilterKey =
+    (initialStatus && STATUS_TO_FILTER[initialStatus]) || "all";
+  const [activeFilter, setActiveFilter] =
+    useState<FilterKey>(derivedInitialFilter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   // Filter counts
   const counts = useMemo(() => {
-    const c = { all: conversations.length, sent: 0, failed: 0, scheduled: 0 };
+    const c = {
+      all: conversations.length,
+      sent: 0,
+      failed: 0,
+      scheduled: 0,
+      unread: 0,
+      awaiting: 0,
+      resolved: 0,
+      starred: 0,
+    };
     for (const convo of conversations) {
-      const s = convo.lastMessage?.status?.toLowerCase() ?? "";
-      if (s === "sent" || s === "delivered") c.sent += 1;
-      else if (s === "failed") c.failed += 1;
-      else if (s === "scheduled" || s === "queued") c.scheduled += 1;
+      if (matchesFilter(convo, "sent")) c.sent += 1;
+      if (matchesFilter(convo, "failed")) c.failed += 1;
+      if (matchesFilter(convo, "scheduled")) c.scheduled += 1;
+      if (matchesFilter(convo, "unread")) c.unread += 1;
+      if (matchesFilter(convo, "awaiting")) c.awaiting += 1;
+      if (matchesFilter(convo, "resolved")) c.resolved += 1;
     }
     return c;
   }, [conversations]);
@@ -767,6 +819,24 @@ export function MessagingInbox({
             count={counts.all}
             label={isEn ? "All" : "Todos"}
             onClick={() => setActiveFilter("all")}
+          />
+          <FilterPill
+            active={activeFilter === "unread"}
+            count={counts.unread}
+            label={isEn ? "Unread" : "No leídos"}
+            onClick={() => setActiveFilter("unread")}
+          />
+          <FilterPill
+            active={activeFilter === "awaiting"}
+            count={counts.awaiting}
+            label={isEn ? "Awaiting" : "Esperando"}
+            onClick={() => setActiveFilter("awaiting")}
+          />
+          <FilterPill
+            active={activeFilter === "resolved"}
+            count={counts.resolved}
+            label={isEn ? "Resolved" : "Resueltos"}
+            onClick={() => setActiveFilter("resolved")}
           />
           <FilterPill
             active={activeFilter === "sent"}

@@ -8,6 +8,7 @@ import {
   CalendarCheckIn01Icon,
   Cancel01Icon,
   ChartIcon,
+  CheckmarkCircle02Icon,
   CreditCardIcon,
   Door01Icon,
   File01Icon,
@@ -17,10 +18,13 @@ import {
   InboxIcon,
   Invoice01Icon,
   Link01Icon,
+  MailOpen01Icon,
+  MailReply01Icon,
   Message01Icon,
   Search01Icon,
   Settings03Icon,
   SparklesIcon,
+  StarIcon,
   Task01Icon,
   UserGroupIcon,
   WebhookIcon,
@@ -29,7 +33,7 @@ import {
 import type { IconSvgElement } from "@hugeicons/react";
 import { Separator } from "@base-ui/react/separator";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
@@ -188,21 +192,44 @@ const CHAT_LINKS: RouteLinkDef[] = [
   },
 ];
 
-const INBOX_LINKS: RouteLinkDef[] = [
+const INBOX_STATUS_LINKS: RouteLinkDef[] = [
   {
-    href: "/module/applications",
-    icon: UserGroupIcon,
-    label: { "es-PY": "Aplicaciones", "en-US": "Applications" },
+    href: "/module/messaging",
+    icon: InboxIcon,
+    label: { "es-PY": "Todos los mensajes", "en-US": "All Messages" },
   },
   {
-    href: "/module/collections",
-    icon: Invoice01Icon,
-    label: { "es-PY": "Cobranzas", "en-US": "Collections" },
+    href: "/module/messaging?status=unread",
+    icon: MailOpen01Icon,
+    label: { "es-PY": "No leídos", "en-US": "Unread Messages" },
   },
   {
-    href: "/module/tasks?mine=1",
-    icon: Task01Icon,
-    label: { "es-PY": "Cola personal", "en-US": "My queue" },
+    href: "/module/messaging?status=awaiting",
+    icon: MailReply01Icon,
+    label: { "es-PY": "Esperando respuesta", "en-US": "Awaiting Reply" },
+  },
+  {
+    href: "/module/messaging?status=resolved",
+    icon: CheckmarkCircle02Icon,
+    label: { "es-PY": "Resueltos", "en-US": "Resolved" },
+  },
+  {
+    href: "/module/messaging?status=starred",
+    icon: StarIcon,
+    label: { "es-PY": "Destacados", "en-US": "Starred" },
+  },
+];
+
+const INBOX_SEGMENT_LINKS: RouteLinkDef[] = [
+  {
+    href: "/module/messaging?segment=needs-engagement",
+    icon: Message01Icon,
+    label: { "es-PY": "Necesita atención", "en-US": "Needs engagement" },
+  },
+  {
+    href: "/module/messaging?segment=lovable",
+    icon: StarIcon,
+    label: { "es-PY": "Encantadores", "en-US": "Lovable" },
   },
 ];
 
@@ -267,9 +294,32 @@ const HOME_TAB_HIDDEN_MODULE_SLUGS = new Set([
   "audit-logs",
 ]);
 
-function isRouteActive(pathname: string, href: string): boolean {
+function isRouteActive(
+  pathname: string,
+  search: string,
+  href: string
+): boolean {
   if (href === "/app") return pathname === "/app";
-  return pathname === href || pathname.startsWith(`${href}/`);
+
+  const qIndex = href.indexOf("?");
+  if (qIndex !== -1) {
+    const hrefPath = href.slice(0, qIndex);
+    const hrefParams = new URLSearchParams(href.slice(qIndex + 1));
+    if (pathname !== hrefPath && !pathname.startsWith(`${hrefPath}/`))
+      return false;
+    const currentParams = new URLSearchParams(search);
+    for (const [key, value] of hrefParams) {
+      if (currentParams.get(key) !== value) return false;
+    }
+    return true;
+  }
+
+  // No query string in href — match only when current URL also has no status/segment param
+  if (pathname === href || pathname.startsWith(`${href}/`)) {
+    const currentParams = new URLSearchParams(search);
+    return !currentParams.has("status") && !currentParams.has("segment");
+  }
+  return false;
 }
 
 function resolvePrimaryTab(pathname: string): PrimaryTabKey {
@@ -459,11 +509,13 @@ function ShortcutBlock({
   links,
   locale,
   pathname,
+  search,
 }: {
   label: { "es-PY": string; "en-US": string };
   links: RouteLinkDef[];
   locale: Locale;
   pathname: string;
+  search: string;
 }) {
   return (
     <section className="space-y-1.5">
@@ -473,7 +525,7 @@ function ShortcutBlock({
       <div className="space-y-0.5">
         {links.map((link) => (
           <NavLinkRow
-            active={isRouteActive(pathname, link.href)}
+            active={isRouteActive(pathname, search, link.href)}
             href={link.href}
             icon={link.icon}
             key={link.href}
@@ -528,6 +580,8 @@ function SidebarContent({
   role,
 }: SidebarContentProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const activeTab = resolvePrimaryTab(pathname);
   const sections = useMemo(() => resolveSections(locale, role), [locale, role]);
   const [collapsedSections, toggleSection] = useCollapsedSections();
@@ -775,6 +829,7 @@ function SidebarContent({
               links={CHAT_LINKS}
               locale={locale}
               pathname={pathname}
+              search={search}
             />
 
             <section className="space-y-1.5">
@@ -843,7 +898,7 @@ function SidebarContent({
                   <div
                     className={cn(
                       "group flex items-center gap-1 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
-                      isRouteActive(pathname, `/app/chats/${chat.id}`)
+                      isRouteActive(pathname, search, `/app/chats/${chat.id}`)
                         ? "bg-background ring-1 ring-border/40"
                         : "hover:bg-muted/60"
                     )}
@@ -937,12 +992,22 @@ function SidebarContent({
         ) : null}
 
         {activeTab === "inbox" ? (
-          <ShortcutBlock
-            label={{ "es-PY": "Bandejas", "en-US": "Inbox" }}
-            links={INBOX_LINKS}
-            locale={locale}
-            pathname={pathname}
-          />
+          <div className="space-y-4">
+            <ShortcutBlock
+              label={{ "es-PY": "Estado", "en-US": "Status" }}
+              links={INBOX_STATUS_LINKS}
+              locale={locale}
+              pathname={pathname}
+              search={search}
+            />
+            <ShortcutBlock
+              label={{ "es-PY": "Segmentos guardados", "en-US": "Saved Segments" }}
+              links={INBOX_SEGMENT_LINKS}
+              locale={locale}
+              pathname={pathname}
+              search={search}
+            />
+          </div>
         ) : null}
 
         {activeTab === "home" ? (
@@ -1030,7 +1095,7 @@ function SidebarContent({
                       <div className="mt-0.5 space-y-0.5">
                         {section.links.map((link) => (
                           <NavLinkRow
-                            active={isRouteActive(pathname, link.href)}
+                            active={isRouteActive(pathname, search, link.href)}
                             href={link.href}
                             icon={link.iconElement}
                             key={link.href}

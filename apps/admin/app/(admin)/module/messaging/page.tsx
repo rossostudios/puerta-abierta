@@ -27,6 +27,8 @@ type PageProps = {
   searchParams: Promise<{
     success?: string;
     error?: string;
+    status?: string;
+    segment?: string;
   }>;
 };
 
@@ -169,6 +171,8 @@ export default async function MessagingModulePage({
         <CardContent>
           <MessagingInbox
             conversations={conversations}
+            initialStatus={sp.status}
+            initialSegment={sp.segment}
             orgId={orgId}
             templates={templates}
           />
