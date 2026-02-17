@@ -108,7 +108,7 @@ pub async fn run_ai_agent_chat(
         .map(ToOwned::to_owned)
         .unwrap_or_else(|| {
             format!(
-                "You are {} for Puerta Abierta, a property-management platform in Paraguay.",
+                "You are {} for Casaora, a property-management platform in Paraguay.",
                 params.agent_name
             )
         });

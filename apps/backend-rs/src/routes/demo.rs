@@ -1401,7 +1401,7 @@ async fn seed_demo(
             "Recordatorio de pago (3 días)",
             "whatsapp",
             "es-PY",
-            "Hola {{tenant_name}} 👋\n\nTe recordamos que tu pago de alquiler de {{amount}} vence el {{due_date}}.\n\nPuedes ver los detalles y realizar tu pago en:\n{{payment_link}}\n\nGracias por tu puntualidad.\n— Puerta Abierta",
+            "Hola {{tenant_name}} 👋\n\nTe recordamos que tu pago de alquiler de {{amount}} vence el {{due_date}}.\n\nPuedes ver los detalles y realizar tu pago en:\n{{payment_link}}\n\nGracias por tu puntualidad.\n— Casaora",
         ),
         (
             "tpl:rent-reminder-1d",
@@ -1409,7 +1409,7 @@ async fn seed_demo(
             "Recordatorio de pago (1 día)",
             "whatsapp",
             "es-PY",
-            "Hola {{tenant_name}},\n\nTu pago de {{amount}} vence mañana ({{due_date}}).\n\nSi ya realizaste el pago, por favor envía tu comprobante.\n{{payment_link}}\n\n— Puerta Abierta",
+            "Hola {{tenant_name}},\n\nTu pago de {{amount}} vence mañana ({{due_date}}).\n\nSi ya realizaste el pago, por favor envía tu comprobante.\n{{payment_link}}\n\n— Casaora",
         ),
         (
             "tpl:rent-due-today",
@@ -1417,7 +1417,7 @@ async fn seed_demo(
             "Pago vence hoy",
             "whatsapp",
             "es-PY",
-            "⚠️ {{tenant_name}}, hoy vence tu pago de alquiler de {{amount}}.\n\nPor favor realiza tu pago hoy para evitar recargos.\n{{payment_link}}\n\n— Puerta Abierta",
+            "⚠️ {{tenant_name}}, hoy vence tu pago de alquiler de {{amount}}.\n\nPor favor realiza tu pago hoy para evitar recargos.\n{{payment_link}}\n\n— Casaora",
         ),
         (
             "tpl:rent-late",
@@ -1425,7 +1425,7 @@ async fn seed_demo(
             "Aviso de pago atrasado",
             "whatsapp",
             "es-PY",
-            "🔴 {{tenant_name}}, tu pago de {{amount}} (vencimiento: {{due_date}}) está atrasado.\n\nPor favor regulariza tu situación lo antes posible.\n{{payment_link}}\n\nSi ya realizaste el pago, envía tu comprobante.\n— Puerta Abierta",
+            "🔴 {{tenant_name}}, tu pago de {{amount}} (vencimiento: {{due_date}}) está atrasado.\n\nPor favor regulariza tu situación lo antes posible.\n{{payment_link}}\n\nSi ya realizaste el pago, envía tu comprobante.\n— Casaora",
         ),
         (
             "tpl:payment-confirmed",
@@ -1433,7 +1433,7 @@ async fn seed_demo(
             "Confirmación de pago",
             "whatsapp",
             "es-PY",
-            "✅ {{tenant_name}}, tu pago de {{amount}} ha sido confirmado.\n\nGracias por tu puntualidad.\n— Puerta Abierta",
+            "✅ {{tenant_name}}, tu pago de {{amount}} ha sido confirmado.\n\nGracias por tu puntualidad.\n— Casaora",
         ),
         (
             "tpl:maintenance-update",
@@ -1441,7 +1441,7 @@ async fn seed_demo(
             "Actualización de mantenimiento",
             "whatsapp",
             "es-PY",
-            "🔧 Hola {{tenant_name}},\n\nTu solicitud de mantenimiento \"{{request_title}}\" ha sido actualizada.\nEstado: {{status}}\n\n— Puerta Abierta",
+            "🔧 Hola {{tenant_name}},\n\nTu solicitud de mantenimiento \"{{request_title}}\" ha sido actualizada.\nEstado: {{status}}\n\n— Casaora",
         ),
     ];
 

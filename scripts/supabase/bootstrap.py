@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Bootstrap a new Puerta Abierta database in Supabase:
+Bootstrap a new Casaora database in Supabase:
 - Apply db/schema.sql
 - Insert a starter user + organization + membership
 - Print the IDs to use in apps/admin/.env.local and apps/backend-rs/.env
@@ -81,7 +81,7 @@ def main() -> int:
     parser.add_argument("--schema-file", default="db/schema.sql")
     parser.add_argument("--email", required=True)
     parser.add_argument("--full-name", required=True)
-    parser.add_argument("--org-name", default="Puerta Abierta (Default)")
+    parser.add_argument("--org-name", default="Casaora (Default)")
     args = parser.parse_args()
 
     token = _read_access_token(args.access_token)

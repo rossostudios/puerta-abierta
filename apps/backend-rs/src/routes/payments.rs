@@ -500,7 +500,7 @@ async fn stripe_webhook(
 
                         if !tenant_phone.is_empty() && !org_id.is_empty() {
                             let body = format!(
-                                "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {reference_code}) ha sido procesado exitosamente.\n\n— Puerta Abierta"
+                                "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {reference_code}) ha sido procesado exitosamente.\n\n— Casaora"
                             );
                             let mut msg = serde_json::Map::new();
                             msg.insert(

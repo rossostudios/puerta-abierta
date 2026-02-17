@@ -1,4 +1,4 @@
-# Puerta Abierta - Product Requirements Document (PRD)
+# Casaora - Product Requirements Document (PRD)
 
 Version: 1.0  
 Date: February 6, 2026  
@@ -6,7 +6,7 @@ Author: Codex
 
 ## 1. Product Summary
 
-Puerta Abierta is an operations platform for short-term rental (STR) owners and managers in Paraguay. It centralizes reservations, calendar availability, cleaning and maintenance workflows, and owner financial reporting in one system.
+Casaora is an operations platform for short-term rental (STR) owners and managers in Paraguay. It centralizes reservations, calendar availability, cleaning and maintenance workflows, and owner financial reporting in one system.
 
 Primary market:
 - Paraguay-based STR owners managing 2 to 50 units.

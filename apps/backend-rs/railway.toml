@@ -2,5 +2,5 @@
 watchPatterns = ["apps/backend-rs/**"]
 
 [deploy]
-startCommand = "./bin/puerta-abierta-backend-rs"
+startCommand = "./bin/casaora-backend-rs"
 healthcheckPath = "/v1/health"

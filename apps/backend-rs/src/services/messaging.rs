@@ -312,7 +312,7 @@ async fn send_email(
         .and_then(Value::as_object)
         .and_then(|o| o.get("subject"))
         .and_then(Value::as_str)
-        .unwrap_or("Puerta Abierta — Notificación");
+        .unwrap_or("Casaora — Notificación");
 
     let payload = json!({
         "from": from_address,

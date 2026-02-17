@@ -33,7 +33,7 @@ export function ListingLocation({
 
       <div className="mt-4 overflow-hidden rounded-2xl">
         {latitude !== null && longitude !== null ? (
-          <div className="h-[50vh]">
+          <div className="h-[40vh] md:h-[50vh]">
             <LocationMapInner latitude={latitude} longitude={longitude} />
           </div>
         ) : null}

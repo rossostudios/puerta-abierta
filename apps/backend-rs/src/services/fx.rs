@@ -102,7 +102,7 @@ async fn fetch_json(http_client: &reqwest::Client, url: &str) -> Option<Value> {
     let response = http_client
         .get(url)
         .header("Accept", "application/json")
-        .header("User-Agent", "puerta-abierta/1.0")
+        .header("User-Agent", "casaora/1.0")
         .send()
         .await
         .ok()?;

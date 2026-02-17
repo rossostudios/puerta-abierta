@@ -151,7 +151,7 @@ async fn request_access(
             payload_map.insert(
                 "body".to_string(),
                 Value::String(format!(
-                    "Tu enlace de acceso a Puerta Abierta: {magic_link}\n\nEste enlace expira en 24 horas."
+                    "Tu enlace de acceso a Casaora: {magic_link}\n\nEste enlace expira en 24 horas."
                 )),
             );
             msg.insert("payload".to_string(), Value::Object(payload_map));
@@ -507,7 +507,7 @@ async fn tenant_submit_payment(
                              {tenant_name} reportó un pago de {amount_display} (vencimiento: {due_date}).\n\
                              Referencia: {ref_info}\n\n\
                              Confirma o rechaza en tu panel de administración.\n\
-                             — Puerta Abierta"
+                             — Casaora"
                         );
 
                         let mut msg = Map::new();

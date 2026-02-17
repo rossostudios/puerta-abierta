@@ -7,6 +7,7 @@ use axum::{
 use chrono::{Datelike, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use serde_json::{json, Map, Value};
+use sha1::Digest;
 
 use crate::{
     auth::require_user_id,
@@ -116,6 +117,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/reservations/{reservation_id}/refund-deposit",
             axum::routing::post(refund_deposit),
+        )
+        .route(
+            "/reservations/{reservation_id}/guest-portal-link",
+            axum::routing::post(send_guest_portal_link),
         )
         .route(
             "/reservations/{reservation_id}",
@@ -908,4 +913,108 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
         map.insert((*key).to_string(), value.clone());
     }
     map
+}
+
+/// Generate a guest portal access token and queue a WhatsApp message with the link.
+async fn send_guest_portal_link(
+    State(state): State<AppState>,
+    Path(path): Path<ReservationPath>,
+    headers: HeaderMap,
+) -> AppResult<impl IntoResponse> {
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    let reservation = get_row(pool, "reservations", &path.reservation_id, "id").await?;
+    let org_id = reservation
+        .as_object()
+        .and_then(|o| o.get("organization_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| AppError::BadRequest("Reservation has no organization.".to_string()))?
+        .to_string();
+    assert_org_member(&state, &user_id, &org_id).await?;
+
+    let guest_id = reservation
+        .as_object()
+        .and_then(|o| o.get("guest_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| AppError::BadRequest("This reservation has no guest linked.".to_string()))?
+        .to_string();
+
+    let guest = get_row(pool, "guests", &guest_id, "id").await?;
+    let guest_phone = guest
+        .as_object()
+        .and_then(|o| o.get("phone_e164"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+    let guest_email = guest
+        .as_object()
+        .and_then(|o| o.get("email"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    // Generate a random token
+    let raw_token = uuid::Uuid::new_v4().to_string();
+    let token_hash = {
+        let digest = sha1::Sha1::digest(raw_token.as_bytes());
+        digest.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    };
+
+    let mut record = Map::new();
+    record.insert(
+        "reservation_id".to_string(),
+        Value::String(path.reservation_id.clone()),
+    );
+    record.insert("guest_id".to_string(), Value::String(guest_id));
+    record.insert("token_hash".to_string(), Value::String(token_hash));
+    if let Some(ref e) = guest_email {
+        record.insert("email".to_string(), Value::String(e.clone()));
+    }
+    if let Some(ref p) = guest_phone {
+        record.insert("phone_e164".to_string(), Value::String(p.clone()));
+    }
+
+    create_row(pool, "guest_access_tokens", &record).await?;
+
+    // Build magic link
+    let app_base_url = std::env::var("NEXT_PUBLIC_APP_URL")
+        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let magic_link = format!("{app_base_url}/guest/login?token={raw_token}");
+
+    // Queue WhatsApp message if guest has phone
+    if let Some(ref phone) = guest_phone {
+        let mut msg = Map::new();
+        msg.insert("organization_id".to_string(), Value::String(org_id));
+        msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+        msg.insert("recipient".to_string(), Value::String(phone.clone()));
+        msg.insert("status".to_string(), Value::String("queued".to_string()));
+        msg.insert(
+            "scheduled_at".to_string(),
+            Value::String(Utc::now().to_rfc3339()),
+        );
+        let mut payload = Map::new();
+        payload.insert(
+            "body".to_string(),
+            Value::String(format!(
+                "Bienvenido a Casaora! Accede a tu portal de huésped aquí: {magic_link}\n\nEncontrarás tu itinerario, información de check-in y más."
+            )),
+        );
+        msg.insert("payload".to_string(), Value::Object(payload));
+        let _ = create_row(pool, "message_logs", &msg).await;
+    }
+
+    Ok((
+        axum::http::StatusCode::OK,
+        Json(json!({
+            "message": "Guest portal link generated and sent.",
+            "link": magic_link,
+        })),
+    ))
 }

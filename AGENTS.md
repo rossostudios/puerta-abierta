@@ -1,4 +1,4 @@
-# Puerta Abierta Agent Guide
+# Casaora Agent Guide
 
 This repository runs a dual-app stack:
 - `apps/admin`: Next.js 16 admin + public marketplace

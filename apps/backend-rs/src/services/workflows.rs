@@ -236,7 +236,7 @@ async fn execute_send_whatsapp(
         .as_object()
         .and_then(|o| o.get("body"))
         .and_then(Value::as_str)
-        .unwrap_or("Notification from Puerta Abierta");
+        .unwrap_or("Notification from Casaora");
 
     let body = resolve_template(body_template, context);
 

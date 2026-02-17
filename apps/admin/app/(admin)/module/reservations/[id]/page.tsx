@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
+import { SendGuestPortalLink } from "@/components/reservations/send-guest-portal-link";
 import { fetchJson } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import {
@@ -196,6 +197,10 @@ export default async function ReservationDetailPage({ params }: PageProps) {
                   {isEn ? "Calendar" : "Calendario"}
                 </Link>
               ) : null}
+              <SendGuestPortalLink
+                isEn={isEn}
+                reservationId={r.id}
+              />
             </CardContent>
           </Card>
 

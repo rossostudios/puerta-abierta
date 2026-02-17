@@ -54,7 +54,7 @@ async fn export_ical(
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
-        .unwrap_or("Puerta Abierta");
+        .unwrap_or("Casaora");
 
     let ics = build_unit_ical_export(pool, &org_id, &unit_id, calendar_name).await?;
 

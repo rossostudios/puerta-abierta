@@ -94,7 +94,7 @@ pub async fn run_lease_renewal_scan(
                      Hola {tenant_name}, tu contrato de alquiler vence el {ends_on_str}.\n\n\
                      Renta actual: {amount_display}/mes\n\n\
                      Tu administrador te enviará una oferta de renovación pronto.\n\
-                     — Puerta Abierta"
+                     — Casaora"
                 );
                 queue_message(pool, &org_id_str, &tenant_phone, &body, &lease_id, "renewal_60d")
                     .await;
@@ -126,7 +126,7 @@ pub async fn run_lease_renewal_scan(
                     "⏰ Recordatorio de renovación\n\n\
                      Hola {tenant_name}, tu contrato vence en 30 días ({ends_on_str}).\n\n\
                      Por favor contacta a tu administrador sobre la renovación.\n\
-                     — Puerta Abierta"
+                     — Casaora"
                 );
                 queue_message(pool, &org_id_str, &tenant_phone, &body, &lease_id, "renewal_30d")
                     .await;
@@ -225,7 +225,7 @@ pub async fn send_renewal_offer(
              Tu administrador te ofrece renovar tu contrato (vence: {ends_on}).\n\
              {rent_change}\n\n\
              Acepta o responde a este mensaje para más información.\n\
-             — Puerta Abierta"
+             — Casaora"
         );
         queue_message(pool, &org_id, &tenant_phone, &body, lease_id, "renewal_offer").await;
     }

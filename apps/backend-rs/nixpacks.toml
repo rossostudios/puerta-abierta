@@ -2,7 +2,7 @@
 nixPkgs = ["rustc", "cargo", "gcc", "pkg-config", "openssl"]
 
 [phases.build]
-cmds = ["cargo build --release && mkdir -p bin && cp target/release/puerta-abierta-backend-rs bin/"]
+cmds = ["cargo build --release && mkdir -p bin && cp target/release/casaora-backend-rs bin/"]
 
 [start]
-cmd = "./bin/puerta-abierta-backend-rs"
+cmd = "./bin/casaora-backend-rs"

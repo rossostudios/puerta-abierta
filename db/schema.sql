@@ -1,4 +1,4 @@
--- Puerta Abierta database schema
+-- Casaora database schema
 -- PostgreSQL 15+ compatible
 -- Works on Supabase and Neon (RLS block is Supabase-oriented and optional on Neon).
 

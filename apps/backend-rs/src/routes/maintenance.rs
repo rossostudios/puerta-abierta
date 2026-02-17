@@ -206,13 +206,13 @@ async fn update_maintenance_request(
                     "✅ Solicitud recibida\n\n\
                      Hola {tenant_name}, tu solicitud de mantenimiento \"{title}\" fue recibida.\n\
                      Estamos revisándola y te contactaremos pronto.\n\
-                     — Puerta Abierta"
+                     — Casaora"
                 )),
                 "scheduled" => Some(format!(
                     "📅 Mantenimiento programado\n\n\
                      Hola {tenant_name}, el mantenimiento \"{title}\" fue programado.\n\
                      Te contactaremos con los detalles de fecha y hora.\n\
-                     — Puerta Abierta"
+                     — Casaora"
                 )),
                 "completed" | "closed" => {
                     let resolution = payload.resolution_notes.as_deref().unwrap_or("");
@@ -225,7 +225,7 @@ async fn update_maintenance_request(
                         "🔧 Mantenimiento completado\n\n\
                          Hola {tenant_name}, el mantenimiento \"{title}\" fue completado.{notes_part}\n\n\
                          Si tienes algún problema, envía una nueva solicitud.\n\
-                         — Puerta Abierta"
+                         — Casaora"
                     ))
                 }
                 _ => None,

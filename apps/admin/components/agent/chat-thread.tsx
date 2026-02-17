@@ -36,6 +36,30 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
       "¿Cuál es el mayor cuello de botella operativo ahora?",
     ],
   },
+  "guest-concierge": {
+    "en-US": [
+      "Draft a check-in message for this week's arrivals.",
+      "Show me all guests arriving in the next 7 days.",
+      "Write a welcome message for the guest in unit 3.",
+    ],
+    "es-PY": [
+      "Redacta un mensaje de check-in para las llegadas de esta semana.",
+      "Muéstrame todos los huéspedes que llegan en los próximos 7 días.",
+      "Escribe un mensaje de bienvenida para el huésped de la unidad 3.",
+    ],
+  },
+  "owner-insight": {
+    "en-US": [
+      "Summarize this month's revenue by property.",
+      "Compare revenue vs expenses for the last 3 months.",
+      "Flag any unusual expenses this month.",
+    ],
+    "es-PY": [
+      "Resume los ingresos de este mes por propiedad.",
+      "Compara ingresos vs gastos de los últimos 3 meses.",
+      "Señala gastos inusuales de este mes.",
+    ],
+  },
   default: {
     "en-US": [
       "Summarize the key risks for today.",

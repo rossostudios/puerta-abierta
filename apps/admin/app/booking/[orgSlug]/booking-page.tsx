@@ -215,7 +215,7 @@ export function BookingPage({
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div
-        className="border-b px-6 py-4"
+        className="border-b px-4 py-4 sm:px-6"
         style={{ borderColor: `${brandColor}30` }}
       >
         <div className="mx-auto flex max-w-2xl items-center gap-3">
@@ -230,7 +230,7 @@ export function BookingPage({
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl px-6 py-8">
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
         <Card>
           <CardHeader>
             <CardTitle>

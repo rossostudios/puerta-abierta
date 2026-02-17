@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-full}"
 
-echo "==> Puerta Abierta quality gate (${MODE})"
+echo "==> Casaora quality gate (${MODE})"
 
 echo "==> Admin checks"
 (

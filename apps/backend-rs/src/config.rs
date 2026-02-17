@@ -49,7 +49,7 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn from_env() -> Self {
         Self {
-            app_name: env_or("APP_NAME", "Puerta Abierta API"),
+            app_name: env_or("APP_NAME", "Casaora API"),
             environment: env_or("ENVIRONMENT", "development"),
             api_prefix: normalize_prefix(&env_or("API_PREFIX", "/v1")),
             host: env_or("HOST", "0.0.0.0"),
@@ -84,7 +84,7 @@ impl AppConfig {
             whatsapp_access_token: env_opt("WHATSAPP_ACCESS_TOKEN"),
             whatsapp_verify_token: env_opt("WHATSAPP_VERIFY_TOKEN"),
             resend_api_key: env_opt("RESEND_API_KEY"),
-            email_from_address: env_or("EMAIL_FROM_ADDRESS", "noreply@puertaabierta.com"),
+            email_from_address: env_or("EMAIL_FROM_ADDRESS", "noreply@casaora.co"),
             stripe_secret_key: env_opt("STRIPE_SECRET_KEY"),
             stripe_webhook_secret: env_opt("STRIPE_WEBHOOK_SECRET"),
             stripe_trial_days: env_parse_or("STRIPE_TRIAL_DAYS", 14),

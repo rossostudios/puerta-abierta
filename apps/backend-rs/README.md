@@ -1,6 +1,6 @@
-# Puerta Abierta Rust Backend
+# Casaora Rust Backend
 
-Primary API backend built with Axum + SQLx, serving all `/v1` endpoints for the Puerta Abierta platform.
+Primary API backend built with Axum + SQLx, serving all `/v1` endpoints for the Casaora platform.
 
 ## Run locally
 

@@ -1,6 +1,6 @@
-# Puerta Abierta
+# Casaora
 
-Supabase-first platform scaffold for short-term rental operations in Paraguay, with:
+Supabase-first platform for short-term rental operations in Paraguay, with:
 - `Axum + SQLx` Rust backend (`apps/backend-rs`)
 - `Next.js` admin frontend (`apps/admin`)
 - PostgreSQL schema and RLS policies (`db/schema.sql`)

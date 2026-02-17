@@ -65,7 +65,7 @@ Must-run checks:
 Deployment target:
 ```
 
-## 4) Definition of Done (Puerta Abierta)
+## 4) Definition of Done (Casaora)
 
 1. No lint/type/build regressions in admin.
 2. Backend tests pass for changed behavior.

@@ -193,7 +193,7 @@ export default async function PricingPage() {
             : "¿Necesitas un plan personalizado para 100+ unidades? "}
           <a
             className="text-primary underline-offset-4 hover:underline"
-            href="mailto:hello@puertaabierta.com"
+            href="mailto:hello@casaora.co"
           >
             {isEn ? "Contact us" : "Contáctanos"}
           </a>

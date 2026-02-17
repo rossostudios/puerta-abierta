@@ -1,0 +1,73 @@
+"use client";
+
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { authedFetch } from "@/lib/api-client";
+
+interface SendGuestPortalLinkProps {
+  reservationId: string;
+  isEn: boolean;
+}
+
+export function SendGuestPortalLink({
+  reservationId,
+  isEn,
+}: SendGuestPortalLinkProps) {
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSend() {
+    setLoading(true);
+    setError("");
+    try {
+      await authedFetch<{ message: string }>(
+        `/reservations/${encodeURIComponent(reservationId)}/guest-portal-link`,
+        { method: "POST" }
+      );
+      setSent(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : isEn
+            ? "Failed to send link."
+            : "No se pudo enviar el enlace."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <p className="text-sm text-green-600">
+        {isEn
+          ? "Guest portal link sent!"
+          : "¡Enlace del portal de huésped enviado!"}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <Button
+        className="w-full justify-start"
+        disabled={loading}
+        onClick={handleSend}
+        size="sm"
+        variant="outline"
+      >
+        {loading
+          ? isEn
+            ? "Sending..."
+            : "Enviando..."
+          : isEn
+            ? "Send Guest Portal Link"
+            : "Enviar Enlace Portal Huésped"}
+      </Button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}

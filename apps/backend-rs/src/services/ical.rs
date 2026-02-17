@@ -59,7 +59,7 @@ pub async fn build_unit_ical_export(
     let mut lines = vec![
         "BEGIN:VCALENDAR".to_string(),
         "VERSION:2.0".to_string(),
-        "PRODID:-//Puerta Abierta//iCal Export//EN".to_string(),
+        "PRODID:-//Casaora//iCal Export//EN".to_string(),
         "CALSCALE:GREGORIAN".to_string(),
         "METHOD:PUBLISH".to_string(),
         format!("X-WR-CALNAME:{}", escape_ical_text(calendar_name)),
@@ -474,7 +474,7 @@ async fn fetch_ical_text(client: &Client, url: &str) -> AppResult<String> {
         .header("Accept", "text/calendar, text/plain;q=0.9, */*;q=0.1")
         .header(
             "User-Agent",
-            "PuertaAbierta/1.0 (+https://puerta-abierta.local)",
+            "Casaora/1.0 (+https://casaora.co)",
         )
         .send()
         .await

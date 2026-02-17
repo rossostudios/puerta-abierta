@@ -207,20 +207,20 @@ async fn send_reminders(
                  Puedes ver los detalles y realizar tu pago en:\n\
                  {app_public_url}/tenant/payments\n\n\
                  Gracias por tu puntualidad.\n\
-                 — Puerta Abierta"
+                 — Casaora"
             ),
             "d_minus_1" => format!(
                 "Hola {tenant_name},\n\n\
                  Tu pago de {amount_display} vence mañana ({due_date_str}).\n\n\
                  Si ya realizaste el pago, por favor envía tu comprobante.\n\
                  {app_public_url}/tenant/payments\n\n\
-                 — Puerta Abierta"
+                 — Casaora"
             ),
             "d_day" => format!(
                 "⚠️ {tenant_name}, hoy vence tu pago de alquiler de {amount_display}.\n\n\
                  Por favor realiza tu pago hoy para evitar recargos.\n\
                  {app_public_url}/tenant/payments\n\n\
-                 — Puerta Abierta"
+                 — Casaora"
             ),
             _ => continue,
         };
@@ -344,7 +344,7 @@ async fn mark_late_collections(
                  Por favor regulariza tu situación lo antes posible.\n\
                  {app_public_url}/tenant/payments\n\n\
                  Si ya realizaste el pago, envía tu comprobante.\n\
-                 — Puerta Abierta"
+                 — Casaora"
             );
 
             let mut msg = Map::new();
@@ -449,7 +449,7 @@ async fn escalate_late_collections(
                  Debes regularizar tu situación de forma inmediata para evitar acciones adicionales.\n\
                  {app_public_url}/tenant/payments\n\n\
                  Contacta a tu administrador si necesitas coordinar un plan de pago.\n\
-                 — Puerta Abierta"
+                 — Casaora"
             );
 
             let mut msg = Map::new();
@@ -515,7 +515,7 @@ async fn escalate_late_collections(
                     let body = format!(
                         "⚠️ Alerta de cobro — El inquilino {tenant_name} tiene un pago de {amount_display} con más de 7 días de atraso (vencimiento: {due_date}).\n\n\
                          Revisa el estado en tu panel de administración.\n\
-                         — Puerta Abierta"
+                         — Casaora"
                     );
 
                     let mut msg = Map::new();
