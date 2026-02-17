@@ -1,8 +1,6 @@
 "use client";
 
-import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
-import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
@@ -12,13 +10,14 @@ import {
   unpublishListingAction,
   updateListingAction,
 } from "@/app/(admin)/module/listings/actions";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import {
+  ListingNotionTable,
+  type ListingSummary,
+} from "@/components/listings/listing-notion-table";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Form } from "@/components/ui/form";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -33,9 +32,7 @@ import {
   CITY_CENTERS,
   CITY_DISPLAY_NAMES,
 } from "@/lib/features/marketplace/geo";
-import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { cn } from "@/lib/utils";
 
 import { ImageUpload } from "./listing-image-upload";
 
@@ -53,7 +50,7 @@ function asBoolean(value: unknown): boolean {
   return value === true;
 }
 
-type ListingRow = DataTableRow & {
+export type ListingRow = {
   id: string;
   title: string;
   public_slug: string;
@@ -89,7 +86,7 @@ type ListingRow = DataTableRow & {
   active_lease_count: number;
 };
 
-function readinessScore(row: ListingRow): {
+export function readinessScore(row: ListingRow): {
   level: "green" | "yellow" | "red";
   missing: string[];
 } {
@@ -275,151 +272,46 @@ export function ListingsManager({
     [selectedIds, nextPath]
   );
 
-  const columns = useMemo<ColumnDef<DataTableRow>[]>(() => {
-    return [
-      {
-        id: "select",
-        header: () => (
-          <Checkbox
-            checked={selectedIds.size === rows.length && rows.length > 0}
-            onCheckedChange={toggleSelectAll}
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={selectedIds.has(asString(row.original.id))}
-            onCheckedChange={() => toggleSelect(asString(row.original.id))}
-          />
-        ),
-        size: 40,
-      },
-      {
-        accessorKey: "title",
-        header: isEn ? "Listing" : "Anuncio",
-        cell: ({ row, getValue }) => {
-          const title = asString(getValue());
-          const unit = asString(row.original.unit_name);
-          const property = asString(row.original.property_name);
-          const subtitle = [property, unit].filter(Boolean).join(" · ");
+  const summary = useMemo<ListingSummary>(() => {
+    const publishedCount = rows.filter((r) => r.is_published).length;
+    return {
+      totalCount: rows.length,
+      publishedCount,
+      draftCount: rows.length - publishedCount,
+      totalApplications: rows.reduce(
+        (sum, r) => sum + r.application_count,
+        0
+      ),
+    };
+  }, [rows]);
 
-          return (
-            <div className="space-y-1">
-              <p className="font-medium">{title}</p>
-              {subtitle ? (
-                <p className="text-muted-foreground text-xs">{subtitle}</p>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "is_published",
-        header: isEn ? "Status" : "Estado",
-        cell: ({ getValue }) => {
-          return getValue() ? (
-            <Badge variant="secondary">
-              {isEn ? "Published" : "Publicado"}
-            </Badge>
-          ) : (
-            <Badge variant="outline">{isEn ? "Draft" : "Borrador"}</Badge>
-          );
-        },
-      },
-      {
-        id: "readiness",
-        header: isEn ? "Readiness" : "Preparación",
-        cell: ({ row }) => {
-          const r = readinessScore(row.original as ListingRow);
-          if (r.level === "green") {
-            return (
-              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                {isEn ? "Ready" : "Listo"}
-              </Badge>
-            );
-          }
-          if (r.level === "yellow") {
-            return (
-              <div className="space-y-1">
-                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                  {isEn
-                    ? `${r.missing.length} missing`
-                    : `${r.missing.length} faltante(s)`}
-                </Badge>
-                <p className="max-w-[180px] text-muted-foreground text-[11px]">
-                  {r.missing.join(", ")}
-                </p>
-              </div>
-            );
-          }
-          return (
-            <div className="space-y-1">
-              <Badge variant="destructive">
-                {isEn ? "Not ready" : "No listo"}
-              </Badge>
-              <p className="max-w-[180px] text-muted-foreground text-[11px]">
-                {r.missing.join(", ")}
-              </p>
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "bedrooms",
-        header: isEn ? "Specs" : "Specs",
-        cell: ({ row }) => {
-          const beds = asNumber(row.original.bedrooms);
-          const baths = asNumber(row.original.bathrooms);
-          const sqm = asNumber(row.original.square_meters);
-          return (
-            <p className="text-sm tabular-nums">
-              {beds} {isEn ? "bd" : "hab"} · {baths}{" "}
-              {isEn ? "ba" : "ba"} · {sqm} m²
-            </p>
-          );
-        },
-      },
-      {
-        accessorKey: "monthly_recurring_total",
-        header: isEn ? "Monthly" : "Mensual",
-        cell: ({ row, getValue }) =>
-          formatCurrency(
-            asNumber(getValue()),
-            asString(row.original.currency),
-            locale
-          ),
-      },
-      {
-        accessorKey: "total_move_in",
-        header: isEn ? "Move-in" : "Ingreso",
-        cell: ({ row, getValue }) =>
-          formatCurrency(
-            asNumber(getValue()),
-            asString(row.original.currency),
-            locale
-          ),
-      },
-      {
-        id: "pipeline",
-        header: isEn ? "Pipeline" : "Pipeline",
-        cell: ({ row }) => {
-          const apps = asNumber(row.original.application_count);
-          const leases = asNumber(row.original.active_lease_count);
-          return (
-            <div className="space-y-1 text-sm">
-              <p>
-                {apps} {isEn ? "apps" : "apps"}
-              </p>
-              {leases > 0 ? (
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                  {isEn ? "Leased" : "Arrendado"}
-                </Badge>
-              ) : null}
-            </div>
-          );
-        },
-      },
-    ];
-  }, [isEn, locale, selectedIds, rows.length, toggleSelectAll, toggleSelect]);
+  const handlePublish = useCallback(
+    async (listingId: string) => {
+      const fd = new FormData();
+      fd.set("listing_id", listingId);
+      fd.set("next", nextPath);
+      try {
+        await publishListingAction(fd);
+      } catch {
+        // redirect throws — expected
+      }
+    },
+    [nextPath]
+  );
+
+  const handleUnpublish = useCallback(
+    async (listingId: string) => {
+      const fd = new FormData();
+      fd.set("listing_id", listingId);
+      fd.set("next", nextPath);
+      try {
+        await unpublishListingAction(fd);
+      } catch {
+        // redirect throws — expected
+      }
+    },
+    [nextPath]
+  );
 
   const pricingTemplateOptions = useMemo(() => {
     return pricingTemplates
@@ -508,66 +400,17 @@ export function ListingsManager({
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        renderRowActions={(row) => {
-          const id = asString(row.id);
-          const slug = asString(row.public_slug);
-          const published = asBoolean(row.is_published);
-
-          return (
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                onClick={() => openEdit(row as ListingRow)}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                <Icon icon={Edit02Icon} size={14} />
-                {isEn ? "Edit" : "Editar"}
-              </Button>
-
-              {slug ? (
-                <Link
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" })
-                  )}
-                  href={`/marketplace/${encodeURIComponent(slug)}`}
-                  target="_blank"
-                >
-                  {isEn ? "Public" : "Público"}
-                </Link>
-              ) : null}
-
-              {published ? (
-                <Form action={unpublishListingAction}>
-                  <input
-                    name="listing_id"
-                    type="hidden"
-                    value={id}
-                  />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="ghost">
-                    {isEn ? "Unpublish" : "Despublicar"}
-                  </Button>
-                </Form>
-              ) : (
-                <Form action={publishListingAction}>
-                  <input
-                    name="listing_id"
-                    type="hidden"
-                    value={id}
-                  />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="secondary">
-                    {isEn ? "Publish" : "Publicar"}
-                  </Button>
-                </Form>
-              )}
-            </div>
-          );
-        }}
+      <ListingNotionTable
+        formatLocale={locale as "en-US" | "es-PY"}
+        isEn={isEn}
+        onEditInSheet={openEdit}
+        onPublish={handlePublish}
+        onUnpublish={handleUnpublish}
+        onToggleSelect={toggleSelect}
+        onToggleSelectAll={toggleSelectAll}
+        rows={rows}
+        selectedIds={selectedIds}
+        summary={summary}
       />
 
       <Sheet

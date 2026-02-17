@@ -302,6 +302,31 @@ export async function publishListingAction(formData: FormData) {
   }
 }
 
+const LISTING_FIELD_TO_API_KEY: Record<string, string> = {};
+
+export async function updateListingInlineAction({
+  listingId,
+  field,
+  value,
+}: {
+  listingId: string;
+  field: string;
+  value: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const apiField = LISTING_FIELD_TO_API_KEY[field] ?? field;
+  try {
+    await patchJson(`/listings/${encodeURIComponent(listingId)}`, {
+      [apiField]: value,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message.slice(0, 240) };
+  }
+  revalidatePath("/module/listings");
+  revalidatePath("/marketplace");
+  return { ok: true };
+}
+
 export async function unpublishListingAction(formData: FormData) {
   const listing_id = toStringValue(formData.get("listing_id"));
   if (!listing_id) {
