@@ -600,6 +600,8 @@ function SidebarContent({
   const onboardingCompleted = completionPercent >= 100;
 
   const [listingCount, setListingCount] = useState<number | null>(null);
+  const [propertiesCount, setPropertiesCount] = useState<number | null>(null);
+  const [unitsCount, setUnitsCount] = useState<number | null>(null);
 
   const [chatAgents, setChatAgents] = useState<ChatAgentItem[]>([]);
   const [recentChats, setRecentChats] = useState<ChatSummaryItem[]>([]);
@@ -702,16 +704,24 @@ function SidebarContent({
   useEffect(() => {
     if (activeTab !== "home" || !orgId) return;
     let cancelled = false;
-    fetch(`/api/listings/count?org_id=${encodeURIComponent(orgId)}`, {
-      cache: "no-store",
-    })
-      .then((res) => res.json() as Promise<{ count?: number | null }>)
-      .then((body) => {
-        if (!cancelled && typeof body.count === "number") {
-          setListingCount(body.count);
-        }
-      })
-      .catch(() => undefined);
+
+    const endpoints = [
+      { url: `/api/listings/count?org_id=${encodeURIComponent(orgId)}`, setter: setListingCount },
+      { url: `/api/properties/count?org_id=${encodeURIComponent(orgId)}`, setter: setPropertiesCount },
+      { url: `/api/units/count?org_id=${encodeURIComponent(orgId)}`, setter: setUnitsCount },
+    ];
+
+    for (const { url, setter } of endpoints) {
+      fetch(url, { cache: "no-store" })
+        .then((res) => res.json() as Promise<{ count?: number | null }>)
+        .then((body) => {
+          if (!cancelled && typeof body.count === "number") {
+            setter(body.count);
+          }
+        })
+        .catch(() => undefined);
+    }
+
     return () => {
       cancelled = true;
     };
@@ -721,13 +731,14 @@ function SidebarContent({
     () =>
       sections.map((section) => ({
         ...section,
-        links: section.links.map((link) =>
-          link.href === "/module/listings"
-            ? { ...link, count: listingCount }
-            : link
-        ),
+        links: section.links.map((link) => {
+          if (link.href === "/module/listings") return { ...link, count: listingCount };
+          if (link.href === "/module/properties") return { ...link, count: propertiesCount };
+          if (link.href === "/module/units") return { ...link, count: unitsCount };
+          return link;
+        }),
       })),
-    [sections, listingCount]
+    [sections, listingCount, propertiesCount, unitsCount]
   );
 
   const mutateRecentChat = useCallback(
