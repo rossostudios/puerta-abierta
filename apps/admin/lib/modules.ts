@@ -232,6 +232,16 @@ export const MODULES: ModuleDef[] = [
       "Automation rules: when an event occurs, execute an action.",
   },
   {
+    slug: "sequences",
+    label: "Secuencias",
+    label_en: "Sequences",
+    endpoint: "/communication-sequences",
+    description:
+      "Secuencias automatizadas de mensajería multi-paso disparadas por eventos.",
+    description_en:
+      "Automated multi-step messaging sequences triggered by events.",
+  },
+  {
     slug: "billing",
     label: "Facturación",
     label_en: "Billing",

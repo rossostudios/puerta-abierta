@@ -30,6 +30,8 @@ import type {
   MessageTemplate,
 } from "@/lib/features/messaging/types";
 
+import { AiComposeAssist } from "@/components/messaging/ai-compose-assist";
+
 import { sendMessageAction } from "./actions";
 
 // ---------------------------------------------------------------------------
@@ -457,6 +459,15 @@ function DetailPanel({
               ))}
             </select>
           ) : null}
+
+          <AiComposeAssist
+            channel={lastChannel}
+            conversation={convo.messages}
+            guestName={convo.guestName}
+            isEn={isEn}
+            onDraftAccepted={(text) => setBodyValue(text)}
+            orgId={orgId}
+          />
 
           <div className="flex items-end gap-2">
             <Textarea

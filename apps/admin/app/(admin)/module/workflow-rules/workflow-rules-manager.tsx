@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { authedFetch } from "@/lib/api-client";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+import { ActionConfigForm } from "./action-config-forms";
 
 type Rule = Record<string, unknown>;
 
@@ -17,33 +17,7 @@ function asString(v: unknown): string {
   return typeof v === "string" ? v : v ? String(v) : "";
 }
 
-async function apiPost(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
-
-async function apiPatch(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
-
-async function apiDelete(path: string) {
-  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
-
-const TRIGGER_EVENTS = [
+export const TRIGGER_EVENTS = [
   { value: "reservation_confirmed", en: "Reservation confirmed", es: "Reserva confirmada" },
   { value: "checked_in", en: "Checked in", es: "Check-in" },
   { value: "checked_out", en: "Checked out", es: "Check-out" },
@@ -144,6 +118,15 @@ export function WorkflowRulesManager({
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Form state
+  const [formName, setFormName] = useState("");
+  const [formTrigger, setFormTrigger] = useState("reservation_confirmed");
+  const [formAction, setFormAction] = useState("create_task");
+  const [formDelay, setFormDelay] = useState("0");
+  const [formConfig, setFormConfig] = useState<Record<string, unknown>>({});
+  const [rawJsonMode, setRawJsonMode] = useState(false);
+  const [rawJson, setRawJson] = useState("{}");
+
   const triggerLabel = (value: string) => {
     const found = TRIGGER_EVENTS.find((t) => t.value === value);
     return found ? (isEn ? found.en : found.es) : value;
@@ -154,28 +137,45 @@ export function WorkflowRulesManager({
     return found ? (isEn ? found.en : found.es) : value;
   };
 
+  function resetForm() {
+    setFormName("");
+    setFormTrigger("reservation_confirmed");
+    setFormAction("create_task");
+    setFormDelay("0");
+    setFormConfig({});
+    setRawJsonMode(false);
+    setRawJson("{}");
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    const fd = new FormData(e.currentTarget);
     try {
-      let parsedConfig: Record<string, unknown> = {};
-      try {
-        const raw = (fd.get("action_config") as string) || "{}";
-        parsedConfig = JSON.parse(raw);
-      } catch {
-        /* use empty config */
+      let config: Record<string, unknown>;
+      if (rawJsonMode) {
+        try {
+          config = JSON.parse(rawJson);
+        } catch {
+          config = {};
+        }
+      } else {
+        config = formConfig;
       }
-      await apiPost("/workflow-rules", {
-        organization_id: orgId,
-        name: fd.get("name"),
-        trigger_event: fd.get("trigger_event"),
-        action_type: fd.get("action_type"),
-        action_config: parsedConfig,
-        delay_minutes: Number(fd.get("delay_minutes")) || 0,
-        is_active: true,
+
+      await authedFetch("/workflow-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: orgId,
+          name: formName,
+          trigger_event: formTrigger,
+          action_type: formAction,
+          action_config: config,
+          delay_minutes: Number(formDelay) || 0,
+          is_active: true,
+        }),
       });
       setShowForm(false);
+      resetForm();
       router.refresh();
     } catch {
       /* ignore */
@@ -186,8 +186,9 @@ export function WorkflowRulesManager({
 
   async function toggleActive(ruleId: string, currentlyActive: boolean) {
     try {
-      await apiPatch(`/workflow-rules/${ruleId}`, {
-        is_active: !currentlyActive,
+      await authedFetch(`/workflow-rules/${ruleId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: !currentlyActive }),
       });
       router.refresh();
     } catch {
@@ -198,7 +199,7 @@ export function WorkflowRulesManager({
   async function handleDelete(ruleId: string) {
     if (!confirm(isEn ? "Delete this rule?" : "¿Eliminar esta regla?")) return;
     try {
-      await apiDelete(`/workflow-rules/${ruleId}`);
+      await authedFetch(`/workflow-rules/${ruleId}`, { method: "DELETE" });
       router.refresh();
     } catch {
       /* ignore */
@@ -211,14 +212,17 @@ export function WorkflowRulesManager({
   async function handleApplyTemplate(template: WorkflowTemplate) {
     setApplyingTemplate(template.name_en);
     try {
-      await apiPost("/workflow-rules", {
-        organization_id: orgId,
-        name: isEn ? template.name_en : template.name_es,
-        trigger_event: template.trigger_event,
-        action_type: template.action_type,
-        action_config: template.action_config,
-        delay_minutes: template.delay_minutes,
-        is_active: true,
+      await authedFetch("/workflow-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: orgId,
+          name: isEn ? template.name_en : template.name_es,
+          trigger_event: template.trigger_event,
+          action_type: template.action_type,
+          action_config: template.action_config,
+          delay_minutes: template.delay_minutes,
+          is_active: true,
+        }),
       });
       router.refresh();
       setShowTemplates(false);
@@ -232,7 +236,14 @@ export function WorkflowRulesManager({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Button onClick={() => setShowForm(!showForm)} size="sm" type="button">
+        <Button
+          onClick={() => {
+            if (showForm) resetForm();
+            setShowForm(!showForm);
+          }}
+          size="sm"
+          type="button"
+        >
           {showForm
             ? isEn
               ? "Cancel"
@@ -270,7 +281,7 @@ export function WorkflowRulesManager({
                 <span className="bg-muted rounded px-1.5 py-0.5">
                   {triggerLabel(template.trigger_event)}
                 </span>
-                <span>→</span>
+                <span>&rarr;</span>
                 <span className="bg-muted rounded px-1.5 py-0.5">
                   {actionLabel(template.action_type)}
                 </span>
@@ -302,12 +313,19 @@ export function WorkflowRulesManager({
         >
           <label className="space-y-1 text-sm">
             <span>{isEn ? "Rule Name" : "Nombre de la regla"} *</span>
-            <Input name="name" required />
+            <Input
+              onChange={(e) => setFormName(e.target.value)}
+              required
+              value={formName}
+            />
           </label>
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span>{isEn ? "When" : "Cuando"}</span>
-              <Select defaultValue="reservation_confirmed" name="trigger_event">
+              <Select
+                onChange={(e) => setFormTrigger(e.target.value)}
+                value={formTrigger}
+              >
                 {TRIGGER_EVENTS.map((t) => (
                   <option key={t.value} value={t.value}>
                     {isEn ? t.en : t.es}
@@ -317,7 +335,13 @@ export function WorkflowRulesManager({
             </label>
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Then" : "Entonces"}</span>
-              <Select defaultValue="create_task" name="action_type">
+              <Select
+                onChange={(e) => {
+                  setFormAction(e.target.value);
+                  setFormConfig({});
+                }}
+                value={formAction}
+              >
                 {ACTION_TYPES.map((a) => (
                   <option key={a.value} value={a.value}>
                     {isEn ? a.en : a.es}
@@ -327,25 +351,60 @@ export function WorkflowRulesManager({
             </label>
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Delay (minutes)" : "Retraso (minutos)"}</span>
-              <Input defaultValue="0" min="0" name="delay_minutes" type="number" />
+              <Input
+                min="0"
+                onChange={(e) => setFormDelay(e.target.value)}
+                type="number"
+                value={formDelay}
+              />
             </label>
           </div>
-          <label className="space-y-1 text-sm">
-            <span>
-              {isEn ? "Action config (JSON)" : "Config. de acción (JSON)"}
-            </span>
-            <textarea
-              className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[60px] w-full rounded-md border px-3 py-2 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              defaultValue="{}"
-              name="action_config"
-              rows={3}
-            />
-            <span className="text-muted-foreground text-xs">
-              {isEn
-                ? "e.g. {\"title\": \"...\", \"type\": \"cleaning\", \"priority\": \"high\"}"
-                : "ej. {\"title\": \"...\", \"type\": \"cleaning\", \"priority\": \"high\"}"}
-            </span>
-          </label>
+
+          {/* Action config — structured forms or raw JSON */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {isEn ? "Action configuration" : "Configuración de la acción"}
+              </span>
+              <button
+                className="text-muted-foreground text-xs underline"
+                onClick={() => {
+                  if (!rawJsonMode) {
+                    setRawJson(JSON.stringify(formConfig, null, 2));
+                  } else {
+                    try {
+                      setFormConfig(JSON.parse(rawJson));
+                    } catch {
+                      /* keep structured config unchanged */
+                    }
+                  }
+                  setRawJsonMode(!rawJsonMode);
+                }}
+                type="button"
+              >
+                {rawJsonMode
+                  ? isEn ? "Structured form" : "Formulario"
+                  : isEn ? "Raw JSON" : "JSON directo"}
+              </button>
+            </div>
+
+            {rawJsonMode ? (
+              <textarea
+                className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-[60px] w-full rounded-md border px-3 py-2 font-mono text-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                onChange={(e) => setRawJson(e.target.value)}
+                rows={4}
+                value={rawJson}
+              />
+            ) : (
+              <ActionConfigForm
+                actionType={formAction}
+                isEn={isEn}
+                onChange={setFormConfig}
+                value={formConfig}
+              />
+            )}
+          </div>
+
           <Button disabled={submitting} size="sm" type="submit">
             {submitting
               ? isEn
@@ -379,7 +438,7 @@ export function WorkflowRulesManager({
                   <p className="text-muted-foreground text-xs">
                     {isEn ? "When" : "Cuando"}{" "}
                     <strong>{triggerLabel(asString(rule.trigger_event))}</strong>
-                    {" → "}
+                    {" \u2192 "}
                     <strong>{actionLabel(asString(rule.action_type))}</strong>
                     {Number(rule.delay_minutes) > 0 &&
                       ` (${isEn ? "after" : "después de"} ${rule.delay_minutes} min)`}

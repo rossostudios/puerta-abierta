@@ -1,15 +1,22 @@
 "use client";
 
+import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { Sheet } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { authedFetch } from "@/lib/api-client";
+import { useActiveLocale } from "@/lib/i18n/client";
+import { cn } from "@/lib/utils";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+import { DocumentPreview } from "./document-preview";
+import { DocumentUpload } from "./document-upload";
 
 type Document = Record<string, unknown>;
 
@@ -19,7 +26,7 @@ function asString(v: unknown): string {
 
 function formatBytes(bytes: unknown): string {
   const n = typeof bytes === "number" ? bytes : Number(bytes);
-  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (!Number.isFinite(n) || n <= 0) return "\u2014";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -35,67 +42,126 @@ const CATEGORIES = [
   { value: "other", en: "Other", es: "Otro" },
 ];
 
-async function apiPost(path: string, body: Record<string, unknown>) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
-
-async function apiDelete(path: string) {
-  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("API error");
-  return res.json();
-}
+const ENTITY_TYPES = [
+  { value: "general", en: "General", es: "General" },
+  { value: "property", en: "Property", es: "Propiedad" },
+  { value: "lease", en: "Lease", es: "Contrato" },
+  { value: "guest", en: "Guest", es: "Huésped" },
+  { value: "expense", en: "Expense", es: "Gasto" },
+  { value: "maintenance", en: "Maintenance", es: "Mantenimiento" },
+];
 
 export function DocumentsManager({
   data,
-  locale,
+  locale: _locale,
   orgId,
+  properties = [],
+  leases = [],
+  guests = [],
 }: {
   data: Document[];
   locale: string;
   orgId: string;
+  properties?: Record<string, unknown>[];
+  leases?: Record<string, unknown>[];
+  guests?: Record<string, unknown>[];
 }) {
+  const locale = useActiveLocale();
   const isEn = locale === "en-US";
   const router = useRouter();
+
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
 
-  const filtered = data.filter((doc) => {
-    if (!filter) return true;
-    const name = asString(doc.file_name).toLowerCase();
-    const cat = asString(doc.category).toLowerCase();
-    const entity = asString(doc.entity_type).toLowerCase();
-    return (
-      name.includes(filter.toLowerCase()) ||
-      cat.includes(filter.toLowerCase()) ||
-      entity.includes(filter.toLowerCase())
-    );
-  });
+  // Create form state
+  const [formFileName, setFormFileName] = useState("");
+  const [formFileUrl, setFormFileUrl] = useState("");
+  const [formCategory, setFormCategory] = useState("other");
+  const [formEntityType, setFormEntityType] = useState("general");
+  const [formEntityId, setFormEntityId] = useState("");
+  const [formMimeType, setFormMimeType] = useState("");
+
+  // Preview state
+  const [previewDoc, setPreviewDoc] = useState<Document | null>(null);
+
+  const filtered = useMemo(() => {
+    return data.filter((doc) => {
+      if (categoryFilter) {
+        if (asString(doc.category) !== categoryFilter) return false;
+      }
+      if (!filter) return true;
+      const q = filter.toLowerCase();
+      const name = asString(doc.file_name).toLowerCase();
+      const cat = asString(doc.category).toLowerCase();
+      const entity = asString(doc.entity_type).toLowerCase();
+      return name.includes(q) || cat.includes(q) || entity.includes(q);
+    });
+  }, [data, filter, categoryFilter]);
+
+  const entityOptions = useMemo(() => {
+    if (formEntityType === "property") {
+      return properties.map((p) => ({
+        id: asString(p.id),
+        label: asString(p.name) || asString(p.id).slice(0, 8),
+      }));
+    }
+    if (formEntityType === "lease") {
+      return leases.map((l) => ({
+        id: asString(l.id),
+        label: asString(l.tenant_full_name) || asString(l.id).slice(0, 8),
+      }));
+    }
+    if (formEntityType === "guest") {
+      return guests.map((g) => ({
+        id: asString(g.id),
+        label: [asString(g.first_name), asString(g.last_name)].filter(Boolean).join(" ") || asString(g.id).slice(0, 8),
+      }));
+    }
+    return [];
+  }, [formEntityType, properties, leases, guests]);
+
+  const handleUpload = useCallback(
+    (file: { url: string; name: string; mimeType: string; size: number }) => {
+      setFormFileUrl(file.url);
+      setFormFileName(file.name);
+      setFormMimeType(file.mimeType);
+    },
+    []
+  );
+
+  function resetForm() {
+    setFormFileName("");
+    setFormFileUrl("");
+    setFormCategory("other");
+    setFormEntityType("general");
+    setFormEntityId("");
+    setFormMimeType("");
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    const fd = new FormData(e.currentTarget);
     try {
-      await apiPost("/documents", {
-        organization_id: orgId,
-        entity_type: fd.get("entity_type") || "general",
-        entity_id: fd.get("entity_id") || undefined,
-        file_name: fd.get("file_name"),
-        file_url: fd.get("file_url"),
-        category: fd.get("category") || "other",
-        mime_type: fd.get("mime_type") || undefined,
+      await authedFetch("/documents", {
+        method: "POST",
+        body: JSON.stringify({
+          organization_id: orgId,
+          entity_type: formEntityType || "general",
+          entity_id: formEntityId || undefined,
+          file_name: formFileName,
+          file_url: formFileUrl,
+          category: formCategory || "other",
+          mime_type: formMimeType || undefined,
+        }),
       });
+      toast.success(isEn ? "Document saved" : "Documento guardado");
       setShowForm(false);
+      resetForm();
       router.refresh();
     } catch {
-      /* ignore */
+      toast.error(isEn ? "Failed to save document" : "Error al guardar documento");
     } finally {
       setSubmitting(false);
     }
@@ -105,10 +171,11 @@ export function DocumentsManager({
     if (!confirm(isEn ? "Delete this document?" : "¿Eliminar este documento?"))
       return;
     try {
-      await apiDelete(`/documents/${docId}`);
+      await authedFetch(`/documents/${docId}`, { method: "DELETE" });
+      toast.success(isEn ? "Document deleted" : "Documento eliminado");
       router.refresh();
     } catch {
-      /* ignore */
+      toast.error(isEn ? "Delete failed" : "Error al eliminar");
     }
   }
 
@@ -121,36 +188,93 @@ export function DocumentsManager({
           placeholder={isEn ? "Search documents..." : "Buscar documentos..."}
           value={filter}
         />
-        <Button onClick={() => setShowForm(!showForm)} size="sm" type="button">
+        <Button
+          onClick={() => {
+            if (showForm) resetForm();
+            setShowForm(!showForm);
+          }}
+          size="sm"
+          type="button"
+        >
+          <Icon icon={PlusSignIcon} size={16} />
           {showForm
-            ? isEn
-              ? "Cancel"
-              : "Cancelar"
-            : isEn
-              ? "Add Document"
-              : "Agregar Documento"}
+            ? isEn ? "Cancel" : "Cancelar"
+            : isEn ? "Add Document" : "Agregar Documento"}
         </Button>
       </div>
 
+      {/* Category filter chips */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            !categoryFilter
+              ? "border-primary/30 bg-primary/10 text-foreground"
+              : "bg-background text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setCategoryFilter("")}
+          type="button"
+        >
+          {isEn ? "All" : "Todos"}
+        </button>
+        {CATEGORIES.map((cat) => (
+          <button
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              categoryFilter === cat.value
+                ? "border-primary/30 bg-primary/10 text-foreground"
+                : "bg-background text-muted-foreground hover:text-foreground"
+            )}
+            key={cat.value}
+            onClick={() => setCategoryFilter(cat.value === categoryFilter ? "" : cat.value)}
+            type="button"
+          >
+            {isEn ? cat.en : cat.es}
+          </button>
+        ))}
+      </div>
+
+      {/* Create form */}
       {showForm && (
         <form
           className="bg-muted/50 space-y-3 rounded-lg border p-4"
           onSubmit={handleSubmit}
         >
+          <DocumentUpload isEn={isEn} onUploaded={handleUpload} orgId={orgId} />
+
+          {formFileUrl && (
+            <p className="truncate text-muted-foreground text-xs">
+              {formFileName}
+            </p>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">
               <span>{isEn ? "File Name" : "Nombre del archivo"} *</span>
-              <Input name="file_name" required />
+              <Input
+                onChange={(e) => setFormFileName(e.target.value)}
+                required
+                value={formFileName}
+              />
             </label>
             <label className="space-y-1 text-sm">
               <span>{isEn ? "File URL" : "URL del archivo"} *</span>
-              <Input name="file_url" placeholder="https://..." required />
+              <Input
+                onChange={(e) => setFormFileUrl(e.target.value)}
+                placeholder="https://..."
+                required
+                value={formFileUrl}
+              />
             </label>
           </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Category" : "Categoría"}</span>
-              <Select defaultValue="other" name="category">
+              <Select
+                onChange={(e) => setFormCategory(e.target.value)}
+                value={formCategory}
+              >
                 {CATEGORIES.map((c) => (
                   <option key={c.value} value={c.value}>
                     {isEn ? c.en : c.es}
@@ -160,82 +284,118 @@ export function DocumentsManager({
             </label>
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Entity Type" : "Tipo de entidad"}</span>
-              <Select defaultValue="general" name="entity_type">
-                <option value="general">{isEn ? "General" : "General"}</option>
-                <option value="lease">{isEn ? "Lease" : "Contrato"}</option>
-                <option value="property">{isEn ? "Property" : "Propiedad"}</option>
-                <option value="expense">{isEn ? "Expense" : "Gasto"}</option>
-                <option value="maintenance">{isEn ? "Maintenance" : "Mantenimiento"}</option>
+              <Select
+                onChange={(e) => {
+                  setFormEntityType(e.target.value);
+                  setFormEntityId("");
+                }}
+                value={formEntityType}
+              >
+                {ENTITY_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {isEn ? t.en : t.es}
+                  </option>
+                ))}
               </Select>
             </label>
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "MIME Type" : "Tipo MIME"}</span>
-              <Input name="mime_type" placeholder="application/pdf" />
-            </label>
+            {entityOptions.length > 0 ? (
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Entity" : "Entidad"}</span>
+                <Select
+                  onChange={(e) => setFormEntityId(e.target.value)}
+                  value={formEntityId}
+                >
+                  <option value="">
+                    {isEn ? "Select..." : "Seleccionar..."}
+                  </option>
+                  {entityOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+            ) : (
+              <label className="space-y-1 text-sm">
+                <span>{isEn ? "Entity ID" : "ID de entidad"}</span>
+                <Input
+                  onChange={(e) => setFormEntityId(e.target.value)}
+                  placeholder={isEn ? "Optional UUID" : "UUID opcional"}
+                  value={formEntityId}
+                />
+              </label>
+            )}
           </div>
-          <label className="space-y-1 text-sm">
-            <span>{isEn ? "Entity ID" : "ID de entidad"}</span>
-            <Input name="entity_id" placeholder={isEn ? "Optional UUID" : "UUID opcional"} />
-          </label>
-          <Button disabled={submitting} size="sm" type="submit">
+
+          <Button disabled={submitting || !formFileUrl} size="sm" type="submit">
             {submitting
-              ? isEn
-                ? "Saving..."
-                : "Guardando..."
-              : isEn
-                ? "Save"
-                : "Guardar"}
+              ? isEn ? "Saving..." : "Guardando..."
+              : isEn ? "Save" : "Guardar"}
           </Button>
         </form>
       )}
 
+      {/* Document list */}
       {filtered.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           {isEn ? "No documents found." : "No se encontraron documentos."}
         </p>
       ) : (
         <div className="divide-y rounded-lg border">
-          {filtered.map((doc) => (
-            <div
-              className="flex items-center justify-between gap-3 px-4 py-3"
-              key={asString(doc.id)}
-            >
-              <div className="min-w-0 flex-1">
-                <a
-                  className="truncate font-medium text-blue-600 hover:underline"
-                  href={asString(doc.file_url)}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  {asString(doc.file_name)}
-                </a>
-                <p className="text-muted-foreground text-xs">
-                  {asString(doc.entity_type)}
-                  {asString(doc.entity_id)
-                    ? ` · ${asString(doc.entity_id).slice(0, 8)}…`
-                    : ""}
-                  {" · "}
-                  {formatBytes(doc.file_size_bytes)}
-                  {" · "}
-                  {asString(doc.created_at).slice(0, 10)}
-                </p>
+          {filtered.map((doc) => {
+            const id = asString(doc.id);
+            return (
+              <div
+                className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
+                key={id}
+                onClick={() => setPreviewDoc(doc)}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-foreground">
+                    {asString(doc.file_name)}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {asString(doc.entity_type)}
+                    {asString(doc.entity_id)
+                      ? ` \u00b7 ${asString(doc.entity_id).slice(0, 8)}\u2026`
+                      : ""}
+                    {" \u00b7 "}
+                    {formatBytes(doc.file_size_bytes)}
+                    {" \u00b7 "}
+                    {asString(doc.created_at).slice(0, 10)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <StatusBadge
+                    label={asString(doc.category)}
+                    value={asString(doc.category)}
+                  />
+                  <Button
+                    onClick={() => handleDelete(id)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    {isEn ? "Delete" : "Eliminar"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge
-                  label={asString(doc.category)}
-                  value={asString(doc.category)}
-                />
-                <Button
-                  onClick={() => handleDelete(asString(doc.id))}
-                  size="sm"
-                  variant="ghost"
-                >
-                  {isEn ? "Delete" : "Eliminar"}
-                </Button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+      )}
+
+      {/* Preview Sheet */}
+      {previewDoc && (
+        <DocumentPreview
+          fileName={asString(previewDoc.file_name)}
+          fileUrl={asString(previewDoc.file_url)}
+          isEn={isEn}
+          mimeType={asString(previewDoc.mime_type)}
+          onOpenChange={(next) => {
+            if (!next) setPreviewDoc(null);
+          }}
+          open
+        />
       )}
     </div>
   );

@@ -12,13 +12,13 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
-import { DocumentsManager } from "./documents-manager";
+import { SequencesManager } from "./sequences-manager";
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
 
-export default async function DocumentsModulePage({
+export default async function SequencesModulePage({
   searchParams,
 }: PageProps) {
   const locale = await getActiveLocale();
@@ -35,36 +35,35 @@ export default async function DocumentsModulePage({
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Select an organization to manage documents."
-              : "Selecciona una organización para gestionar documentos."}
+              ? "Select an organization to manage sequences."
+              : "Selecciona una organización para gestionar secuencias."}
           </CardDescription>
         </CardHeader>
       </Card>
     );
   }
 
-  let data: Record<string, unknown>[] = [];
-  let properties: Record<string, unknown>[] = [];
-  let leases: Record<string, unknown>[] = [];
-  let guests: Record<string, unknown>[] = [];
+  let sequences: Record<string, unknown>[] = [];
+  let templates: Record<string, unknown>[] = [];
   try {
-    [data, properties, leases, guests] = await Promise.all([
-      fetchList("/documents", orgId, 500) as Promise<Record<string, unknown>[]>,
-      fetchList("/properties", orgId, 200) as Promise<Record<string, unknown>[]>,
-      fetchList("/leases", orgId, 200) as Promise<Record<string, unknown>[]>,
-      fetchList("/guests", orgId, 200) as Promise<Record<string, unknown>[]>,
+    [sequences, templates] = await Promise.all([
+      fetchList("/communication-sequences", orgId, 200) as Promise<Record<string, unknown>[]>,
+      fetchList("/message-templates", orgId, 200) as Promise<Record<string, unknown>[]>,
     ]);
   } catch (err) {
-    if (isOrgMembershipError(errorMessage(err))) return <OrgAccessChanged orgId={orgId} />;
+    if (isOrgMembershipError(errorMessage(err)))
+      return <OrgAccessChanged orgId={orgId} />;
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{isEn ? "Documents" : "Documentos"}</CardTitle>
+          <CardTitle>{isEn ? "Sequences" : "Secuencias"}</CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertDescription>
-              {isEn ? "Failed to load documents." : "Error al cargar documentos."}
+              {isEn
+                ? "Failed to load sequences."
+                : "Error al cargar secuencias."}
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -75,11 +74,11 @@ export default async function DocumentsModulePage({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{isEn ? "Documents" : "Documentos"}</CardTitle>
+        <CardTitle>{isEn ? "Sequences" : "Secuencias"}</CardTitle>
         <CardDescription>
           {isEn
-            ? "Manage contracts, receipts, photos, and inspection reports."
-            : "Gestiona contratos, recibos, fotos e informes de inspección."}
+            ? "Automated multi-step messaging sequences triggered by events."
+            : "Secuencias automatizadas de mensajería disparadas por eventos."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -93,13 +92,11 @@ export default async function DocumentsModulePage({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <DocumentsManager
-          data={data}
-          guests={guests}
-          leases={leases}
+        <SequencesManager
           locale={locale}
           orgId={orgId}
-          properties={properties}
+          sequences={sequences}
+          templates={templates}
         />
       </CardContent>
     </Card>

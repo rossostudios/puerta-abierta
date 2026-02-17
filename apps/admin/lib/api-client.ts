@@ -67,3 +67,46 @@ export async function clientFetch<T = unknown>(
 
   return (await response.json()) as T;
 }
+
+// ---------------------------------------------------------------------------
+// authedFetch — client-side API calls with Supabase auth token
+// ---------------------------------------------------------------------------
+
+import { createBrowserClient } from "@supabase/ssr";
+
+const AUTHED_API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/v1";
+
+/**
+ * Client-side fetch that automatically attaches the Supabase JWT.
+ * Used by module managers for direct backend API calls.
+ */
+export async function authedFetch<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  const res = await fetch(`${AUTHED_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status}: ${text}`);
+  }
+
+  return res.json() as Promise<T>;
+}

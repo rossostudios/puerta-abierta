@@ -138,8 +138,13 @@ export function MaintenanceManager({
     return (members as Record<string, unknown>[])
       .map((m) => {
         const id = asString(m.user_id).trim();
+        const appUser = m.app_users as Record<string, unknown> | null | undefined;
         const name =
-          asString(m.full_name).trim() || asString(m.email).trim() || id;
+          asString(m.full_name).trim() ||
+          (appUser ? asString(appUser.full_name).trim() : "") ||
+          asString(m.email).trim() ||
+          (appUser ? asString(appUser.email).trim() : "") ||
+          id;
         return id ? { id, label: name } : null;
       })
       .filter((item): item is MemberOption => Boolean(item))

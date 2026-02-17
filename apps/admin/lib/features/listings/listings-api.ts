@@ -1,37 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/v1";
-
-async function authedFetch<T>(
-  path: string,
-  init?: RequestInit
-): Promise<T> {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API ${res.status}: ${text}`);
-  }
-
-  return res.json() as Promise<T>;
-}
+import { authedFetch } from "@/lib/api-client";
 
 export type PaginatedListingsResponse = {
   data: Record<string, unknown>[];
