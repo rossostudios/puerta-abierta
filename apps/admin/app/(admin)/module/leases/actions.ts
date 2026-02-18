@@ -113,10 +113,30 @@ export async function createLeaseAction(formData: FormData) {
   }
   if (notes) payload.notes = notes;
 
+  const save_as_guest =
+    toOptionalBoolean(formData.get("save_as_guest")) ?? false;
+
   try {
+    // Optionally create a guest record from the tenant info
+    if (save_as_guest && tenant_full_name) {
+      const guestPayload: Record<string, unknown> = {
+        organization_id,
+        full_name: tenant_full_name,
+      };
+      if (tenant_email) guestPayload.email = tenant_email;
+      if (tenant_phone_e164) guestPayload.phone_e164 = tenant_phone_e164;
+
+      try {
+        await postJson("/guests", guestPayload);
+      } catch {
+        // Guest creation is best-effort; don't block lease creation
+      }
+    }
+
     await postJson("/leases", payload);
     revalidatePath("/module/leases");
     revalidatePath("/module/collections");
+    revalidatePath("/module/guests");
     revalidatePath("/app");
     redirect(withParams(next, { success: "lease-created" }));
   } catch (err) {

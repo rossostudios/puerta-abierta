@@ -4,7 +4,14 @@ import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useOptimistic, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+} from "react";
 
 import {
   acceptRenewalAction,
@@ -20,6 +27,7 @@ import {
   type LeaseContractData,
 } from "@/components/reports/lease-contract-pdf";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { type DataTableRow } from "@/components/ui/data-table";
 import { NotionDataTable } from "@/components/ui/notion-data-table";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -30,9 +38,25 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { authedFetch } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
+
+// ---------------------------------------------------------------------------
+// Paraguay IVA rate for residential rentals
+// ---------------------------------------------------------------------------
+const PY_RESIDENTIAL_IVA_RATE = 0.05;
+
+// ---------------------------------------------------------------------------
+// Guest type for tenant picker
+// ---------------------------------------------------------------------------
+type GuestResult = {
+  id: string;
+  full_name: string;
+  email?: string | null;
+  phone_e164?: string | null;
+};
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : value ? String(value) : "";
@@ -128,6 +152,98 @@ export function LeasesManager({
 
   const [generatingFor, setGeneratingFor] = useState<LeaseRow | null>(null);
   const [renewingFrom, setRenewingFrom] = useState<LeaseRow | null>(null);
+
+  // ── Tenant picker state ──
+  const [tenantName, setTenantName] = useState("");
+  const [tenantEmail, setTenantEmail] = useState("");
+  const [tenantPhone, setTenantPhone] = useState("");
+  const [guestResults, setGuestResults] = useState<GuestResult[]>([]);
+  const [showGuestDropdown, setShowGuestDropdown] = useState(false);
+  const [saveAsGuest, setSaveAsGuest] = useState(false);
+  const guestSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset tenant fields when sheet opens/closes or editing changes
+  useEffect(() => {
+    if (open) {
+      setTenantName(editing?.tenant_full_name ?? "");
+      setTenantEmail(editing?.tenant_email ?? "");
+      setTenantPhone(editing?.tenant_phone_e164 ?? "");
+      setSaveAsGuest(false);
+      setGuestResults([]);
+      setShowGuestDropdown(false);
+    }
+  }, [open, editing]);
+
+  const searchGuests = useCallback(
+    (query: string) => {
+      if (guestSearchTimer.current) clearTimeout(guestSearchTimer.current);
+      if (query.length < 2) {
+        setGuestResults([]);
+        setShowGuestDropdown(false);
+        return;
+      }
+      guestSearchTimer.current = setTimeout(async () => {
+        try {
+          const params = new URLSearchParams({
+            organization_id: orgId,
+            q: query,
+          });
+          const data = await authedFetch<GuestResult[]>(
+            `/guests?${params.toString()}`
+          );
+          setGuestResults(data ?? []);
+          setShowGuestDropdown((data ?? []).length > 0);
+        } catch {
+          setGuestResults([]);
+          setShowGuestDropdown(false);
+        }
+      }, 300);
+    },
+    [orgId]
+  );
+
+  const selectGuest = useCallback((guest: GuestResult) => {
+    setTenantName(guest.full_name);
+    setTenantEmail(guest.email ?? "");
+    setTenantPhone(guest.phone_e164 ?? "");
+    setShowGuestDropdown(false);
+    setSaveAsGuest(false);
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setShowGuestDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ── IVA auto-calc ref ──
+  const rentInputRef = useRef<HTMLInputElement | null>(null);
+  const ivaInputRef = useRef<HTMLInputElement | null>(null);
+
+  const autoCalcIva = useCallback(() => {
+    const rentValue = rentInputRef.current?.value;
+    const rent = Number(rentValue);
+    if (Number.isFinite(rent) && rent > 0 && ivaInputRef.current) {
+      const iva = Math.round(rent * PY_RESIDENTIAL_IVA_RATE * 100) / 100;
+      ivaInputRef.current.value = String(iva);
+      // Trigger React's onChange for controlled components
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      nativeInputValueSetter?.call(ivaInputRef.current, String(iva));
+      ivaInputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, []);
 
   function canRenew(status: string): boolean {
     return ["active", "completed"].includes(status.trim().toLowerCase());
@@ -496,32 +612,84 @@ export function LeasesManager({
           <input name="next" type="hidden" value={nextPath} />
 
           <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-sm md:col-span-2">
+            <div className="relative space-y-1 text-sm md:col-span-2" ref={dropdownRef}>
               <span>{isEn ? "Tenant full name" : "Nombre completo"}</span>
               <Input
-                defaultValue={editing?.tenant_full_name ?? ""}
+                autoComplete="off"
                 name="tenant_full_name"
+                onChange={(e) => {
+                  setTenantName(e.target.value);
+                  searchGuests(e.target.value);
+                }}
+                onFocus={() => {
+                  if (guestResults.length > 0) setShowGuestDropdown(true);
+                }}
                 required
+                value={tenantName}
               />
-            </label>
+              {showGuestDropdown && guestResults.length > 0 && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
+                  {guestResults.map((guest) => (
+                    <button
+                      className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-accent"
+                      key={guest.id}
+                      onClick={() => selectGuest(guest)}
+                      type="button"
+                    >
+                      <span className="font-medium">{guest.full_name}</span>
+                      {(guest.email || guest.phone_e164) && (
+                        <span className="text-muted-foreground text-xs">
+                          {[guest.email, guest.phone_e164]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Email" : "Correo"}</span>
               <Input
-                defaultValue={editing?.tenant_email ?? ""}
                 name="tenant_email"
+                onChange={(e) => setTenantEmail(e.target.value)}
                 type="email"
+                value={tenantEmail}
               />
             </label>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Phone" : "Teléfono"}</span>
               <Input
-                defaultValue={editing?.tenant_phone_e164 ?? ""}
                 name="tenant_phone_e164"
+                onChange={(e) => setTenantPhone(e.target.value)}
                 placeholder="+595..."
+                value={tenantPhone}
               />
             </label>
+
+            {!editing && (
+              <label className="flex items-center gap-2 text-sm md:col-span-2">
+                <Checkbox
+                  checked={saveAsGuest}
+                  onCheckedChange={(checked) =>
+                    setSaveAsGuest(checked === true)
+                  }
+                />
+                <input
+                  name="save_as_guest"
+                  type="hidden"
+                  value={saveAsGuest ? "1" : "0"}
+                />
+                <span className="text-muted-foreground">
+                  {isEn
+                    ? "Also save tenant as a guest in the database"
+                    : "También guardar inquilino como huésped en la base de datos"}
+                </span>
+              </label>
+            )}
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Start date" : "Fecha de inicio"}</span>
@@ -599,22 +767,38 @@ export function LeasesManager({
                 defaultValue={editing?.monthly_rent ?? ""}
                 min={0}
                 name="monthly_rent"
+                ref={rentInputRef}
                 required
                 step="0.01"
                 type="number"
               />
             </label>
 
-            <label className="space-y-1 text-sm">
-              <span>IVA</span>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span>IVA</span>
+                <button
+                  className="rounded border border-input px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={autoCalcIva}
+                  title={
+                    isEn
+                      ? "Auto-calculate 5% IVA (residential rental rate)"
+                      : "Auto-calcular IVA 5% (tasa alquiler residencial)"
+                  }
+                  type="button"
+                >
+                  5%
+                </button>
+              </div>
               <Input
                 defaultValue={editing?.tax_iva ?? ""}
                 min={0}
                 name="tax_iva"
+                ref={ivaInputRef}
                 step="0.01"
                 type="number"
               />
-            </label>
+            </div>
 
             <label className="space-y-1 text-sm">
               <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>
@@ -912,8 +1096,43 @@ export function LeasesManager({
                 />
               </label>
 
-              <label className="space-y-1 text-sm">
-                <span>IVA</span>
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <span>IVA</span>
+                  <button
+                    className="rounded border border-input px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={(e) => {
+                      const form = (e.target as HTMLElement).closest("form");
+                      if (!form) return;
+                      const rentEl = form.querySelector<HTMLInputElement>(
+                        'input[name="monthly_rent"]'
+                      );
+                      const ivaEl = form.querySelector<HTMLInputElement>(
+                        'input[name="tax_iva"]'
+                      );
+                      if (rentEl && ivaEl) {
+                        const rent = Number(rentEl.value);
+                        if (Number.isFinite(rent) && rent > 0) {
+                          const iva =
+                            Math.round(rent * PY_RESIDENTIAL_IVA_RATE * 100) /
+                            100;
+                          ivaEl.value = String(iva);
+                          ivaEl.dispatchEvent(
+                            new Event("input", { bubbles: true })
+                          );
+                        }
+                      }
+                    }}
+                    title={
+                      isEn
+                        ? "Auto-calculate 5% IVA (residential rental rate)"
+                        : "Auto-calcular IVA 5% (tasa alquiler residencial)"
+                    }
+                    type="button"
+                  >
+                    5%
+                  </button>
+                </div>
                 <Input
                   defaultValue={renewingFrom.tax_iva}
                   min={0}
@@ -921,7 +1140,7 @@ export function LeasesManager({
                   step="0.01"
                   type="number"
                 />
-              </label>
+              </div>
 
               <label className="space-y-1 text-sm">
                 <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>

@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchJson, fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList, getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -63,17 +63,17 @@ export default async function MaintenanceModulePage({
   let members: Record<string, unknown>[] = [];
 
   try {
-    const [requestRows, propertyRows, unitRows, memberData] =
+    const [requestRows, propertyRows, unitRows, memberRows] =
       await Promise.all([
         fetchList("/maintenance-requests", orgId, 500),
         fetchList("/properties", orgId, 500),
         fetchList("/units", orgId, 500),
-        fetchJson<{ data?: unknown[] }>(`/organizations/${orgId}/members`),
+        fetchList(`/organizations/${orgId}/members`, orgId, 300),
       ]);
     requests = requestRows as Record<string, unknown>[];
     properties = propertyRows as Record<string, unknown>[];
     units = unitRows as Record<string, unknown>[];
-    members = (memberData.data ?? []) as Record<string, unknown>[];
+    members = memberRows as Record<string, unknown>[];
   } catch (err) {
     const message = errorMessage(err);
     if (isOrgMembershipError(message)) {

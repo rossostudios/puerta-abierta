@@ -900,7 +900,7 @@ function SidebarContent({
                   {isEn ? "Open" : "Abrir"}
                 </Link>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 {chatAgents.slice(0, 6).map((agent) => (
                   <NavLinkRow
                     active={pathname.startsWith("/app/agents")}
