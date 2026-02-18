@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use axum::extract::Path;
-use chrono::{Datelike, NaiveDate, Utc};
+use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha1::Digest;

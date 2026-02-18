@@ -706,8 +706,8 @@ export function ListingNotionTable({
 
       <div className="overflow-x-auto rounded-md border">
         <Table
-          className="table-fixed"
-          style={{ width: table.getTotalSize() }}
+          className="table-fixed w-full"
+          style={{ minWidth: table.getTotalSize() }}
         >
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
