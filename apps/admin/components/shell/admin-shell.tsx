@@ -253,9 +253,9 @@ function AdminShellV2({
             className="min-h-0 overflow-hidden"
             collapsedSize={0}
             collapsible
-            defaultSize={20}
-            maxSize={40}
-            minSize={14}
+            defaultSize="20%"
+            maxSize="40%"
+            minSize="14%"
             onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
             panelRef={sidebarPanelRef}
           >
@@ -272,7 +272,7 @@ function AdminShellV2({
           <ResizableHandle withHandle />
           <ResizablePanel
             className="min-h-0 min-w-0 overflow-hidden"
-            minSize={50}
+            minSize="50%"
           >
             {contentColumn}
           </ResizablePanel>

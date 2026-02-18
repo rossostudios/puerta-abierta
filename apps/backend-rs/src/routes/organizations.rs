@@ -476,35 +476,15 @@ async fn list_members(
     let pool = db_pool(&state)?;
 
     let rows = sqlx::query(
-        "SELECT json_build_object(
-            'organization_id', om.organization_id,
-            'user_id', om.user_id,
-            'role', om.role,
-            'is_primary', om.is_primary,
-            'joined_at', om.joined_at,
-            'created_at', om.created_at,
-            'updated_at', om.updated_at,
-            'app_users', CASE
-              WHEN au.id IS NULL THEN NULL
-              ELSE json_build_object(
-                'id', au.id,
-                'email', au.email,
-                'full_name', au.full_name
-              )
-            END
-          ) AS row
-          FROM organization_members om
-          LEFT JOIN app_users au ON au.id = om.user_id
-          WHERE om.organization_id = $1
-          LIMIT 200",
+        "SELECT list_org_members_with_users($1::uuid) AS row",
     )
     .bind(&path.org_id)
     .fetch_all(pool)
     .await
     .map_err(|error| {
-            tracing::error!(error = %error, "Database query failed");
-            AppError::Dependency("External service request failed.".to_string())
-        })?;
+        tracing::error!(error = %error, "Database query failed");
+        AppError::Dependency("External service request failed.".to_string())
+    })?;
 
     let data = rows
         .into_iter()
