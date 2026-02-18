@@ -121,7 +121,18 @@ export default async function MarketplacePage({
 
         <HowItWorks isEn={isEn} />
 
-        <Suspense>
+        <Suspense
+          fallback={
+            <div className="flex gap-2 overflow-hidden">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted"
+                />
+              ))}
+            </div>
+          }
+        >
           <CategoryPills locale={locale} />
         </Suspense>
 
@@ -129,7 +140,11 @@ export default async function MarketplacePage({
           <FeaturedListings isEn={isEn} listings={listings} locale={locale} />
         )}
 
-        <Suspense>
+        <Suspense
+          fallback={
+            <div className="h-10 w-48 animate-pulse rounded-lg bg-muted" />
+          }
+        >
           <SavedSearches isEn={isEn} />
         </Suspense>
 

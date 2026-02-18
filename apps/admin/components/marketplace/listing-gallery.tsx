@@ -37,7 +37,6 @@ export function ListingGallery({
           loading="eager"
           sizes="(max-width: 1024px) 100vw, 66vw"
           src={first}
-          unoptimized
           width={1600}
         />
       </div>
@@ -54,7 +53,6 @@ export function ListingGallery({
               loading="lazy"
               sizes="(max-width: 1024px) 50vw, 33vw"
               src={url}
-              unoptimized
               width={1080}
             />
           </div>

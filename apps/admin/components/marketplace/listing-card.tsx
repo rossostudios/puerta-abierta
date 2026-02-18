@@ -81,7 +81,6 @@ export function MarketplaceListingCard({
             loading="lazy"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             src={coverImage}
-            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[var(--marketplace-text-muted)] text-sm">
@@ -140,7 +139,7 @@ export function MarketplaceListingCard({
           {whatsappUrl ? (
             <a
               aria-label="WhatsApp"
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition-colors hover:bg-[#25D366]/20"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition-colors hover:bg-[#25D366]/20"
               href={whatsappUrl}
               onClick={(e) => e.stopPropagation()}
               rel="noopener noreferrer"

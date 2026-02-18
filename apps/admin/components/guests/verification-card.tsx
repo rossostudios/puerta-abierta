@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -149,11 +150,13 @@ export function VerificationCard({
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   alt={isEn ? "ID document" : "Documento de identidad"}
                   className="h-48 w-full object-cover"
+                  height={384}
+                  sizes="(max-width: 768px) 100vw, 50vw"
                   src={idDocumentUrl!}
+                  width={512}
                 />
               </a>
             </div>
@@ -166,11 +169,13 @@ export function VerificationCard({
                   rel="noopener noreferrer"
                   target="_blank"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     alt="Selfie"
                     className="h-48 w-full object-cover"
+                    height={384}
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     src={selfieUrl}
+                    width={512}
                   />
                 </a>
               </div>

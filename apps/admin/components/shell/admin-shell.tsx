@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
@@ -9,16 +10,19 @@ import { ShortcutsHelp } from "@/components/shell/shortcuts-help";
 import type { MemberRole, ViewportMode } from "@/components/shell/sidebar-new";
 import { SidebarNew } from "@/components/shell/sidebar-new";
 import { Topbar } from "@/components/shell/topbar";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGlobalHotkeys } from "@/lib/hotkeys/use-global-hotkeys";
 import { useNavigationHotkeys } from "@/lib/hotkeys/use-navigation-hotkeys";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+
+const DesktopResizableShell = dynamic(
+  () =>
+    import("@/components/shell/desktop-resizable-shell").then(
+      (m) => m.DesktopResizableShell
+    ),
+  { ssr: false }
+);
 
 type AdminShellProps = {
   orgId: string | null;
@@ -237,48 +241,20 @@ function AdminShellV2({
 
   if (isDesktop) {
     return (
-      <div
-        className={cn(
-          "h-full min-h-0 w-full overflow-hidden",
-          shellSurfaceClass
-        )}
-        data-nav-open={!sidebarCollapsed}
-        data-shell-mode={viewportMode}
-      >
-        <ResizablePanelGroup
-          className="h-full min-h-0 w-full overflow-hidden"
-          orientation="horizontal"
-        >
-          <ResizablePanel
-            className="min-h-0 overflow-hidden"
-            collapsedSize={0}
-            collapsible
-            defaultSize="20%"
-            maxSize="40%"
-            minSize="14%"
-            onResize={(size) => setSidebarCollapsed(size.asPercentage === 0)}
-            panelRef={sidebarPanelRef}
-          >
-            <SidebarNew
-              isMobileDrawerOpen={false}
-              locale={locale}
-              onboardingProgress={onboardingProgress}
-              onMobileDrawerOpenChange={setIsMobileDrawerOpen}
-              orgId={orgId}
-              role={role}
-              viewportMode={viewportMode}
-            />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel
-            className="min-h-0 min-w-0 overflow-hidden"
-            minSize="50%"
-          >
-            {contentColumn}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-        {overlays}
-      </div>
+      <DesktopResizableShell
+        contentColumn={contentColumn}
+        locale={locale}
+        onMobileDrawerOpenChange={setIsMobileDrawerOpen}
+        onSidebarCollapsedChange={setSidebarCollapsed}
+        onboardingProgress={onboardingProgress}
+        orgId={orgId}
+        overlays={overlays}
+        role={role}
+        shellSurfaceClass={shellSurfaceClass}
+        sidebarCollapsed={sidebarCollapsed}
+        sidebarPanelRef={sidebarPanelRef}
+        viewportMode={viewportMode}
+      />
     );
   }
 

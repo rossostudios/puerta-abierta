@@ -1,6 +1,7 @@
 "use client";
 
 import { Camera02Icon, Delete02Icon } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -103,11 +104,13 @@ export function TaskPhotoUpload({
                 rel="noopener noreferrer"
                 target="_blank"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   alt={`${isEn ? "Photo" : "Foto"} ${index + 1}`}
                   className="h-16 w-16 object-cover"
+                  height={128}
+                  sizes="64px"
                   src={url}
+                  width={128}
                 />
               </a>
               <button

@@ -94,7 +94,7 @@ export function ReorderableImageGrid({
             {index + 1}
           </span>
           <button
-            className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
+            className="absolute -top-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100"
             onClick={() => onRemove(url)}
             type="button"
           >

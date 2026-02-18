@@ -31,7 +31,11 @@ import {
 import { useActiveLocale } from "@/lib/i18n/client";
 
 import { TaskBoard } from "@/components/tasks/task-board";
-import { TaskCharts } from "@/components/tasks/task-charts";
+import dynamic from "next/dynamic";
+
+const TaskCharts = dynamic(() =>
+  import("@/components/tasks/task-charts").then((m) => m.TaskCharts)
+);
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { TaskRowActions } from "@/components/tasks/task-row-actions";
 

@@ -2,6 +2,7 @@
 
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -222,11 +223,14 @@ function MapPopup({
       </button>
 
       {listing.coverImageUrl ? (
-        <img
+        <Image
           alt={listing.title}
           className="mb-2 h-28 w-full rounded-lg object-cover"
+          height={224}
           loading="lazy"
+          sizes="256px"
           src={listing.coverImageUrl}
+          width={256}
         />
       ) : null}
 

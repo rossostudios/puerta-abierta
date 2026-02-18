@@ -12,7 +12,11 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
-import { ApplicationsManager } from "./applications-manager";
+import dynamic from "next/dynamic";
+
+const ApplicationsManager = dynamic(() =>
+  import("./applications-manager").then((m) => m.ApplicationsManager)
+);
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;

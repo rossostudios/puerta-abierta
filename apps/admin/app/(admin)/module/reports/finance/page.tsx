@@ -18,7 +18,11 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
-import { FinanceDashboard } from "./finance-dashboard";
+import dynamic from "next/dynamic";
+
+const FinanceDashboard = dynamic(() =>
+  import("./finance-dashboard").then((m) => m.FinanceDashboard)
+);
 
 type FinanceDashboardData = {
   organization_id?: string;

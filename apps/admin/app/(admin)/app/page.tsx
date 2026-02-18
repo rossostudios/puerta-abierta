@@ -9,12 +9,14 @@ import {
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { isRentalMode, type RentalMode } from "@/app/(admin)/setup/setup-components";
-import { AgentPerformance } from "@/components/dashboard/agent-performance";
 import { AnomalyAlerts } from "@/components/dashboard/anomaly-alerts";
 import { GettingStartedChecklist } from "@/components/dashboard/getting-started-checklist";
-import { DashboardInsights } from "@/components/dashboard/insights";
-import { OccupancyForecast } from "@/components/dashboard/occupancy-forecast";
-import { RevenueTrend } from "@/components/dashboard/revenue-trend";
+import {
+  LazyAgentPerformance,
+  LazyDashboardInsights,
+  LazyOccupancyForecast,
+  LazyRevenueTrend,
+} from "@/components/dashboard/lazy";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -998,7 +1000,7 @@ export default async function DashboardPage({
       ) : null}
 
       {/* ── Insights charts ─────────────────────────────────── */}
-      <DashboardInsights
+      <LazyDashboardInsights
         locale={locale}
         operationsSummary={{
           turnoversDue: operationsKpis.turnoversDue,
@@ -1014,13 +1016,13 @@ export default async function DashboardPage({
       {/* ── Phase 4: Forecast, Revenue Trend, Agent Performance */}
       {apiAvailable ? (
         <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          <OccupancyForecast
+          <LazyOccupancyForecast
             data={forecastData.months}
             avgPct={forecastData.historical_avg_occupancy_pct}
             locale={locale}
           />
-          <RevenueTrend data={revenueTrendData.months} locale={locale} />
-          <AgentPerformance data={agentPerfData} locale={locale} />
+          <LazyRevenueTrend data={revenueTrendData.months} locale={locale} />
+          <LazyAgentPerformance data={agentPerfData} locale={locale} />
         </section>
       ) : null}
 

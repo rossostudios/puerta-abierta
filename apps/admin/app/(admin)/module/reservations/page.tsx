@@ -13,7 +13,11 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
-import { ReservationsManager } from "./reservations-manager";
+import dynamic from "next/dynamic";
+
+const ReservationsManager = dynamic(() =>
+  import("./reservations-manager").then((m) => m.ReservationsManager)
+);
 import { ReservationHeaderButtons } from "./reservations-page-client";
 
 type PageProps = {

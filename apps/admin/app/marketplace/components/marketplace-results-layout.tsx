@@ -99,10 +99,10 @@ export function MarketplaceResultsLayout({
         >
           <div
             className={cn(
-              "grid gap-6",
+              "@container grid gap-6",
               showMap
                 ? "sm:grid-cols-1 lg:max-h-[75vh] lg:overflow-y-auto lg:pr-2"
-                : "sm:grid-cols-2 lg:grid-cols-3"
+                : "sm:grid-cols-2 lg:grid-cols-3 @[900px]:grid-cols-3"
             )}
           >
             {listings.map((listing) => (

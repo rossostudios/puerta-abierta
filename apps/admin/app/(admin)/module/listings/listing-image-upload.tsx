@@ -1,6 +1,7 @@
 "use client";
 
 import { Cancel01Icon, CloudUploadIcon } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 import { useCallback, useRef, useState, type DragEvent } from "react";
 
 import { ReorderableImageGrid } from "@/components/listings/reorderable-image-grid";
@@ -183,10 +184,13 @@ export function ImageUpload({
           <div className="flex flex-wrap gap-2">
             {urls.map((url, index) => (
               <div className="group relative" key={url}>
-                <img
+                <Image
                   alt=""
                   className="h-20 w-20 rounded-md border object-cover"
+                  height={160}
+                  sizes="80px"
                   src={url}
+                  width={160}
                 />
                 <button
                   className="absolute -top-1.5 -right-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"

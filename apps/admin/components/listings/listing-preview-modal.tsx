@@ -2,6 +2,7 @@
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 
 import { ListingAmenities } from "@/app/marketplace/[slug]/components/listing-amenities";
 import { ListingAvailability } from "@/app/marketplace/[slug]/components/listing-availability";
@@ -91,14 +92,20 @@ export function ListingPreviewModal({
                 )
                   .slice(0, 5)
                   .map((url, i) => (
-                    <img
-                      alt={`${listing.title} ${i + 1}`}
-                      className={`h-64 w-full rounded-lg object-cover ${
-                        i === 0 ? "sm:col-span-2 sm:h-80" : ""
+                    <div
+                      className={`relative overflow-hidden rounded-lg ${
+                        i === 0 ? "sm:col-span-2 h-64 sm:h-80" : "h-64"
                       }`}
                       key={url}
-                      src={url}
-                    />
+                    >
+                      <Image
+                        alt={`${listing.title} ${i + 1}`}
+                        className="object-cover"
+                        fill
+                        sizes="(max-width: 640px) 100vw, 50vw"
+                        src={url}
+                      />
+                    </div>
                   ))}
               </div>
             )}

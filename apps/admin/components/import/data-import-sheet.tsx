@@ -1,7 +1,6 @@
 "use client";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
-import Papa from "papaparse";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -217,7 +216,7 @@ export function DataImportSheet({
   );
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       setParseError("");
       setImportDone(false);
       setImportResults([]);
@@ -231,8 +230,9 @@ export function DataImportSheet({
         return;
       }
 
-      // CSV / TSV parsing via PapaParse
-      Papa.parse<DataRow>(file, {
+      // CSV / TSV parsing via PapaParse (dynamically loaded)
+      const PapaParse = (await import("papaparse")).default;
+      PapaParse.parse<DataRow>(file, {
         header: true,
         skipEmptyLines: true,
         complete: (result) => {
