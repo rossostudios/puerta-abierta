@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 type Org = {
   id: string;
   name?: string | null;
+  logo_url?: string | null;
 };
 
 type MeResponse = {
@@ -123,20 +124,41 @@ export function OrgList({
             className="flex items-center justify-between gap-3 p-4"
             key={org.id}
           >
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="truncate font-medium text-sm">
-                  {org.name || (isEn ? "Unnamed Organization" : "Sin nombre")}
-                </p>
-                {isActive && (
-                  <Badge className="text-[11px]" variant="secondary">
-                    {isEn ? "Active" : "Activa"}
-                  </Badge>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/20">
+                {org.logo_url ? (
+                  // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
+                  <img
+                    alt={
+                      org.name ||
+                      (isEn ? "Organization logo" : "Logo de organización")
+                    }
+                    className="h-full w-full object-cover"
+                    height={40}
+                    src={org.logo_url}
+                    width={40}
+                  />
+                ) : (
+                  <span className="font-semibold text-muted-foreground text-xs">
+                    {isEn ? "ORG" : "ORG"}
+                  </span>
                 )}
               </div>
-              <p className="mt-0.5 font-mono text-muted-foreground text-xs">
-                {shortId(org.id)}
-              </p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate font-medium text-sm">
+                    {org.name || (isEn ? "Unnamed Organization" : "Sin nombre")}
+                  </p>
+                  {isActive && (
+                    <Badge className="text-[11px]" variant="secondary">
+                      {isEn ? "Active" : "Activa"}
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-0.5 font-mono text-muted-foreground text-xs">
+                  {shortId(org.id)}
+                </p>
+              </div>
             </div>
             {canDelete && (
               <Button

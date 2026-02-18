@@ -1978,8 +1978,14 @@ export interface components {
             name?: string;
             legal_name?: string;
             ruc?: string;
+            profile_type?: string;
             default_currency?: components["schemas"]["Currency"];
             timezone?: string;
+            bank_name?: string;
+            bank_account_number?: string;
+            bank_account_holder?: string;
+            qr_image_url?: string;
+            logo_url?: string;
         };
         AddOrganizationMemberInput: {
             user_id: components["schemas"]["UUID"];

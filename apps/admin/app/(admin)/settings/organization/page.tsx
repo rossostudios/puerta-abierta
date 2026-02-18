@@ -26,6 +26,7 @@ type OrgRecord = {
   bank_account_number: string | null;
   bank_account_holder: string | null;
   qr_image_url: string | null;
+  logo_url: string | null;
 };
 
 function asStr(v: unknown): string {
@@ -77,6 +78,7 @@ export default async function OrganizationSettingsPage() {
       bank_account_number: asOpt(raw.bank_account_number),
       bank_account_holder: asOpt(raw.bank_account_holder),
       qr_image_url: asOpt(raw.qr_image_url),
+      logo_url: asOpt(raw.logo_url),
     };
   } catch (err) {
     const message = errorMessage(err);
@@ -126,8 +128,8 @@ export default async function OrganizationSettingsPage() {
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Manage currency, timezone, and banking details."
-              : "Gestiona moneda, zona horaria y datos bancarios."}
+              ? "Manage branding, currency, timezone, and banking details."
+              : "Gestiona marca, moneda, zona horaria y datos bancarios."}
           </CardDescription>
         </CardHeader>
         <CardContent>

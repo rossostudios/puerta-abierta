@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
+import { AccountAvatarField } from "@/app/(admin)/account/account-avatar-field";
 import {
+  updateAccountAvatarAction,
   updateAccountNameAction,
   updateAccountPasswordAction,
 } from "@/app/(admin)/account/actions";
@@ -48,6 +50,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const currentName =
     metadataString(user.user_metadata, "full_name") ||
     metadataString(user.user_metadata, "name");
+  const currentAvatarUrl = metadataString(user.user_metadata, "avatar_url");
 
   const successCode = typeof params.success === "string" ? params.success : "";
   const errorMessage = typeof params.error === "string" ? params.error : "";
@@ -72,6 +75,19 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             {isEn
               ? "Your name was updated successfully."
               : "Tu nombre se actualizó correctamente."}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {successCode === "avatar-updated" ? (
+        <Alert variant="success">
+          <AlertTitle>
+            {isEn ? "Avatar updated" : "Avatar actualizado"}
+          </AlertTitle>
+          <AlertDescription>
+            {isEn
+              ? "Your avatar was updated successfully."
+              : "Tu avatar se actualizó correctamente."}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -131,6 +147,35 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Badge variant="outline">{isEn ? "Profile" : "Perfil"}</Badge>
           </div>
           <CardTitle className="text-2xl">
+            {isEn ? "Avatar" : "Avatar"}
+          </CardTitle>
+          <CardDescription>
+            {isEn
+              ? "Choose a profile image shown in your account menu."
+              : "Elige una imagen de perfil para el menú de cuenta."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateAccountAvatarAction} className="space-y-4">
+            <AccountAvatarField
+              currentName={currentName || user.email || "User"}
+              initialAvatarUrl={currentAvatarUrl}
+              isEn={isEn}
+              userId={user.id}
+            />
+            <Button type="submit">
+              {isEn ? "Save avatar" : "Guardar avatar"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">{isEn ? "Profile" : "Perfil"}</Badge>
+          </div>
+          <CardTitle className="text-2xl">
             {isEn ? "Public name" : "Nombre público"}
           </CardTitle>
           <CardDescription>
@@ -146,6 +191,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                 {isEn ? "Full name" : "Nombre completo"}
               </span>
               <Input
+                autoComplete="name"
                 defaultValue={currentName}
                 id="full_name"
                 name="full_name"
@@ -181,6 +227,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                 {isEn ? "New password" : "Nueva contraseña"}
               </span>
               <Input
+                autoComplete="new-password"
                 id="password"
                 name="password"
                 placeholder={
@@ -196,6 +243,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                 {isEn ? "Confirm password" : "Confirmar contraseña"}
               </span>
               <Input
+                autoComplete="new-password"
                 id="confirm_password"
                 name="confirm_password"
                 placeholder={

@@ -9,7 +9,7 @@ const SEQUENCE_MAP: Record<string, string> = {
   p: "/module/properties",
   u: "/module/units",
   r: "/module/reservations",
-  t: "/module/tasks",
+  t: "/module/operations?tab=tasks",
   e: "/module/expenses",
   l: "/module/leases",
   a: "/module/reservations?view=calendar",

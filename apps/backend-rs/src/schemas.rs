@@ -76,6 +76,7 @@ pub struct UpdateOrganizationInput {
     pub bank_account_number: Option<String>,
     pub bank_account_holder: Option<String>,
     pub qr_image_url: Option<String>,
+    pub logo_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize, Validate)]

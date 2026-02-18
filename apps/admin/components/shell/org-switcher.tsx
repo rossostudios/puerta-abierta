@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 type Org = {
   id: string;
   name?: string | null;
+  logo_url?: string | null;
 };
 
 type MeResponse = {
@@ -135,11 +136,25 @@ export function OrgSwitcher({
         )}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background shadow-xs transition-colors group-hover:border-border/60">
-          <Icon
-            className="text-foreground/80"
-            icon={Building01Icon}
-            size={18}
-          />
+          {activeOrg?.logo_url ? (
+            // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
+            <img
+              alt={
+                activeOrg?.name ||
+                (isEn ? "Organization logo" : "Logo de organización")
+              }
+              className="h-full w-full rounded-lg object-cover"
+              height={40}
+              src={activeOrg.logo_url}
+              width={40}
+            />
+          ) : (
+            <Icon
+              className="text-foreground/80"
+              icon={Building01Icon}
+              size={18}
+            />
+          )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col text-left">
           <span className="truncate font-medium text-foreground text-sm leading-tight">
@@ -225,7 +240,21 @@ export function OrgSwitcher({
                         : "border-border/40 bg-background text-muted-foreground"
                     )}
                   >
-                    <Icon icon={Building01Icon} size={16} />
+                    {org.logo_url ? (
+                      // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
+                      <img
+                        alt={
+                          org.name ||
+                          (isEn ? "Organization logo" : "Logo de organización")
+                        }
+                        className="h-full w-full rounded-md object-cover"
+                        height={32}
+                        src={org.logo_url}
+                        width={32}
+                      />
+                    ) : (
+                      <Icon icon={Building01Icon} size={16} />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-[13px]">

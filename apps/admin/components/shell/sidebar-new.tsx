@@ -1,5 +1,6 @@
 "use client";
 
+import { Separator } from "@base-ui/react/separator";
 import {
   AiVoiceGeneratorIcon,
   AuditIcon,
@@ -28,13 +29,12 @@ import {
   SparklesIcon,
   StarIcon,
   Task01Icon,
-  Wrench01Icon,
   UserGroupIcon,
   WebhookIcon,
   WorkflowSquare03Icon,
+  Wrench01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
-import { Separator } from "@base-ui/react/separator";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -108,6 +108,8 @@ type RouteLinkDef = {
     "es-PY": string;
     "en-US": string;
   };
+  /** When set, only users with one of these roles see this route link. */
+  roles?: MemberRole[];
 };
 
 export type MemberRole =
@@ -167,25 +169,25 @@ const PRIMARY_TABS: Array<{
   icon: IconSvgElement;
   label: { "es-PY": string; "en-US": string };
 }> = [
-    {
-      key: "home",
-      href: "/app",
-      icon: Home01Icon,
-      label: { "es-PY": "Inicio", "en-US": "Home" },
-    },
-    {
-      key: "chat",
-      href: "/app/agents",
-      icon: Message01Icon,
-      label: { "es-PY": "Chat", "en-US": "Chat" },
-    },
-    {
-      key: "inbox",
-      href: "/module/messaging",
-      icon: InboxIcon,
-      label: { "es-PY": "Inbox", "en-US": "Inbox" },
-    },
-  ];
+  {
+    key: "home",
+    href: "/app",
+    icon: Home01Icon,
+    label: { "es-PY": "Inicio", "en-US": "Home" },
+  },
+  {
+    key: "chat",
+    href: "/app/agents",
+    icon: Message01Icon,
+    label: { "es-PY": "Chat", "en-US": "Chat" },
+  },
+  {
+    key: "inbox",
+    href: "/module/messaging",
+    icon: InboxIcon,
+    label: { "es-PY": "Inbox", "en-US": "Inbox" },
+  },
+];
 
 const CHAT_LINKS: RouteLinkDef[] = [
   {
@@ -257,14 +259,20 @@ const SECTIONS: SectionDef[] = [
       "es-PY": "Operaciones",
       "en-US": "Operations",
     },
-    moduleSlugs: [
-      "tasks",
-      "maintenance",
-      "guests",
-      "notifications",
-      "notification-rules",
-      "sequences",
+    routeLinks: [
+      {
+        href: "/module/operations?tab=tasks",
+        icon: Task01Icon,
+        label: { "es-PY": "Operaciones", "en-US": "Operations" },
+      },
+      {
+        href: "/module/automations?tab=rules",
+        icon: WorkflowSquare03Icon,
+        label: { "es-PY": "Automatizaciones", "en-US": "Automations" },
+        roles: ["owner_admin", "operator"],
+      },
     ],
+    moduleSlugs: ["guests"],
     roles: ["owner_admin", "operator", "cleaner"],
   },
   {
@@ -291,7 +299,7 @@ const SECTIONS: SectionDef[] = [
       "es-PY": "Espacio de trabajo",
       "en-US": "Workspace",
     },
-    moduleSlugs: ["documents", "workflow-rules", "billing"],
+    moduleSlugs: ["documents", "billing"],
     roles: ["owner_admin"],
   },
 ];
@@ -301,11 +309,17 @@ const APPLE_DEVICE_REGEX = /Mac|iPhone|iPad/i;
 const HOME_TAB_HIDDEN_MODULE_SLUGS = new Set([
   "applications",
   "collections",
+  "maintenance",
   "messaging",
+  "notification-rules",
+  "notifications",
   "transparency-summary",
   "organizations",
   "integration-events",
   "audit-logs",
+  "sequences",
+  "tasks",
+  "workflow-rules",
 ]);
 
 function isRouteActive(
@@ -331,7 +345,7 @@ function isRouteActive(
   // No query string in href — match only when current URL also has no status/segment param
   if (pathname === href || pathname.startsWith(`${href}/`)) {
     const currentParams = new URLSearchParams(search);
-    return !currentParams.has("status") && !currentParams.has("segment");
+    return !(currentParams.has("status") || currentParams.has("segment"));
   }
   return false;
 }
@@ -367,23 +381,29 @@ function resolveSections(
     ? SECTIONS.filter((s) => !s.roles || s.roles.includes(role))
     : SECTIONS;
 
-  const resolved = visibleSections.map((section) => {
-    const routeLinks = (section.routeLinks ?? []).map((link) => ({
-      href: link.href,
-      iconElement: link.icon,
-      label: link.label[locale],
-    }));
+  const resolved = visibleSections
+    .map((section) => {
+      const routeLinks = (section.routeLinks ?? [])
+        .filter((link) =>
+          link.roles ? (role ? link.roles.includes(role) : false) : true
+        )
+        .map((link) => ({
+          href: link.href,
+          iconElement: link.icon,
+          label: link.label[locale],
+        }));
 
-    const moduleLinks = section.moduleSlugs
-      .map((slug) => resolveModuleLink(slug, locale))
-      .filter((item): item is ResolvedLink => Boolean(item));
+      const moduleLinks = section.moduleSlugs
+        .map((slug) => resolveModuleLink(slug, locale))
+        .filter((item): item is ResolvedLink => Boolean(item));
 
-    return {
-      key: section.key,
-      label: section.label[locale],
-      links: [...routeLinks, ...moduleLinks],
-    } satisfies ResolvedSection;
-  }).filter((section) => section.links.length > 0);
+      return {
+        key: section.key,
+        label: section.label[locale],
+        links: [...routeLinks, ...moduleLinks],
+      } satisfies ResolvedSection;
+    })
+    .filter((section) => section.links.length > 0);
 
   const knownSlugs = new Set(
     SECTIONS.flatMap((section) => section.moduleSlugs)
@@ -449,11 +469,11 @@ function ShortcutKbd({ keys }: { keys: string[] }) {
   return (
     <span className="inline-flex items-center gap-1">
       {keys.map((key, i) => (
-        <span className="inline-flex items-center gap-0.5" key={i}>
+        <span className="inline-flex items-center gap-0.5" key={key}>
           {i > 0 && (
-            <span className="text-muted-foreground/60 text-[10px]">then</span>
+            <span className="text-[10px] text-muted-foreground/60">then</span>
           )}
-          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/80 bg-muted/70 px-1 font-mono text-[10px] font-medium text-foreground shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
+          <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded border border-border/80 bg-muted/70 px-1 font-medium font-mono text-[10px] text-foreground shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
             {key}
           </kbd>
         </span>
@@ -501,7 +521,7 @@ function NavLinkRow({
         {label}
       </span>
       {count != null && count > 0 && (
-        <span className="ml-auto shrink-0 rounded-full bg-sidebar-accent/60 px-1.5 py-px text-[10px] tabular-nums text-sidebar-foreground/50">
+        <span className="ml-auto shrink-0 rounded-full bg-sidebar-accent/60 px-1.5 py-px text-[10px] text-sidebar-foreground/50 tabular-nums">
           {count}
         </span>
       )}
@@ -518,7 +538,9 @@ function NavLinkRow({
         side="right"
         sideOffset={12}
       >
-        <span className="text-[11px] font-medium text-popover-foreground">{label}</span>
+        <span className="font-medium text-[11px] text-popover-foreground">
+          {label}
+        </span>
         <ShortcutKbd keys={shortcutKeys} />
       </TooltipContent>
     </Tooltip>
@@ -679,8 +701,8 @@ function SidebarContent({
       if (!agentsResponse.ok) {
         const message =
           agentsPayload &&
-            typeof agentsPayload === "object" &&
-            "error" in agentsPayload
+          typeof agentsPayload === "object" &&
+          "error" in agentsPayload
             ? String((agentsPayload as { error?: unknown }).error)
             : isEn
               ? "Could not load agents."
@@ -691,8 +713,8 @@ function SidebarContent({
       if (!chatsResponse.ok) {
         const message =
           chatsPayload &&
-            typeof chatsPayload === "object" &&
-            "error" in chatsPayload
+          typeof chatsPayload === "object" &&
+          "error" in chatsPayload
             ? String((chatsPayload as { error?: unknown }).error)
             : isEn
               ? "Could not load chats."
@@ -721,9 +743,18 @@ function SidebarContent({
     let cancelled = false;
 
     const endpoints = [
-      { url: `/api/listings/count?org_id=${encodeURIComponent(orgId)}`, setter: setListingCount },
-      { url: `/api/properties/count?org_id=${encodeURIComponent(orgId)}`, setter: setPropertiesCount },
-      { url: `/api/units/count?org_id=${encodeURIComponent(orgId)}`, setter: setUnitsCount },
+      {
+        url: `/api/listings/count?org_id=${encodeURIComponent(orgId)}`,
+        setter: setListingCount,
+      },
+      {
+        url: `/api/properties/count?org_id=${encodeURIComponent(orgId)}`,
+        setter: setPropertiesCount,
+      },
+      {
+        url: `/api/units/count?org_id=${encodeURIComponent(orgId)}`,
+        setter: setUnitsCount,
+      },
     ];
 
     for (const { url, setter } of endpoints) {
@@ -747,9 +778,12 @@ function SidebarContent({
       sections.map((section) => ({
         ...section,
         links: section.links.map((link) => {
-          if (link.href === "/module/listings") return { ...link, count: listingCount };
-          if (link.href === "/module/properties") return { ...link, count: propertiesCount };
-          if (link.href === "/module/units") return { ...link, count: unitsCount };
+          if (link.href === "/module/listings")
+            return { ...link, count: listingCount };
+          if (link.href === "/module/properties")
+            return { ...link, count: propertiesCount };
+          if (link.href === "/module/units")
+            return { ...link, count: unitsCount };
           return link;
         }),
       })),
@@ -795,9 +829,9 @@ function SidebarContent({
         if (!response.ok) {
           throw new Error(
             payload.error ||
-            (isEn
-              ? "Chat update failed."
-              : "La actualización del chat falló.")
+              (isEn
+                ? "Chat update failed."
+                : "La actualización del chat falló.")
           );
         }
 
@@ -833,6 +867,7 @@ function SidebarContent({
                       : "text-sidebar-foreground/55 hover:text-sidebar-foreground"
                   )}
                   href={tab.href}
+                  key={tab.key}
                 >
                   <Icon icon={tab.icon} size={14} />
                   <span className="truncate">{tab.label[locale]}</span>
@@ -846,7 +881,7 @@ function SidebarContent({
                     side="bottom"
                     sideOffset={8}
                   >
-                    <span className="text-[11px] font-medium text-popover-foreground">
+                    <span className="font-medium text-[11px] text-popover-foreground">
                       {tab.label[locale]}
                     </span>
                     <ShortcutKbd keys={shortcutKeys} />
@@ -875,7 +910,7 @@ function SidebarContent({
                 side="bottom"
                 sideOffset={8}
               >
-                <span className="text-[11px] font-medium text-popover-foreground">
+                <span className="font-medium text-[11px] text-popover-foreground">
                   {isEn ? "Search" : "Buscar"}
                 </span>
                 <ShortcutKbd keys={["⌘", "K"]} />
@@ -1066,7 +1101,10 @@ function SidebarContent({
               search={search}
             />
             <ShortcutBlock
-              label={{ "es-PY": "Segmentos guardados", "en-US": "Saved Segments" }}
+              label={{
+                "es-PY": "Segmentos guardados",
+                "en-US": "Saved Segments",
+              }}
               links={INBOX_SEGMENT_LINKS}
               locale={locale}
               pathname={pathname}
@@ -1186,7 +1224,7 @@ function SidebarContent({
           <Icon icon={AiVoiceGeneratorIcon} size={14} />
           {isEn ? "New chat" : "Nuevo chat"}
         </Link>
-        <SidebarAccount collapsed={false} locale={locale} />
+        <SidebarAccount collapsed={false} locale={locale} orgId={orgId} />
       </div>
     </div>
   );
@@ -1225,8 +1263,8 @@ export function SidebarNew({
       <aside className="h-full w-full min-w-0 shrink-0 border-border/60 border-r bg-sidebar text-sidebar-foreground">
         <SidebarContent
           locale={locale}
-          orgId={orgId}
           onboardingProgress={onboardingProgress}
+          orgId={orgId}
           role={role}
         />
       </aside>
@@ -1245,8 +1283,8 @@ export function SidebarNew({
       <div className="h-full bg-sidebar text-sidebar-foreground">
         <SidebarContent
           locale={locale}
-          orgId={orgId}
           onboardingProgress={onboardingProgress}
+          orgId={orgId}
           role={role}
         />
       </div>

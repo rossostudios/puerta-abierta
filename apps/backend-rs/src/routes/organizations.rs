@@ -161,15 +161,10 @@ async fn update_organization(
 ) -> AppResult<Json<Value>> {
     let user = require_supabase_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
+    assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
 
     let org = get_row(pool, "organizations", &path.org_id, "id").await?;
-    let owner_user_id = value_str(&org, "owner_user_id");
-    if owner_user_id != user.id {
-        return Err(AppError::Forbidden(
-            "Forbidden: only the organization owner can update it.".to_string(),
-        ));
-    }
 
     let patch = remove_nulls(serialize_to_map(&payload));
     let updated = update_row(pool, "organizations", &path.org_id, &patch, "id").await?;

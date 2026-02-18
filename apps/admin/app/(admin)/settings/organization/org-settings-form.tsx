@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useActiveLocale } from "@/lib/i18n/client";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+
+const MAX_LOGO_BYTES = 5 * 1024 * 1024;
+
+function safeFileName(name: string): string {
+  return name.replaceAll(/[^\w.-]+/g, "-");
+}
 
 type OrgRecord = {
   id: string;
@@ -19,6 +26,7 @@ type OrgRecord = {
   bank_account_number: string | null;
   bank_account_holder: string | null;
   qr_image_url: string | null;
+  logo_url: string | null;
 };
 
 export function OrgSettingsForm({ org }: { org: OrgRecord }) {
@@ -39,6 +47,52 @@ export function OrgSettingsForm({ org }: { org: OrgRecord }) {
     org.bank_account_holder ?? ""
   );
   const [qrImageUrl, setQrImageUrl] = useState(org.qr_image_url ?? "");
+  const [logoUrl, setLogoUrl] = useState(org.logo_url ?? "");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function uploadLogo(file: File) {
+    if (!file.type.startsWith("image/")) {
+      toast.error(isEn ? "Please choose an image file." : "Selecciona una imagen.");
+      return;
+    }
+    if (file.size > MAX_LOGO_BYTES) {
+      toast.error(
+        isEn
+          ? "Image must be smaller than 5MB."
+          : "La imagen debe ser menor a 5MB."
+      );
+      return;
+    }
+
+    setUploadingLogo(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const key = `orgs/${org.id}/branding/logo/${crypto.randomUUID()}-${safeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("documents")
+        .upload(key, file, { upsert: false });
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data } = supabase.storage.from("documents").getPublicUrl(key);
+      if (!data.publicUrl) {
+        throw new Error(
+          isEn
+            ? "Could not resolve uploaded image URL."
+            : "No se pudo obtener la URL de la imagen."
+        );
+      }
+      setLogoUrl(data.publicUrl);
+      toast.success(isEn ? "Logo uploaded" : "Logo subido");
+    } catch (err) {
+      toast.error(
+        isEn ? "Logo upload failed" : "Error al subir logo",
+        { description: err instanceof Error ? err.message : String(err) }
+      );
+    } finally {
+      setUploadingLogo(false);
+    }
+  }
 
   function handleSave() {
     startTransition(async () => {
@@ -58,6 +112,7 @@ export function OrgSettingsForm({ org }: { org: OrgRecord }) {
               bank_account_number: bankAccountNumber.trim() || undefined,
               bank_account_holder: bankAccountHolder.trim() || undefined,
               qr_image_url: qrImageUrl.trim() || undefined,
+              logo_url: logoUrl.trim(),
             }),
           }
         );
@@ -119,6 +174,91 @@ export function OrgSettingsForm({ org }: { org: OrgRecord }) {
             />
           </label>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <h3 className="font-semibold text-sm">
+          {isEn ? "Branding" : "Marca"}
+        </h3>
+        <p className="text-muted-foreground text-xs">
+          {isEn
+            ? "Used across booking pages and organization selectors."
+            : "Se usa en páginas de reserva y selectores de organización."}
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted/20">
+            {logoUrl ? (
+              // biome-ignore lint/performance/noImgElement: Logo URL supports arbitrary hosts from URL fallback.
+              <img
+                alt={isEn ? "Organization logo preview" : "Vista previa del logo de organización"}
+                className="h-full w-full object-cover"
+                height={56}
+                src={logoUrl}
+                width={56}
+              />
+            ) : (
+              <span className="font-semibold text-muted-foreground text-xs">
+                {isEn ? "No logo" : "Sin logo"}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              aria-label={isEn ? "Upload organization logo" : "Subir logo de organización"}
+              disabled={uploadingLogo}
+              onClick={() => logoInputRef.current?.click()}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {uploadingLogo
+                ? isEn
+                  ? "Uploading..."
+                  : "Subiendo..."
+                : isEn
+                  ? "Upload logo"
+                  : "Subir logo"}
+            </Button>
+            <Button
+              aria-label={isEn ? "Remove organization logo" : "Quitar logo de organización"}
+              disabled={!logoUrl || uploadingLogo}
+              onClick={() => setLogoUrl("")}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {isEn ? "Remove" : "Quitar"}
+            </Button>
+          </div>
+        </div>
+
+        <input
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) {
+              uploadLogo(file);
+            }
+            event.target.value = "";
+          }}
+          ref={logoInputRef}
+          type="file"
+        />
+
+        <label className="block space-y-1 text-sm">
+          <span className="font-medium text-muted-foreground">
+            {isEn ? "Logo URL (fallback)" : "URL del logo (alternativa)"}
+          </span>
+          <Input
+            autoComplete="url"
+            onChange={(event) => setLogoUrl(event.target.value)}
+            placeholder="https://..."
+            value={logoUrl}
+          />
+        </label>
       </section>
 
       <section className="space-y-4">

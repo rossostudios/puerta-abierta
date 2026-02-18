@@ -247,11 +247,17 @@ CREATE TABLE organizations (
   bank_account_number text,
   bank_account_holder text,
   qr_image_url text,
+  org_slug text UNIQUE,
+  booking_enabled boolean NOT NULL DEFAULT false,
+  brand_color text DEFAULT '#2563eb',
+  logo_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_org_owner_user_id ON organizations(owner_user_id);
+CREATE INDEX idx_organizations_slug
+  ON organizations (org_slug) WHERE org_slug IS NOT NULL;
 
 CREATE TABLE organization_members (
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,

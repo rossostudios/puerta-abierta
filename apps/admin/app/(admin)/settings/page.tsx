@@ -3,6 +3,7 @@ import {
   Building01Icon,
   CreditCardIcon,
   FolderAttachmentIcon,
+  MailReply01Icon,
   SecurityLockIcon,
   Settings02Icon,
   UserCircle02Icon,
@@ -81,12 +82,20 @@ export default async function SettingsPage() {
         : "Gestiona contratos, recibos, fotos e inspecciones.",
     },
     {
-      href: "/module/workflow-rules",
+      href: "/module/automations?tab=rules",
       icon: WorkflowSquare03Icon,
       title: isEn ? "Automations" : "Automatizaciones",
       description: isEn
         ? "Create rules to automate tasks, notifications, and workflows."
         : "Crea reglas para automatizar tareas, notificaciones y flujos.",
+    },
+    {
+      href: "/settings/notifications",
+      icon: MailReply01Icon,
+      title: isEn ? "Notification rules" : "Reglas de notificación",
+      description: isEn
+        ? "Manage trigger-based notification automation and delivery channels."
+        : "Gestiona automatizaciones de notificación por eventos y canales de envío.",
     },
     {
       href: "/module/billing",

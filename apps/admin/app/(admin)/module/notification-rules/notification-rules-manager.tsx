@@ -18,8 +18,8 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { StatusBadge } from "@/components/ui/status-badge";
 import type { NotificationRuleMetadataResponse } from "@/lib/api";
-import { useActiveLocale } from "@/lib/i18n/client";
 import { humanizeKey } from "@/lib/format";
+import { useActiveLocale } from "@/lib/i18n/client";
 
 type RuleRow = {
   id: string;
@@ -41,11 +41,13 @@ function asOptionalString(value: unknown): string | null {
 }
 
 export function NotificationRulesManager({
+  nextPath = "/module/notification-rules",
   orgId,
   rules,
   templates,
   metadata,
 }: {
+  nextPath?: string;
   orgId: string;
   rules: Record<string, unknown>[];
   templates: Record<string, unknown>[];
@@ -62,9 +64,7 @@ export function NotificationRulesManager({
         const name = asString(t.name).trim();
         return id ? { id, label: name || id } : null;
       })
-      .filter(
-        (item): item is { id: string; label: string } => Boolean(item)
-      );
+      .filter((item): item is { id: string; label: string } => Boolean(item));
   }, [templates]);
 
   const templateIndex = useMemo(() => {
@@ -88,9 +88,7 @@ export function NotificationRulesManager({
 
     const fallback = Array.from(
       new Set(
-        rules
-          .map((rule) => asString(rule.trigger_event).trim())
-          .filter(Boolean)
+        rules.map((rule) => asString(rule.trigger_event).trim()).filter(Boolean)
       )
     );
     return fallback.map((value) => ({
@@ -153,8 +151,16 @@ export function NotificationRulesManager({
           const active = Boolean(getValue());
           return (
             <StatusBadge
-              value={active ? (isEn ? "Active" : "Activo") : (isEn ? "Inactive" : "Inactivo")}
               tone={active ? "success" : "neutral"}
+              value={
+                active
+                  ? isEn
+                    ? "Active"
+                    : "Activo"
+                  : isEn
+                    ? "Inactive"
+                    : "Inactivo"
+              }
             />
           );
         },
@@ -185,11 +191,7 @@ export function NotificationRulesManager({
           type="hidden"
           value={data.is_active ? "false" : "true"}
         />
-        <input
-          name="next"
-          type="hidden"
-          value="/module/notification-rules"
-        />
+        <input name="next" type="hidden" value={nextPath} />
         <Button size="sm" type="submit" variant="outline">
           {data.is_active
             ? isEn
@@ -206,11 +208,7 @@ export function NotificationRulesManager({
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button
-          onClick={() => setOpen(true)}
-          type="button"
-          variant="secondary"
-        >
+        <Button onClick={() => setOpen(true)} type="button" variant="secondary">
           <Icon icon={PlusSignIcon} size={16} />
           {isEn ? "New rule" : "Nueva regla"}
         </Button>
@@ -234,16 +232,9 @@ export function NotificationRulesManager({
         open={open}
         title={isEn ? "New notification rule" : "Nueva regla de notificación"}
       >
-        <Form
-          action={createNotificationRuleAction}
-          className="space-y-4"
-        >
+        <Form action={createNotificationRuleAction} className="space-y-4">
           <input name="organization_id" type="hidden" value={orgId} />
-          <input
-            name="next"
-            type="hidden"
-            value="/module/notification-rules"
-          />
+          <input name="next" type="hidden" value={nextPath} />
 
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-muted-foreground">
@@ -276,12 +267,12 @@ export function NotificationRulesManager({
 
           <label className="block space-y-1 text-sm">
             <span className="font-medium text-muted-foreground">
-              {isEn ? "Message template (optional)" : "Plantilla de mensaje (opcional)"}
+              {isEn
+                ? "Message template (optional)"
+                : "Plantilla de mensaje (opcional)"}
             </span>
             <Select defaultValue="" name="message_template_id">
-              <option value="">
-                {isEn ? "No template" : "Sin plantilla"}
-              </option>
+              <option value="">{isEn ? "No template" : "Sin plantilla"}</option>
               {templateOptions.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}
