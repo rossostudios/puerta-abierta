@@ -42,6 +42,8 @@ const CATEGORIES = [
   { value: "other", en: "Other", es: "Otro" },
 ];
 
+const EMPTY_RECORDS: Record<string, unknown>[] = [];
+
 const ENTITY_TYPES = [
   { value: "general", en: "General", es: "General" },
   { value: "property", en: "Property", es: "Propiedad" },
@@ -55,9 +57,9 @@ export function DocumentsManager({
   data,
   locale: _locale,
   orgId,
-  properties = [],
-  leases = [],
-  guests = [],
+  properties = EMPTY_RECORDS,
+  leases = EMPTY_RECORDS,
+  guests = EMPTY_RECORDS,
 }: {
   data: Document[];
   locale: string;

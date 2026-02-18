@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import Script from "next/script";
 import { Suspense, cache } from "react";
 
@@ -28,31 +28,18 @@ type MarketplaceListingPageProps = {
 
 const resolveListing = cache(
   async (slug: string): Promise<Record<string, unknown>> => {
+    let is404 = false;
     try {
       return await fetchPublicListing(slug);
     } catch (err) {
+      unstable_rethrow(err);
       const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("(404)")) {
-        notFound();
-      }
-      throw err;
+      is404 = message.includes("(404)");
+      if (!is404) throw err;
     }
+    notFound();
   }
 );
-
-async function resolveListingForMetadata(
-  slug: string
-): Promise<Record<string, unknown>> {
-  try {
-    return await resolveListing(slug);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.includes("(404)")) {
-      notFound();
-    }
-    throw err;
-  }
-}
 
 export async function generateMetadata({
   params,
@@ -61,7 +48,7 @@ export async function generateMetadata({
   const { slug } = await params;
 
   try {
-    const listing = await resolveListingForMetadata(slug);
+    const listing = await resolveListing(slug);
     const vm = toMarketplaceListingViewModel({ listing, locale });
 
     const title = `${vm.title} | Casaora`;
@@ -98,7 +85,8 @@ export async function generateMetadata({
         images: vm.coverImageUrl ? [vm.coverImageUrl] : [],
       },
     };
-  } catch {
+  } catch (err) {
+    unstable_rethrow(err);
     return {
       title: "Marketplace listing | Casaora",
     };

@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,7 @@ export default async function InviteAcceptPage({
       );
     }
 
+    let redirectPath: string;
     try {
       const response = (await postJson("/organization-invites/accept", {
         token: inviteToken,
@@ -106,11 +107,13 @@ export default async function InviteAcceptPage({
         });
       }
 
-      redirect("/setup?success=invite-accepted");
+      redirectPath = "/setup?success=invite-accepted";
     } catch (err) {
+      unstable_rethrow(err);
       const message = err instanceof Error ? err.message : String(err);
-      redirect(inviteUrl(token, { error: message.slice(0, 240) }));
+      redirectPath = inviteUrl(token, { error: message.slice(0, 240) });
     }
+    redirect(redirectPath);
   }
 
   return (

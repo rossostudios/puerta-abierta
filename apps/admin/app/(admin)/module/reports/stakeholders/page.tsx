@@ -18,7 +18,11 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
-import { StakeholderReport } from "./stakeholder-report";
+import dynamic from "next/dynamic";
+
+const StakeholderReport = dynamic(() =>
+  import("./stakeholder-report").then((m) => m.StakeholderReport)
+);
 
 type PageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

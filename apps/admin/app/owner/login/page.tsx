@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { getActiveLocale } from "@/lib/i18n/server";
 
@@ -11,5 +12,9 @@ export const metadata: Metadata = {
 
 export default async function OwnerLoginPage() {
   const locale = await getActiveLocale();
-  return <OwnerLoginForm locale={locale} />;
+  return (
+    <Suspense fallback={null}>
+      <OwnerLoginForm locale={locale} />
+    </Suspense>
+  );
 }

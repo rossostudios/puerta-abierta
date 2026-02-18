@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import Image from "next/image";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -189,12 +191,12 @@ export function OrgSettingsForm({ org }: { org: OrgRecord }) {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-lg border bg-muted/20">
             {logoUrl ? (
-              // biome-ignore lint/performance/noImgElement: Logo URL supports arbitrary hosts from URL fallback.
-              <img
+              <Image
                 alt={isEn ? "Organization logo preview" : "Vista previa del logo de organización"}
                 className="h-full w-full object-cover"
                 height={56}
                 src={logoUrl}
+                unoptimized
                 width={56}
               />
             ) : (

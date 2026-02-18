@@ -36,8 +36,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 import Link from "next/link";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
 import { SidebarAccount } from "@/components/shell/sidebar-account";
@@ -136,6 +137,7 @@ type ResolvedLink = {
   label: string;
   iconElement: IconSvgElement;
   count?: number | null;
+  badge?: string | null;
 };
 
 type ResolvedSection = {
@@ -437,22 +439,24 @@ function resolveSections(
   return resolved;
 }
 
-function useCollapsedSections(): [Set<SectionKey>, (key: SectionKey) => void] {
-  const [collapsed, setCollapsed] = useState<Set<SectionKey>>(new Set());
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(COLLAPSED_SECTIONS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as SectionKey[];
-        if (Array.isArray(parsed)) {
-          setCollapsed(new Set(parsed));
-        }
+function readCollapsedFromStorage(): Set<SectionKey> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const stored = localStorage.getItem(COLLAPSED_SECTIONS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as SectionKey[];
+      if (Array.isArray(parsed)) {
+        return new Set(parsed);
       }
-    } catch {
-      // Ignore storage failures.
     }
-  }, []);
+  } catch {
+    // Ignore storage failures.
+  }
+  return new Set();
+}
+
+function useCollapsedSections(): [Set<SectionKey>, (key: SectionKey) => void] {
+  const [collapsed, setCollapsed] = useState<Set<SectionKey>>(readCollapsedFromStorage);
 
   const toggle = useCallback((key: SectionKey) => {
     setCollapsed((prev) => {
@@ -493,12 +497,14 @@ function ShortcutKbd({ keys }: { keys: string[] }) {
 
 function NavLinkRow({
   active,
+  badge,
   count,
   href,
   icon,
   label,
 }: {
   active: boolean;
+  badge?: string | null;
   count?: number | null;
   href: string;
   icon: IconSvgElement;
@@ -529,6 +535,11 @@ function NavLinkRow({
       <span className="truncate font-medium text-[14px] leading-5">
         {label}
       </span>
+      {badge && (
+        <span className="ml-1 rounded-full bg-sidebar-accent/80 px-1.5 py-px text-[9px] font-medium text-sidebar-foreground/50 uppercase tracking-wider">
+          {badge}
+        </span>
+      )}
       {count != null && count > 0 && (
         <span className="ml-auto shrink-0 rounded-full bg-sidebar-accent/60 px-1.5 py-px text-[10px] text-sidebar-foreground/50 tabular-nums">
           {count}
@@ -645,13 +656,8 @@ function SidebarContent({
   );
   const onboardingCompleted = completionPercent >= 100;
 
-  const [listingCount, setListingCount] = useState<number | null>(null);
-  const [propertiesCount, setPropertiesCount] = useState<number | null>(null);
-  const [unitsCount, setUnitsCount] = useState<number | null>(null);
+  const queryClient = useQueryClient();
 
-  const [chatAgents, setChatAgents] = useState<ChatAgentItem[]>([]);
-  const [recentChats, setRecentChats] = useState<ChatSummaryItem[]>([]);
-  const [chatLoading, setChatLoading] = useState(false);
   const [showArchivedChats, setShowArchivedChats] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatBusyId, setChatBusyId] = useState<string | null>(null);
@@ -672,34 +678,23 @@ function SidebarContent({
     window.dispatchEvent(event);
   }, []);
 
-  const loadChatData = useCallback(async () => {
-    if (!orgId) {
-      setChatAgents([]);
-      setRecentChats([]);
-      setChatError(null);
-      return;
-    }
+  const { data: chatData, isLoading: chatLoading } = useQuery({
+    queryKey: ["sidebar-chat-data", orgId, showArchivedChats],
+    queryFn: async () => {
+      if (!orgId) return { agents: [] as ChatAgentItem[], chats: [] as ChatSummaryItem[] };
 
-    setChatLoading(true);
-    setChatError(null);
-
-    try {
       const [agentsResponse, chatsResponse] = await Promise.all([
         fetch(`/api/agent/agents?org_id=${encodeURIComponent(orgId)}`, {
           method: "GET",
           cache: "no-store",
-          headers: {
-            Accept: "application/json",
-          },
+          headers: { Accept: "application/json" },
         }),
         fetch(
           `/api/agent/chats?org_id=${encodeURIComponent(orgId)}&archived=${showArchivedChats ? "true" : "false"}&limit=8`,
           {
             method: "GET",
             cache: "no-store",
-            headers: {
-              Accept: "application/json",
-            },
+            headers: { Accept: "application/json" },
           }
         ),
       ]);
@@ -731,56 +726,52 @@ function SidebarContent({
         throw new Error(message);
       }
 
-      setChatAgents(normalizeAgentItems(agentsPayload));
-      setRecentChats(normalizeChatItems(chatsPayload));
-    } catch (err) {
-      setChatError(err instanceof Error ? err.message : String(err));
-      setChatAgents([]);
-      setRecentChats([]);
-    } finally {
-      setChatLoading(false);
-    }
-  }, [orgId, showArchivedChats, isEn]);
+      return {
+        agents: normalizeAgentItems(agentsPayload),
+        chats: normalizeChatItems(chatsPayload),
+      };
+    },
+    enabled: activeTab === "chat" && Boolean(orgId),
+    retry: false,
+  });
 
-  useEffect(() => {
-    if (activeTab !== "chat") return;
-    loadChatData().catch(() => undefined);
-  }, [activeTab, loadChatData]);
+  const chatAgents = chatData?.agents ?? [];
+  const recentChats = chatData?.chats ?? [];
 
-  useEffect(() => {
-    if (activeTab !== "home" || !orgId) return;
-    let cancelled = false;
+  const loadChatData = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["sidebar-chat-data", orgId, showArchivedChats] });
+  }, [queryClient, orgId, showArchivedChats]);
 
-    const endpoints = [
-      {
-        url: `/api/listings/count?org_id=${encodeURIComponent(orgId)}`,
-        setter: setListingCount,
-      },
-      {
-        url: `/api/properties/count?org_id=${encodeURIComponent(orgId)}`,
-        setter: setPropertiesCount,
-      },
-      {
-        url: `/api/units/count?org_id=${encodeURIComponent(orgId)}`,
-        setter: setUnitsCount,
-      },
-    ];
+  const { data: sidebarCounts } = useQuery({
+    queryKey: ["sidebar-counts", orgId],
+    queryFn: async () => {
+      const urls = [
+        `/api/listings/count?org_id=${encodeURIComponent(orgId!)}`,
+        `/api/properties/count?org_id=${encodeURIComponent(orgId!)}`,
+        `/api/units/count?org_id=${encodeURIComponent(orgId!)}`,
+      ] as const;
 
-    for (const { url, setter } of endpoints) {
-      fetch(url, { cache: "no-store" })
-        .then((res) => res.json() as Promise<{ count?: number | null }>)
-        .then((body) => {
-          if (!cancelled && typeof body.count === "number") {
-            setter(body.count);
-          }
-        })
-        .catch(() => undefined);
-    }
+      const results = await Promise.all(
+        urls.map((url) =>
+          fetch(url, { cache: "no-store" })
+            .then((res) => res.json() as Promise<{ count?: number | null }>)
+            .then((body) => (typeof body.count === "number" ? body.count : null))
+            .catch(() => null)
+        )
+      );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, orgId]);
+      return {
+        listings: results[0],
+        properties: results[1],
+        units: results[2],
+      };
+    },
+    enabled: activeTab === "home" && Boolean(orgId),
+  });
+
+  const listingCount = sidebarCounts?.listings ?? null;
+  const propertiesCount = sidebarCounts?.properties ?? null;
+  const unitsCount = sidebarCounts?.units ?? null;
 
   const sectionsWithCounts = useMemo(
     () =>
@@ -793,10 +784,12 @@ function SidebarContent({
             return { ...link, count: propertiesCount };
           if (link.href === "/module/units")
             return { ...link, count: unitsCount };
+          if (link.href === "/module/integrations")
+            return { ...link, badge: isEn ? "Soon" : "Pronto" };
           return link;
         }),
       })),
-    [sections, listingCount, propertiesCount, unitsCount]
+    [sections, listingCount, propertiesCount, unitsCount, isEn]
   );
 
   const mutateRecentChat = useCallback(
@@ -1208,6 +1201,7 @@ function SidebarContent({
                         {section.links.map((link) => (
                           <NavLinkRow
                             active={isRouteActive(pathname, search, link.href)}
+                            badge={link.badge}
                             count={link.count}
                             href={link.href}
                             icon={link.iconElement}
@@ -1270,12 +1264,14 @@ export function SidebarNew({
   if (isDesktop) {
     return (
       <aside className="h-full w-full min-w-0 shrink-0 border-border/60 border-r bg-sidebar text-sidebar-foreground">
-        <SidebarContent
-          locale={locale}
-          onboardingProgress={onboardingProgress}
-          orgId={orgId}
-          role={role}
-        />
+        <Suspense fallback={null}>
+          <SidebarContent
+            locale={locale}
+            onboardingProgress={onboardingProgress}
+            orgId={orgId}
+            role={role}
+          />
+        </Suspense>
       </aside>
     );
   }
@@ -1290,12 +1286,14 @@ export function SidebarNew({
       side="left"
     >
       <div className="h-full bg-sidebar text-sidebar-foreground">
-        <SidebarContent
-          locale={locale}
-          onboardingProgress={onboardingProgress}
-          orgId={orgId}
-          role={role}
-        />
+        <Suspense fallback={null}>
+          <SidebarContent
+            locale={locale}
+            onboardingProgress={onboardingProgress}
+            orgId={orgId}
+            role={role}
+          />
+        </Suspense>
       </div>
     </Drawer>
   );

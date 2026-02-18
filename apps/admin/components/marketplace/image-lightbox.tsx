@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft01Icon,
@@ -53,7 +54,7 @@ export function ImageLightbox({
     const nextIdx = (index + 1) % images.length;
     const prevIdx = (index - 1 + images.length) % images.length;
     for (const idx of [nextIdx, prevIdx]) {
-      const img = new Image();
+      const img = new window.Image();
       img.src = images[idx];
     }
   }, [index, images]);
@@ -95,9 +96,10 @@ export function ImageLightbox({
       ) : null}
 
       {/* Image */}
-      <img
+      <Image
         alt={`${alt} ${index + 1}`}
         className="max-h-[90vh] max-w-[90vw] select-none object-contain"
+        height={1080}
         onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => {
           if (touchStart === null) return;
@@ -108,7 +110,9 @@ export function ImageLightbox({
           setTouchStart(null);
         }}
         onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
+        sizes="90vw"
         src={images[index]}
+        width={1920}
       />
 
       {/* Next */}

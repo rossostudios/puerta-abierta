@@ -6,9 +6,11 @@ import {
   Tick01Icon,
   UnavailableIcon,
 } from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -44,37 +46,18 @@ export function OrgSwitcher({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [orgs, setOrgs] = useState<Org[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const isEn = locale === "en-US";
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        const response = await fetch("/api/me", {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          if (mounted) setLoading(false);
-          return;
-        }
-        const payload = (await response.json()) as MeResponse;
-        if (!mounted) return;
-        setOrgs(payload.organizations ?? []);
-        setLoading(false);
-      } catch {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { data: orgs = [], isLoading: loading } = useQuery({
+    queryKey: ["me-organizations"],
+    queryFn: async () => {
+      const response = await fetch("/api/me", { cache: "no-store" });
+      if (!response.ok) return [];
+      const payload = (await response.json()) as MeResponse;
+      return payload.organizations ?? [];
+    },
+  });
 
   const activeOrg = useMemo(
     () => orgs.find((org) => org.id === activeOrgId) ?? null,
@@ -137,8 +120,7 @@ export function OrgSwitcher({
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background shadow-xs transition-colors group-hover:border-border/60">
           {activeOrg?.logo_url ? (
-            // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
-            <img
+            <Image
               alt={
                 activeOrg?.name ||
                 (isEn ? "Organization logo" : "Logo de organización")
@@ -146,6 +128,7 @@ export function OrgSwitcher({
               className="h-full w-full rounded-lg object-cover"
               height={40}
               src={activeOrg.logo_url}
+              unoptimized
               width={40}
             />
           ) : (
@@ -241,8 +224,7 @@ export function OrgSwitcher({
                     )}
                   >
                     {org.logo_url ? (
-                      // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
-                      <img
+                      <Image
                         alt={
                           org.name ||
                           (isEn ? "Organization logo" : "Logo de organización")
@@ -250,6 +232,7 @@ export function OrgSwitcher({
                         className="h-full w-full rounded-md object-cover"
                         height={32}
                         src={org.logo_url}
+                        unoptimized
                         width={32}
                       />
                     ) : (

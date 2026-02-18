@@ -6,7 +6,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore, useState } from "react";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { Icon } from "@/components/ui/icon";
@@ -16,6 +16,14 @@ import {
   getFavoritesCount,
 } from "@/lib/features/marketplace/favorites";
 import { cn } from "@/lib/utils";
+
+function subscribeFavorites(onStoreChange: () => void) {
+  window.addEventListener(FAVORITES_CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(FAVORITES_CHANGE_EVENT, onStoreChange);
+}
+function getServerFavCount() {
+  return 0;
+}
 
 type HeaderLocale = "es-PY" | "en-US";
 
@@ -50,17 +58,12 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function PublicHeader({ locale }: { locale: HeaderLocale }) {
   const isEn = locale === "en-US";
   const pathname = usePathname();
-  const [favCount, setFavCount] = useState(0);
+  const favCount = useSyncExternalStore(
+    subscribeFavorites,
+    getFavoritesCount,
+    getServerFavCount
+  );
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setFavCount(getFavoritesCount());
-    function sync() {
-      setFavCount(getFavoritesCount());
-    }
-    window.addEventListener(FAVORITES_CHANGE_EVENT, sync);
-    return () => window.removeEventListener(FAVORITES_CHANGE_EVENT, sync);
-  }, []);
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#e8e4df] bg-[var(--marketplace-bg)]/95 backdrop-blur-md">

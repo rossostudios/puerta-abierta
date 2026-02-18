@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -147,12 +148,14 @@ export default async function LeasesModulePage({ searchParams }: PageProps) {
             </Alert>
           ) : null}
 
-          <LeasesManager
-            leases={leases}
-            orgId={orgId}
-            properties={properties}
-            units={units}
-          />
+          <Suspense fallback={null}>
+            <LeasesManager
+              leases={leases}
+              orgId={orgId}
+              properties={properties}
+              units={units}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

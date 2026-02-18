@@ -1,8 +1,9 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -54,38 +55,38 @@ type StatementDetail = {
 export function OwnerStatements({ locale }: { locale: string }) {
   const isEn = locale === "en-US";
   const router = useRouter();
-  const [rows, setRows] = useState<StatementRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [details, setDetails] = useState<Record<string, StatementDetail>>({});
+  const [token] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("owner_token") : null
+  );
 
-  useEffect(() => {
-    const token = localStorage.getItem("owner_token");
-    if (!token) {
-      router.push("/owner/login");
-      return;
-    }
-
-    fetch(`${API_BASE}/owner/statements`, {
-      headers: { "x-owner-token": token },
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          localStorage.removeItem("owner_token");
-          router.push("/owner/login");
-          return;
-        }
-        const data = await res.json();
-        const items = ((data as { data?: unknown[] }).data ?? []) as Record<
-          string,
-          unknown
-        >[];
-        setRows(items.map(parseRow));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [router]);
+  const { data: rows = [], isLoading: loading } = useQuery({
+    queryKey: ["owner-statements", token],
+    queryFn: async () => {
+      if (!token) {
+        router.push("/owner/login");
+        return [];
+      }
+      const res = await fetch(`${API_BASE}/owner/statements`, {
+        headers: { "x-owner-token": token },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem("owner_token");
+        router.push("/owner/login");
+        return [];
+      }
+      const data = await res.json();
+      const items = ((data as { data?: unknown[] }).data ?? []) as Record<
+        string,
+        unknown
+      >[];
+      return items.map(parseRow);
+    },
+    enabled: Boolean(token),
+    retry: false,
+  });
 
   const toggleDetail = useCallback(
     async (id: string) => {

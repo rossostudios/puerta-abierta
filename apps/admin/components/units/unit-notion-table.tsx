@@ -99,6 +99,7 @@ export function UnitNotionTable({
   rows: UnitRow[];
   isEn: boolean;
 }) {
+  "use no memo";
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -411,7 +412,7 @@ export function UnitNotionTable({
 
   return (
     <div className="overflow-x-auto rounded-md border">
-      <Table className="table-fixed" style={{ width: table.getTotalSize() }}>
+      <Table className="table-fixed w-full" style={{ minWidth: table.getTotalSize() }}>
         <TableHeader>
           {table.getHeaderGroups().map((hg) => (
             <TableRow key={hg.id}>
@@ -475,7 +476,7 @@ export function UnitNotionTable({
               className="font-medium uppercase tracking-wider text-xs"
               grid
             >
-              {optimisticRows.length} {isEn ? "Units" : "Unidades"}
+              {optimisticRows.length} {isEn ? (optimisticRows.length === 1 ? "Unit" : "Units") : (optimisticRows.length === 1 ? "Unidad" : "Unidades")}
             </TableCell>
             <TableCell grid />
             <TableCell grid />

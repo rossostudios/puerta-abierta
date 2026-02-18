@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -243,12 +244,14 @@ export default async function OperationsHubPage({ searchParams }: PageProps) {
               </Alert>
             ) : null}
 
-            <TasksManager
-              currentUserId={sessionUserId}
-              orgId={orgId}
-              tasks={tasks}
-              units={units}
-            />
+            <Suspense fallback={null}>
+              <TasksManager
+                currentUserId={sessionUserId}
+                orgId={orgId}
+                tasks={tasks}
+                units={units}
+              />
+            </Suspense>
           </CardContent>
         </Card>
       </div>

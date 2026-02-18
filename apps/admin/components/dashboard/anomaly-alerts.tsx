@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useMounted } from "@/lib/hooks/use-mounted";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
@@ -42,13 +43,9 @@ const SEVERITY_DOT: Record<string, string> = {
 
 export function AnomalyAlerts({ orgId, locale: localeProp }: AnomalyAlertsProps) {
   const activeLocale = useActiveLocale();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [alerts, setAlerts] = useState<AnomalyAlert[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const locale = mounted ? activeLocale : localeProp;
   const isEn = locale === "en-US";

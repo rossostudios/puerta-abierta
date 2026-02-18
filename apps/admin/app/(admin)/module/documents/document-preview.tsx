@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { Sheet } from "@/components/ui/sheet";
 
 type DocumentPreviewProps = {
@@ -39,10 +41,13 @@ export function DocumentPreview({
     >
       <div className="flex flex-col items-center gap-4">
         {isImage(mime) ? (
-          <img
+          <Image
             alt={fileName}
             className="max-h-[60vh] rounded-lg object-contain"
+            height={600}
             src={fileUrl}
+            unoptimized
+            width={800}
           />
         ) : isPdf(mime) ? (
           <iframe

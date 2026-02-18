@@ -92,6 +92,12 @@ export const SHORTCUTS: ShortcutEntry[] = [
     category: "global",
   },
   {
+    id: "new-property",
+    keys: ["Mod", "P"],
+    label: { en: "New property", es: "Nueva propiedad" },
+    category: "global",
+  },
+  {
     id: "escape",
     keys: ["Escape"],
     label: { en: "Close overlay / go back", es: "Cerrar overlay / volver" },

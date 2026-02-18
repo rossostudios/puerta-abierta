@@ -1,12 +1,11 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
-  useState,
   type ReactNode,
 } from "react";
 
@@ -38,11 +37,9 @@ export default function GuestTokenLayout({
   const router = useRouter();
   const token = params.token;
 
-  const [ctx, setCtx] = useState<GuestContextValue | null>(null);
-  const [error, setError] = useState("");
-
-  const verify = useCallback(async () => {
-    try {
+  const { data: ctx, isError, isLoading } = useQuery({
+    queryKey: ["guest-verify", token],
+    queryFn: async () => {
       const res = await fetch(`${API_BASE}/public/guest/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -51,7 +48,7 @@ export default function GuestTokenLayout({
       const data = await res.json();
       if (data.authenticated) {
         localStorage.setItem("guest_token", token);
-        setCtx({
+        return {
           token,
           reservationId: data.reservation_id ?? "",
           guestId: data.guest_id ?? "",
@@ -61,30 +58,26 @@ export default function GuestTokenLayout({
             Accept: "application/json",
           },
           apiBase: API_BASE,
-        });
-      } else {
-        setError("Invalid or expired token.");
-        router.push("/guest/login");
+        } satisfies GuestContextValue;
       }
-    } catch {
-      setError("Unable to verify access.");
-      router.push("/guest/login");
-    }
-  }, [token, router]);
+      throw new Error("Invalid or expired token.");
+    },
+    retry: false,
+  });
 
   useEffect(() => {
-    verify();
-  }, [verify]);
+    if (isError) router.push("/guest/login");
+  }, [isError, router]);
 
-  if (error) {
+  if (isError) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <p className="text-red-600">{error}</p>
+        <p className="text-red-600">Unable to verify access.</p>
       </div>
     );
   }
 
-  if (!ctx) {
+  if (isLoading || !ctx) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <p className="text-muted-foreground animate-pulse">

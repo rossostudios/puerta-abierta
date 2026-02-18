@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname, useSearchParams } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { AppFooter } from "@/components/shell/app-footer";
 import { CommandPalette } from "@/components/shell/command-palette";
@@ -164,17 +164,15 @@ function AdminShellV2({
     };
   }, []);
 
-  useEffect(() => {
-    if (viewportMode === "desktop") {
-      setIsMobileDrawerOpen(false);
-      return;
-    }
-  }, [viewportMode]);
+  // Close the mobile drawer whenever we enter desktop viewport.
+  // Derived inline: if viewport is desktop, the drawer is never open.
+  const effectiveIsMobileDrawerOpen =
+    viewportMode === "desktop" ? false : isMobileDrawerOpen;
 
   useEffect(() => {
     if (!pathname) return;
     const lockResetDelayMs =
-      viewportMode === "desktop" && !isMobileDrawerOpen ? 120 : 220;
+      viewportMode === "desktop" && !effectiveIsMobileDrawerOpen ? 120 : 220;
 
     clearStalePageScrollLock();
     const handle = window.setTimeout(
@@ -182,11 +180,11 @@ function AdminShellV2({
       lockResetDelayMs
     );
     return () => window.clearTimeout(handle);
-  }, [isMobileDrawerOpen, pathname, viewportMode]);
+  }, [effectiveIsMobileDrawerOpen, pathname, viewportMode]);
 
   const isDesktop = viewportMode === "desktop";
   const showNavToggle = true;
-  const isNavOpen = isDesktop ? !sidebarCollapsed : isMobileDrawerOpen;
+  const isNavOpen = isDesktop ? !sidebarCollapsed : effectiveIsMobileDrawerOpen;
 
   const onNavToggle = () => {
     if (isDesktop) {
@@ -268,7 +266,7 @@ function AdminShellV2({
       data-shell-mode={viewportMode}
     >
       <SidebarNew
-        isMobileDrawerOpen={isMobileDrawerOpen}
+        isMobileDrawerOpen={effectiveIsMobileDrawerOpen}
         locale={locale}
         onboardingProgress={onboardingProgress}
         onMobileDrawerOpenChange={setIsMobileDrawerOpen}
@@ -290,13 +288,15 @@ export function AdminShell({
   children,
 }: AdminShellProps) {
   return (
-    <AdminShellV2
-      locale={locale}
-      onboardingProgress={onboardingProgress}
-      orgId={orgId}
-      role={role}
-    >
-      {children}
-    </AdminShellV2>
+    <Suspense fallback={null}>
+      <AdminShellV2
+        locale={locale}
+        onboardingProgress={onboardingProgress}
+        orgId={orgId}
+        role={role}
+      >
+        {children}
+      </AdminShellV2>
+    </Suspense>
   );
 }

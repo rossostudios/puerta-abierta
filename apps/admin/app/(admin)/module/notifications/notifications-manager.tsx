@@ -79,7 +79,7 @@ export function NotificationsManager({
   initialCategory,
 }: NotificationsManagerProps) {
   const isEn = locale === "en-US";
-  const [status, setStatus] = useState<StatusFilter>(normalizeStatus(initialStatus));
+  const [status, setStatus] = useState<StatusFilter>(() => normalizeStatus(initialStatus));
   const [category, setCategory] = useState<string>(
     initialCategory?.trim() || "all"
   );

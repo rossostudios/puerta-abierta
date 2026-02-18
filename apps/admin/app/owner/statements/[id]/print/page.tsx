@@ -1,7 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { StatementPrintView } from "@/components/statements/statement-print-view";
@@ -24,47 +25,57 @@ type LineItem = { id: string; label: string; amount: number };
 export default function OwnerStatementPrintPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [statement, setStatement] = useState<Record<string, unknown> | null>(null);
-  const [collections, setCollections] = useState<LineItem[]>([]);
-  const [expenses, setExpenses] = useState<LineItem[]>([]);
+  const [token] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("owner_token") : null
+  );
 
-  useEffect(() => {
-    const token = localStorage.getItem("owner_token");
-    if (!token) {
-      router.push("/owner/login");
-      return;
-    }
+  const { data: statementData, isLoading: loading } = useQuery({
+    queryKey: ["owner-statement-print", id, token],
+    queryFn: async () => {
+      if (!token) {
+        router.push("/owner/login");
+        return null;
+      }
+      const res = await fetch(
+        `${API_BASE}/owner/statements/${encodeURIComponent(id)}`,
+        { headers: { "x-owner-token": token } }
+      );
+      if (res.status === 401) {
+        localStorage.removeItem("owner_token");
+        router.push("/owner/login");
+        return null;
+      }
+      return (await res.json()) as Record<string, unknown>;
+    },
+    enabled: Boolean(token),
+    retry: false,
+  });
 
-    fetch(`${API_BASE}/owner/statements/${encodeURIComponent(id)}`, {
-      headers: { "x-owner-token": token },
-    })
-      .then(async (res) => {
-        if (res.status === 401) {
-          localStorage.removeItem("owner_token");
-          router.push("/owner/login");
-          return;
-        }
-        const data = (await res.json()) as Record<string, unknown>;
-        setStatement(data);
-        setCollections(
-          ((data.collections ?? []) as Record<string, unknown>[]).map((c) => ({
+  const statement = statementData ?? null;
+
+  const collections = useMemo(
+    () =>
+      statement
+        ? ((statement.collections ?? []) as Record<string, unknown>[]).map((c) => ({
             id: asString(c.id),
             label: asString(c.label) || asString(c.due_date),
             amount: asNumber(c.amount),
           }))
-        );
-        setExpenses(
-          ((data.expenses ?? []) as Record<string, unknown>[]).map((e) => ({
+        : [],
+    [statement]
+  );
+
+  const expenses = useMemo(
+    () =>
+      statement
+        ? ((statement.expenses ?? []) as Record<string, unknown>[]).map((e) => ({
             id: asString(e.id),
             label: asString(e.description) || asString(e.expense_date),
             amount: asNumber(e.amount),
           }))
-        );
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [id, router]);
+        : [],
+    [statement]
+  );
 
   if (loading) {
     return (

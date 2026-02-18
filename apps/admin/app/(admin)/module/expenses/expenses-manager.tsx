@@ -1,7 +1,8 @@
 "use client";
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -52,10 +53,22 @@ export function ExpensesManager({
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
 
-  const [membershipRole, setMembershipRole] = useState<string | null>(null);
-  const [roleStatus, setRoleStatus] = useState<"loading" | "ok" | "error">(
-    "loading"
-  );
+  const { data: membershipData, status: roleQueryStatus } = useQuery({
+    queryKey: ["me-membership-role", orgId],
+    queryFn: async () => {
+      const response = await fetch("/api/me", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load role");
+      const payload = (await response.json()) as {
+        memberships?: Array<{ organization_id?: string; role?: string }>;
+      };
+      const memberships = payload.memberships ?? [];
+      const membership =
+        memberships.find((item) => item.organization_id === orgId) ?? null;
+      return { role: membership?.role ?? null };
+    },
+  });
+  const membershipRole = membershipData?.role ?? null;
+  const roleStatus = roleQueryStatus === "pending" ? "loading" : roleQueryStatus === "success" ? "ok" : "error";
 
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -227,40 +240,6 @@ export function ExpensesManager({
     roleStatus !== "ok"
       ? true
       : membershipRole === "owner_admin" || membershipRole === "accountant";
-
-  useEffect(() => {
-    let mounted = true;
-    setRoleStatus("loading");
-
-    async function load() {
-      try {
-        const response = await fetch("/api/me", { cache: "no-store" });
-        if (!response.ok) {
-          if (!mounted) return;
-          setRoleStatus("error");
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          memberships?: Array<{ organization_id?: string; role?: string }>;
-        };
-        const memberships = payload.memberships ?? [];
-        const membership =
-          memberships.find((item) => item.organization_id === orgId) ?? null;
-        if (!mounted) return;
-        setMembershipRole(membership?.role ?? null);
-        setRoleStatus("ok");
-      } catch {
-        if (!mounted) return;
-        setRoleStatus("error");
-      }
-    }
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [orgId]);
 
   const beginEdit = (row: ExpenseRow) => {
     setEditing(row);

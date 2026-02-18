@@ -10,7 +10,7 @@ import {
   Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { type ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useCallback, useSyncExternalStore, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -59,17 +59,17 @@ export function GettingStarted({
   role = "viewer",
   locale,
 }: GettingStartedProps) {
-  const [dismissed, setDismissed] = useState(true); // Default hidden until hydrated
   const isEn = locale === "en-US";
 
-  useEffect(() => {
-    const isDismissed = localStorage.getItem(DISMISS_KEY) === "true";
-    setDismissed(isDismissed);
-  }, []);
+  const emptySubscribe = useCallback(() => () => {}, []);
+  const getDismissed = useCallback(() => localStorage.getItem(DISMISS_KEY) === "true", []);
+  const getServerDismissed = useCallback(() => true, []); // Default hidden until hydrated
+  const dismissed = useSyncExternalStore(emptySubscribe, getDismissed, getServerDismissed);
+  const [, forceUpdate] = useState(0);
 
   const onDismiss = () => {
     localStorage.setItem(DISMISS_KEY, "true");
-    setDismissed(true);
+    forceUpdate((c) => c + 1);
   };
 
   if (dismissed) return null;

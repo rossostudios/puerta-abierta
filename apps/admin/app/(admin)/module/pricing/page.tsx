@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -124,7 +125,9 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
             </Alert>
           ) : null}
 
-          <PricingManager orgId={orgId} templates={templates} />
+          <Suspense fallback={null}>
+            <PricingManager orgId={orgId} templates={templates} />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

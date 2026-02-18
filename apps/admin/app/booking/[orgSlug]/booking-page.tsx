@@ -1,6 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
+
+import Image from "next/image";
 
 import { AvailabilityCalendar } from "@/components/booking/availability-calendar";
 import { Button } from "@/components/ui/button";
@@ -47,10 +50,48 @@ export function BookingPage({
 }) {
   const isEn = locale === "en-US";
 
-  const [org, setOrg] = useState<OrgInfo | null>(null);
-  const [units, setUnits] = useState<UnitOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  // Fetch org + units
+  const {
+    data: bookingData,
+    isLoading: loading,
+    error: fetchQueryError,
+  } = useQuery({
+    queryKey: ["booking-page", orgSlug],
+    queryFn: async () => {
+      const res = await fetch(
+        `${API_BASE}/public/booking/${encodeURIComponent(orgSlug)}`
+      );
+      if (!res.ok) {
+        throw new Error(
+          isEn
+            ? "Booking is not available for this organization."
+            : "Las reservas no están disponibles para esta organización."
+        );
+      }
+      const data = await res.json();
+      const orgData = data.organization ?? data;
+      const org: OrgInfo = {
+        id: asString(orgData.id),
+        name: asString(orgData.name),
+        brand_color: asString(orgData.brand_color) || null,
+        logo_url: asString(orgData.logo_url) || null,
+      };
+      const unitRows = (data.units ?? []) as Record<string, unknown>[];
+      const units: UnitOption[] = unitRows
+        .map((u) => ({
+          id: asString(u.id),
+          name: asString(u.name) || asString(u.code),
+          property_name: asString(u.property_name),
+        }))
+        .filter((u) => u.id);
+      return { org, units };
+    },
+    retry: false,
+  });
+
+  const org = bookingData?.org ?? null;
+  const units = bookingData?.units ?? [];
+  const fetchError = fetchQueryError?.message ?? null;
 
   // Form state
   const [unitId, setUnitId] = useState("");
@@ -64,50 +105,6 @@ export function BookingPage({
   const [bookingState, setBookingState] = useState<BookingState>("form");
   const [bookingError, setBookingError] = useState("");
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
-
-  // Fetch org + units
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(
-          `${API_BASE}/public/booking/${encodeURIComponent(orgSlug)}`
-        );
-        if (!res.ok) {
-          setFetchError(
-            isEn
-              ? "Booking is not available for this organization."
-              : "Las reservas no están disponibles para esta organización."
-          );
-          return;
-        }
-        const data = await res.json();
-        const orgData = data.organization ?? data;
-        setOrg({
-          id: asString(orgData.id),
-          name: asString(orgData.name),
-          brand_color: asString(orgData.brand_color) || null,
-          logo_url: asString(orgData.logo_url) || null,
-        });
-        const unitRows = (data.units ?? []) as Record<string, unknown>[];
-        setUnits(
-          unitRows
-            .map((u) => ({
-              id: asString(u.id),
-              name: asString(u.name) || asString(u.code),
-              property_name: asString(u.property_name),
-            }))
-            .filter((u) => u.id)
-        );
-      } catch {
-        setFetchError(
-          isEn ? "Could not load booking page." : "No se pudo cargar la página de reservas."
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [orgSlug, isEn]);
 
   const nights = useMemo(() => {
     if (!checkIn || !checkOut) return 0;
@@ -236,10 +233,13 @@ export function BookingPage({
       >
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           {org?.logo_url ? (
-            <img
+            <Image
               alt={org.name}
               className="h-8 w-8 rounded object-contain"
+              height={32}
               src={org.logo_url}
+              unoptimized
+              width={32}
             />
           ) : null}
           <h1 className="text-lg font-semibold">{org?.name}</h1>

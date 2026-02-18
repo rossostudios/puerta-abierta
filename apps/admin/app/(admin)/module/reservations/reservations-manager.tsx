@@ -827,7 +827,7 @@ export function ReservationsManager({
       {viewMode === "list" ? (
         <>
           {/* Filters */}
-          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-3">
             <div className="grid w-full gap-2 md:grid-cols-5">
               <label className="space-y-1">
                 <span className="block font-medium text-muted-foreground text-xs">
@@ -931,10 +931,10 @@ export function ReservationsManager({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-muted-foreground text-sm">
-                {total} {isEn ? "records" : "registros"}
-              </div>
+            <div className="flex items-center justify-end gap-2">
+              <span className="text-muted-foreground text-sm">
+                {total} {isEn ? (total === 1 ? "record" : "records") : (total === 1 ? "registro" : "registros")}
+              </span>
               <ReservationsExportButton
                 format="csv"
                 isEn={isEn}

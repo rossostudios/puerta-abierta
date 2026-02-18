@@ -39,22 +39,41 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
-  const [mounted, setMounted] = useState(open);
+  // Track whether the sheet's DOM should remain mounted during close animation.
+  const [animatingClosed, setAnimatingClosed] = useState(false);
+  const mounted = open || animatingClosed;
 
-  useEffect(() => {
+  // Handle open/close transitions.
+  const prevOpenRef = useRef(open);
+  if (prevOpenRef.current !== open) {
+    prevOpenRef.current = open;
     if (open) {
+      // Sheet just opened: capture previously focused element.
       previouslyFocusedRef.current =
         document.activeElement instanceof HTMLElement
           ? document.activeElement
           : null;
-      setMounted(true);
-      window.setTimeout(() => closeRef.current?.focus(), 0);
-      return;
+      setAnimatingClosed(false);
+    } else {
+      // Sheet just closed: keep mounted briefly for exit animation.
+      setAnimatingClosed(true);
     }
+  }
 
-    const handle = window.setTimeout(() => setMounted(false), ANIMATION_MS);
-    return () => window.clearTimeout(handle);
+  // Focus the close button after the sheet opens.
+  useEffect(() => {
+    if (open) {
+      window.setTimeout(() => closeRef.current?.focus(), 0);
+    }
   }, [open]);
+
+  // Unmount after exit animation completes.
+  useEffect(() => {
+    if (!open && animatingClosed) {
+      const handle = window.setTimeout(() => setAnimatingClosed(false), ANIMATION_MS);
+      return () => window.clearTimeout(handle);
+    }
+  }, [open, animatingClosed]);
 
   useEffect(() => {
     if (!mounted) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { MarketplaceListingCard } from "@/components/marketplace/listing-card";
 import type { MarketplaceListingViewModel } from "@/lib/features/marketplace/view-model";
@@ -21,11 +21,9 @@ export function RecentlyViewedSection({
   locale,
   isEn,
 }: RecentlyViewedSectionProps) {
-  const [recentSlugs, setRecentSlugs] = useState<string[]>([]);
-
-  useEffect(() => {
-    setRecentSlugs(getRecentlyViewed());
-  }, []);
+  const [recentSlugs, setRecentSlugs] = useState(() =>
+    typeof window !== "undefined" ? getRecentlyViewed() : []
+  );
 
   const recentListings = recentSlugs
     .map((slug) => listings.find((l) => l.slug === slug))

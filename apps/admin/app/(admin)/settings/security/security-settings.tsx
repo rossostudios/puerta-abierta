@@ -3,6 +3,8 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
+import Image from "next/image";
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -237,8 +239,14 @@ export function SecuritySettings({
               </p>
 
               <div className="flex justify-center rounded-lg border bg-white p-4">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img alt="TOTP QR Code" className="h-48 w-48" src={qrUri} />
+                <Image
+                  alt="TOTP QR Code"
+                  className="h-48 w-48"
+                  height={192}
+                  src={qrUri}
+                  unoptimized
+                  width={192}
+                />
               </div>
 
               <div className="space-y-2">

@@ -2,7 +2,7 @@
 
 import { ChartIcon, Task01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/chart";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, humanizeKey } from "@/lib/format";
+import { useMounted } from "@/lib/hooks/use-mounted";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
@@ -83,11 +84,7 @@ export function DashboardInsights({
   locale: localeProp,
 }: DashboardInsightsProps) {
   const activeLocale = useActiveLocale();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   // Use the server-provided locale for SSR + hydration to avoid mismatches.
   // After mount, prefer the active locale (storage/context) so toggles feel instant.

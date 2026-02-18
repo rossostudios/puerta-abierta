@@ -2,10 +2,11 @@
 
 import { Popover as BasePopover } from "@base-ui/react/popover";
 import { Moon01Icon, Sun01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { useMounted } from "@/lib/hooks/use-mounted";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
@@ -47,43 +48,44 @@ type ThemeToggleProps = {
   locale?: Locale;
 };
 
+// Subscribe to prefers-color-scheme changes via useSyncExternalStore.
+function subscribeSystemTheme(onStoreChange: () => void) {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  media.addEventListener("change", onStoreChange);
+  return () => media.removeEventListener("change", onStoreChange);
+}
+function getSystemThemeSnapshot(): ResolvedTheme {
+  return getSystemTheme();
+}
+function getServerSystemTheme(): ResolvedTheme {
+  return "light";
+}
+
 export function ThemeToggle({ locale: localeProp }: ThemeToggleProps) {
   const activeLocale = useActiveLocale();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [open, setOpen] = useState(false);
-  const [preference, setPreference] = useState<ThemePreference>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
+  const [preference, setPreference] = useState<ThemePreference>(
+    () => (typeof window !== "undefined" ? getStoredThemePreference() : null) ?? "system"
+  );
 
-  useEffect(() => {
-    const initial = getStoredThemePreference() ?? "system";
-    setPreference(initial);
-    const initialResolved = resolveTheme(initial);
-    setResolvedTheme(initialResolved);
-    applyTheme(initial);
-    setMounted(true);
-  }, []);
+  // Subscribe to OS-level dark/light changes.
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    getSystemThemeSnapshot,
+    getServerSystemTheme
+  );
 
+  // Derive resolved theme from preference + system theme.
+  const resolvedTheme: ResolvedTheme =
+    preference === "system" ? systemTheme : preference;
+
+  // Apply theme to DOM and persist preference whenever it changes.
   useEffect(() => {
     if (!mounted) return;
-
-    const nextResolved = resolveTheme(preference);
-    setResolvedTheme(nextResolved);
     applyTheme(preference);
     localStorage.setItem(STORAGE_KEY, preference);
-
-    if (preference !== "system") {
-      return;
-    }
-
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const updated = getSystemTheme();
-      setResolvedTheme(updated);
-      applyTheme("system");
-    };
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [mounted, preference]);
+  }, [mounted, preference, systemTheme]);
 
   const locale = mounted ? activeLocale : (localeProp ?? activeLocale);
   const isEn = locale === "en-US";

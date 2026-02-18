@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -129,11 +130,13 @@ export default async function CollectionsModulePage({
             </Alert>
           ) : null}
 
-          <CollectionsManager
-            collections={collections}
-            leases={leases}
-            orgId={orgId}
-          />
+          <Suspense fallback={null}>
+            <CollectionsManager
+              collections={collections}
+              leases={leases}
+              orgId={orgId}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

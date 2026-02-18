@@ -149,14 +149,23 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isControlled, open, onOpenChangeProp]);
 
-  useEffect(() => {
-    if (!open) {
+  // Reset palette state when it opens; auto-focus the input.
+  const prevOpenRef = useRef(open);
+  if (prevOpenRef.current !== open) {
+    prevOpenRef.current = open;
+    if (open) {
+      setQuery("");
+      setCursor(0);
       setDebouncedHref(null);
-      return;
+    } else {
+      setDebouncedHref(null);
     }
-    setQuery("");
-    setCursor(0);
-    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
+  // Focus the input after the palette mounts open.
+  useEffect(() => {
+    if (open) {
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    }
   }, [open]);
 
   const actions = useMemo(() => {
@@ -179,20 +188,22 @@ export function CommandPalette({
     );
   }, [isEn, pins, query, recents]);
 
-  useEffect(() => {
-    if (cursor >= actions.length) setCursor(0);
-  }, [actions.length, cursor]);
+  // Clamp cursor to valid range (derive during render).
+  const clampedCursor = actions.length > 0 ? Math.min(cursor, actions.length - 1) : 0;
+  if (clampedCursor !== cursor) {
+    setCursor(clampedCursor);
+  }
 
-  const activeHref = actions[cursor]?.href ?? null;
+  const activeHref = actions[clampedCursor]?.href ?? null;
 
   useEffect(() => {
-    if (!activeHref) {
-      setDebouncedHref(null);
-      return;
-    }
+    if (!activeHref) return;
     const timer = setTimeout(() => setDebouncedHref(activeHref), 200);
     return () => clearTimeout(timer);
   }, [activeHref]);
+
+  // When there's no active href, debounced href should be null (derived).
+  const effectiveDebouncedHref = activeHref ? debouncedHref : null;
 
   const go = (href: string) => {
     setOpen(false);
@@ -212,7 +223,7 @@ export function CommandPalette({
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      const selected = actions[cursor];
+      const selected = actions[clampedCursor];
       if (selected) go(selected.href);
     }
   };
@@ -282,7 +293,7 @@ export function CommandPalette({
                 <div className="min-w-0 flex-1 overflow-auto p-2">
                   {actions.length ? (
                     actions.map((action, index) => {
-                      const active = index === cursor;
+                      const active = index === clampedCursor;
                       return (
                         <button
                           className={cn(
@@ -323,7 +334,7 @@ export function CommandPalette({
                 </div>
 
                 <div className="hidden w-[340px] shrink-0 overflow-hidden border-l border-border/60 md:block">
-                  <PreviewFrame href={debouncedHref} />
+                  <PreviewFrame href={effectiveDebouncedHref} />
                 </div>
               </div>
 

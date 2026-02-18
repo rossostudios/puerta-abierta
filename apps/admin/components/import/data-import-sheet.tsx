@@ -24,6 +24,8 @@ import {
 } from "./column-mapper";
 import { ImportProgress } from "./import-progress";
 
+const EMPTY_RECORDS: Array<{ id: string; name: string; code?: string }> = [];
+
 type ImportMode = "properties" | "units" | "leases";
 
 type DataImportSheetProps = {
@@ -75,8 +77,8 @@ export function DataImportSheet({
   mode,
   orgId,
   isEn,
-  properties = [],
-  units = [],
+  properties = EMPTY_RECORDS,
+  units = EMPTY_RECORDS,
   onImportComplete,
 }: DataImportSheetProps) {
   const [data, setData] = useState<DataRow[]>([]);

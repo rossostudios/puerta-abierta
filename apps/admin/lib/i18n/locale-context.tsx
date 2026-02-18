@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useEffect, useState } from "react";
+import { createContext, useEffect, useRef, useState } from "react";
 
 import {
   DEFAULT_LOCALE,
@@ -40,9 +40,15 @@ export function LocaleProvider({
   // Use the server locale as the initial value so SSR markup matches hydration.
   const [locale, setLocale] = useState<Locale>(initialLocale);
 
-  useEffect(() => {
+  // Sync locale state when the server-provided initialLocale prop changes,
+  // without calling setState synchronously inside an effect.
+  const prevInitialLocaleRef = useRef(initialLocale);
+  if (prevInitialLocaleRef.current !== initialLocale) {
+    prevInitialLocaleRef.current = initialLocale;
     setLocale(initialLocale);
+  }
 
+  useEffect(() => {
     try {
       document.documentElement.lang = initialLocale;
       localStorage.setItem(LOCALE_STORAGE_KEY, initialLocale);

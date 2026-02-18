@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { createUnitFromUnitsModuleAction } from "@/app/(admin)/module/units/actions";
 import { DataImportSheet } from "@/components/import/data-import-sheet";
 import { UnitNotionTable, type UnitRow } from "@/components/units/unit-notion-table";
@@ -157,9 +157,16 @@ export function UnitsManager({
     return map;
   }, [units]);
 
+  // Validate createPropertyId: if it no longer exists in options, clear it.
+  const validatedCreatePropertyId =
+    createPropertyId &&
+    propertyOptions.some((row) => row.id === createPropertyId)
+      ? createPropertyId
+      : "";
+
   const duplicateDraftCode = useMemo(() => {
-    if (!(createPropertyId && draftCode.trim())) return null;
-    const existingCodes = unitCodesByProperty.get(createPropertyId);
+    if (!(validatedCreatePropertyId && draftCode.trim())) return null;
+    const existingCodes = unitCodesByProperty.get(validatedCreatePropertyId);
     if (!existingCodes || existingCodes.size === 0) return null;
 
     const normalizedDraft = normalizeCode(draftCode);
@@ -171,34 +178,26 @@ export function UnitsManager({
     return {
       suggestion: suggestNextUnitCode(draftCode, existingCodes),
     };
-  }, [createPropertyId, draftCode, unitCodesByProperty]);
+  }, [validatedCreatePropertyId, draftCode, unitCodesByProperty]);
   const selectedPropertyLabel = useMemo(() => {
-    if (!createPropertyId) return null;
-    return propertyOptions.find((property) => property.id === createPropertyId)
+    if (!validatedCreatePropertyId) return null;
+    return propertyOptions.find((property) => property.id === validatedCreatePropertyId)
       ?.label;
-  }, [createPropertyId, propertyOptions]);
+  }, [validatedCreatePropertyId, propertyOptions]);
   const existingUnitsInSelectedProperty = useMemo(() => {
-    if (!createPropertyId) return 0;
+    if (!validatedCreatePropertyId) return 0;
     return (units as InternalUnitRow[]).filter(
-      (row) => asString(row.property_id).trim() === createPropertyId
+      (row) => asString(row.property_id).trim() === validatedCreatePropertyId
     ).length;
-  }, [createPropertyId, units]);
+  }, [validatedCreatePropertyId, units]);
 
-  useEffect(() => {
-    if (!open) {
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
       setCreatePropertyId("");
       setDraftCode("");
     }
-  }, [open]);
-
-  useEffect(() => {
-    if (
-      createPropertyId &&
-      !propertyOptions.some((row) => row.id === createPropertyId)
-    ) {
-      setCreatePropertyId("");
-    }
-  }, [createPropertyId, propertyOptions]);
+    setOpen(next);
+  };
 
   return (
     <div className="space-y-4">
@@ -230,8 +229,8 @@ export function UnitsManager({
               </option>
             ))}
           </Select>
-          <span className="text-muted-foreground text-sm">
-            {rows.length} {isEn ? "records" : "registros"}
+          <span className="text-muted-foreground text-sm whitespace-nowrap">
+            {rows.length} {isEn ? (rows.length === 1 ? "record" : "records") : (rows.length === 1 ? "registro" : "registros")}
           </span>
         </div>
 
@@ -265,7 +264,7 @@ export function UnitsManager({
             ? "Create a unit under an existing property."
             : "Crea una unidad dentro de una propiedad existente."
         }
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         open={open}
         title={isEn ? "New unit" : "Nueva unidad"}
       >
@@ -329,7 +328,7 @@ export function UnitsManager({
                   name="property_id"
                   onChange={(event) => setCreatePropertyId(event.target.value)}
                   required
-                  value={createPropertyId}
+                  value={validatedCreatePropertyId}
                 >
                   <option disabled value="">
                     {isEn ? "Select a property" : "Selecciona una propiedad"}

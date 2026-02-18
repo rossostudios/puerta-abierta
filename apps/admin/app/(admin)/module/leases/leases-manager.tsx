@@ -140,16 +140,6 @@ export function LeasesManager({
   const [editing, setEditing] = useState<LeaseRow | null>(null);
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
-  const openCreate = useCallback(() => {
-    setEditing(null);
-    setOpen(true);
-  }, []);
-
-  const openEdit = useCallback((row: LeaseRow) => {
-    setEditing(row);
-    setOpen(true);
-  }, []);
-
   const [generatingFor, setGeneratingFor] = useState<LeaseRow | null>(null);
   const [renewingFrom, setRenewingFrom] = useState<LeaseRow | null>(null);
 
@@ -163,17 +153,26 @@ export function LeasesManager({
   const guestSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset tenant fields when sheet opens/closes or editing changes
-  useEffect(() => {
-    if (open) {
-      setTenantName(editing?.tenant_full_name ?? "");
-      setTenantEmail(editing?.tenant_email ?? "");
-      setTenantPhone(editing?.tenant_phone_e164 ?? "");
-      setSaveAsGuest(false);
-      setGuestResults([]);
-      setShowGuestDropdown(false);
-    }
-  }, [open, editing]);
+  const resetTenantFields = useCallback((row: LeaseRow | null) => {
+    setTenantName(row?.tenant_full_name ?? "");
+    setTenantEmail(row?.tenant_email ?? "");
+    setTenantPhone(row?.tenant_phone_e164 ?? "");
+    setSaveAsGuest(false);
+    setGuestResults([]);
+    setShowGuestDropdown(false);
+  }, []);
+
+  const openCreate = useCallback(() => {
+    setEditing(null);
+    resetTenantFields(null);
+    setOpen(true);
+  }, [resetTenantFields]);
+
+  const openEdit = useCallback((row: LeaseRow) => {
+    setEditing(row);
+    resetTenantFields(row);
+    setOpen(true);
+  }, [resetTenantFields]);
 
   const searchGuests = useCallback(
     (query: string) => {
@@ -404,18 +403,10 @@ export function LeasesManager({
         <p className="text-muted-foreground text-sm">
           {optimisticRows.length} {isEn ? "leases" : "contratos"}
         </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-            href="/module/pricing"
-          >
-            {isEn ? "Manage pricing templates" : "Gestionar plantillas de precios"}
-          </Link>
-          <Button onClick={openCreate} type="button">
-            <Icon icon={PlusSignIcon} size={16} />
-            {isEn ? "New lease" : "Nuevo contrato"}
-          </Button>
-        </div>
+        <Button onClick={openCreate} type="button">
+          <Icon icon={PlusSignIcon} size={16} />
+          {isEn ? "New lease" : "Nuevo contrato"}
+        </Button>
       </div>
 
       <NotionDataTable

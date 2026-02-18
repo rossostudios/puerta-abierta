@@ -7,7 +7,7 @@ import {
   CircleIcon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,6 @@ export function GettingStartedChecklist({
   items,
   locale,
 }: GettingStartedChecklistProps) {
-  const [dismissed, setDismissed] = useState(true);
   const isEn = locale === "en-US";
 
   const doneCount = items.filter((i) => i.isDone).length;
@@ -42,27 +41,29 @@ export function GettingStartedChecklist({
   const progressPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone = doneCount === totalCount;
 
-  useEffect(() => {
+  const emptySubscribe = useCallback(() => () => {}, []);
+  const getDismissedSnapshot = useCallback(() => {
     const savedDismissedCount = Number(
       localStorage.getItem(DISMISS_VERSION_KEY) ?? "0"
     );
     const isDismissed = localStorage.getItem(DISMISS_KEY) === "true";
-    // Re-show if new actionable items appeared since last dismiss
     if (isDismissed && savedDismissedCount >= doneCount) {
-      setDismissed(true);
-    } else {
-      setDismissed(false);
-      if (isDismissed) {
-        // New items became actionable, clear dismiss
-        localStorage.removeItem(DISMISS_KEY);
-      }
+      return true;
     }
+    if (isDismissed) {
+      // New items became actionable, clear dismiss
+      localStorage.removeItem(DISMISS_KEY);
+    }
+    return false;
   }, [doneCount]);
+  const getServerDismissed = useCallback(() => true, []);
+  const dismissed = useSyncExternalStore(emptySubscribe, getDismissedSnapshot, getServerDismissed);
+  const [, forceUpdate] = useState(0);
 
   const onDismiss = () => {
     localStorage.setItem(DISMISS_KEY, "true");
     localStorage.setItem(DISMISS_VERSION_KEY, String(doneCount));
-    setDismissed(true);
+    forceUpdate((c) => c + 1);
   };
 
   if (dismissed || totalCount === 0) return null;

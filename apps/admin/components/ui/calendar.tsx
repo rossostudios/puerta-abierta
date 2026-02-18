@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -144,10 +144,15 @@ export function Calendar({
     return monthStart(base);
   });
 
-  useEffect(() => {
-    if (!selectedDate) return;
-    setDisplayMonth(monthStart(selectedDate));
-  }, [selectedDate]);
+  // When the selected date changes, jump to its month (derive during render).
+  const prevSelectedRef = useRef(selectedDate);
+  if (selectedDate && selectedDate !== prevSelectedRef.current) {
+    const target = monthStart(selectedDate);
+    if (target.getTime() !== displayMonth.getTime()) {
+      setDisplayMonth(target);
+    }
+  }
+  prevSelectedRef.current = selectedDate;
 
   const labels = useMemo(() => weekdayLabels(locale), [locale]);
   const days = useMemo(() => monthDays(displayMonth), [displayMonth]);

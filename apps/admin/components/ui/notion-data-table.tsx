@@ -59,6 +59,7 @@ export function NotionDataTable<TRow>({
   onSelectionChange,
   getRowId,
 }: NotionDataTableProps<TRow>) {
+  "use no memo";
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});

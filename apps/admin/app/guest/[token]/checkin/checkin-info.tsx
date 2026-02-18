@@ -1,7 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,25 +33,17 @@ interface CheckinData {
 
 export function CheckinInfo() {
   const { token, headers, apiBase } = useGuest();
-  const [data, setData] = useState<CheckinData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${apiBase}/guest/checkin-info`, { headers });
-        if (!res.ok) throw new Error("Failed to load check-in info");
-        const json = await res.json();
-        setData(json);
-      } catch {
-        setError("Could not load check-in information.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [apiBase, headers]);
+  const { data, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ["guest-checkin-info", token],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/guest/checkin-info`, { headers });
+      if (!res.ok) throw new Error("Failed to load check-in info");
+      return (await res.json()) as CheckinData;
+    },
+  });
+
+  const error = queryError?.message ?? "";
 
   if (loading) {
     return (

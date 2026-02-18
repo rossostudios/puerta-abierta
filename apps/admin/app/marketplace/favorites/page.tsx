@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { HeartAddIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
@@ -16,18 +17,14 @@ import type { MarketplaceListingViewModel } from "@/lib/features/marketplace/vie
 
 export default function FavoritesPage() {
   const [locale] = useState<"es-PY" | "en-US">("es-PY");
-  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>([]);
-  const [allListings, setAllListings] = useState<MarketplaceListingViewModel[]>(
-    []
+  const [favoriteSlugs, setFavoriteSlugs] = useState<string[]>(() =>
+    typeof window !== "undefined" ? getFavorites() : []
   );
-  const [loading, setLoading] = useState(true);
 
   const isEn = locale === "en-US";
 
-  // Read favorites from localStorage
+  // Subscribe to favorites changes
   useEffect(() => {
-    setFavoriteSlugs(getFavorites());
-
     function sync() {
       setFavoriteSlugs(getFavorites());
     }
@@ -36,27 +33,16 @@ export default function FavoritesPage() {
   }, []);
 
   // Fetch all listings client-side and filter
-  useEffect(() => {
-    if (!favoriteSlugs.length) {
-      setLoading(false);
-      return;
-    }
-
-    async function fetchListings() {
-      try {
-        const res = await fetch("/api/public/listings?limit=120");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setAllListings(data.listings ?? []);
-      } catch {
-        // Silently fail
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchListings();
-  }, [favoriteSlugs.length]);
+  const { data: allListings = [], isLoading: loading } = useQuery({
+    queryKey: ["marketplace-favorites-listings", favoriteSlugs.length],
+    queryFn: async () => {
+      const res = await fetch("/api/public/listings?limit=120");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      return (data.listings ?? []) as MarketplaceListingViewModel[];
+    },
+    enabled: favoriteSlugs.length > 0,
+  });
 
   const favoriteListings = allListings.filter((l) =>
     favoriteSlugs.includes(l.slug)

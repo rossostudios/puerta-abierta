@@ -1,7 +1,7 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,25 +30,17 @@ function asText(obj: Record<string, unknown> | null | undefined, key: string): s
 
 export function GuestItinerary() {
   const { token, headers, apiBase } = useGuest();
-  const [data, setData] = useState<ItineraryData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${apiBase}/guest/itinerary`, { headers });
-        if (!res.ok) throw new Error("Failed to load itinerary");
-        const json = await res.json();
-        setData(json);
-      } catch {
-        setError("Could not load itinerary.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [apiBase, headers]);
+  const { data, isLoading: loading, error: queryError } = useQuery({
+    queryKey: ["guest-itinerary", token],
+    queryFn: async () => {
+      const res = await fetch(`${apiBase}/guest/itinerary`, { headers });
+      if (!res.ok) throw new Error("Failed to load itinerary");
+      return (await res.json()) as ItineraryData;
+    },
+  });
+
+  const error = queryError?.message ?? "";
 
   if (loading) {
     return (

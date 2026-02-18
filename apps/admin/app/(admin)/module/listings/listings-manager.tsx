@@ -2,7 +2,6 @@
 
 import { PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,14 +9,13 @@ import { ListingForm } from "@/components/listings/listing-form";
 import { ListingNotionTable } from "@/components/listings/listing-notion-table";
 import { ListingPreviewModal } from "@/components/listings/listing-preview-modal";
 import type { SavedView } from "@/lib/features/listings/saved-views";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
 import { authedFetch } from "@/lib/features/listings/listings-api";
 import { useListingsQuery } from "@/lib/features/listings/use-listings-query";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { cn } from "@/lib/utils";
 
 /* ---------- helpers ---------- */
 
@@ -362,12 +360,6 @@ export function ListingsManager({
             {selectedIds.size} {isEn ? "selected" : "seleccionados"}
           </p>
         ) : null}
-        <Link
-          className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-          href="/module/pricing"
-        >
-          {isEn ? "Manage pricing templates" : "Gestionar plantillas de precios"}
-        </Link>
         {selectedIds.size > 0 ? (
           <>
             <Button

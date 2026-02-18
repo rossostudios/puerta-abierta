@@ -1,7 +1,9 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import Image from "next/image";
 import { toast } from "sonner";
 
 import { deleteOrganizationFromSettingsAction } from "@/app/(admin)/settings/actions";
@@ -31,34 +33,17 @@ export function OrgList({
   isEn: boolean;
 }) {
   const router = useRouter();
-  const [orgs, setOrgs] = useState<Org[]>([]);
-  const [loading, setLoading] = useState(true);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        const response = await fetch("/api/me", { cache: "no-store" });
-        if (!response.ok) {
-          if (mounted) setLoading(false);
-          return;
-        }
-        const payload = (await response.json()) as MeResponse;
-        if (!mounted) return;
-        setOrgs(payload.organizations ?? []);
-        setLoading(false);
-      } catch {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { data: orgs = [], isLoading: loading } = useQuery({
+    queryKey: ["me-organizations"],
+    queryFn: async () => {
+      const response = await fetch("/api/me", { cache: "no-store" });
+      if (!response.ok) return [];
+      const payload = (await response.json()) as MeResponse;
+      return payload.organizations ?? [];
+    },
+  });
 
   const canDelete = orgs.length >= 2;
 
@@ -127,8 +112,7 @@ export function OrgList({
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/20">
                 {org.logo_url ? (
-                  // biome-ignore lint/performance/noImgElement: Org logo supports arbitrary hosts from URL fallback.
-                  <img
+                  <Image
                     alt={
                       org.name ||
                       (isEn ? "Organization logo" : "Logo de organización")
@@ -136,6 +120,7 @@ export function OrgList({
                     className="h-full w-full object-cover"
                     height={40}
                     src={org.logo_url}
+                    unoptimized
                     width={40}
                   />
                 ) : (

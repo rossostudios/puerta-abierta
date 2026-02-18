@@ -1,7 +1,7 @@
 "use client";
 
 import { HeartAddIcon, HeartCheckIcon } from "@hugeicons/core-free-icons";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore, useState } from "react";
 
 import { Icon } from "@/components/ui/icon";
 import {
@@ -11,31 +11,27 @@ import {
 } from "@/lib/features/marketplace/favorites";
 import { cn } from "@/lib/utils";
 
+function subscribeFavorites(onStoreChange: () => void) {
+  window.addEventListener(FAVORITES_CHANGE_EVENT, onStoreChange);
+  return () => window.removeEventListener(FAVORITES_CHANGE_EVENT, onStoreChange);
+}
+
 type FavoriteButtonProps = {
   slug: string;
   className?: string;
 };
 
 export function FavoriteButton({ slug, className }: FavoriteButtonProps) {
-  const [active, setActive] = useState(false);
+  const getSnapshot = useCallback(() => isFavorite(slug), [slug]);
+  const getServerSnapshot = useCallback(() => false, []);
+  const active = useSyncExternalStore(subscribeFavorites, getSnapshot, getServerSnapshot);
   const [animate, setAnimate] = useState(false);
-
-  useEffect(() => {
-    setActive(isFavorite(slug));
-
-    function sync() {
-      setActive(isFavorite(slug));
-    }
-    window.addEventListener(FAVORITES_CHANGE_EVENT, sync);
-    return () => window.removeEventListener(FAVORITES_CHANGE_EVENT, sync);
-  }, [slug]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       const nowActive = toggleFavorite(slug);
-      setActive(nowActive);
       if (nowActive) {
         setAnimate(true);
         setTimeout(() => setAnimate(false), 300);

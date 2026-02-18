@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -159,11 +160,13 @@ export default async function ApplicationsModulePage({
             </Alert>
           ) : null}
 
-          <ApplicationsManager
-            applications={applications}
-            members={members}
-            messageTemplates={messageTemplates}
-          />
+          <Suspense fallback={null}>
+            <ApplicationsManager
+              applications={applications}
+              members={members}
+              messageTemplates={messageTemplates}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

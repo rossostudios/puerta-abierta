@@ -545,6 +545,7 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
   footer,
   focusedRowIndex = -1,
 }: DataTableProps<TRow>) {
+  "use no memo";
   const activeLocale = useActiveLocale();
   const locale = localeProp ?? activeLocale;
   const isEn = locale === "en-US";

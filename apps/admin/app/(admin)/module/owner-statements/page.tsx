@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -171,12 +172,14 @@ export default async function OwnerStatementsModulePage({
             </Alert>
           ) : null}
 
-          <StatementsManager
-            orgId={orgId}
-            properties={properties}
-            statements={statements}
-            units={units}
-          />
+          <Suspense fallback={null}>
+            <StatementsManager
+              orgId={orgId}
+              properties={properties}
+              statements={statements}
+              units={units}
+            />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useRef, useState } from "react";
 
 type ReorderableImageGridProps = {
@@ -84,10 +85,12 @@ export function ReorderableImageGrid({
           onDragStart={(e) => handleDragStart(e, index)}
           onDrop={(e) => handleDrop(e, index)}
         >
-          <img
+          <Image
             alt={`Image ${index + 1}`}
             className="h-full w-full cursor-grab object-cover active:cursor-grabbing"
             draggable={false}
+            fill
+            sizes="(max-width: 768px) 25vw, 20vw"
             src={url}
           />
           <span className="absolute top-1 left-1 flex h-5 min-w-5 items-center justify-center rounded bg-black/60 px-1 text-[10px] font-bold text-white">

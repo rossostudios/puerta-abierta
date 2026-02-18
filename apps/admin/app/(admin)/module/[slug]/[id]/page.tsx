@@ -1,6 +1,6 @@
 import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound, redirect, unstable_rethrow } from "next/navigation";
 
 import { PropertyDashboard } from "@/components/module-record/property-dashboard";
 import { RecordDetailsCard } from "@/components/module-record/record-details-card";
@@ -80,6 +80,7 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
   let accessToken: string | null = null;
   let sessionUserId: string | null = null;
 
+  let is404 = false;
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase.auth.getSession();
@@ -94,13 +95,11 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
-    if (response.status === 404) {
-      notFound();
-    }
+    is404 = response.status === 404;
 
-    if (response.ok) {
+    if (!is404 && response.ok) {
       record = (await response.json()) as Record<string, unknown>;
-    } else {
+    } else if (!is404) {
       const details = await response.text().catch(() => "");
       const suffix = details ? `: ${details.slice(0, 240)}` : "";
       requestStatus = response.status;
@@ -110,8 +109,10 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
       };
     }
   } catch (err) {
+    unstable_rethrow(err);
     apiError = { kind: "connection", message: errorMessage(err) };
   }
+  if (is404) notFound();
 
   if (apiError || !record) {
     if (

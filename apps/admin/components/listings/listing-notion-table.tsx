@@ -204,6 +204,7 @@ export function ListingNotionTable({
   activeViewId,
   onApplyView,
 }: Props) {
+  "use no memo";
   const [, startTransition] = useTransition();
 
   /* --- optimistic editing --- */

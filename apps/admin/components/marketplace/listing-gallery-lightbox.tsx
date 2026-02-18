@@ -62,7 +62,7 @@ export function ListingGalleryLightbox({
             <button
               className="group relative overflow-hidden rounded-xl"
               key={url}
-              onClick={() => setLightboxIndex(idx + 1)}
+              onClick={() => setLightboxIndex(() => idx + 1)}
               type="button"
             >
               <Image

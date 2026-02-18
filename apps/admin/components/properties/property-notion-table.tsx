@@ -106,6 +106,7 @@ export function PropertyNotionTable({
   formatLocale,
   summary,
 }: Props) {
+  "use no memo";
   const router = useRouter();
   const [, startTransition] = useTransition();
 

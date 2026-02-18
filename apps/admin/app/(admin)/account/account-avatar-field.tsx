@@ -1,6 +1,7 @@
 "use client";
 
 import { Camera02Icon, Delete02Icon } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -90,12 +91,12 @@ export function AccountAvatarField({
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border bg-muted/40">
           {avatarUrl ? (
-            // biome-ignore lint/performance/noImgElement: Avatar URL supports arbitrary hosts from user input fallback.
-            <img
+            <Image
               alt={isEn ? "Avatar preview" : "Vista previa del avatar"}
               className="h-full w-full object-cover"
               height={64}
               src={avatarUrl}
+              unoptimized
               width={64}
             />
           ) : (

@@ -757,20 +757,19 @@ export function MessagingInbox({
     [conversations, activeFilter]
   );
 
+  // Auto-select first conversation (derive during render).
+  const effectiveSelectedId =
+    !selectedId && filtered.length > 0
+      ? filtered[0]!.guestId
+      : selectedId;
+
   const selectedConvo = useMemo(
     () =>
-      selectedId
-        ? conversations.find((c) => c.guestId === selectedId) ?? null
+      effectiveSelectedId
+        ? conversations.find((c) => c.guestId === effectiveSelectedId) ?? null
         : null,
-    [conversations, selectedId]
+    [conversations, effectiveSelectedId]
   );
-
-  // Auto-select first conversation
-  useEffect(() => {
-    if (!selectedId && filtered.length > 0) {
-      setSelectedId(filtered[0]!.guestId);
-    }
-  }, [filtered, selectedId]);
 
   const handleSelectConvo = useCallback((id: string) => {
     setSelectedId(id);
@@ -922,7 +921,7 @@ export function MessagingInbox({
                     isEn={isEn}
                     key={convo.guestId}
                     onClick={() => handleSelectConvo(convo.guestId)}
-                    selected={selectedId === convo.guestId}
+                    selected={effectiveSelectedId === convo.guestId}
                   />
                 ))}
                 {filtered.length === 0 ? (

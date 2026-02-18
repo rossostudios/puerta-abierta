@@ -9,9 +9,11 @@ import {
   Settings03Icon,
   UserCircle02Icon,
 } from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
@@ -97,9 +99,6 @@ export function SidebarAccount({
   });
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [planLoading, setPlanLoading] = useState(false);
-  const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null);
-  const planCacheRef = useRef<Map<string, PlanSummary>>(new Map());
   const isEn = locale === "en-US";
 
   useEffect(() => {
@@ -145,78 +144,36 @@ export function SidebarAccount({
     };
   }, []);
 
-  useEffect(() => {
-    if (!(open && orgId)) {
-      if (!orgId) {
-        setPlanSummary(null);
-        setPlanLoading(false);
+  const { data: planSummary = null, isLoading: planLoading, isError: planError } = useQuery({
+    queryKey: ["billing-plan", orgId],
+    queryFn: async (): Promise<PlanSummary> => {
+      const response = await fetch(
+        `/api/billing/current?org_id=${encodeURIComponent(orgId!)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error(`Request failed (${response.status})`);
       }
-      return;
-    }
 
-    const cached = planCacheRef.current.get(orgId);
-    if (cached) {
-      setPlanSummary(cached);
-      return;
-    }
+      const payload = (await response.json()) as Record<string, unknown>;
+      const subscription = asObject(payload.subscription);
+      const plan = asObject(payload.plan);
 
-    let cancelled = false;
+      const hasSubscription = Boolean(asString(subscription.id));
+      const status = hasSubscription ? asString(subscription.status) : "";
+      const planName = hasSubscription
+        ? asString(plan.name) || (isEn ? "Current plan" : "Plan actual")
+        : isEn
+          ? "Free"
+          : "Gratis";
 
-    setPlanSummary(null);
-    setPlanLoading(true);
-
-    const loadPlan = async () => {
-      try {
-        const response = await fetch(
-          `/api/billing/current?org_id=${encodeURIComponent(orgId)}`,
-          {
-            cache: "no-store",
-          }
-        );
-        if (!response.ok) {
-          throw new Error(`Request failed (${response.status})`);
-        }
-
-        const payload = (await response.json()) as Record<string, unknown>;
-        const subscription = asObject(payload.subscription);
-        const plan = asObject(payload.plan);
-
-        const hasSubscription = Boolean(asString(subscription.id));
-        const status = hasSubscription ? asString(subscription.status) : "";
-        const planName = hasSubscription
-          ? asString(plan.name) || (isEn ? "Current plan" : "Plan actual")
-          : isEn
-            ? "Free"
-            : "Gratis";
-
-        const summary: PlanSummary = {
-          hasSubscription,
-          planName,
-          status,
-        };
-
-        planCacheRef.current.set(orgId, summary);
-        if (!cancelled) setPlanSummary(summary);
-      } catch {
-        const summary: PlanSummary = {
-          hasSubscription: false,
-          planName: isEn ? "Plan unavailable" : "Plan no disponible",
-          status: "",
-          unavailable: true,
-        };
-        planCacheRef.current.set(orgId, summary);
-        if (!cancelled) setPlanSummary(summary);
-      } finally {
-        if (!cancelled) setPlanLoading(false);
-      }
-    };
-
-    loadPlan();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isEn, open, orgId]);
+      return { hasSubscription, planName, status };
+    },
+    enabled: open && Boolean(orgId),
+    placeholderData: (prev) => prev ?? undefined,
+    retry: false,
+    meta: { errorFallback: true },
+  });
 
   const onSignOut = async () => {
     try {
@@ -269,12 +226,12 @@ export function SidebarAccount({
         >
           <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border bg-secondary font-semibold text-foreground text-sm">
             {account.avatarUrl ? (
-              // biome-ignore lint/performance/noImgElement: Avatar URL supports arbitrary hosts from user input fallback.
-              <img
+              <Image
                 alt={isEn ? "Avatar" : "Avatar"}
                 className="h-full w-full object-cover"
                 height={40}
                 src={account.avatarUrl}
+                unoptimized
                 width={40}
               />
             ) : (
@@ -344,7 +301,7 @@ export function SidebarAccount({
                       (isEn ? "Plan unavailable" : "Plan no disponible"))}
                 </p>
 
-                {planSummary?.unavailable ? (
+                {planError ? (
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     {isEn
                       ? "Could not load plan details."

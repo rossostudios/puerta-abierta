@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DataImportSheet } from "@/components/import/data-import-sheet";
 import { PortfolioSidebar } from "@/components/properties/portfolio-sidebar";
@@ -64,15 +64,26 @@ export function PropertiesManager({
 
   const previousSidebarRef = useRef(isSidebarOpen);
 
-  useEffect(() => {
-    if (viewMode === "map") {
+  const handleViewModeChange = useCallback((next: PropertyViewMode) => {
+    if (next === "map") {
       previousSidebarRef.current = isSidebarOpen;
       setIsSidebarOpen(false);
     } else {
       setIsSidebarOpen(previousSidebarRef.current);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode]);
+    setViewMode(next);
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const { rows, summary, recentActivity, notifications } = usePropertyPortfolio(
     {
@@ -130,7 +141,7 @@ export function PropertiesManager({
               onQueryChange={setQuery}
               onStatusFilterChange={setStatusFilter}
               onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-              onViewModeChange={setViewMode}
+              onViewModeChange={handleViewModeChange}
               query={query}
               statusFilter={statusFilter}
               viewMode={viewMode}

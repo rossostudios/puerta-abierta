@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { DataImportSheet } from "@/components/import/data-import-sheet";
@@ -146,14 +146,10 @@ export function SetupWizard({
     rentalMode === "ltr" ? "ltr" : "str"
   );
 
-  // Close import sheets if org context is lost (prevents orphaned Radix portals)
-  useEffect(() => {
-    if (!orgId) {
-      setImportPropertyOpen(false);
-      setImportUnitOpen(false);
-      setImportLeaseOpen(false);
-    }
-  }, [orgId]);
+  // If org context is lost, import sheets must be closed (prevents orphaned Radix portals).
+  const effectiveImportPropertyOpen = orgId ? importPropertyOpen : false;
+  const effectiveImportUnitOpen = orgId ? importUnitOpen : false;
+  const effectiveImportLeaseOpen = orgId ? importLeaseOpen : false;
 
   /* ---- Derived -------------------------------------------------- */
 
@@ -1242,7 +1238,7 @@ export function SetupWizard({
             mode="properties"
             onImportComplete={() => router.refresh()}
             onOpenChange={setImportPropertyOpen}
-            open={importPropertyOpen}
+            open={effectiveImportPropertyOpen}
             orgId={orgId}
           />
           <DataImportSheet
@@ -1250,7 +1246,7 @@ export function SetupWizard({
             mode="units"
             onImportComplete={() => router.refresh()}
             onOpenChange={setImportUnitOpen}
-            open={importUnitOpen}
+            open={effectiveImportUnitOpen}
             orgId={orgId}
             properties={propertyOptions.map((p) => ({
               id: p.id,
@@ -1262,7 +1258,7 @@ export function SetupWizard({
             mode="leases"
             onImportComplete={() => router.refresh()}
             onOpenChange={setImportLeaseOpen}
-            open={importLeaseOpen}
+            open={effectiveImportLeaseOpen}
             orgId={orgId}
             units={unitOptions.map((u) => ({ id: u.id, name: u.label }))}
           />
