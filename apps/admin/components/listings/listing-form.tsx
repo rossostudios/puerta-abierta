@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckmarkCircle02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
-import { Controller, useForm, type Resolver } from "react-hook-form";
+import { Controller, useForm, useWatch, type Resolver } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -171,8 +171,8 @@ export function ListingForm({
   const [slugChecking, setSlugChecking] = useState(false);
   const slugTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const titleValue = form.watch("title");
-  const slugValue = form.watch("public_slug");
+  const titleValue = useWatch({ control: form.control, name: "title" });
+  const slugValue = useWatch({ control: form.control, name: "public_slug" });
 
   useEffect(() => {
     if (slugManual) return;
@@ -223,7 +223,7 @@ export function ListingForm({
     })
   );
 
-  const watchCity = form.watch("city");
+  const watchCity = useWatch({ control: form.control, name: "city" });
   const neighborhoodOptions: ComboboxOption[] = (
     NEIGHBORHOODS[watchCity] ?? []
   ).map((b) => ({ value: b, label: b }));

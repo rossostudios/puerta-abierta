@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import type { Locale } from "@/lib/i18n";
 
 export function CreateCollectionSheet({
   orgId,
@@ -25,7 +26,7 @@ export function CreateCollectionSheet({
   leaseOptions: { id: string; label: string }[];
   nextPath: string;
   isEn: boolean;
-  locale: string;
+  locale: Locale;
   today: string;
 }) {
   return (

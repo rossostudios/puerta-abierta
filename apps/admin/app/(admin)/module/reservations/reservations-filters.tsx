@@ -6,6 +6,7 @@ import { type DataTableRow } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { humanizeStatus, type UnitOption } from "@/app/(admin)/module/reservations/reservations-types";
+import type { Locale } from "@/lib/i18n";
 
 export function ReservationsFilters({
   from,
@@ -28,7 +29,7 @@ export function ReservationsFilters({
 }: {
   from: string;
   isEn: boolean;
-  locale: string;
+  locale: Locale;
   onFromChange: (value: string) => void;
   onQueryChange: (value: string) => void;
   onSourceFilterChange: (value: string) => void;

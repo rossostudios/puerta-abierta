@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -85,7 +86,7 @@ export function MarkPaidSheet({
   onSubmit: () => void;
   nextPath: string;
   isEn: boolean;
-  locale: string;
+  locale: Locale;
   today: string;
 }) {
   const [receiptUrl, setReceiptUrl] = useState("");

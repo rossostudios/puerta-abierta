@@ -156,6 +156,7 @@ export function DataTable<TRow extends DataTableRow = DataTableRow>({
     [defaultVisibility]
   );
 
+  // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable<TRow>({
     data,
     columns,

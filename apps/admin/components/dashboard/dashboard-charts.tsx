@@ -11,11 +11,12 @@ import type {
   OccupancyForecastResponse,
   RevenueTrendResponse,
 } from "@/lib/api";
+import type { Locale } from "@/lib/i18n";
 
 import type { OperationsKpis, RevenueSnapshot } from "./dashboard-utils";
 
 type DashboardChartsProps = {
-  locale: string;
+  locale: Locale;
   operationsKpis: OperationsKpis;
   revenueSnapshot: RevenueSnapshot;
   taskStatuses: { status: string; count: number }[];

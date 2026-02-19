@@ -13,11 +13,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
+import type { Locale } from "@/lib/i18n";
 import { getModuleDescription, getModuleLabel, MODULES } from "@/lib/modules";
 import { cn } from "@/lib/utils";
 
 type DashboardModuleCardsProps = {
-  locale: string;
+  locale: Locale;
   isEn: boolean;
 };
 

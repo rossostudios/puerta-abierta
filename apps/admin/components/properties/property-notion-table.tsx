@@ -418,6 +418,7 @@ export function PropertyNotionTable({
     [isEn, formatLocale, commitEdit, router]
   );
 
+  // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable({
     data: optimisticRows,
     columns,

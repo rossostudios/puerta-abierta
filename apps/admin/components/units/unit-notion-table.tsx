@@ -404,6 +404,7 @@ export function UnitNotionTable({
     [isEn, commitText, commitNumber, router]
   );
 
+  // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable({
     data: optimisticRows,
     columns,

@@ -15,6 +15,7 @@ import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { authedFetch } from "@/lib/api-client";
+import type { Locale } from "@/lib/i18n";
 
 import {
   type GuestResult,
@@ -42,14 +43,20 @@ export function LeaseFormSheet({
   orgId: string;
   nextPath: string;
   isEn: boolean;
-  locale: string;
+  locale: Locale;
   today: string;
   propertyOptions: PropertyOption[];
   unitOptions: UnitOption[];
 }) {
-  const [tenantName, setTenantName] = useState("");
-  const [tenantEmail, setTenantEmail] = useState("");
-  const [tenantPhone, setTenantPhone] = useState("");
+  const [tenantName, setTenantName] = useState(
+    () => editing?.tenant_full_name ?? ""
+  );
+  const [tenantEmail, setTenantEmail] = useState(
+    () => editing?.tenant_email ?? ""
+  );
+  const [tenantPhone, setTenantPhone] = useState(
+    () => editing?.tenant_phone_e164 ?? ""
+  );
   const [guestResults, setGuestResults] = useState<GuestResult[]>([]);
   const [showGuestDropdown, setShowGuestDropdown] = useState(false);
   const [saveAsGuest, setSaveAsGuest] = useState(false);
@@ -65,11 +72,17 @@ export function LeaseFormSheet({
     setShowGuestDropdown(false);
   }, []);
 
-  useEffect(() => {
-    if (open) {
-      resetTenantFields(editing);
-    }
-  }, [open, editing, resetTenantFields]);
+  const handleSheetOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) {
+        resetTenantFields(editing);
+      } else {
+        setShowGuestDropdown(false);
+      }
+      onOpenChange(nextOpen);
+    },
+    [editing, onOpenChange, resetTenantFields]
+  );
 
   const searchGuests = useCallback(
     (query: string) => {
@@ -156,7 +169,7 @@ export function LeaseFormSheet({
             ? "Create a lease and optionally generate the first collection record."
             : "Crea un contrato y opcionalmente genera el primer registro de cobro."
       }
-      onOpenChange={onOpenChange}
+      onOpenChange={handleSheetOpenChange}
       open={open}
       title={
         editing

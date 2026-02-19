@@ -8,6 +8,7 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import type { Locale } from "@/lib/i18n";
 
 export function ReservationBlockSheet({
   isEn,
@@ -18,7 +19,7 @@ export function ReservationBlockSheet({
   unitOptions,
 }: {
   isEn: boolean;
-  locale: string;
+  locale: Locale;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   orgId: string;

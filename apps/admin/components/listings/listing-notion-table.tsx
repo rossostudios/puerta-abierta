@@ -671,6 +671,7 @@ export function ListingNotionTable({
   );
 
   /* --- table instance (manual mode) --- */
+  // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable({
     data: filteredData,
     columns,

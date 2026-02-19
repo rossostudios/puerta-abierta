@@ -140,6 +140,7 @@ export function NotionDataTable<TRow>({
     return cols;
   }, [columnsProp, enableSelection, renderRowActions, rowActionsHeader]);
 
+  // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable<TRow>({
     data,
     columns,
