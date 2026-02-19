@@ -111,11 +111,11 @@ export function OrgSwitcher({
       <PopoverTrigger
         className={cn(
           "group flex w-full items-center gap-3 rounded-xl border border-transparent p-1.5 outline-none transition-all duration-200",
-          "hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring",
-          open && "bg-muted/60"
+          "hover:bg-white/10 hover:border-white/20 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          open && "bg-white/10 border-white/20 shadow-sm"
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-background shadow-xs transition-colors group-hover:border-border/60">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/10 shadow-xs transition-colors group-hover:border-white/30 backdrop-blur-md">
           {activeOrg?.logo_url ? (
             <Image
               alt={
@@ -137,9 +137,9 @@ export function OrgSwitcher({
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col text-left">
-          <span className="truncate font-medium text-foreground text-sm leading-tight">
+          <span className="truncate font-medium text-sidebar-foreground text-sm leading-tight drop-shadow-sm">
             {loading ? (
-              <span className="animate-pulse rounded bg-muted text-transparent">
+              <span className="animate-pulse rounded bg-white/20 text-transparent">
                 Loading
               </span>
             ) : (
@@ -152,7 +152,7 @@ export function OrgSwitcher({
         </div>
         <svg
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-muted-foreground/50 transition-colors group-hover:text-muted-foreground"
+          className="h-4 w-4 shrink-0 text-white/50 transition-colors group-hover:text-white/90"
           fill="none"
           focusable="false"
           stroke="currentColor"

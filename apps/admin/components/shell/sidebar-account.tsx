@@ -211,15 +211,15 @@ export function SidebarAccount({
           aria-label={isEn ? "Open account menu" : "Abrir menú de cuenta"}
           className={cn(
             buttonVariants({ variant: "ghost", size: "sm" }),
-            "group w-full justify-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 text-foreground/72 outline-none",
-            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-sidebar-border hover:bg-sidebar-accent hover:text-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring/30",
-            open && "border-sidebar-border bg-sidebar-accent text-foreground",
+            "group w-full justify-start gap-2.5 rounded-2xl border border-transparent px-2.5 py-2.5 text-sidebar-foreground/80 outline-none",
+            "transition-all duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-white/10 hover:border-white/20 hover:text-sidebar-foreground hover:shadow-sm",
+            "focus-visible:ring-2 focus-visible:ring-sidebar-ring/30",
+            open && "border-white/20 bg-white/10 text-sidebar-foreground shadow-sm",
             collapsed ? "justify-center px-0" : ""
           )}
           title={displayName}
         >
-          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-sidebar-border bg-secondary font-semibold text-foreground text-sm">
+          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-white/10 font-semibold text-sidebar-foreground text-sm backdrop-blur-md transition-colors group-hover:border-white/30">
             {account.avatarUrl ? (
               <Image
                 alt={isEn ? "Avatar" : "Avatar"}
@@ -239,16 +239,16 @@ export function SidebarAccount({
               collapsed ? "sr-only" : ""
             )}
           >
-            <span className="block truncate font-medium text-[13px] leading-5">
+            <span className="block truncate font-medium text-[13px] leading-5 drop-shadow-sm">
               {displayName}
             </span>
-            <span className="block truncate text-[11px] text-muted-foreground">
+            <span className="block truncate text-[11px] text-white/50">
               {subtitle}
             </span>
           </span>
           <Icon
             className={cn(
-              "text-muted-foreground transition-transform",
+              "text-white/50 transition-all group-hover:text-white/90",
               open ? "rotate-180" : "rotate-0",
               collapsed ? "sr-only" : ""
             )}

@@ -4,8 +4,9 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc};
 use serde_json::{json, Map, Value};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     auth::require_user_id,
@@ -13,7 +14,7 @@ use crate::{
     repository::table_service::{create_row, get_row, list_rows, update_row},
     schemas::{
         clamp_limit_in_range, remove_nulls, serialize_to_map, CreateLeaseInput, LeasePath,
-        LeasesQuery, UpdateLeaseInput,
+        LeaseRentRollQuery, LeasesQuery, UpdateLeaseInput,
     },
     services::{
         audit::write_audit_log, lease_schedule::ensure_monthly_lease_schedule,
@@ -31,6 +32,7 @@ pub fn router() -> axum::Router<AppState> {
             "/leases",
             axum::routing::get(list_leases).post(create_lease),
         )
+        .route("/leases/rent-roll", axum::routing::get(get_rent_roll))
         .route(
             "/leases/{lease_id}",
             axum::routing::get(get_lease).patch(update_lease),
@@ -70,6 +72,12 @@ async fn list_leases(
     if let Some(unit_id) = non_empty_opt(query.unit_id.as_deref()) {
         filters.insert("unit_id".to_string(), Value::String(unit_id));
     }
+    if let Some(space_id) = non_empty_opt(query.space_id.as_deref()) {
+        filters.insert("space_id".to_string(), Value::String(space_id));
+    }
+    if let Some(bed_id) = non_empty_opt(query.bed_id.as_deref()) {
+        filters.insert("bed_id".to_string(), Value::String(bed_id));
+    }
 
     let rows = list_rows(
         pool,
@@ -84,6 +92,351 @@ async fn list_leases(
 
     let enriched = enrich_leases(pool, rows).await?;
     Ok(Json(json!({ "data": enriched })))
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct RentRollLeaseBlock {
+    lease_id: String,
+    lease_status: String,
+    starts_on: String,
+    ends_on: Option<String>,
+    tenant_full_name: String,
+    tenant_phone_e164: Option<String>,
+    monthly_rent: f64,
+    monthly_recurring_total: f64,
+    currency: String,
+    turnover_buffer_hours: i16,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct RentRollBufferBlock {
+    lease_id: String,
+    kind: String,
+    starts_on: String,
+    ends_on: String,
+    turnover_buffer_hours: i16,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+struct RentRollTrack {
+    track_id: String,
+    target_type: String,
+    property_id: Option<String>,
+    unit_id: Option<String>,
+    space_id: Option<String>,
+    bed_id: Option<String>,
+    property_name: Option<String>,
+    unit_name: Option<String>,
+    space_name: Option<String>,
+    bed_code: Option<String>,
+    leases: Vec<RentRollLeaseBlock>,
+    buffers: Vec<RentRollBufferBlock>,
+}
+
+const RENT_ROLL_MAX_DAYS: i64 = 730;
+
+async fn get_rent_roll(
+    State(state): State<AppState>,
+    Query(query): Query<LeaseRentRollQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    ensure_lease_collections_enabled(&state)?;
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let today = Utc::now().date_naive();
+    let from_default = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+    let from_date = if let Some(raw_from) = non_empty_opt(query.from_date.as_deref()) {
+        parse_date_opt(Some(&raw_from)).ok_or_else(|| {
+            AppError::BadRequest("Invalid 'from' date. Expected YYYY-MM-DD.".to_string())
+        })?
+    } else {
+        from_default
+    };
+    let to_date = if let Some(raw_to) = non_empty_opt(query.to_date.as_deref()) {
+        parse_date_opt(Some(&raw_to)).ok_or_else(|| {
+            AppError::BadRequest("Invalid 'to' date. Expected YYYY-MM-DD.".to_string())
+        })?
+    } else {
+        from_date + Duration::days(180)
+    };
+
+    if to_date < from_date {
+        return Err(AppError::BadRequest(
+            "Invalid date window: 'to' must be on or after 'from'.".to_string(),
+        ));
+    }
+    if (to_date - from_date).num_days() > RENT_ROLL_MAX_DAYS {
+        return Err(AppError::BadRequest(format!(
+            "Date window exceeds {} days. Narrow the range.",
+            RENT_ROLL_MAX_DAYS
+        )));
+    }
+
+    let mut filters = Map::new();
+    filters.insert(
+        "organization_id".to_string(),
+        Value::String(query.org_id.clone()),
+    );
+    if let Some(property_id) = non_empty_opt(query.property_id.as_deref()) {
+        filters.insert("property_id".to_string(), Value::String(property_id));
+    }
+    if let Some(unit_id) = non_empty_opt(query.unit_id.as_deref()) {
+        filters.insert("unit_id".to_string(), Value::String(unit_id));
+    }
+    if let Some(space_id) = non_empty_opt(query.space_id.as_deref()) {
+        filters.insert("space_id".to_string(), Value::String(space_id));
+    }
+    if let Some(bed_id) = non_empty_opt(query.bed_id.as_deref()) {
+        filters.insert("bed_id".to_string(), Value::String(bed_id));
+    }
+
+    let rows = list_rows(
+        pool,
+        "leases",
+        Some(&filters),
+        clamp_limit_in_range(query.limit, 1, 5000),
+        0,
+        "starts_on",
+        true,
+    )
+    .await?;
+
+    let leases = rows
+        .into_iter()
+        .filter(|row| lease_overlaps_window(row, from_date, to_date))
+        .collect::<Vec<_>>();
+
+    let property_ids = extract_ids(&leases, "property_id");
+    let unit_ids = extract_ids(&leases, "unit_id");
+    let space_ids = extract_ids(&leases, "space_id");
+    let bed_ids = extract_ids(&leases, "bed_id");
+
+    let (properties, units, spaces, beds) = tokio::try_join!(
+        async {
+            if property_ids.is_empty() {
+                Ok(Vec::new())
+            } else {
+                list_rows(
+                    pool,
+                    "properties",
+                    Some(&json_map(&[(
+                        "id",
+                        Value::Array(property_ids.iter().cloned().map(Value::String).collect()),
+                    )])),
+                    std::cmp::max(200, property_ids.len() as i64),
+                    0,
+                    "created_at",
+                    false,
+                )
+                .await
+            }
+        },
+        async {
+            if unit_ids.is_empty() {
+                Ok(Vec::new())
+            } else {
+                list_rows(
+                    pool,
+                    "units",
+                    Some(&json_map(&[(
+                        "id",
+                        Value::Array(unit_ids.iter().cloned().map(Value::String).collect()),
+                    )])),
+                    std::cmp::max(200, unit_ids.len() as i64),
+                    0,
+                    "created_at",
+                    false,
+                )
+                .await
+            }
+        },
+        async {
+            if space_ids.is_empty() {
+                Ok(Vec::new())
+            } else {
+                list_rows(
+                    pool,
+                    "unit_spaces",
+                    Some(&json_map(&[(
+                        "id",
+                        Value::Array(space_ids.iter().cloned().map(Value::String).collect()),
+                    )])),
+                    std::cmp::max(200, space_ids.len() as i64),
+                    0,
+                    "created_at",
+                    false,
+                )
+                .await
+            }
+        },
+        async {
+            if bed_ids.is_empty() {
+                Ok(Vec::new())
+            } else {
+                list_rows(
+                    pool,
+                    "unit_beds",
+                    Some(&json_map(&[(
+                        "id",
+                        Value::Array(bed_ids.iter().cloned().map(Value::String).collect()),
+                    )])),
+                    std::cmp::max(200, bed_ids.len() as i64),
+                    0,
+                    "created_at",
+                    false,
+                )
+                .await
+            }
+        }
+    )?;
+
+    let property_names = map_by_id_field(&properties, "name");
+    let unit_names = map_by_id_field(&units, "name");
+    let space_names = map_by_id_field(&spaces, "name");
+    let bed_codes = map_by_id_field(&beds, "code");
+
+    let mut tracks: HashMap<String, RentRollTrack> = HashMap::new();
+    for lease in leases {
+        let lease_id = value_str(&lease, "id");
+        if lease_id.is_empty() {
+            continue;
+        }
+        let property_id = value_opt_str(&lease, "property_id");
+        let unit_id = value_opt_str(&lease, "unit_id");
+        let space_id = value_opt_str(&lease, "space_id");
+        let bed_id = value_opt_str(&lease, "bed_id");
+
+        let (track_id, target_type) = if let Some(bed_id) = &bed_id {
+            (format!("bed:{bed_id}"), "bed".to_string())
+        } else if let Some(space_id) = &space_id {
+            (format!("space:{space_id}"), "space".to_string())
+        } else if let Some(unit_id) = &unit_id {
+            (format!("unit:{unit_id}"), "unit".to_string())
+        } else {
+            continue;
+        };
+
+        let track = tracks
+            .entry(track_id.clone())
+            .or_insert_with(|| RentRollTrack {
+                track_id: track_id.clone(),
+                target_type: target_type.clone(),
+                property_id: property_id.clone(),
+                unit_id: unit_id.clone(),
+                space_id: space_id.clone(),
+                bed_id: bed_id.clone(),
+                property_name: property_id
+                    .as_ref()
+                    .and_then(|id| property_names.get(id))
+                    .cloned(),
+                unit_name: unit_id.as_ref().and_then(|id| unit_names.get(id)).cloned(),
+                space_name: space_id
+                    .as_ref()
+                    .and_then(|id| space_names.get(id))
+                    .cloned(),
+                bed_code: bed_id.as_ref().and_then(|id| bed_codes.get(id)).cloned(),
+                leases: Vec::new(),
+                buffers: Vec::new(),
+            });
+
+        let starts_on = value_str(&lease, "starts_on");
+        if starts_on.is_empty() {
+            continue;
+        }
+        let ends_on = value_opt_str(&lease, "ends_on");
+        let turnover_buffer_hours = clamp_turnover_buffer_hours(
+            value_i64(
+                lease
+                    .as_object()
+                    .and_then(|obj| obj.get("turnover_buffer_hours")),
+            )
+            .unwrap_or(24),
+        );
+
+        track.leases.push(RentRollLeaseBlock {
+            lease_id: lease_id.clone(),
+            lease_status: value_str(&lease, "lease_status"),
+            starts_on: starts_on.clone(),
+            ends_on: ends_on.clone(),
+            tenant_full_name: value_str(&lease, "tenant_full_name"),
+            tenant_phone_e164: value_opt_str(&lease, "tenant_phone_e164"),
+            monthly_rent: value_number(lease.as_object().and_then(|obj| obj.get("monthly_rent"))),
+            monthly_recurring_total: value_number(
+                lease
+                    .as_object()
+                    .and_then(|obj| obj.get("monthly_recurring_total")),
+            ),
+            currency: value_str(&lease, "currency"),
+            turnover_buffer_hours,
+        });
+
+        if let (Some(start_date), Some(end_date)) = (
+            parse_date_opt(Some(&starts_on)),
+            ends_on
+                .as_deref()
+                .and_then(|value| parse_date_opt(Some(value))),
+        ) {
+            let buffer_days = turnover_hours_to_days(i64::from(turnover_buffer_hours));
+            if buffer_days > 0 {
+                let before_start = start_date - Duration::days(buffer_days);
+                let before_end = start_date - Duration::days(1);
+                if before_end >= from_date && before_start <= to_date {
+                    track.buffers.push(RentRollBufferBlock {
+                        lease_id: lease_id.clone(),
+                        kind: "turnover_before".to_string(),
+                        starts_on: before_start.format("%Y-%m-%d").to_string(),
+                        ends_on: before_end.format("%Y-%m-%d").to_string(),
+                        turnover_buffer_hours,
+                    });
+                }
+
+                let after_start = end_date + Duration::days(1);
+                let after_end = end_date + Duration::days(buffer_days);
+                if after_end >= from_date && after_start <= to_date {
+                    track.buffers.push(RentRollBufferBlock {
+                        lease_id,
+                        kind: "turnover_after".to_string(),
+                        starts_on: after_start.format("%Y-%m-%d").to_string(),
+                        ends_on: after_end.format("%Y-%m-%d").to_string(),
+                        turnover_buffer_hours,
+                    });
+                }
+            }
+        }
+    }
+
+    let mut track_values = tracks.into_values().collect::<Vec<_>>();
+    for track in &mut track_values {
+        track
+            .leases
+            .sort_by(|left, right| left.starts_on.cmp(&right.starts_on));
+        track
+            .buffers
+            .sort_by(|left, right| left.starts_on.cmp(&right.starts_on));
+    }
+    track_values.sort_by(|left, right| {
+        rent_roll_track_sort_key(left).cmp(&rent_roll_track_sort_key(right))
+    });
+
+    let lease_block_count = track_values
+        .iter()
+        .map(|track| track.leases.len())
+        .sum::<usize>();
+    let buffer_block_count = track_values
+        .iter()
+        .map(|track| track.buffers.len())
+        .sum::<usize>();
+
+    Ok(Json(json!({
+        "from": from_date.format("%Y-%m-%d").to_string(),
+        "to": to_date.format("%Y-%m-%d").to_string(),
+        "track_count": track_values.len(),
+        "lease_block_count": lease_block_count,
+        "buffer_block_count": buffer_block_count,
+        "data": track_values,
+    })))
 }
 
 async fn create_lease(
@@ -102,10 +455,14 @@ async fn create_lease(
     lease_payload.remove("generate_first_collection");
     lease_payload.remove("first_collection_due_date");
     lease_payload.remove("collection_schedule_months");
+    normalize_lease_payload_for_write(&mut lease_payload);
     lease_payload.insert(
         "created_by_user_id".to_string(),
         Value::String(user_id.clone()),
     );
+
+    resolve_lease_target_fields(pool, &mut lease_payload).await?;
+    validate_lease_payload_for_write(pool, &lease_payload, None).await?;
 
     let totals = compute_totals(&lease_payload);
     lease_payload.insert("total_move_in".to_string(), json!(totals.total_move_in));
@@ -214,7 +571,14 @@ async fn create_lease(
             "starts_on".to_string(),
             Value::String(value_str(&lease, "starts_on")),
         );
-        fire_trigger(pool, &payload.organization_id, "lease_created", &ctx).await;
+        fire_trigger(
+            pool,
+            &payload.organization_id,
+            "lease_created",
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
 
         // Enroll in communication sequences for lease_created
         let tenant_phone = value_str(&lease, "tenant_phone_e164");
@@ -313,11 +677,27 @@ async fn update_lease(
     assert_org_role(&state, &user_id, &org_id, LEASE_EDIT_ROLES).await?;
 
     let mut patch = remove_nulls(serialize_to_map(&payload));
+    normalize_lease_payload_for_write(&mut patch);
 
     if !patch.is_empty() {
         let mut merged = record.as_object().cloned().unwrap_or_default();
         for (key, value) in &patch {
             merged.insert(key.clone(), value.clone());
+        }
+
+        resolve_lease_target_fields(pool, &mut merged).await?;
+        validate_lease_payload_for_write(pool, &merged, Some(&path.lease_id)).await?;
+
+        if let Some(record_obj) = record.as_object() {
+            for key in ["property_id", "unit_id", "space_id", "bed_id"] {
+                let merged_value = merged.get(key).cloned();
+                let existing_value = record_obj.get(key).cloned();
+                if merged_value != existing_value {
+                    if let Some(value) = merged_value {
+                        patch.insert(key.to_string(), value);
+                    }
+                }
+            }
         }
 
         if patch.contains_key("monthly_rent")
@@ -412,7 +792,14 @@ async fn update_lease(
             "tenant_phone_e164".to_string(),
             Value::String(value_str(&updated, "tenant_phone_e164")),
         );
-        fire_trigger(pool, &org_id, "lease_activated", &ctx).await;
+        fire_trigger(
+            pool,
+            &org_id,
+            "lease_activated",
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
 
         // Enroll in communication sequences for lease_activated
         let tenant_phone = value_str(&updated, "tenant_phone_e164");
@@ -440,6 +827,415 @@ async fn update_lease(
 struct LeaseTotals {
     total_move_in: f64,
     monthly_recurring_total: f64,
+}
+
+fn normalize_lease_payload_for_write(payload: &mut Map<String, Value>) {
+    normalize_lowercase_string(payload, "lease_status");
+    normalize_uppercase_string(payload, "currency");
+}
+
+fn normalize_lowercase_string(payload: &mut Map<String, Value>, key: &str) {
+    let value = payload
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(str::to_ascii_lowercase);
+    if let Some(value) = value {
+        payload.insert(key.to_string(), Value::String(value));
+    }
+}
+
+fn normalize_uppercase_string(payload: &mut Map<String, Value>, key: &str) {
+    let value = payload
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(str::to_ascii_uppercase);
+    if let Some(value) = value {
+        payload.insert(key.to_string(), Value::String(value));
+    }
+}
+
+async fn resolve_lease_target_fields(
+    pool: &sqlx::PgPool,
+    payload: &mut Map<String, Value>,
+) -> AppResult<()> {
+    let org_id = map_string(payload, "organization_id")
+        .ok_or_else(|| AppError::BadRequest("organization_id is required.".to_string()))?;
+
+    let mut property_id = map_string(payload, "property_id");
+    let mut unit_id = map_string(payload, "unit_id");
+    let mut space_id = map_string(payload, "space_id");
+    let mut bed_id = map_string(payload, "bed_id");
+
+    if let Some(ref selected_bed_id) = bed_id {
+        let bed = get_row(pool, "unit_beds", selected_bed_id, "id")
+            .await
+            .map_err(|_| AppError::BadRequest("Invalid bed_id.".to_string()))?;
+        validate_target_org(&bed, &org_id, "bed_id")?;
+        let bed_unit_id = value_str(&bed, "unit_id");
+        let bed_property_id = value_str(&bed, "property_id");
+        let bed_space_id = value_str(&bed, "space_id");
+
+        if bed_unit_id.is_empty() {
+            return Err(AppError::BadRequest(
+                "bed_id does not have a linked unit.".to_string(),
+            ));
+        }
+
+        if let Some(current_unit_id) = unit_id.as_deref() {
+            if current_unit_id != bed_unit_id {
+                return Err(AppError::BadRequest(
+                    "bed_id does not belong to the provided unit_id.".to_string(),
+                ));
+            }
+        }
+        if let Some(current_property_id) = property_id.as_deref() {
+            if current_property_id != bed_property_id {
+                return Err(AppError::BadRequest(
+                    "bed_id does not belong to the provided property_id.".to_string(),
+                ));
+            }
+        }
+        unit_id = Some(bed_unit_id);
+        if !bed_property_id.is_empty() {
+            property_id = Some(bed_property_id);
+        }
+        if !bed_space_id.is_empty() {
+            if let Some(current_space_id) = space_id.as_deref() {
+                if current_space_id != bed_space_id {
+                    return Err(AppError::BadRequest(
+                        "bed_id does not belong to the provided space_id.".to_string(),
+                    ));
+                }
+            }
+            space_id = Some(bed_space_id);
+        }
+    }
+
+    if let Some(ref selected_space_id) = space_id {
+        let space = get_row(pool, "unit_spaces", selected_space_id, "id")
+            .await
+            .map_err(|_| AppError::BadRequest("Invalid space_id.".to_string()))?;
+        validate_target_org(&space, &org_id, "space_id")?;
+        let space_unit_id = value_str(&space, "unit_id");
+        let space_property_id = value_str(&space, "property_id");
+
+        if space_unit_id.is_empty() {
+            return Err(AppError::BadRequest(
+                "space_id does not have a linked unit.".to_string(),
+            ));
+        }
+
+        if let Some(current_unit_id) = unit_id.as_deref() {
+            if current_unit_id != space_unit_id {
+                return Err(AppError::BadRequest(
+                    "space_id does not belong to the provided unit_id.".to_string(),
+                ));
+            }
+        }
+        if let Some(current_property_id) = property_id.as_deref() {
+            if current_property_id != space_property_id {
+                return Err(AppError::BadRequest(
+                    "space_id does not belong to the provided property_id.".to_string(),
+                ));
+            }
+        }
+        unit_id = Some(space_unit_id);
+        if !space_property_id.is_empty() {
+            property_id = Some(space_property_id);
+        }
+    }
+
+    if let Some(ref selected_unit_id) = unit_id {
+        let unit = get_row(pool, "units", selected_unit_id, "id")
+            .await
+            .map_err(|_| AppError::BadRequest("Invalid unit_id.".to_string()))?;
+        validate_target_org(&unit, &org_id, "unit_id")?;
+        let unit_property_id = value_str(&unit, "property_id");
+        if let Some(current_property_id) = property_id.as_deref() {
+            if current_property_id != unit_property_id {
+                return Err(AppError::BadRequest(
+                    "unit_id does not belong to the provided property_id.".to_string(),
+                ));
+            }
+        }
+        if !unit_property_id.is_empty() {
+            property_id = Some(unit_property_id);
+        }
+    } else {
+        return Err(AppError::BadRequest(
+            "unit_id is required (or derivable from space_id/bed_id).".to_string(),
+        ));
+    }
+
+    if let Some(value) = property_id {
+        payload.insert("property_id".to_string(), Value::String(value));
+    }
+    if let Some(value) = unit_id {
+        payload.insert("unit_id".to_string(), Value::String(value));
+    }
+    if let Some(value) = space_id {
+        payload.insert("space_id".to_string(), Value::String(value));
+    }
+    if let Some(value) = bed_id.take() {
+        payload.insert("bed_id".to_string(), Value::String(value));
+    }
+
+    Ok(())
+}
+
+fn validate_target_org(record: &Value, org_id: &str, field_name: &str) -> AppResult<()> {
+    let target_org_id = value_str(record, "organization_id");
+    if target_org_id.is_empty() || target_org_id != org_id {
+        return Err(AppError::BadRequest(format!(
+            "{field_name} does not belong to this organization."
+        )));
+    }
+    Ok(())
+}
+
+async fn validate_lease_payload_for_write(
+    pool: &sqlx::PgPool,
+    payload: &Map<String, Value>,
+    current_lease_id: Option<&str>,
+) -> AppResult<()> {
+    let org_id = map_string(payload, "organization_id")
+        .ok_or_else(|| AppError::BadRequest("organization_id is required.".to_string()))?;
+    let unit_id = map_string(payload, "unit_id")
+        .ok_or_else(|| AppError::BadRequest("unit_id is required.".to_string()))?;
+    let starts_on = map_string(payload, "starts_on")
+        .ok_or_else(|| AppError::BadRequest("starts_on is required.".to_string()))?;
+    let starts_on_date = parse_date_opt(Some(&starts_on))
+        .ok_or_else(|| AppError::BadRequest("starts_on must be YYYY-MM-DD.".to_string()))?;
+    let ends_on_date =
+        map_string(payload, "ends_on").and_then(|value| parse_date_opt(Some(&value)));
+
+    if let Some(end_date) = ends_on_date {
+        if end_date < starts_on_date {
+            return Err(AppError::BadRequest(
+                "ends_on must be on or after starts_on.".to_string(),
+            ));
+        }
+    }
+
+    let lease_status = map_string(payload, "lease_status").unwrap_or_else(|| "draft".to_string());
+    let turnover_buffer_hours =
+        clamp_turnover_buffer_hours(value_i64(payload.get("turnover_buffer_hours")).unwrap_or(24));
+
+    if !is_occupancy_status(&lease_status) {
+        return Ok(());
+    }
+
+    let candidate_space_id = map_string(payload, "space_id");
+    let candidate_bed_id = map_string(payload, "bed_id");
+    let candidate_buffer_days = turnover_hours_to_days(i64::from(turnover_buffer_hours));
+
+    let existing_rows = list_rows(
+        pool,
+        "leases",
+        Some(&json_map(&[
+            ("organization_id", Value::String(org_id.clone())),
+            ("unit_id", Value::String(unit_id)),
+            (
+                "lease_status",
+                Value::Array(
+                    ["draft", "active", "delinquent"]
+                        .iter()
+                        .map(|value| Value::String((*value).to_string()))
+                        .collect(),
+                ),
+            ),
+        ])),
+        5000,
+        0,
+        "starts_on",
+        true,
+    )
+    .await?;
+
+    for existing in existing_rows {
+        let existing_id = value_str(&existing, "id");
+        if let Some(current_id) = current_lease_id {
+            if current_id == existing_id {
+                continue;
+            }
+        }
+
+        let existing_status = value_str(&existing, "lease_status");
+        if !is_occupancy_status(&existing_status) {
+            continue;
+        }
+
+        let existing_starts_on = value_str(&existing, "starts_on");
+        let Some(existing_start_date) = parse_date_opt(Some(&existing_starts_on)) else {
+            continue;
+        };
+        let existing_end_date =
+            value_opt_str(&existing, "ends_on").and_then(|value| parse_date_opt(Some(&value)));
+
+        let existing_space_id = value_opt_str(&existing, "space_id");
+        let existing_bed_id = value_opt_str(&existing, "bed_id");
+        if !lease_targets_conflict(
+            candidate_space_id.as_deref(),
+            candidate_bed_id.as_deref(),
+            existing_space_id.as_deref(),
+            existing_bed_id.as_deref(),
+        ) {
+            continue;
+        }
+
+        let existing_buffer_days = turnover_hours_to_days(i64::from(clamp_turnover_buffer_hours(
+            value_i64(
+                existing
+                    .as_object()
+                    .and_then(|obj| obj.get("turnover_buffer_hours")),
+            )
+            .unwrap_or(24),
+        )));
+        let required_days = std::cmp::max(candidate_buffer_days, existing_buffer_days);
+        if intervals_conflict_with_buffer(
+            starts_on_date,
+            ends_on_date,
+            existing_start_date,
+            existing_end_date,
+            required_days,
+        ) {
+            return Err(AppError::Conflict(format!(
+                "Lease overlaps an existing lease ({existing_id}) for the same occupancy target. Enforce at least {required_days} day(s) turnover gap.",
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn is_occupancy_status(status: &str) -> bool {
+    matches!(status, "draft" | "active" | "delinquent")
+}
+
+fn lease_targets_conflict(
+    candidate_space_id: Option<&str>,
+    candidate_bed_id: Option<&str>,
+    existing_space_id: Option<&str>,
+    existing_bed_id: Option<&str>,
+) -> bool {
+    let candidate_is_unit_level = candidate_space_id.is_none() && candidate_bed_id.is_none();
+    let existing_is_unit_level = existing_space_id.is_none() && existing_bed_id.is_none();
+
+    if candidate_is_unit_level || existing_is_unit_level {
+        return true;
+    }
+
+    let candidate_is_bed_level = candidate_bed_id.is_some();
+    let existing_is_bed_level = existing_bed_id.is_some();
+
+    match (candidate_is_bed_level, existing_is_bed_level) {
+        // Bed-level leases should only conflict on the exact same bed.
+        (true, true) => match (candidate_bed_id, existing_bed_id) {
+            (Some(candidate_bed_id), Some(existing_bed_id)) => candidate_bed_id == existing_bed_id,
+            _ => true,
+        },
+        // Space-level leases conflict on the same space.
+        (false, false) => match (candidate_space_id, existing_space_id) {
+            (Some(candidate_space_id), Some(existing_space_id)) => {
+                candidate_space_id == existing_space_id
+            }
+            _ => true,
+        },
+        // Bed-level vs space-level conflicts if they refer to the same space.
+        (true, false) | (false, true) => match (candidate_space_id, existing_space_id) {
+            (Some(candidate_space_id), Some(existing_space_id)) => {
+                candidate_space_id == existing_space_id
+            }
+            _ => true,
+        },
+    }
+}
+
+fn intervals_conflict_with_buffer(
+    start_a: NaiveDate,
+    end_a: Option<NaiveDate>,
+    start_b: NaiveDate,
+    end_b: Option<NaiveDate>,
+    buffer_days: i64,
+) -> bool {
+    let max_day = i64::MAX / 4;
+    let start_a_num = i64::from(start_a.num_days_from_ce());
+    let end_a_num = end_a
+        .map(|value| i64::from(value.num_days_from_ce()))
+        .unwrap_or(max_day);
+    let start_b_num = i64::from(start_b.num_days_from_ce());
+    let end_b_num = end_b
+        .map(|value| i64::from(value.num_days_from_ce()))
+        .unwrap_or(max_day);
+
+    start_a_num <= end_b_num.saturating_add(buffer_days)
+        && start_b_num <= end_a_num.saturating_add(buffer_days)
+}
+
+fn clamp_turnover_buffer_hours(value: i64) -> i16 {
+    value.clamp(0, 240) as i16
+}
+
+fn turnover_hours_to_days(hours: i64) -> i64 {
+    if hours <= 0 {
+        return 0;
+    }
+    (hours + 23) / 24
+}
+
+fn parse_date_opt(value: Option<&str>) -> Option<NaiveDate> {
+    value.and_then(|text| NaiveDate::parse_from_str(text.trim(), "%Y-%m-%d").ok())
+}
+
+fn lease_overlaps_window(lease: &Value, from_date: NaiveDate, to_date: NaiveDate) -> bool {
+    let starts_on = value_str(lease, "starts_on");
+    let Some(start_date) = parse_date_opt(Some(&starts_on)) else {
+        return false;
+    };
+    let end_date = value_opt_str(lease, "ends_on")
+        .as_deref()
+        .and_then(|value| parse_date_opt(Some(value)))
+        .unwrap_or(to_date);
+    start_date <= to_date && end_date >= from_date
+}
+
+fn rent_roll_track_sort_key(track: &RentRollTrack) -> (String, String, String, String, String) {
+    (
+        track
+            .property_name
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase(),
+        track
+            .unit_name
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase(),
+        track
+            .space_name
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase(),
+        track
+            .bed_code
+            .as_deref()
+            .unwrap_or_default()
+            .to_ascii_lowercase(),
+        track.track_id.to_ascii_lowercase(),
+    )
+}
+
+fn map_string(payload: &Map<String, Value>, key: &str) -> Option<String> {
+    payload
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 fn compute_totals(record: &Map<String, Value>) -> LeaseTotals {
@@ -552,8 +1348,7 @@ async fn enrich_leases(pool: &sqlx::PgPool, rows: Vec<Value>) -> AppResult<Vec<V
     let property_name = map_by_id_field(&properties, "name");
     let unit_name = map_by_id_field(&units, "name");
 
-    let mut collection_stats: std::collections::HashMap<String, LeaseCollectionStats> =
-        std::collections::HashMap::new();
+    let mut collection_stats: HashMap<String, LeaseCollectionStats> = HashMap::new();
     for collection in collections {
         let Some(collection_obj) = collection.as_object() else {
             continue;
@@ -622,7 +1417,7 @@ struct LeaseCollectionStats {
     paid_amount: f64,
 }
 
-fn extract_ids(rows: &[Value], key: &str) -> std::collections::HashSet<String> {
+fn extract_ids(rows: &[Value], key: &str) -> HashSet<String> {
     rows.iter()
         .filter_map(Value::as_object)
         .filter_map(|obj| obj.get(key))
@@ -630,8 +1425,8 @@ fn extract_ids(rows: &[Value], key: &str) -> std::collections::HashSet<String> {
         .collect()
 }
 
-fn map_by_id_field(rows: &[Value], field: &str) -> std::collections::HashMap<String, String> {
-    let mut values = std::collections::HashMap::new();
+fn map_by_id_field(rows: &[Value], field: &str) -> HashMap<String, String> {
+    let mut values = HashMap::new();
     for row in rows {
         let Some(obj) = row.as_object() else {
             continue;
@@ -668,6 +1463,16 @@ fn value_number(value: Option<&Value>) -> f64 {
     }
 }
 
+fn value_i64(value: Option<&Value>) -> Option<i64> {
+    match value {
+        Some(Value::Number(number)) => number
+            .as_i64()
+            .or_else(|| number.as_f64().map(|parsed| parsed as i64)),
+        Some(Value::String(text)) => text.trim().parse::<i64>().ok(),
+        _ => None,
+    }
+}
+
 fn string_value(value: Option<&Value>) -> Option<String> {
     value
         .and_then(Value::as_str)
@@ -684,6 +1489,15 @@ fn value_str(row: &Value, key: &str) -> String {
         .filter(|item| !item.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_default()
+}
+
+fn value_opt_str(row: &Value, key: &str) -> Option<String> {
+    row.as_object()
+        .and_then(|obj| obj.get(key))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
@@ -886,6 +1700,10 @@ async fn accept_renewal(
         new_lease.insert("renewal_notes".to_string(), Value::String(notes.clone()));
     }
 
+    normalize_lease_payload_for_write(&mut new_lease);
+    resolve_lease_target_fields(pool, &mut new_lease).await?;
+    validate_lease_payload_for_write(pool, &new_lease, None).await?;
+
     // Compute totals
     let totals = compute_totals(&new_lease);
     new_lease.insert("total_move_in".to_string(), json!(totals.total_move_in));
@@ -955,4 +1773,97 @@ async fn accept_renewal(
             "new_lease": created,
         })),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        clamp_turnover_buffer_hours, intervals_conflict_with_buffer, lease_targets_conflict,
+        parse_date_opt, turnover_hours_to_days,
+    };
+
+    #[test]
+    fn converts_turnover_hours_to_days() {
+        assert_eq!(turnover_hours_to_days(0), 0);
+        assert_eq!(turnover_hours_to_days(1), 1);
+        assert_eq!(turnover_hours_to_days(24), 1);
+        assert_eq!(turnover_hours_to_days(25), 2);
+        assert_eq!(turnover_hours_to_days(48), 2);
+    }
+
+    #[test]
+    fn clamps_turnover_hours() {
+        assert_eq!(clamp_turnover_buffer_hours(-20), 0);
+        assert_eq!(clamp_turnover_buffer_hours(12), 12);
+        assert_eq!(clamp_turnover_buffer_hours(999), 240);
+    }
+
+    #[test]
+    fn detects_interval_conflicts_with_buffer() {
+        let a_start = parse_date_opt(Some("2026-01-01")).expect("valid date");
+        let a_end = parse_date_opt(Some("2026-01-31"));
+        let b_start = parse_date_opt(Some("2026-02-01")).expect("valid date");
+        let b_end = parse_date_opt(Some("2026-02-28"));
+
+        assert!(intervals_conflict_with_buffer(
+            a_start, a_end, b_start, b_end, 1
+        ));
+        assert!(!intervals_conflict_with_buffer(
+            a_start, a_end, b_start, b_end, 0
+        ));
+    }
+
+    #[test]
+    fn checks_target_conflict_matrix() {
+        assert!(lease_targets_conflict(None, None, None, None));
+        assert!(lease_targets_conflict(None, None, Some("space-a"), None));
+        assert!(lease_targets_conflict(
+            Some("space-a"),
+            None,
+            Some("space-a"),
+            None
+        ));
+        assert!(!lease_targets_conflict(
+            Some("space-a"),
+            None,
+            Some("space-b"),
+            None
+        ));
+        assert!(!lease_targets_conflict(
+            Some("space-a"),
+            Some("bed-a"),
+            Some("space-a"),
+            Some("bed-b")
+        ));
+        assert!(lease_targets_conflict(
+            Some("space-a"),
+            Some("bed-a"),
+            Some("space-a"),
+            Some("bed-a")
+        ));
+        assert!(lease_targets_conflict(
+            Some("space-a"),
+            Some("bed-a"),
+            Some("space-a"),
+            None
+        ));
+        assert!(lease_targets_conflict(
+            Some("space-a"),
+            None,
+            Some("space-a"),
+            Some("bed-b")
+        ));
+        assert!(!lease_targets_conflict(
+            Some("space-a"),
+            Some("bed-a"),
+            Some("space-b"),
+            Some("bed-b")
+        ));
+        assert!(!lease_targets_conflict(
+            Some("space-a"),
+            Some("bed-a"),
+            Some("space-b"),
+            None
+        ));
+    }
 }

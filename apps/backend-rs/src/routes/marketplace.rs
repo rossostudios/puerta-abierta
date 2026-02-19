@@ -31,6 +31,7 @@ use crate::{
 
 const MARKETPLACE_EDIT_ROLES: &[&str] = &["owner_admin", "operator"];
 const MAX_GALLERY_IMAGES: usize = 8;
+const MAX_SPATIAL_ASSETS: usize = 16;
 const MAX_AMENITIES: usize = 24;
 
 pub fn router() -> axum::Router<AppState> {
@@ -1769,6 +1770,8 @@ fn public_shape(state: &AppState, row: &Value) -> Value {
         "application_url": row.get("application_url").cloned().unwrap_or(Value::Null),
         "cover_image_url": row.get("cover_image_url").cloned().unwrap_or(Value::Null),
         "gallery_image_urls": normalize_gallery_urls(row.get("gallery_image_urls"), false).unwrap_or_default(),
+        "floor_plans": normalize_spatial_assets(row.get("floor_plans"), "floor_plans", false).unwrap_or_default(),
+        "virtual_tours": normalize_spatial_assets(row.get("virtual_tours"), "virtual_tours", false).unwrap_or_default(),
         "bedrooms": row.get("bedrooms").cloned().unwrap_or(Value::Null),
         "bathrooms": row.get("bathrooms").cloned().unwrap_or(Value::Null),
         "square_meters": row.get("square_meters").cloned().unwrap_or(Value::Null),
@@ -1779,6 +1782,11 @@ fn public_shape(state: &AppState, row: &Value) -> Value {
         "minimum_lease_months": row.get("minimum_lease_months").cloned().unwrap_or(Value::Null),
         "available_from": row.get("available_from").cloned().unwrap_or(Value::Null),
         "amenities": normalize_amenities(row.get("amenities"), false).unwrap_or_default(),
+        "poi_context": normalize_poi_context(row.get("poi_context"), false).unwrap_or_else(|_| json!({})),
+        "walkability_score": row.get("walkability_score").cloned().unwrap_or(Value::Null),
+        "transit_score": row.get("transit_score").cloned().unwrap_or(Value::Null),
+        "private_space_summary": row.get("private_space_summary").cloned().unwrap_or(Value::Null),
+        "shared_space_summary": row.get("shared_space_summary").cloned().unwrap_or(Value::Null),
         "maintenance_fee": row.get("maintenance_fee").cloned().unwrap_or(Value::Null),
         "whatsapp_contact_url": whatsapp_contact_url(state),
         "published_at": row.get("published_at").cloned().unwrap_or(Value::Null),
@@ -1812,16 +1820,51 @@ fn sanitize_listing_payload(
             Value::Array(amenities.into_iter().map(Value::String).collect()),
         );
     }
+    if patch.contains_key("floor_plans") {
+        let floor_plans = normalize_spatial_assets(patch.get("floor_plans"), "floor_plans", true)?;
+        patch.insert(
+            "floor_plans".to_string(),
+            Value::Array(floor_plans.into_iter().map(Value::String).collect()),
+        );
+    }
+    if patch.contains_key("virtual_tours") {
+        let virtual_tours =
+            normalize_spatial_assets(patch.get("virtual_tours"), "virtual_tours", true)?;
+        patch.insert(
+            "virtual_tours".to_string(),
+            Value::Array(virtual_tours.into_iter().map(Value::String).collect()),
+        );
+    }
+    if patch.contains_key("poi_context") {
+        let context = normalize_poi_context(patch.get("poi_context"), true)?;
+        patch.insert("poi_context".to_string(), context);
+    }
 
     trim_to_optional_string(&mut patch, "cover_image_url");
     trim_to_optional_string(&mut patch, "property_type");
     trim_to_optional_string(&mut patch, "pet_policy");
+    trim_to_optional_string(&mut patch, "private_space_summary");
+    trim_to_optional_string(&mut patch, "shared_space_summary");
 
     if patch.contains_key("available_from") {
         let normalized = normalize_iso_date(patch.get("available_from"), "available_from")?;
         patch.insert(
             "available_from".to_string(),
             normalized.map(Value::String).unwrap_or(Value::Null),
+        );
+    }
+    if patch.contains_key("walkability_score") {
+        let normalized = normalize_score(patch.get("walkability_score"), "walkability_score")?;
+        patch.insert(
+            "walkability_score".to_string(),
+            normalized.map(|value| json!(value)).unwrap_or(Value::Null),
+        );
+    }
+    if patch.contains_key("transit_score") {
+        let normalized = normalize_score(patch.get("transit_score"), "transit_score")?;
+        patch.insert(
+            "transit_score".to_string(),
+            normalized.map(|value| json!(value)).unwrap_or(Value::Null),
         );
     }
     if patch.contains_key("maintenance_fee")
@@ -1843,6 +1886,84 @@ fn sanitize_listing_payload(
         }
     }
     Ok(patch)
+}
+
+fn normalize_spatial_assets(
+    value: Option<&Value>,
+    field_name: &str,
+    strict: bool,
+) -> AppResult<Vec<String>> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    let Some(items) = value.as_array() else {
+        if strict {
+            return Err(AppError::BadRequest(format!(
+                "{field_name} must be an array."
+            )));
+        }
+        return Ok(Vec::new());
+    };
+
+    let mut cleaned = items
+        .iter()
+        .filter_map(Value::as_str)
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if cleaned.len() > MAX_SPATIAL_ASSETS {
+        if strict {
+            return Err(AppError::BadRequest(format!(
+                "{field_name} supports up to {MAX_SPATIAL_ASSETS} items."
+            )));
+        }
+        cleaned.truncate(MAX_SPATIAL_ASSETS);
+    }
+    Ok(cleaned)
+}
+
+fn normalize_poi_context(value: Option<&Value>, strict: bool) -> AppResult<Value> {
+    let Some(value) = value else {
+        return Ok(json!({}));
+    };
+    if value.is_null() {
+        return Ok(json!({}));
+    }
+    if !value.is_object() {
+        if strict {
+            return Err(AppError::BadRequest(
+                "poi_context must be an object.".to_string(),
+            ));
+        }
+        return Ok(json!({}));
+    }
+    Ok(value.clone())
+}
+
+fn normalize_score(value: Option<&Value>, field_name: &str) -> AppResult<Option<i64>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let parsed = match value {
+        Value::Number(number) => number.as_i64(),
+        Value::String(text) => text.trim().parse::<i64>().ok(),
+        _ => None,
+    };
+    let Some(parsed) = parsed else {
+        return Err(AppError::BadRequest(format!(
+            "{field_name} must be a number between 0 and 100."
+        )));
+    };
+    if !(0..=100).contains(&parsed) {
+        return Err(AppError::BadRequest(format!(
+            "{field_name} must be between 0 and 100."
+        )));
+    }
+    Ok(Some(parsed))
 }
 
 fn normalize_gallery_urls(value: Option<&Value>, strict: bool) -> AppResult<Vec<String>> {
@@ -2066,4 +2187,38 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
         map.insert((*key).to_string(), value.clone());
     }
     map
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{normalize_poi_context, normalize_score, normalize_spatial_assets};
+    use serde_json::json;
+
+    #[test]
+    fn normalizes_spatial_assets() {
+        let value = json!([
+            " https://example.com/floor.png ",
+            "",
+            "https://example.com/tour"
+        ]);
+        let cleaned = normalize_spatial_assets(Some(&value), "floor_plans", true)
+            .expect("expected valid assets");
+        assert_eq!(cleaned.len(), 2);
+        assert_eq!(cleaned[0], "https://example.com/floor.png");
+    }
+
+    #[test]
+    fn validates_scores() {
+        let ok = normalize_score(Some(&json!(87)), "walkability_score").expect("valid score");
+        assert_eq!(ok, Some(87));
+        assert!(normalize_score(Some(&json!(120)), "walkability_score").is_err());
+    }
+
+    #[test]
+    fn validates_poi_context_shape() {
+        let ok = normalize_poi_context(Some(&json!({"transit": []})), true)
+            .expect("poi context object is valid");
+        assert!(ok.is_object());
+        assert!(normalize_poi_context(Some(&json!(["bad"])), true).is_err());
+    }
 }

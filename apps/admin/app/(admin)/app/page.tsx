@@ -24,6 +24,7 @@ import {
   type NeedsAttentionItem,
 } from "@/components/dashboard/dashboard-utils";
 import { GettingStartedChecklist } from "@/components/dashboard/getting-started-checklist";
+import { DashboardTabs } from "@/components/dashboard/dashboard-tabs";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -247,12 +248,12 @@ export default async function DashboardPage({
 
   const revenueSnapshot = apiAvailable
     ? {
-        periodLabel: isEn ? "This month" : "Este mes",
-        currency: "PYG",
-        gross: numberOrZero(summary.gross_revenue),
-        expenses: numberOrZero(summary.expenses),
-        net: numberOrZero(summary.net_payout),
-      }
+      periodLabel: isEn ? "This month" : "Este mes",
+      currency: "PYG",
+      gross: numberOrZero(summary.gross_revenue),
+      expenses: numberOrZero(summary.expenses),
+      net: numberOrZero(summary.net_payout),
+    }
     : null;
 
   const taskStatuses = countByStatus(tasks as unknown[], [
@@ -355,70 +356,83 @@ export default async function DashboardPage({
         <GettingStartedChecklist items={checklistItems} locale={locale} />
       ) : null}
 
-      <DashboardHeroMetrics
+      <DashboardTabs
         isEn={isEn}
-        occupancyRate={occupancyRate}
-        occupancyHelper={
-          kpiDashboard.active_leases != null
-            ? `${numberOrZero(kpiDashboard.active_leases)}/${numberOrZero(kpiDashboard.total_units)} ${isEn ? "units" : "unidades"}`
-            : isEn
-              ? "Current period"
-              : "Periodo actual"
+        overviewContent={
+          <>
+            <DashboardHeroMetrics
+              isEn={isEn}
+              occupancyRate={occupancyRate}
+              occupancyHelper={
+                kpiDashboard.active_leases != null
+                  ? `${numberOrZero(kpiDashboard.active_leases)}/${numberOrZero(kpiDashboard.total_units)} ${isEn ? "units" : "unidades"}`
+                  : isEn
+                    ? "Current period"
+                    : "Periodo actual"
+              }
+              reportGross={reportGross}
+              revenueHelper={
+                revenueSnapshot
+                  ? `${isEn ? "Net" : "Neto"}: ${reportNet}`
+                  : isEn
+                    ? "Current month"
+                    : "Este mes"
+              }
+              collectionRate={collectionRate}
+              collectionHelper={`${paidCollections}/${collections.length} ${isEn ? "paid" : "pagados"}`}
+              pipelineValue={String(qualifiedApplications + pendingApplications)}
+              pipelineHelper={`${qualifiedApplications} ${isEn ? "qualified" : "calificados"} · ${pendingApplications} ${isEn ? "pending" : "pendientes"}`}
+            />
+
+            {apiAvailable ? (
+              <AnomalyAlerts orgId={orgId} locale={locale} />
+            ) : null}
+
+            <DashboardNeedsAttention items={needsAttention} isEn={isEn} />
+
+            <DashboardModuleCards locale={locale} isEn={isEn} />
+          </>
         }
-        reportGross={reportGross}
-        revenueHelper={
-          revenueSnapshot
-            ? `${isEn ? "Net" : "Neto"}: ${reportNet}`
-            : isEn
-              ? "Current month"
-              : "Este mes"
+        financialsContent={
+          <>
+            {(orgRentalMode === "ltr" || orgRentalMode === "both") &&
+              apiAvailable ? (
+              <DashboardRentalKpis
+                isEn={isEn}
+                locale={locale}
+                kpiDashboard={kpiDashboard}
+              />
+            ) : null}
+
+            <DashboardCharts
+              locale={locale}
+              operationsKpis={operationsKpis}
+              revenueSnapshot={revenueSnapshot}
+              taskStatuses={taskStatuses}
+              apiAvailable={apiAvailable}
+              forecastData={forecastData}
+              revenueTrendData={revenueTrendData}
+              agentPerfData={agentPerfData}
+            />
+          </>
         }
-        collectionRate={collectionRate}
-        collectionHelper={`${paidCollections}/${collections.length} ${isEn ? "paid" : "pagados"}`}
-        pipelineValue={String(qualifiedApplications + pendingApplications)}
-        pipelineHelper={`${qualifiedApplications} ${isEn ? "qualified" : "calificados"} · ${pendingApplications} ${isEn ? "pending" : "pendientes"}`}
+        operationsContent={
+          <>
+            <DashboardOperations
+              isEn={isEn}
+              propertiesCount={properties.length}
+              operationsKpis={operationsKpis}
+            />
+
+            <TableCard
+              rowHrefBase="/module/reservations"
+              rows={(reservations as Record<string, unknown>[]).slice(0, 20)}
+              subtitle={isEn ? "Operations feed" : "Feed operativo"}
+              title={isEn ? "Reservations summary" : "Resumen de reservas"}
+            />
+          </>
+        }
       />
-
-      {apiAvailable ? (
-        <AnomalyAlerts orgId={orgId} locale={locale} />
-      ) : null}
-
-      <DashboardNeedsAttention items={needsAttention} isEn={isEn} />
-
-      <DashboardOperations
-        isEn={isEn}
-        propertiesCount={properties.length}
-        operationsKpis={operationsKpis}
-      />
-
-      {(orgRentalMode === "ltr" || orgRentalMode === "both") &&
-      apiAvailable ? (
-        <DashboardRentalKpis
-          isEn={isEn}
-          locale={locale}
-          kpiDashboard={kpiDashboard}
-        />
-      ) : null}
-
-      <DashboardCharts
-        locale={locale}
-        operationsKpis={operationsKpis}
-        revenueSnapshot={revenueSnapshot}
-        taskStatuses={taskStatuses}
-        apiAvailable={apiAvailable}
-        forecastData={forecastData}
-        revenueTrendData={revenueTrendData}
-        agentPerfData={agentPerfData}
-      />
-
-      <TableCard
-        rowHrefBase="/module/reservations"
-        rows={(reservations as Record<string, unknown>[]).slice(0, 20)}
-        subtitle={isEn ? "Operations feed" : "Feed operativo"}
-        title={isEn ? "Reservations summary" : "Resumen de reservas"}
-      />
-
-      <DashboardModuleCards locale={locale} isEn={isEn} />
     </div>
   );
 }

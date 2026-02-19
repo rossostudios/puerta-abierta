@@ -15,16 +15,24 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
   type ColumnDef,
+  type ColumnFiltersState,
+  type SortingState,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useOptimistic, useTransition } from "react";
+import { useCallback, useMemo, useState, useOptimistic, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updateUnitInlineAction } from "@/app/(admin)/module/units/actions";
 import { EditableCell } from "@/components/properties/editable-cell";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
+import { Select } from "@/components/ui/select";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -103,6 +111,20 @@ export function UnitNotionTable({
   "use no memo";
   const router = useRouter();
   const [, startTransition] = useTransition();
+
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+
+  const uniqueProperties = useMemo(() => {
+    return Array.from(new Set(rows.map((r) => r.property_name).filter(Boolean))) as string[];
+  }, [rows]);
+
+  const uniqueBedrooms = useMemo(() => {
+    return Array.from(new Set(rows.map((r) => r.bedrooms).filter((r) => r !== null && r !== undefined))).sort(
+      (a, b) => Number(a) - Number(b)
+    ) as number[];
+  }, [rows]);
 
   const [optimisticRows, addOptimistic] = useOptimistic(
     rows,
@@ -409,90 +431,157 @@ export function UnitNotionTable({
     data: optimisticRows,
     columns,
     columnResizeMode: "onChange",
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+    },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
-    <div className="overflow-x-auto rounded-md border">
-      <Table className="table-fixed w-full" style={{ minWidth: table.getTotalSize() }}>
-        <TableHeader>
-          {table.getHeaderGroups().map((hg) => (
-            <TableRow key={hg.id}>
-              {hg.headers.map((header) => (
-                <TableHead
-                  className="relative whitespace-nowrap select-none text-[11px] uppercase tracking-wider"
-                  grid
-                  key={header.id}
-                  style={{ width: header.getSize() }}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )}
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <DataTableToolbar
+          active={globalFilter.length > 0 || columnFilters.length > 0}
+          globalFilter={globalFilter}
+          hideSearch={false}
+          isEn={isEn}
+          reset={() => {
+            setGlobalFilter("");
+            setColumnFilters([]);
+          }}
+          searchPlaceholder={isEn ? "Search units..." : "Buscar unidades..."}
+          setGlobalFilter={setGlobalFilter}
+          table={table}
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            onChange={(e) => {
+              const val = e.target.value;
+              table.getColumn("property_name")?.setFilterValue(val === "all" ? undefined : val);
+            }}
+            value={(table.getColumn("property_name")?.getFilterValue() as string) ?? "all"}
+            className="w-[180px]"
+          >
+            <option value="all">{isEn ? "All properties" : "Todas las propiedades"}</option>
+            {uniqueProperties.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </Select>
+          <Select
+            onChange={(e) => {
+              const val = e.target.value;
+              table.getColumn("bedrooms")?.setFilterValue(val === "all" ? undefined : Number(val));
+            }}
+            value={(table.getColumn("bedrooms")?.getFilterValue() as string) ?? "all"}
+            className="w-[140px]"
+          >
+            <option value="all">{isEn ? "All beds" : "Todas las camas"}</option>
+            {uniqueBedrooms.map((b) => (
+              <option key={String(b)} value={String(b)}>
+                {b} {isEn ? (b === 1 ? "bed" : "beds") : (b === 1 ? "hab." : "habs.")}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-xl border bg-background shadow-[var(--shadow-floating)]">
+        <Table className="table-fixed w-full" style={{ minWidth: table.getTotalSize() }}>
+          <TableHeader>
+            {table.getHeaderGroups().map((hg) => (
+              <TableRow key={hg.id}>
+                {hg.headers.map((header) => (
+                  <TableHead
+                    className="relative whitespace-nowrap select-none text-[11px] uppercase tracking-wider"
+                    grid
+                    key={header.id}
+                    style={{ width: header.getSize() }}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : <div
+                        className={cn(
+                          "flex items-center gap-1",
+                          header.column.getCanSort() &&
+                          "cursor-pointer select-none hover:text-foreground"
+                        )}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                        {{
+                          asc: <span className="text-[10px] ml-1">↑</span>,
+                          desc: <span className="text-[10px] ml-1">↓</span>,
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </div>}
 
-                  {header.column.getCanResize() && (
-                    <div
-                      aria-label="Resize column"
-                      className={cn(
-                        "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
-                        "hover:bg-primary/30",
-                        header.column.getIsResizing() && "bg-primary/50"
-                      )}
-                      onDoubleClick={() => header.column.resetSize()}
-                      onMouseDown={header.getResizeHandler()}
-                      onTouchStart={header.getResizeHandler()}
-                      role="separator"
-                    />
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
+                    {header.column.getCanResize() && (
+                      <div
+                        aria-label="Resize column"
+                        className={cn(
+                          "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                          "hover:bg-primary/30",
+                          header.column.getIsResizing() && "bg-primary/50"
+                        )}
+                        onDoubleClick={() => header.column.resetSize()}
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        role="separator"
+                      />
+                    )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
 
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow
-              className="hover:bg-muted/20"
-              data-state={row.getIsSelected() && "selected"}
-              key={row.id}
-            >
-              {row.getVisibleCells().map((cell) => (
-                <TableCell
-                  className="py-1.5"
-                  grid
-                  key={cell.id}
-                  style={{ width: cell.column.getSize() }}
+          <TableBody>
+            {table.getRowModel().rows.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  className="hover:bg-muted/20"
+                  data-state={row.getIsSelected() && "selected"}
+                  key={row.id}
                 >
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      className="py-1.5"
+                      grid
+                      key={cell.id}
+                      style={{ width: cell.column.getSize() }}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell className="h-24 text-center" colSpan={columns.length}>
+                  {isEn ? "No results." : "Sin resultados."}
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-
-        <TableFooter>
-          <TableRow className="hover:bg-transparent">
-            <TableCell grid style={{ width: 40 }} />
-            <TableCell
-              className="font-medium uppercase tracking-wider text-xs"
-              grid
-            >
-              {optimisticRows.length} {isEn ? (optimisticRows.length === 1 ? "Unit" : "Units") : (optimisticRows.length === 1 ? "Unidad" : "Unidades")}
-            </TableCell>
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell grid />
-          </TableRow>
-        </TableFooter>
-      </Table>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <DataTablePagination
+        filteredRows={table.getFilteredRowModel().rows.length}
+        isEn={isEn}
+        table={table}
+        totalRows={table.getCoreRowModel().rows.length}
+      />
     </div>
   );
 }

@@ -24,10 +24,10 @@ function occupancyColor(rate: number | null) {
 }
 
 function occupancyBorderColor(rate: number | null) {
-  if (rate === null) return "border-t-transparent";
-  if (rate >= 80) return "border-t-[var(--status-success-fg)]";
-  if (rate >= 50) return "border-t-[var(--status-warning-fg)]";
-  return "border-t-[var(--status-danger-fg)]";
+  if (rate === null) return "border-border/60";
+  if (rate >= 80) return "border-[var(--status-success-fg)]/30 ring-1 ring-[var(--status-success-fg)]/20";
+  if (rate >= 50) return "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20";
+  return "border-[var(--status-danger-fg)]/30 ring-1 ring-[var(--status-danger-fg)]/20";
 }
 
 function collectionRateColor(rate: number | null) {
@@ -57,9 +57,9 @@ function MiniBar({ a, b, colorA, colorB }: MiniBarProps) {
   const config: ChartConfig = isEmpty
     ? EMPTY_CONFIG
     : {
-        a: { label: "A", color: colorA },
-        b: { label: "B", color: colorB },
-      };
+      a: { label: "A", color: colorA },
+      b: { label: "B", color: colorB },
+    };
 
   const data = isEmpty ? [{ a: 1, b: 0 }] : [{ a, b }];
 
@@ -122,8 +122,8 @@ export function PropertyOverviewKpiCards({
     overview.openTaskCount > 0 ? "text-[var(--status-warning-fg)]" : "";
   const taskBorder =
     overview.openTaskCount > 0
-      ? "border-t-[var(--status-warning-fg)]"
-      : "border-t-transparent";
+      ? "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20"
+      : "border-border/60";
 
   const collectionColor =
     overview.overdueCollectionCount > 0
@@ -133,17 +133,17 @@ export function PropertyOverviewKpiCards({
         : "";
   const collectionBorder =
     overview.overdueCollectionCount > 0
-      ? "border-t-[var(--status-danger-fg)]"
+      ? "border-[var(--status-danger-fg)]/30 ring-1 ring-[var(--status-danger-fg)]/20"
       : overview.openCollectionCount > 0
-        ? "border-t-[var(--status-warning-fg)]"
-        : "border-t-transparent";
+        ? "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20"
+        : "border-border/60";
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       {/* Occupancy */}
       <Card
         className={cn(
-          "border-border/60 bg-card/95 backdrop-blur-sm border-t-2",
+          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:shadow-[var(--shadow-floating)] hover:-translate-y-[2px]",
           occupancyBorderColor(oRate)
         )}
       >
@@ -178,7 +178,7 @@ export function PropertyOverviewKpiCards({
       </Card>
 
       {/* Projected Rent */}
-      <Card className="border-border/60 bg-card/95 backdrop-blur-sm border-t-2 border-t-transparent">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:shadow-[var(--shadow-floating)] hover:-translate-y-[2px] hover:border-border/80">
         <CardContent className="p-5">
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {isEn ? "PROJECTED RENT" : "RENTA PROYECTADA"}
@@ -208,7 +208,7 @@ export function PropertyOverviewKpiCards({
       </Card>
 
       {/* Active Leases */}
-      <Card className="border-border/60 bg-card/95 backdrop-blur-sm border-t-2 border-t-transparent">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:shadow-[var(--shadow-floating)] hover:-translate-y-[2px] hover:border-border/80">
         <CardContent className="p-5">
           <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {isEn ? "ACTIVE LEASES" : "CONTRATOS ACTIVOS"}
@@ -236,7 +236,7 @@ export function PropertyOverviewKpiCards({
       {/* Open Tasks */}
       <Card
         className={cn(
-          "border-border/60 bg-card/95 backdrop-blur-sm border-t-2",
+          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:shadow-[var(--shadow-floating)] hover:-translate-y-[2px]",
           taskBorder
         )}
       >
@@ -266,7 +266,7 @@ export function PropertyOverviewKpiCards({
       {/* Open Collections */}
       <Card
         className={cn(
-          "border-border/60 bg-card/95 backdrop-blur-sm border-t-2",
+          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:shadow-[var(--shadow-floating)] hover:-translate-y-[2px]",
           collectionBorder
         )}
       >

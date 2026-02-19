@@ -15,7 +15,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { authedFetch } from "@/lib/api-client";
 import { useActiveLocale } from "@/lib/i18n/client";
 
-import { TRIGGER_EVENTS } from "../workflow-rules/workflow-rules-manager";
+const SEQUENCE_TRIGGER_EVENTS = [
+  {
+    value: "reservation_confirmed",
+    en: "Reservation confirmed",
+    es: "Reserva confirmada",
+  },
+  { value: "checked_in", en: "Checked in", es: "Check-in" },
+  { value: "checked_out", en: "Checked out", es: "Check-out" },
+  { value: "lease_created", en: "Lease created", es: "Contrato creado" },
+  {
+    value: "lease_activated",
+    en: "Lease activated",
+    es: "Contrato activado",
+  },
+  { value: "lease_expiring", en: "Lease expiring", es: "Contrato por vencer" },
+  { value: "manual", en: "Manual", es: "Manual" },
+];
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : v ? String(v) : "";
@@ -55,6 +71,7 @@ async function saveSequenceAndSteps(opts: {
   formTrigger: string;
   formActive: boolean;
   steps: Step[];
+  originalStepIds: string[];
   isEn: boolean;
 }): Promise<string> {
   let sequenceId = opts.editingId;
@@ -90,6 +107,21 @@ async function saveSequenceAndSteps(opts: {
   }
 
   if (opts.editingId) {
+    const currentStepIds = new Set(
+      opts.steps
+        .map((step) => (step.id ? step.id.trim() : ""))
+        .filter((id) => id.length > 0)
+    );
+    const removedStepIds = opts.originalStepIds.filter(
+      (id) => !currentStepIds.has(id)
+    );
+
+    for (let i = 0; i < removedStepIds.length; i++) {
+      await authedFetch("/sequence-steps/" + removedStepIds[i], {
+        method: "DELETE",
+      });
+    }
+
     for (let i = 0; i < opts.steps.length; i++) {
       const step = opts.steps[i];
       let templateIdVal: string | undefined;
@@ -200,6 +232,7 @@ export function SequencesManager({
   const [formTrigger, setFormTrigger] = useState("reservation_confirmed");
   const [formActive, setFormActive] = useState(true);
   const [steps, setSteps] = useState<Step[]>([emptyStep(1)]);
+  const [originalStepIds, setOriginalStepIds] = useState<string[]>([]);
 
   const templateOptions = useMemo(
     () =>
@@ -212,7 +245,7 @@ export function SequencesManager({
 
   const triggerLabel = useCallback(
     (value: string) => {
-      const found = TRIGGER_EVENTS.find((t) => t.value === value);
+      const found = SEQUENCE_TRIGGER_EVENTS.find((t) => t.value === value);
       return found ? (isEn ? found.en : found.es) : value;
     },
     [isEn]
@@ -223,6 +256,7 @@ export function SequencesManager({
     setFormTrigger("reservation_confirmed");
     setFormActive(true);
     setSteps([emptyStep(1)]);
+    setOriginalStepIds([]);
     setEditingId(null);
   }
 
@@ -294,9 +328,15 @@ export function SequencesManager({
         stepsToSet = [emptyStep(1)];
       }
       setSteps(stepsToSet);
+      setOriginalStepIds(
+        loaded
+          .map((step) => (step.id ? step.id.trim() : ""))
+          .filter((id) => id.length > 0)
+      );
       setLoadingSteps(false);
     } catch {
       setSteps([emptyStep(1)]);
+      setOriginalStepIds([]);
       setLoadingSteps(false);
     }
   }
@@ -331,6 +371,7 @@ export function SequencesManager({
         formTrigger,
         formActive,
         steps,
+        originalStepIds,
         isEn,
       });
       toast.success(successMsg);
@@ -490,7 +531,7 @@ export function SequencesManager({
                 onChange={(e) => setFormTrigger(e.target.value)}
                 value={formTrigger}
               >
-                {TRIGGER_EVENTS.map((t) => (
+                {SEQUENCE_TRIGGER_EVENTS.map((t) => (
                   <option key={t.value} value={t.value}>
                     {isEn ? t.en : t.es}
                   </option>

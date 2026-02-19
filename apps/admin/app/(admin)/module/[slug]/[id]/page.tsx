@@ -21,8 +21,8 @@ import {
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Icon } from "@/components/ui/icon";
-import { getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
+import { loadRecordDetailData } from "@/lib/features/module-record/fetch-detail";
 import {
   loadPropertyRelationSnapshot,
   toStatementLineItems,
@@ -67,59 +67,20 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
   if (moduleDef.slug === "properties") {
     redirect(`/module/properties/${encodeURIComponent(id)}`);
   }
+  if (moduleDef.slug === "units") {
+    redirect(`/module/units/${encodeURIComponent(id)}`);
+  }
   const moduleLabel = getModuleLabel(moduleDef, activeLocale);
   const moduleDescription = getModuleDescription(moduleDef, activeLocale);
 
-  const baseUrl = getApiBaseUrl();
-  const url = `${baseUrl}${moduleDef.endpoint}/${encodeURIComponent(id)}`;
+  const result = await loadRecordDetailData({ slug, id, locale: activeLocale });
 
-  let record: Record<string, unknown> | null = null;
-  let apiError: { kind: "connection" | "request"; message: string } | null =
-    null;
-  let requestStatus: number | null = null;
-  let accessToken: string | null = null;
-  let sessionUserId: string | null = null;
-
-  let is404 = false;
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getSession();
-    accessToken = data.session?.access_token ?? null;
-    sessionUserId = data.session?.user?.id ?? null;
-    const token = accessToken;
-
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-    is404 = response.status === 404;
-
-    if (!is404 && response.ok) {
-      record = (await response.json()) as Record<string, unknown>;
-    } else if (!is404) {
-      const details = await response.text().catch(() => "");
-      const suffix = details ? `: ${details.slice(0, 240)}` : "";
-      requestStatus = response.status;
-      apiError = {
-        kind: "request",
-        message: `HTTP ${response.status} for ${moduleDef.endpoint}${suffix}`,
-      };
-    }
-  } catch (err) {
-    unstable_rethrow(err);
-    apiError = { kind: "connection", message: errorMessage(err) };
+  if (result.kind === "not_found") {
+    notFound();
   }
-  if (is404) notFound();
 
-  if (apiError || !record) {
-    if (
-      requestStatus === 403 &&
-      apiError?.kind === "request" &&
-      isOrgMembershipError(apiError.message)
-    ) {
+  if (result.kind === "error") {
+    if (result.membershipError) {
       const activeOrgId = await getActiveOrgId();
       return (
         <OrgAccessChanged
@@ -136,22 +97,20 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
       );
     }
 
-    const title =
-      apiError?.kind === "request"
-        ? isEn
-          ? "API request failed"
-          : "Falló la solicitud a la API"
-        : isEn
-          ? "API connection failed"
-          : "Fallo de conexión a la API";
-    const detail =
-      apiError?.kind === "request"
-        ? isEn
-          ? "Could not load record details from the backend."
-          : "No se pudieron cargar los detalles del registro desde el backend."
-        : isEn
-          ? "Could not connect to the backend to load record details."
-          : "No se pudo conectar al backend para cargar los detalles del registro.";
+    const title = result.requestStatus
+      ? isEn
+        ? "API request failed"
+        : "Falló la solicitud a la API"
+      : isEn
+        ? "API connection failed"
+        : "Fallo de conexión a la API";
+    const detail = result.requestStatus
+      ? isEn
+        ? "Could not load record details from the backend."
+        : "No se pudieron cargar los detalles del registro desde el backend."
+      : isEn
+        ? "Could not connect to the backend to load record details."
+        : "No se pudo conectar al backend para cargar los detalles del registro.";
 
     return (
       <Card>
@@ -162,19 +121,18 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
         <CardContent className="space-y-2 text-muted-foreground text-sm">
           <p>
             {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">{baseUrl}</code>
+            <code className="rounded bg-muted px-1 py-0.5">{result.baseUrl}</code>
           </p>
-          {requestStatus ? (
+          {result.requestStatus ? (
             <p className="break-words">
-              HTTP {requestStatus} for{" "}
+              HTTP {result.requestStatus} for{" "}
               <code className="rounded bg-muted px-1 py-0.5">
                 {moduleDef.endpoint}
               </code>
             </p>
           ) : null}
           <p className="break-words">
-            {apiError?.message ??
-              (isEn ? "Unknown error" : "Error desconocido")}
+            {result.message}
           </p>
           <p>
             {isEn
@@ -186,15 +144,25 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
     );
   }
 
-  const title = recordTitle(
-    record,
-    isEn ? "Record details" : "Detalles del registro"
-  );
-  const recordId = typeof record.id === "string" ? record.id : id;
+  const { record, title, recordId } = result.data;
+  const baseUrl = result.baseUrl;
+
+  let accessToken: string | null = null;
+  let sessionUserId: string | null = null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getSession();
+    accessToken = data.session?.access_token ?? null;
+    sessionUserId = data.session?.user?.id ?? null;
+  } catch (err) {
+    // Session is optional
+  }
+
   const href = `/module/${moduleDef.slug}/${recordId}`;
   const ownerUserId =
     moduleDef.slug === "organizations" &&
-    typeof record.owner_user_id === "string"
+      typeof record.owner_user_id === "string"
       ? record.owner_user_id
       : null;
 
@@ -304,11 +272,11 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
   const propertyLocationLabel =
     moduleDef.slug === "properties"
       ? [
-          getFirstValue(record, ["district", "neighborhood", "city"]),
-          getFirstValue(record, ["address", "street_address", "location"]),
-        ]
-          .filter((value): value is string => Boolean(value))
-          .join(" · ")
+        getFirstValue(record, ["district", "neighborhood", "city"]),
+        getFirstValue(record, ["address", "street_address", "location"]),
+      ]
+        .filter((value): value is string => Boolean(value))
+        .join(" · ")
       : "";
   const propertyCodeLabel =
     moduleDef.slug === "properties"

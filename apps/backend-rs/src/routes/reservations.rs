@@ -393,7 +393,14 @@ async fn transition_status(
             }
         }
 
-        fire_trigger(pool, &org_id, trigger, &ctx).await;
+        fire_trigger(
+            pool,
+            &org_id,
+            trigger,
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
 
         // Enroll in communication sequences matching this trigger
         let guest_phone = ctx
@@ -1061,8 +1068,16 @@ async fn list_reservation_guests(
         "reservation_id".to_string(),
         Value::String(path.reservation_id.clone()),
     );
-    let rows = list_rows(pool, "reservation_guests", Some(&filters), 100, 0, "created_at", true)
-        .await?;
+    let rows = list_rows(
+        pool,
+        "reservation_guests",
+        Some(&filters),
+        100,
+        0,
+        "created_at",
+        true,
+    )
+    .await?;
 
     // Enrich with guest name/contact
     let mut enriched = Vec::with_capacity(rows.len());
@@ -1172,15 +1187,9 @@ async fn remove_reservation_guest(
     let user_id = require_user_id(&state, &headers).await?;
     let pool = db_pool(&state)?;
 
-    let rg = get_row(
-        pool,
-        "reservation_guests",
-        &path.reservation_guest_id,
-        "id",
-    )
-    .await?;
-    let rg_reservation_id = value_string(rg.as_object().and_then(|o| o.get("reservation_id")))
-        .unwrap_or_default();
+    let rg = get_row(pool, "reservation_guests", &path.reservation_guest_id, "id").await?;
+    let rg_reservation_id =
+        value_string(rg.as_object().and_then(|o| o.get("reservation_id"))).unwrap_or_default();
     if rg_reservation_id != path.reservation_id {
         return Err(AppError::BadRequest(
             "Reservation guest does not belong to this reservation.".to_string(),

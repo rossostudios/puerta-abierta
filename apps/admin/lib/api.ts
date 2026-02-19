@@ -94,6 +94,25 @@ export type NotificationRuleMetadataResponse = {
   triggers: NotificationRuleMetadataTrigger[];
 };
 
+export type WorkflowRuleMetadataTrigger = {
+  value: string;
+  label_en: string;
+  label_es: string;
+};
+
+export type WorkflowRuleMetadataAction = {
+  value: string;
+  label_en: string;
+  label_es: string;
+};
+
+export type WorkflowRuleMetadataResponse = {
+  engine_mode?: string;
+  triggers: WorkflowRuleMetadataTrigger[];
+  actions: WorkflowRuleMetadataAction[];
+  config_schema_hints?: Record<string, unknown>;
+};
+
 const LIST_LIMIT_CAPS: Record<string, number> = {
   "/applications": 250,
   "/integration-events": 200,
@@ -340,6 +359,14 @@ export function fetchNotificationRulesMetadata(
       org_id: orgId,
     }
   );
+}
+
+export function fetchWorkflowRulesMetadata(
+  orgId: string
+): Promise<WorkflowRuleMetadataResponse> {
+  return fetchJson<WorkflowRuleMetadataResponse>("/workflow-rules/metadata", {
+    org_id: orgId,
+  });
 }
 
 export async function fetchOrganizations(limit = 50): Promise<unknown[]> {

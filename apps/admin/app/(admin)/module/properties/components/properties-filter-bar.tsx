@@ -53,7 +53,7 @@ export function PropertiesFilterBar({
   onToggleSidebar,
 }: PropertiesFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border/40 bg-card/30 p-2 shadow-sm backdrop-blur-sm">
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-full border border-border/40 bg-card/40 p-1.5 pl-4 shadow-sm backdrop-blur-md">
       <div className="relative min-w-[20rem] flex-1">
         <Icon
           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -61,7 +61,7 @@ export function PropertiesFilterBar({
           size={15}
         />
         <Input
-          className="h-10 rounded-xl border-border/50 bg-background/80 pl-10 focus-visible:ring-primary/20"
+          className="h-10 border-0 bg-transparent pl-10 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder={
             isEn
@@ -76,7 +76,7 @@ export function PropertiesFilterBar({
         <DropdownMenu>
           <DropdownMenuTrigger>
             <Button
-              className="h-10 gap-2 rounded-xl border-border/60 font-semibold text-muted-foreground hover:bg-muted"
+              className="h-10 rounded-full border border-border/40 bg-background/50 text-muted-foreground shadow-sm transition-all hover:bg-background/80"
               size="sm"
               variant="outline"
             >
@@ -168,9 +168,9 @@ export function PropertiesFilterBar({
 
         <div className="mx-1 hidden h-6 w-px bg-border/40 sm:block" />
 
-        <div className="inline-flex items-center gap-1 rounded-xl border border-border/40 bg-background/40 p-1">
+        <div className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-background/50 p-1 shadow-sm">
           <Button
-            className="h-8 w-8 rounded-lg p-0 transition-all"
+            className="h-8 w-8 rounded-full p-0 transition-all"
             onClick={() => onViewModeChange("grid")}
             size="sm"
             variant={viewMode === "grid" ? "secondary" : "ghost"}
@@ -178,7 +178,7 @@ export function PropertiesFilterBar({
             <Icon icon={GridViewIcon} size={14} />
           </Button>
           <Button
-            className="h-8 w-8 rounded-lg p-0 transition-all"
+            className="h-8 w-8 rounded-full p-0 transition-all"
             onClick={() => onViewModeChange("table")}
             size="sm"
             variant={viewMode === "table" ? "secondary" : "ghost"}
@@ -186,7 +186,7 @@ export function PropertiesFilterBar({
             <Icon icon={ChartIcon} size={14} />
           </Button>
           <Button
-            className="h-8 w-8 rounded-lg p-0 transition-all"
+            className="h-8 w-8 rounded-full p-0 transition-all"
             onClick={() => onViewModeChange("map")}
             size="sm"
             variant={viewMode === "map" ? "secondary" : "ghost"}
@@ -197,7 +197,7 @@ export function PropertiesFilterBar({
 
         <Button
           className={cn(
-            "h-8 w-8 rounded-lg p-0 transition-all",
+            "h-10 w-10 rounded-full p-0 transition-all",
             isSidebarOpen
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:bg-muted"

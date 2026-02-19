@@ -78,9 +78,9 @@ export function SendNotificationConfig({ value, onChange, isEn }: ConfigProps) {
             onChange={(e) => onChange({ ...value, channel: e.target.value })}
             value={asStr(value.channel) || "email"}
           >
+            <option value="whatsapp">WhatsApp</option>
             <option value="email">Email</option>
-            <option value="push">Push</option>
-            <option value="in-app">In-app</option>
+            <option value="sms">SMS</option>
           </Select>
         </Field>
         <Field label={isEn ? "Subject" : "Asunto"}>

@@ -16,7 +16,7 @@ use crate::{
         CreateTaskItemInput, TaskItemPath, TaskItemsQuery, TaskPath, TasksQuery, UpdateTaskInput,
         UpdateTaskItemInput,
     },
-    services::{audit::write_audit_log, enrichment::enrich_tasks},
+    services::{audit::write_audit_log, enrichment::enrich_tasks, workflows::fire_trigger},
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -165,7 +165,21 @@ async fn update_task(
     assert_org_role(&state, &user_id, &org_id, &["owner_admin", "operator"]).await?;
 
     let patch = remove_nulls(serialize_to_map(&payload));
+    let previous_status = value_str(&record, "status");
     let updated = update_row(pool, "tasks", &path.task_id, &patch, "id").await?;
+    let next_status = value_str(&updated, "status");
+
+    if should_emit_task_completed(&previous_status, &next_status) {
+        let ctx = build_task_workflow_context(&path.task_id, &updated);
+        fire_trigger(
+            pool,
+            &org_id,
+            "task_completed",
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
+    }
 
     write_audit_log(
         state.db_pool.as_ref(),
@@ -200,6 +214,8 @@ async fn complete_task(
         &["owner_admin", "operator", "cleaner"],
     )
     .await?;
+
+    let previous_status = value_str(&record, "status");
 
     let missing_required = list_rows(
         pool,
@@ -265,6 +281,19 @@ async fn complete_task(
     );
 
     let updated = update_row(pool, "tasks", &path.task_id, &patch, "id").await?;
+    let next_status = value_str(&updated, "status");
+
+    if should_emit_task_completed(&previous_status, &next_status) {
+        let ctx = build_task_workflow_context(&path.task_id, &updated);
+        fire_trigger(
+            pool,
+            &org_id,
+            "task_completed",
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
+    }
 
     write_audit_log(
         state.db_pool.as_ref(),
@@ -573,6 +602,38 @@ fn has_truthy_value(value: Option<&Value>) -> bool {
     }
 }
 
+fn should_emit_task_completed(previous_status: &str, next_status: &str) -> bool {
+    let previous = previous_status.trim().to_ascii_lowercase();
+    let next = next_status.trim().to_ascii_lowercase();
+    matches!(previous.as_str(), "todo" | "in_progress") && next == "done"
+}
+
+fn build_task_workflow_context(task_id: &str, task: &Value) -> Map<String, Value> {
+    let mut context = Map::new();
+    context.insert("task_id".to_string(), Value::String(task_id.to_string()));
+
+    if let Some(obj) = task.as_object() {
+        for key in [
+            "property_id",
+            "unit_id",
+            "reservation_id",
+            "assigned_user_id",
+            "priority",
+            "title",
+            "type",
+            "status",
+        ] {
+            if let Some(value) = obj.get(key) {
+                if !value.is_null() {
+                    context.insert(key.to_string(), value.clone());
+                }
+            }
+        }
+    }
+
+    context
+}
+
 fn value_as_i64(value: &Value) -> Option<i64> {
     match value {
         Value::Number(number) => number.as_i64(),
@@ -620,4 +681,46 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
         map.insert((*key).to_string(), value.clone());
     }
     map
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_task_workflow_context, should_emit_task_completed};
+    use serde_json::json;
+
+    #[test]
+    fn task_completed_emits_only_on_transition_to_done() {
+        assert!(should_emit_task_completed("todo", "done"));
+        assert!(should_emit_task_completed("in_progress", "done"));
+        assert!(!should_emit_task_completed("done", "done"));
+        assert!(!should_emit_task_completed("cancelled", "done "));
+        assert!(!should_emit_task_completed("todo", "in_progress"));
+    }
+
+    #[test]
+    fn build_task_workflow_context_includes_non_null_fields() {
+        let task = json!({
+            "title": "Fix sink",
+            "type": "maintenance",
+            "priority": "high",
+            "status": "done",
+            "property_id": "p1",
+            "unit_id": null
+        });
+
+        let context = build_task_workflow_context("t1", &task);
+        assert_eq!(
+            context.get("task_id").and_then(|value| value.as_str()),
+            Some("t1")
+        );
+        assert_eq!(
+            context.get("title").and_then(|value| value.as_str()),
+            Some("Fix sink")
+        );
+        assert_eq!(
+            context.get("status").and_then(|value| value.as_str()),
+            Some("done")
+        );
+        assert_eq!(context.get("unit_id"), None);
+    }
 }

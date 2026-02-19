@@ -3,7 +3,11 @@ use serde_json::{Map, Value};
 use sqlx::PgPool;
 use tracing::{info, warn};
 
-use crate::repository::table_service::{create_row, list_rows, update_row};
+use crate::{
+    config::WorkflowEngineMode,
+    repository::table_service::{create_row, list_rows, update_row},
+    services::workflows::fire_trigger,
+};
 
 /// Result of the daily lease renewal scan.
 pub struct LeaseRenewalResult {
@@ -20,6 +24,7 @@ pub async fn run_lease_renewal_scan(
     pool: &PgPool,
     org_id: Option<&str>,
     app_public_url: &str,
+    workflow_engine_mode: WorkflowEngineMode,
 ) -> LeaseRenewalResult {
     let mut result = LeaseRenewalResult {
         offers_sent_60d: 0,
@@ -122,6 +127,37 @@ pub async fn run_lease_renewal_scan(
                 "renewal_owner_60d",
             )
             .await;
+
+            // Emit workflow trigger for lease_expiring.
+            if !org_id_str.is_empty() {
+                let mut workflow_context = Map::new();
+                workflow_context.insert("lease_id".to_string(), Value::String(lease_id.clone()));
+                workflow_context.insert(
+                    "tenant_full_name".to_string(),
+                    Value::String(tenant_name.clone()),
+                );
+                workflow_context.insert(
+                    "tenant_phone_e164".to_string(),
+                    Value::String(tenant_phone.clone()),
+                );
+                workflow_context.insert("ends_on".to_string(), Value::String(ends_on_str.clone()));
+                workflow_context.insert(
+                    "monthly_rent".to_string(),
+                    Value::Number(
+                        serde_json::Number::from_f64(monthly_rent)
+                            .unwrap_or_else(|| serde_json::Number::from(0)),
+                    ),
+                );
+                workflow_context.insert("currency".to_string(), Value::String(currency.clone()));
+                fire_trigger(
+                    pool,
+                    &org_id_str,
+                    "lease_expiring",
+                    &workflow_context,
+                    workflow_engine_mode,
+                )
+                .await;
+            }
 
             result.offers_sent_60d += 1;
         }

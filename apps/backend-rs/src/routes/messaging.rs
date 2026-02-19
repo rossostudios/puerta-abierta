@@ -320,8 +320,13 @@ async fn run_collection_cycle(
     let collection_result =
         run_daily_collection_cycle(pool, org_id.as_deref(), &state.config.app_public_url).await;
 
-    let renewal_result =
-        run_lease_renewal_scan(pool, org_id.as_deref(), &state.config.app_public_url).await;
+    let renewal_result = run_lease_renewal_scan(
+        pool,
+        org_id.as_deref(),
+        &state.config.app_public_url,
+        state.config.workflow_engine_mode,
+    )
+    .await;
 
     Ok(Json(json!({
         "collections": serde_json::to_value(&collection_result).unwrap_or_default(),

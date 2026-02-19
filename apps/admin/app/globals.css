@@ -6,60 +6,56 @@
   color-scheme: light;
 
   /* ── Backgrounds ──
-     Shifted from warm (#f9f8f7) to neutral white.
-     Card is now pure white so it lifts off the page background. */
-  --background: #f7f7f8;
-  --foreground: #0f0f10;
+     Refined to a 'Quiet Luxury' soft, warm white.
+     Card remains pure white to lift off the background gracefully. */
+  --background: #fbfbfb;
+  --foreground: #1c1c1e;
 
-  /* Card is WHITE, not gray. This creates the visual lift you're missing. */
+  /* Card is WHITE */
   --card: #ffffff;
-  --card-foreground: #0f0f10;
+  --card-foreground: #1c1c1e;
   --popover: #ffffff;
-  --popover-foreground: #0f0f10;
+  --popover-foreground: #1c1c1e;
 
-  /* ── Primary (unchanged) ── */
-  --primary: #DA1E37;
+  /* ── Primary ── */
+  --primary: #1A6DF0;
   --primary-foreground: #ffffff;
 
   /* ── Secondary / Muted ──
-     Slightly cooler grays, wider spread between levels. */
-  --secondary: #f2f2f3;
-  --secondary-foreground: #1a1a1b;
-  --muted: #f2f2f3;
-  --muted-foreground: #737378;
+     Softer grays for backgrounds and text. */
+  --secondary: #f4f4f5;
+  --secondary-foreground: #27272a;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
 
   /* ── Accent ── */
-  --accent: #eaeaec;
-  --accent-foreground: #1a1a1b;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
 
   /* ── Destructive ── */
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
 
   /* ── Borders ──
-     Darker than before (#ddd → #d5d5d8). Visible but not heavy. */
-  --border: #d5d5d8;
-  --input: #cbcbcf;
-  --ring: #DA1E37;
+     Much softer borders for reduced cognitive load. */
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: color-mix(in srgb, var(--primary) 20%, transparent);
   --focus-ring: color-mix(in srgb, var(--ring) 36%, transparent);
 
-  /* ── Surfaces ──
-     Wider spread: 3 distinct levels your eye can actually read.
-     surface-1 is near-white (subtle cards/panels)
-     surface-2 is the main grouped background
-     surface-3 is for inset/recessed areas like table headers */
-  --surface-1: #fafafa;
-  --surface-2: #f2f2f3;
-  --surface-3: #eaeaec;
+  /* ── Surfaces ── */
+  --surface-1: #fcfcfc;
+  --surface-2: #f4f4f5;
+  --surface-3: #e4e4e7;
 
   /* ── Overlays ── */
-  --overlay-scrim: rgba(10, 14, 22, 0.32);
-  --overlay-scrim-strong: rgba(10, 14, 22, 0.54);
+  --overlay-scrim: rgba(0, 0, 0, 0.15);
+  --overlay-scrim-strong: rgba(0, 0, 0, 0.4);
 
   /* ── Shadows ──
-     Slightly stronger so cards actually float. */
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 32px rgba(0, 0, 0, 0.06);
-  --shadow-floating: 0 4px 12px rgba(0, 0, 0, 0.06), 0 24px 48px rgba(0, 0, 0, 0.1);
+     Cinematic and diffuse shadows. */
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.02), 0 20px 48px rgba(0, 0, 0, 0.04);
+  --shadow-floating: 0 10px 40px rgba(0, 0, 0, 0.06), 0 32px 80px rgba(0, 0, 0, 0.08);
 
   /* ── Charts ── */
   --chart-1: oklch(0.57 0.2 255);
@@ -73,21 +69,21 @@
   --warning: oklch(0.75 0.18 85);
   --warning-foreground: oklch(0.32 0.08 60);
 
-  /* ── Sidebar (Night Bordeaux — unchanged, this is great) ── */
-  --sidebar: #641220;
-  --sidebar-foreground: #fafafa;
-  --sidebar-primary: #DA1E37;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #85182A;
-  --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #6E1423;
-  --sidebar-ring: #DA1E37;
+  /* ── Sidebar (Casaora Blue) ── */
+  --sidebar: #1A6DF0;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #1A6DF0;
+  --sidebar-accent: #2563eb;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1d4ed8;
+  --sidebar-ring: #ffffff;
 
   /* ── Shell ── */
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #fce8ec;
-  --shell-active-border: #f0c0c8;
+  --shell-active: #eff6ff;
+  --shell-active-border: #bfdbfe;
   --shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Marketplace ── */
@@ -98,15 +94,13 @@
   --marketplace-text: #1a1a1a;
   --marketplace-text-muted: #6b6560;
   --marketplace-hero-glow: #f5ede8;
-  --marketplace-hero-gradient: linear-gradient(
-    135deg,
-    #faf8f5 0%,
-    #f5ede8 50%,
-    #faf8f5 100%
-  );
+  --marketplace-hero-gradient: linear-gradient(135deg,
+      #faf8f5 0%,
+      #f5ede8 50%,
+      #faf8f5 100%);
   --marketplace-shell-shadow: var(--shadow-soft);
-  --marketplace-card-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.06);
-  --marketplace-card-hover-shadow: 0 8px 24px rgba(0,0,0,0.08), 0 24px 48px rgba(0,0,0,0.1);
+  --marketplace-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 12px 40px rgba(0, 0, 0, 0.06);
+  --marketplace-card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.1);
   --marketplace-map-road: rgba(146, 162, 188, 0.24);
   --marketplace-map-road-strong: rgba(113, 130, 160, 0.25);
 
@@ -134,7 +128,7 @@
   --card-foreground: #f2f2f2;
   --popover: #131211;
   --popover-foreground: #f2f2f2;
-  --primary: #DA1E37;
+  --primary: #1A6DF0;
   --primary-foreground: #ffffff;
   --secondary: #222222;
   --secondary-foreground: #f2f2f2;
@@ -148,7 +142,7 @@
   --warning: oklch(0.78 0.16 85);
   --warning-foreground: oklch(0.92 0.04 85);
   --input: #2a2a2a;
-  --ring: #DA1E37;
+  --ring: #1A6DF0;
   --focus-ring: color-mix(in srgb, var(--ring) 48%, transparent);
   --surface-1: #1a1a1a;
   --surface-2: #222222;
@@ -164,25 +158,23 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: #0E0E10;
   --sidebar-foreground: #fafafa;
-  --sidebar-primary: #DA1E37;
+  --sidebar-primary: #1A6DF0;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #1D1D1F;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #1c1c1c;
-  --sidebar-ring: #DA1E37;
+  --sidebar-ring: #1A6DF0;
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #2a1a1e;
-  --shell-active-border: #3a2228;
+  --shell-active: #1e3a8a;
+  --shell-active-border: #1d4ed8;
   --marketplace-surface: var(--surface-2);
   --marketplace-surface-muted: var(--surface-1);
   --marketplace-hero-glow: #221a1c;
-  --marketplace-hero-gradient: linear-gradient(
-    135deg,
-    #191817 0%,
-    #1e1a1b 40%,
-    #221a1c 100%
-  );
+  --marketplace-hero-gradient: linear-gradient(135deg,
+      #191817 0%,
+      #1e1a1b 40%,
+      #221a1c 100%);
   --marketplace-shell-shadow: var(--shadow-soft);
   --marketplace-map-road: rgba(180, 180, 180, 0.08);
   --marketplace-map-road-strong: rgba(200, 200, 200, 0.1);
@@ -201,37 +193,29 @@
 }
 
 @theme inline {
-  --font-sans: var(
-    --font-geist-sans,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif
-  );
-  --font-serif: var(
-    --font-playfair,
-    "Playfair Display",
-    Georgia,
-    "Times New Roman",
-    serif
-  );
-  --font-mono: var(
-    --font-geist-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace
-  );
-  --font-pixel: var(
-    --font-geist-pixel-square,
-    "Geist Pixel Square",
-    monospace
-  );
+  --font-sans: var(--font-geist-sans,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif);
+  --font-serif: var(--font-playfair,
+      "Playfair Display",
+      Georgia,
+      "Times New Roman",
+      serif);
+  --font-mono: var(--font-geist-mono,
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      "Liberation Mono",
+      monospace);
+  --font-pixel: var(--font-geist-pixel-square,
+      "Geist Pixel Square",
+      monospace);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -292,14 +276,22 @@
     background: var(--background);
   }
 
-  /* Scope semantic tokens inside the sidebar so child components
-     using text-foreground, bg-muted, etc. resolve to sidebar-safe values. */
+  /* Scope semantic tokens inside the sidebar */
   .bg-sidebar,
   [data-sidebar] {
     --foreground: var(--sidebar-foreground);
-    --muted-foreground: color-mix(in srgb, var(--sidebar-foreground) 50%, transparent);
+    --muted-foreground: color-mix(in srgb, var(--sidebar-foreground) 60%, transparent);
     --border: var(--sidebar-border);
     --input: var(--sidebar-border);
+  }
+
+  /* Add deep gradient over the sidebar base color for rich contrast */
+  .bg-sidebar {
+    background-image: linear-gradient(160deg,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.08) 50%,
+        rgba(0, 0, 0, 0.24) 100%);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   }
 
   .pa-marketplace-root {
@@ -318,40 +310,30 @@
 
   .pa-marketplace-map {
     background:
-      radial-gradient(
-        circle at 16% 24%,
+      radial-gradient(circle at 16% 24%,
         rgba(132, 158, 192, 0.32) 0%,
         rgba(132, 158, 192, 0.1) 34%,
-        transparent 56%
-      ),
-      radial-gradient(
-        circle at 78% 32%,
+        transparent 56%),
+      radial-gradient(circle at 78% 32%,
         rgba(121, 152, 191, 0.3) 0%,
         rgba(121, 152, 191, 0.12) 30%,
-        transparent 52%
-      ),
-      linear-gradient(
-        155deg,
+        transparent 52%),
+      linear-gradient(155deg,
         rgba(255, 255, 255, 0.86),
-        rgba(240, 244, 249, 0.95)
-      );
+        rgba(240, 244, 249, 0.95));
     isolation: isolate;
   }
 
   .dark .pa-marketplace-map {
     background:
-      radial-gradient(
-        circle at 16% 24%,
+      radial-gradient(circle at 16% 24%,
         rgba(30, 30, 30, 0.4) 0%,
         rgba(20, 20, 20, 0.15) 34%,
-        transparent 56%
-      ),
-      radial-gradient(
-        circle at 78% 32%,
+        transparent 56%),
+      radial-gradient(circle at 78% 32%,
         rgba(25, 25, 25, 0.35) 0%,
         rgba(15, 15, 15, 0.12) 30%,
-        transparent 52%
-      ),
+        transparent 52%),
       linear-gradient(155deg, rgba(12, 12, 12, 0.95), rgba(22, 22, 22, 0.98));
   }
 
@@ -365,32 +347,26 @@
 
   .pa-marketplace-map::before {
     background-image:
-      repeating-linear-gradient(
-        34deg,
+      repeating-linear-gradient(34deg,
         transparent 0,
         transparent 58px,
         var(--marketplace-map-road) 58px,
-        var(--marketplace-map-road) 62px
-      ),
-      repeating-linear-gradient(
-        112deg,
+        var(--marketplace-map-road) 62px),
+      repeating-linear-gradient(112deg,
         transparent 0,
         transparent 72px,
         var(--marketplace-map-road) 72px,
-        var(--marketplace-map-road) 76px
-      );
+        var(--marketplace-map-road) 76px);
     opacity: 0.58;
     z-index: -2;
   }
 
   .pa-marketplace-map::after {
-    background-image: repeating-linear-gradient(
-      18deg,
-      transparent 0,
-      transparent 140px,
-      var(--marketplace-map-road-strong) 140px,
-      var(--marketplace-map-road-strong) 148px
-    );
+    background-image: repeating-linear-gradient(18deg,
+        transparent 0,
+        transparent 140px,
+        var(--marketplace-map-road-strong) 140px,
+        var(--marketplace-map-road-strong) 148px);
     opacity: 0.55;
     z-index: -1;
   }
@@ -432,13 +408,11 @@
   }
 
   .sidebar-scroll-mask {
-    mask-image: linear-gradient(
-      to bottom,
-      transparent 0px,
-      black 8px,
-      black calc(100% - 20px),
-      transparent 100%
-    );
+    mask-image: linear-gradient(to bottom,
+        transparent 0px,
+        black 8px,
+        black calc(100% - 20px),
+        transparent 100%);
   }
 }
 
@@ -486,27 +460,27 @@
 
 @layer utilities {
   .bg-casaora-gradient {
-    background: linear-gradient(135deg, #641220 0%, #B21E35 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
   }
 
   .bg-casaora-gradient-warm {
-    background: linear-gradient(135deg, #6E1423 0%, #DA1E37 100%);
+    background: linear-gradient(135deg, #1d4ed8 0%, #1a6df0 100%);
   }
 
   .bg-casaora-gradient-hero {
-    background: linear-gradient(to right, #6E1423, #DA1E37);
+    background: linear-gradient(to right, #1d4ed8, #1a6df0);
   }
 
   .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #fdf2f4 0%, #fce8ec 100%);
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   }
 
   .dark .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #1a1012 0%, #221418 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   }
 
   .text-casaora-gradient {
-    background: linear-gradient(135deg, #B21E35, #DA1E37);
+    background: linear-gradient(135deg, #2563eb, #1a6df0);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -514,18 +488,19 @@
 
   .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(218, 30, 55, 0.08),
-      0 2px 8px rgba(218, 30, 55, 0.1);
+      0 0 0 1px rgba(26, 109, 240, 0.08),
+      0 2px 8px rgba(26, 109, 240, 0.1);
   }
 
   .dark .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(218, 30, 55, 0.12),
-      0 2px 8px rgba(218, 30, 55, 0.08);
+      0 0 0 1px rgba(26, 109, 240, 0.12),
+      0 2px 8px rgba(26, 109, 240, 0.08);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

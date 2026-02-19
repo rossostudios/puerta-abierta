@@ -62,9 +62,9 @@ export function PropertyCard({
                 : "bg-[var(--status-success-fg)]";
 
     return (
-        <Card className="group overflow-hidden rounded-2xl border-border/60 transition-all hover:border-border hover:shadow-md">
+        <Card className="group flex h-full flex-col overflow-hidden border-border/40 bg-card/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-border/60 hover:shadow-[var(--shadow-floating)]">
             {/* Compact cover area */}
-            <div className="relative h-24 w-full overflow-hidden bg-[#fdfcfb] dark:bg-neutral-900/40">
+            <div className="relative h-32 w-full shrink-0 overflow-hidden bg-muted/30">
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] dark:opacity-[0.12]">
                     <Icon icon={Building03Icon} size={72} />
                 </div>
@@ -73,7 +73,7 @@ export function PropertyCard({
                     <Badge
                         variant="secondary"
                         className={cn(
-                            "border-0 px-2 py-0.5 font-bold text-[9px] tracking-wider backdrop-blur-md",
+                            "border-border/30 bg-background/60 px-2 py-0.5 font-semibold text-[10px] tracking-widest uppercase backdrop-blur-md",
                             statusColor
                         )}
                     >
@@ -89,64 +89,64 @@ export function PropertyCard({
                 </div>
 
                 <div className="absolute bottom-3 left-3 z-10">
-                    <div className="rounded-lg border border-border/20 bg-background/40 px-2 py-1 text-[10px] font-bold tracking-tight text-foreground/80 backdrop-blur-xl shadow-sm">
+                    <div className="rounded-lg border border-border/30 bg-background/60 px-2.5 py-1 text-[10px] font-semibold tracking-wide text-foreground backdrop-blur-md shadow-sm">
                         {code}
                     </div>
                 </div>
 
                 {unitCount > 0 ? (
                     <div className="absolute bottom-3 right-3 z-10">
-                        <div className="rounded-md border border-border/20 bg-background/40 px-1.5 py-0.5 text-[9px] font-semibold text-foreground/70 backdrop-blur-xl shadow-sm">
+                        <div className="rounded-lg border border-border/30 bg-background/60 px-2 py-1 text-[10px] font-medium text-foreground backdrop-blur-md shadow-sm">
                             {unitCount} {isEn ? "units" : "unid."}
                         </div>
                     </div>
                 ) : null}
             </div>
 
-            <CardContent className="p-4">
+            <CardContent className="flex flex-1 flex-col p-5">
                 {/* Header */}
-                <div className="mb-3 space-y-0.5">
-                    <h3 className="truncate font-semibold text-sm tracking-tight text-foreground group-hover:text-primary transition-colors">
+                <div className="mb-4">
+                    <h3 className="truncate font-medium text-base tracking-tight text-foreground transition-colors group-hover:text-primary">
                         {name}
                     </h3>
-                    <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                        <Icon icon={Building03Icon} size={12} />
+                    <div className="mt-1 flex items-center gap-1.5 text-muted-foreground text-xs">
+                        <Icon icon={Building03Icon} size={14} />
                         <span className="truncate">{address}</span>
                     </div>
                 </div>
 
                 {/* Stats row */}
-                <div className="grid grid-cols-3 gap-3 border-t border-border/50 pt-3">
+                <div className="grid grid-cols-3 gap-4 border-t border-border/40 pt-4">
                     <div className="space-y-1">
-                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                        <span className="text-[10px] tracking-widest text-muted-foreground/80 uppercase">
                             {isEn ? "Occ." : "Ocup."}
                         </span>
                         <div className={cn(
-                            "text-base font-semibold tabular-nums",
+                            "text-base font-medium tabular-nums",
                             occupancyRate < 80
                                 ? "text-[var(--status-warning-fg)]"
                                 : "text-[var(--status-success-fg)]"
                         )}>
                             {occupancyRate}%
                         </div>
-                        <Progress value={occupancyRate} className="h-0.5" indicatorClassName={occupancyColor} />
+                        <Progress value={occupancyRate} className="h-1 bg-muted/50" indicatorClassName={occupancyColor} />
                     </div>
 
                     <div className="space-y-1">
-                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
-                            {isEn ? "Revenue" : "Ingr."}
+                        <span className="text-[10px] tracking-widest text-muted-foreground/80 uppercase">
+                            {isEn ? "Revenue" : "Ingresos"}
                         </span>
-                        <div className="font-semibold text-foreground text-sm tabular-nums">
+                        <div className="font-medium text-foreground text-base tabular-nums">
                             {formatCurrency(revenueMtdPyg, "PYG", formatLocale).split(/\s/)[0]}
                         </div>
                     </div>
 
                     <div className="space-y-1">
-                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                        <span className="text-[10px] tracking-widest text-muted-foreground/80 uppercase">
                             {isEn ? "Tasks" : "Tareas"}
                         </span>
                         <div className={cn(
-                            "text-base font-semibold tabular-nums",
+                            "text-base font-medium tabular-nums",
                             openTaskCount > 0
                                 ? "text-[var(--status-warning-fg)]"
                                 : "text-muted-foreground"
@@ -172,13 +172,16 @@ export function PropertyCard({
                     </div>
                 ) : null}
 
+                {/* Spacer to push action to bottom if cards are different heights */}
+                <div className="flex-1" />
+
                 {/* Action */}
-                <div className="mt-3">
+                <div className="mt-5 pt-4 border-t border-border/30">
                     <Link
                         href={`/module/properties/${id}`}
                         className={cn(
-                            buttonVariants({ variant: "secondary", size: "sm" }),
-                            "w-full bg-secondary/50 hover:bg-secondary font-medium text-foreground text-xs"
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "w-full bg-transparent hover:bg-muted/50 font-medium text-foreground text-xs transition-colors"
                         )}
                     >
                         {isEn ? "View Details" : "Ver Detalles"}

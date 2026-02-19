@@ -37,10 +37,19 @@ fn default_city_asuncion() -> String {
 fn default_country_py() -> String {
     "PY".to_string()
 }
+fn default_unit_type_entire_place() -> String {
+    "entire_place".to_string()
+}
+fn default_condition_status_clean() -> String {
+    "clean".to_string()
+}
 fn default_max_guests() -> i16 {
     2
 }
 fn default_bedrooms() -> i16 {
+    1
+}
+fn default_beds_count() -> i16 {
     1
 }
 fn default_bathrooms() -> f64 {
@@ -116,19 +125,52 @@ pub struct CreatePropertyInput {
     pub code: Option<String>,
     #[serde(default = "default_property_status")]
     pub status: String,
+    #[serde(alias = "address_line_1")]
     pub address_line1: Option<String>,
+    #[serde(alias = "address_line_2")]
+    pub address_line2: Option<String>,
     #[serde(default = "default_city_asuncion")]
     pub city: String,
+    pub region: Option<String>,
+    pub neighborhood: Option<String>,
+    pub postal_code: Option<String>,
     #[serde(default = "default_country_py")]
     pub country_code: String,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub property_type: Option<String>,
+    #[serde(alias = "amenities")]
+    pub building_amenities: Option<Vec<String>>,
+    pub access_instructions: Option<String>,
+    pub shared_wifi_name: Option<String>,
+    pub shared_wifi_password: Option<String>,
+    pub asset_owner_organization_id: Option<String>,
+    pub asset_owner_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct UpdatePropertyInput {
     pub name: Option<String>,
     pub status: Option<String>,
+    #[serde(alias = "address_line_1")]
     pub address_line1: Option<String>,
+    #[serde(alias = "address_line_2")]
+    pub address_line2: Option<String>,
     pub city: Option<String>,
+    pub region: Option<String>,
+    pub neighborhood: Option<String>,
+    pub postal_code: Option<String>,
+    pub country_code: Option<String>,
+    pub latitude: Option<f64>,
+    pub longitude: Option<f64>,
+    pub property_type: Option<String>,
+    #[serde(alias = "amenities")]
+    pub building_amenities: Option<Vec<String>>,
+    pub access_instructions: Option<String>,
+    pub shared_wifi_name: Option<String>,
+    pub shared_wifi_password: Option<String>,
+    pub asset_owner_organization_id: Option<String>,
+    pub asset_owner_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
@@ -137,22 +179,87 @@ pub struct CreateUnitInput {
     pub property_id: String,
     pub code: String,
     pub name: String,
+    #[serde(default = "default_unit_type_entire_place")]
+    pub unit_type: String,
     #[serde(default = "default_max_guests")]
     pub max_guests: i16,
     #[serde(default = "default_bedrooms")]
     pub bedrooms: i16,
     #[serde(default = "default_bathrooms")]
     pub bathrooms: f64,
+    pub floor_level: Option<i16>,
+    pub area_sqm: Option<f64>,
+    pub square_meters: Option<f64>,
+    #[serde(default = "default_beds_count")]
+    pub beds_count: i16,
+    #[serde(alias = "bed_config")]
+    pub bed_configuration: Option<serde_json::Value>,
+    #[serde(alias = "amenities")]
+    pub unit_amenities: Option<Vec<String>>,
+    #[serde(default = "default_condition_status_clean")]
+    pub condition_status: String,
+    pub base_price_nightly: Option<f64>,
+    pub base_price_monthly: Option<f64>,
+    pub default_nightly_rate: Option<f64>,
+    pub default_cleaning_fee: Option<f64>,
     #[serde(default = "default_currency_pyg")]
     pub currency: String,
+    pub is_active: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct UpdateUnitInput {
     pub name: Option<String>,
+    pub unit_type: Option<String>,
     pub max_guests: Option<i16>,
     pub bedrooms: Option<i16>,
     pub bathrooms: Option<f64>,
+    pub floor_level: Option<i16>,
+    pub area_sqm: Option<f64>,
+    pub square_meters: Option<f64>,
+    pub beds_count: Option<i16>,
+    #[serde(alias = "bed_config")]
+    pub bed_configuration: Option<serde_json::Value>,
+    #[serde(alias = "amenities")]
+    pub unit_amenities: Option<Vec<String>>,
+    pub condition_status: Option<String>,
+    pub base_price_nightly: Option<f64>,
+    pub base_price_monthly: Option<f64>,
+    pub default_nightly_rate: Option<f64>,
+    pub default_cleaning_fee: Option<f64>,
+    pub currency: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct BulkUpdateUnitsInput {
+    pub organization_id: String,
+    #[serde(default)]
+    pub dry_run: bool,
+    pub filters: BulkUpdateUnitsFilters,
+    pub patch: BulkUpdateUnitsPatch,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize, Default)]
+pub struct BulkUpdateUnitsFilters {
+    pub property_id: Option<String>,
+    pub unit_ids: Option<Vec<String>>,
+    pub floor_level: Option<i16>,
+    pub unit_type: Option<String>,
+    pub condition_status: Option<String>,
+    pub bedrooms: Option<i16>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize, Default)]
+pub struct BulkUpdateUnitsPatch {
+    pub unit_type: Option<String>,
+    pub floor_level: Option<i16>,
+    pub condition_status: Option<String>,
+    pub base_price_nightly: Option<f64>,
+    pub base_price_monthly: Option<f64>,
+    pub default_nightly_rate: Option<f64>,
+    pub default_cleaning_fee: Option<f64>,
     pub is_active: Option<bool>,
 }
 
@@ -265,6 +372,8 @@ pub struct ListOrganizationsQuery {
 pub struct PropertiesQuery {
     pub org_id: String,
     pub status: Option<String>,
+    pub property_type: Option<String>,
+    pub neighborhood: Option<String>,
     #[serde(default = "default_limit_100")]
     pub limit: i64,
 }
@@ -273,6 +382,9 @@ pub struct PropertiesQuery {
 pub struct UnitsQuery {
     pub org_id: String,
     pub property_id: Option<String>,
+    pub unit_type: Option<String>,
+    pub condition_status: Option<String>,
+    pub floor_level: Option<i16>,
     #[serde(default = "default_limit_100")]
     pub limit: i64,
 }
@@ -665,6 +777,8 @@ pub struct CreateLeaseInput {
     pub application_id: Option<String>,
     pub property_id: Option<String>,
     pub unit_id: Option<String>,
+    pub space_id: Option<String>,
+    pub bed_id: Option<String>,
     pub tenant_full_name: String,
     pub tenant_email: Option<String>,
     pub tenant_phone_e164: Option<String>,
@@ -686,6 +800,7 @@ pub struct CreateLeaseInput {
     pub tax_iva: f64,
     #[serde(default)]
     pub platform_fee: f64,
+    pub turnover_buffer_hours: Option<i16>,
     pub notes: Option<String>,
     #[serde(default)]
     pub charges: Vec<CreateLeaseChargeInput>,
@@ -697,6 +812,10 @@ pub struct CreateLeaseInput {
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct UpdateLeaseInput {
+    pub property_id: Option<String>,
+    pub unit_id: Option<String>,
+    pub space_id: Option<String>,
+    pub bed_id: Option<String>,
     pub tenant_full_name: Option<String>,
     pub tenant_email: Option<String>,
     pub tenant_phone_e164: Option<String>,
@@ -710,6 +829,7 @@ pub struct UpdateLeaseInput {
     pub guarantee_option_fee: Option<f64>,
     pub tax_iva: Option<f64>,
     pub platform_fee: Option<f64>,
+    pub turnover_buffer_hours: Option<i16>,
     pub notes: Option<String>,
 }
 
@@ -823,6 +943,23 @@ pub struct LeasesQuery {
     pub lease_status: Option<String>,
     pub property_id: Option<String>,
     pub unit_id: Option<String>,
+    pub space_id: Option<String>,
+    pub bed_id: Option<String>,
+    #[serde(default = "default_limit_300")]
+    pub limit: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, serde::Serialize)]
+pub struct LeaseRentRollQuery {
+    pub org_id: String,
+    pub property_id: Option<String>,
+    pub unit_id: Option<String>,
+    pub space_id: Option<String>,
+    pub bed_id: Option<String>,
+    #[serde(rename = "from", alias = "from_date")]
+    pub from_date: Option<String>,
+    #[serde(rename = "to", alias = "to_date")]
+    pub to_date: Option<String>,
     #[serde(default = "default_limit_300")]
     pub limit: i64,
 }
@@ -1170,6 +1307,10 @@ pub struct CreateListingInput {
     pub cover_image_url: Option<String>,
     #[serde(default = "default_empty_strings")]
     pub gallery_image_urls: Vec<String>,
+    #[serde(default = "default_empty_strings")]
+    pub floor_plans: Vec<String>,
+    #[serde(default = "default_empty_strings")]
+    pub virtual_tours: Vec<String>,
     pub bedrooms: Option<i32>,
     pub bathrooms: Option<f64>,
     pub square_meters: Option<f64>,
@@ -1182,6 +1323,11 @@ pub struct CreateListingInput {
     pub available_from: Option<String>,
     #[serde(default = "default_empty_strings")]
     pub amenities: Vec<String>,
+    pub poi_context: Option<serde_json::Value>,
+    pub walkability_score: Option<i16>,
+    pub transit_score: Option<i16>,
+    pub private_space_summary: Option<String>,
+    pub shared_space_summary: Option<String>,
     #[serde(default = "default_zero")]
     pub maintenance_fee: f64,
     #[serde(default)]
@@ -1205,6 +1351,8 @@ pub struct UpdateListingInput {
     pub application_url: Option<String>,
     pub cover_image_url: Option<String>,
     pub gallery_image_urls: Option<Vec<String>>,
+    pub floor_plans: Option<Vec<String>>,
+    pub virtual_tours: Option<Vec<String>>,
     pub bedrooms: Option<i32>,
     pub bathrooms: Option<f64>,
     pub square_meters: Option<f64>,
@@ -1215,6 +1363,11 @@ pub struct UpdateListingInput {
     pub minimum_lease_months: Option<i32>,
     pub available_from: Option<String>,
     pub amenities: Option<Vec<String>>,
+    pub poi_context: Option<serde_json::Value>,
+    pub walkability_score: Option<i16>,
+    pub transit_score: Option<i16>,
+    pub private_space_summary: Option<String>,
+    pub shared_space_summary: Option<String>,
     pub maintenance_fee: Option<f64>,
     pub is_published: Option<bool>,
     pub fee_lines: Option<Vec<FeeLineInput>>,
@@ -1451,9 +1604,46 @@ pub struct BulkImportPropertiesInput {
 pub struct BulkPropertyRow {
     pub name: String,
     pub code: Option<String>,
+    #[serde(alias = "address_line_1")]
     pub address_line1: Option<String>,
+    #[serde(alias = "address_line_2")]
+    pub address_line2: Option<String>,
     pub city: Option<String>,
+    pub region: Option<String>,
+    pub neighborhood: Option<String>,
+    pub postal_code: Option<String>,
     pub country_code: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
+    pub property_type: Option<String>,
+    pub asset_owner_name: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LeaseRentRollQuery;
+    use serde_json::json;
+
+    #[test]
+    fn lease_rent_roll_query_accepts_legacy_and_canonical_date_keys() {
+        let canonical = serde_json::from_value::<LeaseRentRollQuery>(json!({
+            "org_id": "org-1",
+            "from": "2026-01-01",
+            "to": "2026-03-31",
+            "limit": 100
+        }))
+        .expect("canonical query keys should deserialize");
+        assert_eq!(canonical.from_date.as_deref(), Some("2026-01-01"));
+        assert_eq!(canonical.to_date.as_deref(), Some("2026-03-31"));
+
+        let legacy = serde_json::from_value::<LeaseRentRollQuery>(json!({
+            "org_id": "org-1",
+            "from_date": "2026-04-01",
+            "to_date": "2026-06-30",
+            "limit": 80
+        }))
+        .expect("legacy query keys should deserialize");
+        assert_eq!(legacy.from_date.as_deref(), Some("2026-04-01"));
+        assert_eq!(legacy.to_date.as_deref(), Some("2026-06-30"));
+    }
 }

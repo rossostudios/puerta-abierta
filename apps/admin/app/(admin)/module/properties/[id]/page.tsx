@@ -1,4 +1,4 @@
-import { ArrowLeft01Icon, Building03Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -120,87 +120,67 @@ export default async function PropertyRecordPage({
       <div className="space-y-6">
         <RecordRecent href={href} label={data.title} meta={moduleLabel} />
 
-        <Card className="overflow-hidden border-border/60 bg-card/50 shadow-sm backdrop-blur-md">
-          <CardContent className="p-0">
-            <section className="relative overflow-hidden bg-[#fdfcfb] dark:bg-neutral-900/40">
-              <div className="absolute -top-16 -right-16 opacity-[0.03] dark:opacity-[0.08]">
-                <Icon icon={Building03Icon} size={320} />
-              </div>
+        <div className="relative rounded-3xl pb-4 pt-2">
+          <div className="relative grid gap-8 px-2 md:px-4 xl:grid-cols-[1fr_320px]">
+            <div className="flex flex-col justify-between space-y-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "sm" }),
+                        "h-7 rounded-full px-3 font-semibold text-[10px] uppercase tracking-widest text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground"
+                      )}
+                      href="/module/properties"
+                    >
+                      <Icon icon={ArrowLeft01Icon} size={12} className="mr-1" />
+                      {isEn ? "Back" : "Volver"}
+                    </Link>
+                    <Badge
+                      className="h-7 rounded-full border-border/30 bg-muted/30 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-widest backdrop-blur-sm"
+                      variant="outline"
+                    >
+                      {moduleLabel}
+                    </Badge>
+                    <Badge className="h-7 rounded-full border-primary/20 bg-primary/10 px-3 font-semibold text-[10px] text-primary uppercase tracking-widest backdrop-blur-sm">
+                      {data.propertyCodeLabel ?? data.recordId}
+                    </Badge>
+                  </div>
 
-              <div className="relative grid gap-8 p-6 md:p-8 xl:grid-cols-[1fr_320px]">
-                <div className="flex flex-col justify-between space-y-8">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          className={cn(
-                            buttonVariants({ variant: "secondary", size: "sm" }),
-                            "h-7 rounded-lg border-border/10 bg-background/50 px-2.5 font-bold text-[10px] uppercase tracking-wider transition-all hover:bg-background/80"
-                          )}
-                          href="/module/properties"
-                        >
-                          <Icon icon={ArrowLeft01Icon} size={12} />
-                          {isEn ? "Back" : "Volver"}
-                        </Link>
-                        <Badge
-                          className="h-7 border-border/10 bg-background/50 font-bold text-[10px] text-muted-foreground uppercase tracking-wider backdrop-blur-sm"
-                          variant="outline"
-                        >
-                          {moduleLabel}
-                        </Badge>
-                        <Badge className="h-7 border-primary/20 bg-primary/5 font-bold text-[10px] text-primary uppercase tracking-wider backdrop-blur-sm">
-                          {data.propertyCodeLabel ?? data.recordId}
-                        </Badge>
-                        {data.overview ? (
-                          <span
-                            className={cn(
-                              "h-2.5 w-2.5 rounded-full shadow-sm",
-                              data.overview.health === "critical"
-                                ? "bg-[var(--status-danger-fg)] animate-pulse"
-                                : data.overview.health === "watch"
-                                  ? "bg-[var(--status-warning-fg)]"
-                                  : "bg-[var(--status-success-fg)]"
-                            )}
-                          />
-                        ) : null}
-                      </div>
-
-                      <div className="space-y-1">
-                        <h2 className="font-bold text-3xl text-foreground tracking-tight sm:text-4xl">
-                          {data.title}
-                        </h2>
-                        <p className="max-w-2xl font-medium text-muted-foreground text-sm leading-relaxed">
-                          {data.propertyLocationLabel || moduleDescription}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <PropertyDetailsTrigger
-                        fieldCount={data.keys.length}
-                        isEn={isEn}
-                      />
-                      <CopyButton
-                        className="h-9 rounded-xl border-border/40 bg-background/40 px-3 hover:bg-background/80"
-                        value={data.recordId}
-                      />
-                      <PinButton
-                        className="h-9 rounded-xl border-border/40 bg-background/40 px-3 hover:bg-background/80"
-                        href={href}
-                        label={data.title}
-                        meta={moduleLabel}
-                      />
-                    </div>
+                  <div className="space-y-1">
+                    <h2 className="font-bold text-3xl text-foreground tracking-tight sm:text-4xl">
+                      {data.title}
+                    </h2>
+                    <p className="max-w-2xl font-medium text-muted-foreground text-sm leading-relaxed">
+                      {data.propertyLocationLabel || moduleDescription}
+                    </p>
                   </div>
                 </div>
 
-                <div className="hidden xl:flex xl:items-end">
-                  <PropertyLocationMiniMap city={city} isEn={isEn} />
+                <div className="flex items-center gap-2">
+                  <PropertyDetailsTrigger
+                    fieldCount={data.keys.length}
+                    isEn={isEn}
+                  />
+                  <CopyButton
+                    className="h-9 rounded-full border-border/40 bg-muted/40 px-4 hover:bg-muted/80 text-muted-foreground"
+                    value={data.recordId}
+                  />
+                  <PinButton
+                    className="h-9 rounded-full border-border/40 bg-muted/40 px-4 hover:bg-muted/80 text-muted-foreground"
+                    href={href}
+                    label={data.title}
+                    meta={moduleLabel}
+                  />
                 </div>
               </div>
-            </section>
-          </CardContent>
-        </Card>
+            </div>
+
+            <div className="hidden xl:flex xl:items-end">
+              <PropertyLocationMiniMap city={city} isEn={isEn} />
+            </div>
+          </div>
+        </div>
 
         <PropertyDetailsPanel
           isEn={isEn}

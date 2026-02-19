@@ -6,7 +6,7 @@
   "scope": "/tenant/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#DA1E37",
+  "theme_color": "#1A6DF0",
   "icons": [
     {
       "src": "/fav.svg",

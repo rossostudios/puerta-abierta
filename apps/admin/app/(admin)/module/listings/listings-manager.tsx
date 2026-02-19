@@ -445,7 +445,7 @@ export function ListingsManager({
 
       {/* ---- form sheet ---- */}
       <Sheet
-        contentClassName="max-w-2xl"
+        contentClassName="w-[95vw] sm:max-w-3xl"
         description={
           isEditing
             ? isEn
@@ -479,9 +479,9 @@ export function ListingsManager({
           onPreview={
             editing
               ? () => {
-                  setOpen(false);
-                  setPreviewListing(editing);
-                }
+                setOpen(false);
+                setPreviewListing(editing);
+              }
               : undefined
           }
           onSuccess={() => {

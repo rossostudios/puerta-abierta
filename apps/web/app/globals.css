@@ -14,8 +14,8 @@
   --popover: #ffffff;
   --popover-foreground: #0f0f10;
 
-  /* ── Primary (Casaora Crimson) ── */
-  --primary: #da1e37;
+  /* ── Primary (Casaora Blue) ── */
+  --primary: #1a6df0;
   --primary-foreground: #ffffff;
 
   /* ── Secondary / Muted ── */
@@ -35,14 +35,12 @@
   /* ── Borders ── */
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #da1e37;
+  --ring: #1a6df0;
 
   /* ── Marketing-specific ── */
-  --hero-glow: radial-gradient(
-    ellipse 80% 60% at 50% 0%,
-    rgba(218, 30, 55, 0.06) 0%,
-    transparent 70%
-  );
+  --hero-glow: radial-gradient(ellipse 80% 60% at 50% 0%,
+      rgba(26, 109, 240, 0.06) 0%,
+      transparent 70%);
   --section-alt: #fafafa;
   --surface-subtle: #f9f9fa;
 
@@ -60,7 +58,7 @@
   --popover: #09090b;
   --popover-foreground: #fafafa;
 
-  --primary: #da1e37;
+  --primary: #1a6df0;
   --primary-foreground: #ffffff;
 
   --secondary: #1c1c1f;
@@ -76,44 +74,36 @@
 
   --border: #27272a;
   --input: #27272a;
-  --ring: #da1e37;
+  --ring: #1a6df0;
 
-  --hero-glow: radial-gradient(
-    ellipse 80% 60% at 50% 0%,
-    rgba(218, 30, 55, 0.1) 0%,
-    transparent 70%
-  );
+  --hero-glow: radial-gradient(ellipse 80% 60% at 50% 0%,
+      rgba(26, 109, 240, 0.1) 0%,
+      transparent 70%);
   --section-alt: #0f0f12;
   --surface-subtle: #111113;
 }
 
 @theme inline {
-  --font-sans: var(
-    --font-geist-sans,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif
-  );
-  --font-serif: var(
-    --font-playfair,
-    "Playfair Display",
-    Georgia,
-    "Times New Roman",
-    serif
-  );
-  --font-mono: var(
-    --font-geist-mono,
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Monaco,
-    Consolas,
-    "Liberation Mono",
-    monospace
-  );
+  --font-sans: var(--font-geist-sans,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif);
+  --font-serif: var(--font-playfair,
+      "Playfair Display",
+      Georgia,
+      "Times New Roman",
+      serif);
+  --font-mono: var(--font-geist-mono,
+      ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Monaco,
+      Consolas,
+      "Liberation Mono",
+      monospace);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -151,27 +141,27 @@
 
 @layer utilities {
   .bg-casaora-gradient {
-    background: linear-gradient(135deg, #641220 0%, #b21e35 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
   }
 
   .bg-casaora-gradient-warm {
-    background: linear-gradient(135deg, #6e1423 0%, #da1e37 100%);
+    background: linear-gradient(135deg, #1d4ed8 0%, #1a6df0 100%);
   }
 
   .bg-casaora-gradient-hero {
-    background: linear-gradient(to right, #6e1423, #da1e37);
+    background: linear-gradient(to right, #1d4ed8, #1a6df0);
   }
 
   .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #fdf2f4 0%, #fce8ec 100%);
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   }
 
   .dark .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #1a1012 0%, #221418 100%);
+    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
   }
 
   .text-casaora-gradient {
-    background: linear-gradient(135deg, #b21e35, #da1e37);
+    background: linear-gradient(135deg, #2563eb, #1a6df0);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -179,18 +169,19 @@
 
   .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(218, 30, 55, 0.08),
-      0 2px 8px rgba(218, 30, 55, 0.1);
+      0 0 0 1px rgba(26, 109, 240, 0.08),
+      0 2px 8px rgba(26, 109, 240, 0.1);
   }
 
   .dark .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(218, 30, 55, 0.12),
-      0 2px 8px rgba(218, 30, 55, 0.08);
+      0 0 0 1px rgba(26, 109, 240, 0.12),
+      0 2px 8px rgba(26, 109, 240, 0.08);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {

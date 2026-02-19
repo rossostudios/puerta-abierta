@@ -17,7 +17,7 @@ export function CtaSection() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 font-medium text-[#641220] text-sm transition-opacity hover:opacity-90"
+              className="inline-flex h-12 items-center gap-2 rounded-lg bg-white px-6 font-medium text-[#1e3a8a] text-sm transition-opacity hover:opacity-90"
               href="/contact"
             >
               Get started free

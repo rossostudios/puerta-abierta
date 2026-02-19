@@ -3,13 +3,6 @@ import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { fetchList, getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -75,25 +68,23 @@ export default async function UnitsModulePage({ searchParams }: PageProps) {
   const orgId = await getActiveOrgId();
   const { success, error } = await searchParams;
 
-  const successMessage = success ? successLabel(isEn, success) : "";
-  const errorAlertMessage = error ? errorLabel(isEn, error) : "";
+  const successMessage = success ? successLabel(isEn, safeDecode(success)) : "";
+  const errorAlertMessage = error ? errorLabel(isEn, safeDecode(error)) : "";
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load units."
-              : "Selecciona una organización para cargar unidades."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
+      <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
+        <h3 className="font-semibold text-lg tracking-tight">
+          {isEn
+            ? "Missing organization context"
+            : "Falta contexto de organización"}
+        </h3>
+        <p className="mt-1 text-muted-foreground text-sm">
+          {isEn
+            ? "Select an organization to load units."
+            : "Selecciona una organización para cargar unidades."}
+        </p>
+        <div className="mt-4 text-muted-foreground text-sm">
           {isEn ? (
             <>
               Select an organization from the top bar, or create one in{" "}
@@ -105,8 +96,8 @@ export default async function UnitsModulePage({ searchParams }: PageProps) {
               <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
             </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
@@ -125,18 +116,16 @@ export default async function UnitsModulePage({ searchParams }: PageProps) {
     }
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load units from the backend."
-              : "No se pudieron cargar unidades desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
+      <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
+        <h3 className="font-semibold text-lg tracking-tight">
+          {isEn ? "API connection failed" : "Fallo de conexión a la API"}
+        </h3>
+        <p className="mt-1 text-muted-foreground text-sm">
+          {isEn
+            ? "Could not load units from the backend."
+            : "No se pudieron cargar unidades desde el backend."}
+        </p>
+        <div className="mt-4 space-y-2 text-muted-foreground text-sm">
           <p>
             {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
             <code className="rounded bg-muted px-1 py-0.5">
@@ -149,69 +138,77 @@ export default async function UnitsModulePage({ searchParams }: PageProps) {
               ? "Make sure the backend is running (`cd apps/backend-rs && cargo run`)"
               : "Asegúrate de que el backend esté ejecutándose (`cd apps/backend-rs && cargo run`)"}
           </p>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="space-y-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">
-                  {isEn ? "Portfolio" : "Portafolio"}
-                </Badge>
-                <Badge className="text-[11px]" variant="secondary">
-                  {isEn ? "Units" : "Unidades"}
-                </Badge>
+      <div className="relative rounded-3xl pb-4 pt-2">
+        <div className="relative z-10 grid gap-8 px-2 md:px-4">
+          <div className="flex flex-col justify-between space-y-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    className="h-7 cursor-pointer rounded-full border-border/30 bg-muted/30 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-widest backdrop-blur-sm transition-colors hover:bg-muted/50 hover:text-foreground"
+                    variant="outline"
+                  >
+                    {isEn ? "Portfolio" : "Portafolio"}
+                  </Badge>
+                  <Badge className="h-7 rounded-full border-primary/20 bg-primary/10 px-3 font-semibold text-[10px] text-primary uppercase tracking-widest backdrop-blur-sm">
+                    {isEn ? "Units" : "Unidades"}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <h1 className="font-bold text-3xl text-foreground tracking-tight sm:text-4xl">
+                    {isEn ? "Units" : "Unidades"}
+                  </h1>
+                  <p className="max-w-2xl font-medium text-muted-foreground text-sm leading-relaxed">
+                    {isEn
+                      ? "Define rentable units with occupancy and capacity settings."
+                      : "Define unidades rentables con configuración de capacidad y ocupación."}
+                  </p>
+                </div>
               </div>
-              <CardTitle className="text-2xl">
-                {isEn ? "Units" : "Unidades"}
-              </CardTitle>
-              <CardDescription>
-                {isEn
-                  ? "Define rentable units with occupancy and capacity settings."
-                  : "Define unidades rentables con configuración de capacidad y ocupación."}
-              </CardDescription>
-            </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" })
-                )}
-                href="/module/properties"
-              >
-                {isEn ? "Properties" : "Propiedades"}
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "h-9 rounded-full border-border/40 bg-muted/40 px-4 hover:bg-muted/80 text-muted-foreground transition-all"
+                  )}
+                  href="/module/properties"
+                >
+                  {isEn ? "Properties" : "Propiedades"}
+                </Link>
+              </div>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {errorAlertMessage ? (
-            <Alert variant="destructive">
-              <AlertTitle>
-                {isEn
-                  ? "Could not complete request"
-                  : "No se pudo completar la solicitud"}
-              </AlertTitle>
-              <AlertDescription>{errorAlertMessage}</AlertDescription>
-            </Alert>
-          ) : null}
-          {successMessage ? (
-            <Alert variant="success">
-              <AlertTitle>
-                {isEn ? "Success" : "Éxito"}: {successMessage}
-              </AlertTitle>
-            </Alert>
-          ) : null}
+        </div>
+      </div>
+      <div className="space-y-4">
+        {errorAlertMessage ? (
+          <Alert variant="destructive">
+            <AlertTitle>
+              {isEn
+                ? "Could not complete request"
+                : "No se pudo completar la solicitud"}
+            </AlertTitle>
+            <AlertDescription>{errorAlertMessage}</AlertDescription>
+          </Alert>
+        ) : null}
+        {successMessage ? (
+          <Alert variant="success">
+            <AlertTitle>
+              {isEn ? "Success" : "Éxito"}: {successMessage}
+            </AlertTitle>
+          </Alert>
+        ) : null}
 
-          <UnitsManager orgId={orgId} properties={properties} units={units} />
-        </CardContent>
-      </Card>
+        <UnitsManager orgId={orgId} properties={properties} units={units} />
+      </div>
     </div>
   );
 }

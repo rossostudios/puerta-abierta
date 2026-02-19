@@ -10,7 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList } from "@/lib/api";
+import {
+  fetchList,
+  fetchWorkflowRulesMetadata,
+  type WorkflowRuleMetadataResponse,
+} from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -67,11 +71,17 @@ export default async function AutomationsHubPage({ searchParams }: PageProps) {
 
   if (tab === "rules") {
     let data: Record<string, unknown>[] = [];
+    let metadata: WorkflowRuleMetadataResponse = {
+      triggers: [],
+      actions: [],
+    };
     try {
-      data = (await fetchList("/workflow-rules", orgId, 500)) as Record<
-        string,
-        unknown
-      >[];
+      [data, metadata] = await Promise.all([
+        fetchList("/workflow-rules", orgId, 500) as Promise<
+          Record<string, unknown>[]
+        >,
+        fetchWorkflowRulesMetadata(orgId),
+      ]);
     } catch (err) {
       if (isOrgMembershipError(errorMessage(err)))
         return <OrgAccessChanged orgId={orgId} />;
@@ -145,7 +155,12 @@ export default async function AutomationsHubPage({ searchParams }: PageProps) {
               <AlertDescription>{errorLabel}</AlertDescription>
             </Alert>
           ) : null}
-          <WorkflowRulesManager data={data} locale={locale} orgId={orgId} />
+          <WorkflowRulesManager
+            data={data}
+            locale={locale}
+            metadata={metadata}
+            orgId={orgId}
+          />
         </CardContent>
       </Card>
     );

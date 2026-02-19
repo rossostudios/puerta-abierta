@@ -37,12 +37,12 @@ export function PropertyOverviewFinancial({
   const hasIncome = overview.monthIncomePyg > 0;
   const expenseRatio = hasIncome
     ? Math.max(
-        0,
-        Math.min(
-          100,
-          Math.round((overview.monthExpensePyg / overview.monthIncomePyg) * 100)
-        )
+      0,
+      Math.min(
+        100,
+        Math.round((overview.monthExpensePyg / overview.monthIncomePyg) * 100)
       )
+    )
     : 0;
   const occupancyValue = Math.max(
     0,
@@ -55,7 +55,7 @@ export function PropertyOverviewFinancial({
 
   return (
     <section className="space-y-4">
-      <Card className="border-border/80 bg-card/98">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -79,11 +79,11 @@ export function PropertyOverviewFinancial({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-2xl border border-border/70 bg-background/70 p-3">
-            <p className="text-muted-foreground text-xs">
+          <div className="rounded-3xl border border-border/40 bg-background/50 p-5 transition-shadow duration-300 hover:shadow-[var(--shadow-soft)]">
+            <p className="font-semibold text-[11px] uppercase tracking-widest text-muted-foreground">
               {isEn ? "Net income" : "Ingreso neto"}
             </p>
-            <p className="font-semibold text-3xl tabular-nums tracking-tight">
+            <p className="my-1 font-bold text-4xl tabular-nums tracking-tight">
               {formatCurrency(overview.monthNetIncomePyg, "PYG", locale)}
             </p>
             <p
@@ -105,13 +105,13 @@ export function PropertyOverviewFinancial({
           </div>
 
           {overview.collectedThisMonthPyg > 0 ||
-          overview.overdueCollectionAmountPyg > 0 ? (
+            overview.overdueCollectionAmountPyg > 0 ? (
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                <p className="text-muted-foreground text-xs">
+              <div className="rounded-3xl border border-border/40 bg-muted/10 p-5 transition-shadow duration-300 hover:shadow-sm hover:bg-card">
+                <p className="font-semibold text-[10px] uppercase tracking-widest text-muted-foreground">
                   {isEn ? "Collected this month" : "Cobrado este mes"}
                 </p>
-                <p className="font-semibold text-lg tabular-nums text-[var(--status-success-fg)]">
+                <p className="mt-1 font-bold text-2xl tabular-nums text-[var(--status-success-fg)]">
                   {formatCurrency(
                     overview.collectedThisMonthPyg,
                     "PYG",
@@ -121,10 +121,10 @@ export function PropertyOverviewFinancial({
               </div>
               <div
                 className={cn(
-                  "rounded-xl border p-3",
+                  "rounded-3xl border p-5 transition-shadow duration-300 hover:shadow-sm hover:bg-card",
                   overview.overdueCollectionAmountPyg > 0
-                    ? "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)]"
-                    : "border-border/70 bg-muted/20"
+                    ? "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)]/50"
+                    : "border-border/40 bg-muted/10"
                 )}
               >
                 <p
@@ -142,7 +142,7 @@ export function PropertyOverviewFinancial({
                 </p>
                 <p
                   className={cn(
-                    "font-semibold text-lg tabular-nums",
+                    "mt-1 font-bold text-2xl tabular-nums",
                     overview.overdueCollectionAmountPyg > 0
                       ? "text-[var(--status-danger-fg)]"
                       : "text-foreground"
@@ -159,19 +159,19 @@ export function PropertyOverviewFinancial({
           ) : null}
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-              <p className="text-muted-foreground text-xs">
+            <div className="rounded-3xl border border-border/40 bg-muted/10 p-5 transition-shadow duration-300 hover:shadow-sm hover:bg-card">
+              <p className="font-semibold text-[10px] uppercase tracking-widest text-muted-foreground">
                 {isEn ? "Income" : "Ingreso"}
               </p>
-              <p className="font-semibold text-lg tabular-nums">
+              <p className="mt-1 font-bold text-2xl tabular-nums">
                 {formatCurrency(overview.monthIncomePyg, "PYG", locale)}
               </p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-              <p className="text-muted-foreground text-xs">
+            <div className="rounded-3xl border border-border/40 bg-muted/10 p-5 transition-shadow duration-300 hover:shadow-sm hover:bg-card">
+              <p className="font-semibold text-[10px] uppercase tracking-widest text-muted-foreground">
                 {isEn ? "Expenses" : "Gastos"}
               </p>
-              <p className="font-semibold text-lg tabular-nums">
+              <p className="mt-1 font-bold text-2xl tabular-nums">
                 {formatCurrency(overview.monthExpensePyg, "PYG", locale)}
               </p>
             </div>
@@ -201,8 +201,8 @@ export function PropertyOverviewFinancial({
           </div>
 
           {overview.expenseCategoryBreakdown.length ? (
-            <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3">
-              <p className="font-medium text-sm">
+            <div className="space-y-4 rounded-3xl border border-border/40 bg-muted/10 p-5">
+              <p className="font-semibold text-[11px] uppercase tracking-widest text-muted-foreground">
                 {isEn ? "Expense breakdown" : "Desglose de gastos"}
               </p>
               {overview.expenseCategoryBreakdown.map((row) => {
@@ -239,9 +239,9 @@ export function PropertyOverviewFinancial({
           ) : null}
 
           {overview.latestStatement ? (
-            <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <p className="font-medium text-sm">
+            <div className="rounded-3xl border border-border/40 bg-muted/10 p-5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="font-semibold text-[11px] uppercase tracking-widest text-muted-foreground">
                   {isEn
                     ? "Latest owner statement"
                     : "Último estado del propietario"}
@@ -270,7 +270,7 @@ export function PropertyOverviewFinancial({
         </CardContent>
       </Card>
 
-      <Card className="border-border/80 bg-card/98">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-xl">
             <Icon icon={Task01Icon} size={18} />
@@ -293,7 +293,7 @@ export function PropertyOverviewFinancial({
                     : "status-tone-info";
               return (
                 <article
-                  className="rounded-2xl border border-border/70 bg-background/72 p-3"
+                  className="rounded-3xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:shadow-[var(--shadow-soft)] hover:bg-card hover:border-border/60"
                   key={item.id}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -346,7 +346,7 @@ export function PropertyOverviewFinancial({
         </CardContent>
       </Card>
       {overview.leasesExpiringSoon.length > 0 ? (
-        <Card className="border-border/80 bg-card/98">
+        <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-xl">
               <Icon icon={Calendar03Icon} size={18} />
@@ -368,7 +368,7 @@ export function PropertyOverviewFinancial({
                     : "status-tone-info";
               return (
                 <div
-                  className="flex items-center justify-between rounded-xl border border-border/70 bg-background/72 p-3"
+                  className="flex items-center justify-between rounded-2xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:shadow-[var(--shadow-soft)] hover:bg-card"
                   key={lease.leaseId}
                 >
                   <div className="min-w-0 space-y-0.5">

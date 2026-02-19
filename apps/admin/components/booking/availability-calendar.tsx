@@ -178,20 +178,20 @@ export function AvailabilityCalendar({
                   !isCurrentMonth && "opacity-30",
                   day.status === "past" && "text-muted-foreground/50",
                   day.status === "available" &&
-                    "cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
+                  "cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
                   day.status === "booked" &&
-                    "bg-red-100/60 text-red-600 dark:bg-red-900/20 dark:text-red-400",
+                  "bg-red-100/60 text-red-600 dark:bg-red-900/20 dark:text-red-400",
                   day.status === "blocked" &&
-                    "bg-muted/40 text-muted-foreground line-through",
+                  "bg-muted/40 text-muted-foreground line-through",
                   inRange &&
-                    !edge &&
-                    "bg-emerald-50 dark:bg-emerald-900/20",
+                  !edge &&
+                  "bg-emerald-50 dark:bg-emerald-900/20",
                   edge && "font-semibold text-white"
                 )}
                 disabled={!clickable}
                 key={day.date}
                 onClick={() => handleDayClick(day)}
-                style={edge ? { backgroundColor: brandColor || "#DA1E37" } : undefined}
+                style={edge ? { backgroundColor: brandColor || "#1A6DF0" } : undefined}
                 type="button"
               >
                 {dayNum}

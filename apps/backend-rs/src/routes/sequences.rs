@@ -15,6 +15,16 @@ use crate::{
     tenancy::{assert_org_member, assert_org_role},
 };
 
+const SEQUENCE_TRIGGER_TYPES: &[&str] = &[
+    "reservation_confirmed",
+    "checked_in",
+    "checked_out",
+    "lease_created",
+    "lease_activated",
+    "lease_expiring",
+    "manual",
+];
+
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route(
@@ -152,6 +162,12 @@ async fn create_sequence(
     .await?;
     let pool = db_pool(&state)?;
 
+    if !is_valid_sequence_trigger(&payload.trigger_type) {
+        return Err(AppError::BadRequest(
+            "Invalid trigger_type for communication sequence.".to_string(),
+        ));
+    }
+
     let mut record = Map::new();
     record.insert(
         "organization_id".to_string(),
@@ -223,6 +239,11 @@ async fn update_sequence(
         patch.insert("name".to_string(), Value::String(name));
     }
     if let Some(trigger_type) = payload.trigger_type {
+        if !is_valid_sequence_trigger(&trigger_type) {
+            return Err(AppError::BadRequest(
+                "Invalid trigger_type for communication sequence.".to_string(),
+            ));
+        }
         patch.insert("trigger_type".to_string(), Value::String(trigger_type));
     }
     if let Some(active) = payload.is_active {
@@ -386,7 +407,7 @@ async fn delete_step(
     let sequence_id = value_str(&step, "sequence_id");
     let sequence = get_row(pool, "communication_sequences", &sequence_id, "id").await?;
     let org_id = value_str(&sequence, "organization_id");
-    assert_org_role(&state, &user_id, &org_id, &["owner_admin"]).await?;
+    assert_org_role(&state, &user_id, &org_id, &["owner_admin", "operator"]).await?;
 
     let deleted = delete_row(pool, "sequence_steps", &path.step_id, "id").await?;
     Ok(Json(deleted))
@@ -446,4 +467,8 @@ fn value_str(row: &Value, key: &str) -> String {
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
         .unwrap_or_default()
+}
+
+fn is_valid_sequence_trigger(trigger_type: &str) -> bool {
+    SEQUENCE_TRIGGER_TYPES.contains(&trigger_type.trim())
 }

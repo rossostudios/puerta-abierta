@@ -70,7 +70,7 @@ export function PropertyOverviewOperations({
 
   return (
     <section className="space-y-4">
-      <Card className="border-border/80 bg-card/98">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">
             {isEn ? "Workflow lane" : "Flujo operativo"}
@@ -81,19 +81,19 @@ export function PropertyOverviewOperations({
               : "Desde anuncio hasta cobro, controla cada etapa en un solo lugar."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {workflowSteps.map((step) => (
             <Link
-              className="rounded-2xl border border-border/70 bg-background/70 p-3 transition-colors hover:bg-muted/25"
+              className="group rounded-3xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:bg-card hover:-translate-y-1 hover:shadow-[var(--shadow-floating)]"
               href={step.href}
               key={step.id}
             >
-              <div className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border/70 bg-muted/35">
-                <Icon icon={step.icon} size={14} />
+              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/40 bg-muted/30 transition-colors group-hover:bg-primary/5 group-hover:border-primary/20 group-hover:text-primary">
+                <Icon icon={step.icon} size={18} />
               </div>
-              <p className="font-medium text-sm">{step.label}</p>
-              <p className="font-semibold text-xl tabular-nums">{step.value}</p>
-              <p className="text-muted-foreground text-xs">
+              <p className="font-semibold text-[11px] uppercase tracking-widest text-muted-foreground">{step.label}</p>
+              <p className="mt-1 font-bold text-2xl tabular-nums">{step.value}</p>
+              <p className="mt-1 text-muted-foreground text-[11px]">
                 {step.description}
               </p>
             </Link>
@@ -101,7 +101,7 @@ export function PropertyOverviewOperations({
         </CardContent>
       </Card>
 
-      <Card className="border-border/80 bg-card/98">
+      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <CardTitle className="text-lg">
@@ -127,103 +127,103 @@ export function PropertyOverviewOperations({
         <CardContent className="space-y-3">
           {overview.unitCards.length ? (
             <>
-            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-              {overview.unitCards.map((unit) => {
-                const unitHref =
-                  unit.unitId && isUuid(unit.unitId)
-                    ? `/module/units/${unit.unitId}`
-                    : `/module/units?property_id=${encodeURIComponent(recordId)}`;
-                const statusToneClass =
-                  unit.statusTone === "occupied"
-                    ? "status-tone-success"
-                    : unit.statusTone === "maintenance"
-                      ? "status-tone-warning"
-                      : "status-tone-info";
+              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                {overview.unitCards.map((unit) => {
+                  const unitHref =
+                    unit.unitId && isUuid(unit.unitId)
+                      ? `/module/units/${unit.unitId}`
+                      : `/module/units?property_id=${encodeURIComponent(recordId)}`;
+                  const statusToneClass =
+                    unit.statusTone === "occupied"
+                      ? "status-tone-success"
+                      : unit.statusTone === "maintenance"
+                        ? "status-tone-warning"
+                        : "status-tone-info";
 
-                return (
-                  <article
-                    className="flex h-full flex-col rounded-2xl border border-border/75 bg-background/75 p-3"
-                    key={unit.id}
-                  >
-                    <div className="mb-2 flex items-start justify-between gap-2">
-                      <div className="min-w-0">
+                  return (
+                    <article
+                      className="flex h-full flex-col rounded-3xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:shadow-[var(--shadow-soft)] hover:bg-card hover:border-border/80"
+                      key={unit.id}
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <Link
+                            className="font-semibold text-base hover:underline"
+                            href={unitHref}
+                          >
+                            {unit.label}
+                          </Link>
+                          <p className="truncate text-muted-foreground text-xs">
+                            {unit.subtitle}
+                          </p>
+                        </div>
+                        <span
+                          className={cn(
+                            "inline-flex shrink-0 rounded-full border px-2 py-0.5 font-medium text-[11px]",
+                            statusToneClass
+                          )}
+                        >
+                          {unit.statusLabel}
+                        </span>
+                      </div>
+                      <div className="grid gap-2 rounded-2xl border border-border/40 bg-muted/10 p-3 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">
+                            {isEn ? "Tenant" : "Inquilino"}
+                          </p>
+                          <p className="truncate font-medium text-sm">
+                            {unit.tenantName}
+                          </p>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-muted-foreground">
+                            {isEn ? "Monthly rent" : "Renta mensual"}
+                          </p>
+                          <p className="font-medium tabular-nums">
+                            {formatCurrency(unit.monthlyRentPyg, "PYG", locale)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <p className="text-muted-foreground text-xs">
+                          {unit.nextCollectionDue
+                            ? isEn
+                              ? `Next due ${unit.nextCollectionDue}`
+                              : `Próximo cobro ${unit.nextCollectionDue}`
+                            : isEn
+                              ? "No upcoming collection"
+                              : "Sin cobro próximo"}
+                        </p>
                         <Link
-                          className="font-semibold text-base hover:underline"
+                          className={cn(
+                            buttonVariants({ size: "sm", variant: "outline" }),
+                            "h-7 px-2 text-xs"
+                          )}
                           href={unitHref}
                         >
-                          {unit.label}
+                          {isEn ? "Open" : "Abrir"}
                         </Link>
-                        <p className="truncate text-muted-foreground text-xs">
-                          {unit.subtitle}
-                        </p>
                       </div>
-                      <span
-                        className={cn(
-                          "inline-flex shrink-0 rounded-full border px-2 py-0.5 font-medium text-[11px]",
-                          statusToneClass
-                        )}
-                      >
-                        {unit.statusLabel}
-                      </span>
-                    </div>
-                    <div className="grid gap-2 rounded-xl border border-border/70 bg-muted/20 p-2.5 text-xs">
-                      <div>
-                        <p className="text-muted-foreground">
-                          {isEn ? "Tenant" : "Inquilino"}
-                        </p>
-                        <p className="truncate font-medium text-sm">
-                          {unit.tenantName}
-                        </p>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-muted-foreground">
-                          {isEn ? "Monthly rent" : "Renta mensual"}
-                        </p>
-                        <p className="font-medium tabular-nums">
-                          {formatCurrency(unit.monthlyRentPyg, "PYG", locale)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <p className="text-muted-foreground text-xs">
-                        {unit.nextCollectionDue
-                          ? isEn
-                            ? `Next due ${unit.nextCollectionDue}`
-                            : `Próximo cobro ${unit.nextCollectionDue}`
-                          : isEn
-                            ? "No upcoming collection"
-                            : "Sin cobro próximo"}
+                      <p className="mt-2 inline-flex items-center gap-1 text-muted-foreground text-xs">
+                        <Icon icon={Task01Icon} size={13} />
+                        {unit.openTaskCount}{" "}
+                        {isEn ? "open tasks" : "tareas abiertas"}
                       </p>
-                      <Link
-                        className={cn(
-                          buttonVariants({ size: "sm", variant: "outline" }),
-                          "h-7 px-2 text-xs"
-                        )}
-                        href={unitHref}
-                      >
-                        {isEn ? "Open" : "Abrir"}
-                      </Link>
-                    </div>
-                    <p className="mt-2 inline-flex items-center gap-1 text-muted-foreground text-xs">
-                      <Icon icon={Task01Icon} size={13} />
-                      {unit.openTaskCount}{" "}
-                      {isEn ? "open tasks" : "tareas abiertas"}
-                    </p>
-                  </article>
-                );
-              })}
-            </div>
-            {overview.unitCount > overview.unitCards.length ? (
-              <p className="text-center text-muted-foreground text-xs">
-                {isEn
-                  ? `Showing ${overview.unitCards.length} of ${overview.unitCount} units`
-                  : `Mostrando ${overview.unitCards.length} de ${overview.unitCount} unidades`}
-              </p>
-            ) : null}
+                    </article>
+                  );
+                })}
+              </div>
+              {overview.unitCount > overview.unitCards.length ? (
+                <p className="text-center text-muted-foreground text-xs">
+                  {isEn
+                    ? `Showing ${overview.unitCards.length} of ${overview.unitCount} units`
+                    : `Mostrando ${overview.unitCards.length} de ${overview.unitCount} unidades`}
+                </p>
+              ) : null}
             </>
           ) : (
-            <div className="rounded-2xl border border-border/75 border-dashed bg-muted/20 p-5">
+            <div className="rounded-3xl border border-border/40 border-dashed bg-muted/10 p-6 text-center">
               <p className="font-medium text-sm">
                 {isEn
                   ? "No units yet for this property."

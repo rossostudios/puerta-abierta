@@ -15,7 +15,7 @@ use crate::{
         clamp_limit_in_range, remove_nulls, serialize_to_map, CollectionPath, CollectionsQuery,
         CreateCollectionInput, MarkCollectionPaidInput,
     },
-    services::{analytics::write_analytics_event, audit::write_audit_log},
+    services::{analytics::write_analytics_event, audit::write_audit_log, workflows::fire_trigger},
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -276,6 +276,87 @@ async fn mark_collection_paid(
         Some(&org_id),
         "collection_paid",
         Some(Value::Object(analytics_payload)),
+    )
+    .await;
+
+    // Emit workflow trigger for collection payments.
+    let mut workflow_context = Map::new();
+    workflow_context.insert(
+        "collection_id".to_string(),
+        Value::String(path.collection_id.clone()),
+    );
+    workflow_context.insert(
+        "lease_id".to_string(),
+        updated
+            .as_object()
+            .and_then(|obj| obj.get("lease_id"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    workflow_context.insert(
+        "amount".to_string(),
+        updated
+            .as_object()
+            .and_then(|obj| obj.get("amount"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    workflow_context.insert(
+        "currency".to_string(),
+        updated
+            .as_object()
+            .and_then(|obj| obj.get("currency"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    workflow_context.insert(
+        "property_id".to_string(),
+        updated
+            .as_object()
+            .and_then(|obj| obj.get("property_id"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+    workflow_context.insert(
+        "unit_id".to_string(),
+        updated
+            .as_object()
+            .and_then(|obj| obj.get("unit_id"))
+            .cloned()
+            .unwrap_or(Value::Null),
+    );
+
+    if let Some(lease_id) = updated
+        .as_object()
+        .and_then(|obj| obj.get("lease_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if let Ok(lease) = get_row(pool, "leases", lease_id, "id").await {
+            if let Some(phone) = lease
+                .as_object()
+                .and_then(|obj| obj.get("tenant_phone_e164"))
+                .cloned()
+            {
+                workflow_context.insert("tenant_phone_e164".to_string(), phone);
+            }
+            if let Some(name) = lease
+                .as_object()
+                .and_then(|obj| obj.get("tenant_full_name"))
+                .cloned()
+            {
+                workflow_context.insert("tenant_full_name".to_string(), name);
+            }
+        }
+    }
+
+    fire_trigger(
+        pool,
+        &org_id,
+        "payment_received",
+        &workflow_context,
+        state.config.workflow_engine_mode,
     )
     .await;
 

@@ -51,7 +51,7 @@ export function PropertyLocationMiniMap({
 
   if (!token) {
     return (
-      <div className="flex h-48 w-full items-center justify-center rounded-2xl border border-border/70 bg-muted/20 text-muted-foreground text-xs">
+      <div className="flex h-48 w-full items-center justify-center rounded-3xl border border-border/40 bg-muted/20 text-muted-foreground text-xs shadow-[var(--shadow-floating)]">
         {isEn
           ? "Map requires NEXT_PUBLIC_MAPBOX_TOKEN"
           : "El mapa requiere NEXT_PUBLIC_MAPBOX_TOKEN"}
@@ -60,8 +60,32 @@ export function PropertyLocationMiniMap({
   }
 
   return (
-    <div className="h-48 w-full overflow-hidden rounded-2xl border border-border/70">
-      <div className="h-full w-full" ref={containerRef} />
+    <div className="h-48 w-full overflow-hidden rounded-3xl border border-border/40 shadow-[var(--shadow-floating)]">
+      <div className="pointer-events-none h-full w-full" ref={containerRef} />
     </div>
   );
+}
+
+function ExpandedMap({ city, token }: { city: string; token: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !token) return;
+
+    mapboxgl.accessToken = token;
+    const center = cityToCoordinates(city);
+    const map = new mapboxgl.Map({
+      container: containerRef.current,
+      style: "mapbox://styles/mapbox/light-v11",
+      center: [center.lng, center.lat],
+      zoom: 14,
+      attributionControl: false,
+    });
+
+    new mapboxgl.Marker().setLngLat([center.lng, center.lat]).addTo(map);
+
+    return () => map.remove();
+  }, [token, city]);
+
+  return <div className="h-full w-full bg-muted/20" ref={containerRef} />;
 }

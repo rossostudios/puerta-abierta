@@ -323,10 +323,28 @@ CREATE TABLE properties (
   address_line2 text,
   city text NOT NULL DEFAULT 'Asuncion',
   region text,
+  neighborhood text,
   postal_code text,
   country_code char(2) NOT NULL DEFAULT 'PY',
   latitude numeric(9, 6),
   longitude numeric(9, 6),
+  property_type text
+    CHECK (property_type IS NULL OR property_type IN (
+      'apartment_building',
+      'co_living_house',
+      'hotel',
+      'single_family',
+      'multi_family',
+      'hostel',
+      'mixed_use'
+    )),
+  building_amenities jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(building_amenities) = 'array'),
+  access_instructions text,
+  shared_wifi_name text,
+  shared_wifi_password text,
+  asset_owner_organization_id uuid REFERENCES organizations(id) ON DELETE SET NULL,
+  asset_owner_name text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (organization_id, code)
@@ -334,6 +352,10 @@ CREATE TABLE properties (
 
 CREATE INDEX idx_properties_org_id ON properties(organization_id);
 CREATE INDEX idx_properties_status ON properties(organization_id, status);
+CREATE INDEX idx_properties_org_property_type
+  ON properties(organization_id, property_type);
+CREATE INDEX idx_properties_owner_org
+  ON properties(asset_owner_organization_id);
 
 CREATE TABLE units (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -341,12 +363,25 @@ CREATE TABLE units (
   property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
   code text NOT NULL,
   name text NOT NULL,
+  unit_type text NOT NULL DEFAULT 'entire_place'
+    CHECK (unit_type IN ('entire_place', 'private_room', 'shared_room', 'bed')),
+  condition_status text NOT NULL DEFAULT 'clean'
+    CHECK (condition_status IN ('clean', 'dirty', 'inspecting', 'out_of_order')),
   max_guests smallint NOT NULL DEFAULT 2 CHECK (max_guests > 0),
+  beds_count smallint NOT NULL DEFAULT 1 CHECK (beds_count > 0),
   bedrooms smallint NOT NULL DEFAULT 1 CHECK (bedrooms >= 0),
   bathrooms numeric(4, 1) NOT NULL DEFAULT 1.0 CHECK (bathrooms >= 0),
+  floor_level smallint,
+  area_sqm numeric(8, 2) CHECK (area_sqm IS NULL OR area_sqm >= 0),
   square_meters numeric(8, 2),
+  unit_amenities jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(unit_amenities) = 'array'),
+  bed_configuration jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(bed_configuration) = 'array'),
   check_in_time time NOT NULL DEFAULT '15:00:00',
   check_out_time time NOT NULL DEFAULT '11:00:00',
+  base_price_nightly numeric(12, 2) NOT NULL DEFAULT 0 CHECK (base_price_nightly >= 0),
+  base_price_monthly numeric(12, 2) NOT NULL DEFAULT 0 CHECK (base_price_monthly >= 0),
   default_nightly_rate numeric(12, 2) NOT NULL DEFAULT 0 CHECK (default_nightly_rate >= 0),
   default_cleaning_fee numeric(12, 2) NOT NULL DEFAULT 0 CHECK (default_cleaning_fee >= 0),
   currency char(3) NOT NULL DEFAULT 'PYG' CHECK (currency IN ('PYG', 'USD')),
@@ -358,6 +393,123 @@ CREATE TABLE units (
 
 CREATE INDEX idx_units_org_id ON units(organization_id);
 CREATE INDEX idx_units_property_id ON units(property_id);
+CREATE INDEX idx_units_org_unit_type ON units(organization_id, unit_type);
+CREATE INDEX idx_units_org_condition_status
+  ON units(organization_id, condition_status);
+
+CREATE TABLE property_floors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  number smallint,
+  sort_order integer NOT NULL DEFAULT 0,
+  has_elevator_access boolean,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (property_id, label),
+  UNIQUE (property_id, number)
+);
+
+CREATE TABLE unit_spaces (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  unit_id uuid NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+  floor_id uuid REFERENCES property_floors(id) ON DELETE SET NULL,
+  space_type text NOT NULL DEFAULT 'room'
+    CHECK (space_type IN ('room', 'shared_zone', 'alcove', 'bathroom', 'kitchen', 'other')),
+  name text NOT NULL,
+  code text,
+  max_occupancy smallint NOT NULL DEFAULT 1 CHECK (max_occupancy > 0),
+  status text NOT NULL DEFAULT 'available'
+    CHECK (
+      status IN (
+        'available',
+        'occupied',
+        'reserved',
+        'dirty',
+        'inspecting',
+        'out_of_order',
+        'blocked'
+      )
+    ),
+  area_sqm numeric(8, 2) CHECK (area_sqm IS NULL OR area_sqm >= 0),
+  amenities jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(amenities) = 'array'),
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (unit_id, name),
+  UNIQUE (unit_id, code)
+);
+
+CREATE TABLE unit_beds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  unit_id uuid NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+  space_id uuid REFERENCES unit_spaces(id) ON DELETE SET NULL,
+  code text NOT NULL,
+  bed_type text NOT NULL DEFAULT 'single'
+    CHECK (bed_type IN ('single', 'twin', 'double', 'queen', 'king', 'bunk', 'sofa_bed', 'other')),
+  status text NOT NULL DEFAULT 'available'
+    CHECK (status IN ('available', 'occupied', 'reserved', 'dirty', 'inspecting', 'out_of_order', 'blocked')),
+  sort_order integer NOT NULL DEFAULT 0,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (unit_id, code)
+);
+
+CREATE TABLE unit_condition_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  property_id uuid NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  unit_id uuid NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+  space_id uuid REFERENCES unit_spaces(id) ON DELETE SET NULL,
+  bed_id uuid REFERENCES unit_beds(id) ON DELETE SET NULL,
+  previous_status text,
+  next_status text NOT NULL,
+  source text NOT NULL DEFAULT 'system'
+    CHECK (source IN ('system', 'manual', 'workflow', 'integration', 'api')),
+  reason text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+    CHECK (jsonb_typeof(metadata) = 'object'),
+  actor_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_property_floors_org_property_sort
+  ON property_floors(organization_id, property_id, sort_order);
+CREATE INDEX idx_property_floors_property_id
+  ON property_floors(property_id);
+
+CREATE INDEX idx_unit_spaces_org_unit_status
+  ON unit_spaces(organization_id, unit_id, status);
+CREATE INDEX idx_unit_spaces_org_floor_status
+  ON unit_spaces(organization_id, floor_id, status);
+CREATE INDEX idx_unit_spaces_property_id
+  ON unit_spaces(property_id);
+CREATE INDEX idx_unit_spaces_floor_id
+  ON unit_spaces(floor_id);
+
+CREATE INDEX idx_unit_beds_org_unit_status
+  ON unit_beds(organization_id, unit_id, status);
+CREATE INDEX idx_unit_beds_property_id
+  ON unit_beds(property_id);
+CREATE INDEX idx_unit_beds_space_id
+  ON unit_beds(space_id);
+
+CREATE INDEX idx_unit_condition_events_org_unit_created
+  ON unit_condition_events(organization_id, unit_id, created_at DESC);
+CREATE INDEX idx_unit_condition_events_org_property_created
+  ON unit_condition_events(organization_id, property_id, created_at DESC);
+CREATE INDEX idx_unit_condition_events_space_id
+  ON unit_condition_events(space_id);
+CREATE INDEX idx_unit_condition_events_bed_id
+  ON unit_condition_events(bed_id);
 
 CREATE TABLE integrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -668,6 +820,10 @@ CREATE TABLE listings (
   application_url text,
   cover_image_url text,
   gallery_image_urls jsonb NOT NULL DEFAULT '[]'::jsonb,
+  floor_plans jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(floor_plans) = 'array'),
+  virtual_tours jsonb NOT NULL DEFAULT '[]'::jsonb
+    CHECK (jsonb_typeof(virtual_tours) = 'array'),
   bedrooms smallint CHECK (bedrooms >= 0),
   bathrooms numeric(4, 1) CHECK (bathrooms >= 0),
   square_meters numeric(8, 2) CHECK (square_meters >= 0),
@@ -678,6 +834,11 @@ CREATE TABLE listings (
   minimum_lease_months smallint CHECK (minimum_lease_months >= 1),
   available_from date,
   amenities jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(amenities) = 'array'),
+  poi_context jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(poi_context) = 'object'),
+  walkability_score smallint CHECK (walkability_score IS NULL OR (walkability_score >= 0 AND walkability_score <= 100)),
+  transit_score smallint CHECK (transit_score IS NULL OR (transit_score >= 0 AND transit_score <= 100)),
+  private_space_summary text,
+  shared_space_summary text,
   maintenance_fee numeric(12, 2) NOT NULL DEFAULT 0 CHECK (maintenance_fee >= 0),
   created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -688,6 +849,8 @@ CREATE INDEX idx_listings_org_published
   ON listings(organization_id, is_published, created_at DESC);
 CREATE INDEX idx_listings_org_slug
   ON listings(organization_id, public_slug);
+CREATE INDEX idx_listings_org_scores
+  ON listings(organization_id, walkability_score, transit_score);
 
 CREATE TABLE listing_fee_lines (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -755,6 +918,8 @@ CREATE TABLE leases (
   application_id uuid REFERENCES application_submissions(id) ON DELETE SET NULL,
   property_id uuid REFERENCES properties(id) ON DELETE SET NULL,
   unit_id uuid REFERENCES units(id) ON DELETE SET NULL,
+  space_id uuid REFERENCES unit_spaces(id) ON DELETE SET NULL,
+  bed_id uuid REFERENCES unit_beds(id) ON DELETE SET NULL,
   tenant_full_name text NOT NULL,
   tenant_email citext,
   tenant_phone_e164 text,
@@ -770,6 +935,8 @@ CREATE TABLE leases (
   total_move_in numeric(12, 2) NOT NULL DEFAULT 0 CHECK (total_move_in >= 0),
   monthly_recurring_total numeric(12, 2) NOT NULL DEFAULT 0 CHECK (monthly_recurring_total >= 0),
   platform_fee numeric(12, 2) NOT NULL DEFAULT 0 CHECK (platform_fee >= 0),
+  turnover_buffer_hours smallint NOT NULL DEFAULT 24
+    CHECK (turnover_buffer_hours >= 0 AND turnover_buffer_hours <= 240),
   notes text,
   created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -780,6 +947,17 @@ CREATE INDEX idx_leases_org_status
   ON leases(organization_id, lease_status, created_at DESC);
 CREATE INDEX idx_leases_unit
   ON leases(unit_id, starts_on);
+CREATE INDEX idx_leases_space
+  ON leases(space_id, starts_on)
+  WHERE space_id IS NOT NULL;
+CREATE INDEX idx_leases_bed
+  ON leases(bed_id, starts_on)
+  WHERE bed_id IS NOT NULL;
+CREATE INDEX idx_leases_org_property_starts
+  ON leases(organization_id, property_id, starts_on);
+CREATE INDEX idx_leases_unit_active_window
+  ON leases(unit_id, starts_on, ends_on)
+  WHERE lease_status IN ('draft', 'active', 'delinquent');
 
 CREATE TABLE lease_charges (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -869,6 +1047,69 @@ CREATE TABLE message_logs (
 CREATE INDEX idx_message_logs_org_status ON message_logs(organization_id, status, created_at);
 CREATE INDEX idx_message_logs_recipient ON message_logs(recipient);
 CREATE INDEX idx_message_logs_direction ON message_logs(direction, created_at DESC);
+
+-- ---------- Communication sequences ----------
+
+CREATE TABLE communication_sequences (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  trigger_type text NOT NULL CHECK (trigger_type IN (
+    'reservation_confirmed', 'checked_in', 'checked_out',
+    'lease_created', 'lease_activated', 'lease_expiring', 'manual'
+  )),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE sequence_steps (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sequence_id uuid NOT NULL REFERENCES communication_sequences(id) ON DELETE CASCADE,
+  step_order integer NOT NULL,
+  delay_hours integer NOT NULL DEFAULT 0,
+  channel text NOT NULL DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'email', 'sms')),
+  subject text,
+  body_template text NOT NULL,
+  template_id uuid REFERENCES message_templates(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (sequence_id, step_order)
+);
+
+CREATE TABLE sequence_enrollments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sequence_id uuid NOT NULL REFERENCES communication_sequences(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  entity_type text NOT NULL CHECK (entity_type IN ('reservation', 'lease')),
+  entity_id uuid NOT NULL,
+  current_step integer NOT NULL DEFAULT 1,
+  next_send_at timestamptz,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'cancelled')),
+  recipient text NOT NULL,
+  context jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_sequence_enrollments_next_send
+  ON sequence_enrollments (next_send_at) WHERE status = 'active';
+CREATE INDEX idx_sequence_enrollments_entity
+  ON sequence_enrollments (entity_type, entity_id);
+CREATE INDEX idx_sequence_steps_sequence
+  ON sequence_steps (sequence_id, step_order);
+CREATE INDEX idx_communication_sequences_org
+  ON communication_sequences (organization_id, is_active);
+CREATE UNIQUE INDEX idx_sequence_enrollments_active_dedupe
+  ON sequence_enrollments(sequence_id, entity_type, entity_id, recipient)
+  WHERE status = 'active';
+
+CREATE TRIGGER trg_communication_sequences_updated_at
+  BEFORE UPDATE ON communication_sequences
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_sequence_enrollments_updated_at
+  BEFORE UPDATE ON sequence_enrollments
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------- AI agents and chats ----------
 
@@ -1125,11 +1366,13 @@ CREATE POLICY documents_org_member_all
 CREATE TYPE workflow_trigger_event AS ENUM (
   'reservation_confirmed', 'checked_in', 'checked_out',
   'lease_created', 'lease_activated', 'collection_overdue',
-  'application_received', 'maintenance_submitted'
+  'application_received', 'maintenance_submitted',
+  'task_completed', 'payment_received', 'lease_expiring'
 );
 
 CREATE TYPE workflow_action_type AS ENUM (
-  'create_task', 'send_notification', 'update_status', 'create_expense'
+  'create_task', 'send_notification', 'update_status', 'create_expense',
+  'send_whatsapp', 'assign_task_round_robin'
 );
 
 CREATE TABLE workflow_rules (
@@ -1157,6 +1400,73 @@ CREATE POLICY workflow_rules_org_member_all
   ON workflow_rules FOR ALL
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
+
+CREATE TABLE workflow_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  workflow_rule_id uuid REFERENCES workflow_rules(id) ON DELETE CASCADE,
+  trigger_event text NOT NULL,
+  action_type text NOT NULL,
+  action_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+  context jsonb NOT NULL DEFAULT '{}'::jsonb,
+  run_at timestamptz NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'skipped', 'cancelled')),
+  attempts integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 3,
+  last_error text,
+  dedupe_key text,
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE workflow_job_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workflow_job_id uuid NOT NULL REFERENCES workflow_jobs(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  attempt_number integer NOT NULL,
+  status text NOT NULL CHECK (status IN ('succeeded', 'failed', 'skipped')),
+  reason text,
+  normalized_action_config jsonb NOT NULL DEFAULT '{}'::jsonb,
+  context_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+  started_at timestamptz,
+  finished_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE workflow_round_robin_state (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  workflow_rule_id uuid NOT NULL REFERENCES workflow_rules(id) ON DELETE CASCADE,
+  role text NOT NULL,
+  last_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  cursor_index integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, workflow_rule_id, role)
+);
+
+CREATE INDEX idx_workflow_jobs_status_run_at
+  ON workflow_jobs(status, run_at);
+CREATE INDEX idx_workflow_jobs_org_status_run
+  ON workflow_jobs(organization_id, status, run_at);
+CREATE UNIQUE INDEX idx_workflow_jobs_dedupe_key
+  ON workflow_jobs(dedupe_key)
+  WHERE dedupe_key IS NOT NULL;
+CREATE INDEX idx_workflow_job_attempts_job_attempt
+  ON workflow_job_attempts(workflow_job_id, attempt_number DESC);
+CREATE INDEX idx_workflow_job_attempts_org_created
+  ON workflow_job_attempts(organization_id, created_at DESC);
+
+CREATE TRIGGER trg_workflow_jobs_updated_at
+  BEFORE UPDATE ON workflow_jobs
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_workflow_round_robin_state_updated_at
+  BEFORE UPDATE ON workflow_round_robin_state
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---------- SaaS subscriptions ----------
 
@@ -1300,6 +1610,18 @@ CREATE TRIGGER trg_properties_updated_at
 
 CREATE TRIGGER trg_units_updated_at
   BEFORE UPDATE ON units
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_property_floors_updated_at
+  BEFORE UPDATE ON property_floors
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_unit_spaces_updated_at
+  BEFORE UPDATE ON unit_spaces
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_unit_beds_updated_at
+  BEFORE UPDATE ON unit_beds
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_integrations_updated_at
@@ -1465,6 +1787,10 @@ CREATE POLICY organization_invites_owner_admin_all
 -- Uniform member policies for organization-scoped tables.
 ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE property_floors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unit_spaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unit_beds ENABLE ROW LEVEL SECURITY;
+ALTER TABLE unit_condition_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE guests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
@@ -1483,12 +1809,18 @@ ALTER TABLE lease_charges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collection_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE message_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE communication_sequences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sequence_steps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sequence_enrollments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maintenance_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_instructions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_rule_dispatches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_job_attempts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_round_robin_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
@@ -1500,6 +1832,26 @@ CREATE POLICY properties_org_member_all
 
 CREATE POLICY units_org_member_all
   ON units FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY property_floors_org_member_all
+  ON property_floors FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY unit_spaces_org_member_all
+  ON unit_spaces FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY unit_beds_org_member_all
+  ON unit_beds FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY unit_condition_events_org_member_all
+  ON unit_condition_events FOR ALL
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
 
@@ -1593,6 +1945,35 @@ CREATE POLICY message_logs_org_member_all
   USING (is_org_member(organization_id))
   WITH CHECK (is_org_member(organization_id));
 
+CREATE POLICY communication_sequences_org_member_all
+  ON communication_sequences FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY sequence_steps_org_member_all
+  ON sequence_steps FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM communication_sequences cs
+      WHERE cs.id = sequence_steps.sequence_id
+        AND is_org_member(cs.organization_id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM communication_sequences cs
+      WHERE cs.id = sequence_steps.sequence_id
+        AND is_org_member(cs.organization_id)
+    )
+  );
+
+CREATE POLICY sequence_enrollments_org_member_all
+  ON sequence_enrollments FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
 CREATE POLICY maintenance_requests_org_member_all
   ON maintenance_requests FOR ALL
   USING (is_org_member(organization_id))
@@ -1642,6 +2023,21 @@ CREATE POLICY notification_rule_dispatches_org_member_all
         AND is_org_member(nr.organization_id)
     )
   );
+
+CREATE POLICY workflow_jobs_org_member_all
+  ON workflow_jobs FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY workflow_job_attempts_org_member_all
+  ON workflow_job_attempts FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY workflow_round_robin_state_org_member_all
+  ON workflow_round_robin_state FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
 
 CREATE POLICY ai_agents_read_authenticated
   ON ai_agents FOR SELECT

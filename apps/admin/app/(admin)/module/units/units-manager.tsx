@@ -160,7 +160,7 @@ export function UnitsManager({
   // Validate createPropertyId: if it no longer exists in options, clear it.
   const validatedCreatePropertyId =
     createPropertyId &&
-    propertyOptions.some((row) => row.id === createPropertyId)
+      propertyOptions.some((row) => row.id === createPropertyId)
       ? createPropertyId
       : "";
 
@@ -280,7 +280,7 @@ export function UnitsManager({
           <input name="organization_id" type="hidden" value={orgId} />
 
           <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/20 p-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border/70 bg-background/75 p-2.5">
+            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
               <p className="text-muted-foreground text-xs">
                 {isEn ? "Property" : "Propiedad"}
               </p>
@@ -289,7 +289,7 @@ export function UnitsManager({
                   (isEn ? "Select a property" : "Selecciona una propiedad")}
               </p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-background/75 p-2.5">
+            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
               <p className="text-muted-foreground text-xs">
                 {isEn ? "Existing units" : "Unidades existentes"}
               </p>
@@ -297,7 +297,7 @@ export function UnitsManager({
                 {existingUnitsInSelectedProperty}
               </p>
             </div>
-            <div className="rounded-xl border border-border/70 bg-background/75 p-2.5">
+            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
               <p className="text-muted-foreground text-xs">
                 {isEn ? "Suggested code" : "Código sugerido"}
               </p>
@@ -307,7 +307,7 @@ export function UnitsManager({
             </div>
           </div>
 
-          <Card className="rounded-2xl border-border/70 bg-muted/20">
+          <Card className="rounded-3xl border-border/70 bg-muted/20 shadow-sm">
             <CardContent className="space-y-3 p-4">
               <div className="space-y-0.5">
                 <p className="font-medium text-sm">
@@ -378,7 +378,7 @@ export function UnitsManager({
                     : "Elige otro código antes de crear la unidad."}
                 </p>
                 {duplicateDraftCode.suggestion &&
-                normalizeCode(duplicateDraftCode.suggestion) !==
+                  normalizeCode(duplicateDraftCode.suggestion) !==
                   normalizeCode(draftCode) ? (
                   <Button
                     onClick={() => setDraftCode(duplicateDraftCode.suggestion)}
@@ -395,7 +395,7 @@ export function UnitsManager({
             </Alert>
           ) : null}
 
-          <Card className="rounded-2xl border-border/70 bg-muted/20">
+          <Card className="rounded-3xl border-border/70 bg-muted/20 shadow-sm">
             <CardContent className="space-y-3 p-4">
               <div className="space-y-0.5">
                 <p className="font-medium text-sm">

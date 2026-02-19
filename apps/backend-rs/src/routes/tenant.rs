@@ -695,7 +695,14 @@ async fn tenant_create_maintenance(
             "title".to_string(),
             Value::String(val_str(&created, "title")),
         );
-        fire_trigger(pool, &org_id, "maintenance_submitted", &ctx).await;
+        fire_trigger(
+            pool,
+            &org_id,
+            "maintenance_submitted",
+            &ctx,
+            state.config.workflow_engine_mode,
+        )
+        .await;
     }
 
     let request_id = val_str(&created, "id");

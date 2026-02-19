@@ -142,7 +142,9 @@ async fn run_notifications_retention(
     }
 
     let pool = db_pool(&state)?;
-    let retention_days = payload.and_then(|Json(input)| input.retention_days).unwrap_or(180);
+    let retention_days = payload
+        .and_then(|Json(input)| input.retention_days)
+        .unwrap_or(180);
     let result = purge_expired_notifications(pool, retention_days).await?;
 
     Ok(Json(json!({

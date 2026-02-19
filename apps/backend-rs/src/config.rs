@@ -2,6 +2,34 @@
 
 use std::env;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WorkflowEngineMode {
+    Legacy,
+    Queue,
+}
+
+impl WorkflowEngineMode {
+    fn from_env(value: Option<String>) -> Self {
+        match value
+            .as_deref()
+            .map(str::trim)
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str()
+        {
+            "queue" => Self::Queue,
+            _ => Self::Legacy,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::Queue => "queue",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub app_name: String,
@@ -58,6 +86,7 @@ pub struct AppConfig {
     pub twilio_auth_token: Option<String>,
     pub twilio_phone_number: Option<String>,
     pub app_public_url: String,
+    pub workflow_engine_mode: WorkflowEngineMode,
 }
 
 impl AppConfig {
@@ -135,6 +164,7 @@ impl AppConfig {
             twilio_auth_token: env_opt("TWILIO_AUTH_TOKEN"),
             twilio_phone_number: env_opt("TWILIO_PHONE_NUMBER"),
             app_public_url: env_or("APP_PUBLIC_URL", "http://localhost:3000"),
+            workflow_engine_mode: WorkflowEngineMode::from_env(env_opt("WORKFLOW_ENGINE_MODE")),
         }
     }
 
@@ -182,6 +212,10 @@ impl AppConfig {
         }
 
         models
+    }
+
+    pub fn workflow_queue_enabled(&self) -> bool {
+        self.workflow_engine_mode == WorkflowEngineMode::Queue
     }
 }
 
