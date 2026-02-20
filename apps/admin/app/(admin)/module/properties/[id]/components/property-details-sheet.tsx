@@ -66,7 +66,7 @@ function toLabel(value: unknown): string {
 const DetailsCtx = createContext<{
   open: boolean;
   toggle: (next?: boolean) => void;
-}>({ open: false, toggle: () => {} });
+}>({ open: false, toggle: () => undefined });
 
 export function DetailsProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);

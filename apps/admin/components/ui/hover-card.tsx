@@ -1,11 +1,16 @@
 "use client";
 
 import {
+  cloneElement,
   createContext,
+  type FocusEvent,
   forwardRef,
   type HTMLAttributes,
   isValidElement,
+  type MouseEvent,
   type MutableRefObject,
+  type ReactElement,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type Ref,
   type RefCallback,
@@ -158,25 +163,41 @@ export function HoverCardTrigger({
         "HoverCardTrigger with asChild expects a single React element child."
       );
     }
+    const child = children as ReactElement<{
+      onBlur?: (event: FocusEvent<HTMLElement>) => void;
+      onFocus?: (event: FocusEvent<HTMLElement>) => void;
+      onKeyDown?: (event: ReactKeyboardEvent<HTMLElement>) => void;
+      onMouseEnter?: (event: MouseEvent<HTMLElement>) => void;
+      onMouseLeave?: (event: MouseEvent<HTMLElement>) => void;
+    }>;
+    const childProps = child.props;
 
-    return (
-      <span
-        onBlur={() => scheduleClose()}
-        onFocus={() => scheduleOpen()}
-        onKeyDown={(event) => {
-          if (event.key !== "Escape") return;
-          event.preventDefault();
-          close();
-        }}
-        onMouseEnter={() => scheduleOpen()}
-        onMouseLeave={() => scheduleClose()}
-        ref={setTriggerEl as unknown as RefCallback<HTMLSpanElement>}
-        role="button"
-        tabIndex={0}
-      >
-        {children}
-      </span>
-    );
+    return cloneElement(child, {
+      onBlur: (event: FocusEvent<HTMLElement>) => {
+        childProps.onBlur?.(event);
+        scheduleClose();
+      },
+      onFocus: (event: FocusEvent<HTMLElement>) => {
+        triggerRef.current = event.currentTarget;
+        childProps.onFocus?.(event);
+        scheduleOpen();
+      },
+      onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+        childProps.onKeyDown?.(event);
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        close();
+      },
+      onMouseEnter: (event: MouseEvent<HTMLElement>) => {
+        triggerRef.current = event.currentTarget;
+        childProps.onMouseEnter?.(event);
+        scheduleOpen();
+      },
+      onMouseLeave: (event: MouseEvent<HTMLElement>) => {
+        childProps.onMouseLeave?.(event);
+        scheduleClose();
+      },
+    });
   }
 
   return (

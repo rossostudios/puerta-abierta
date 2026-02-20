@@ -235,7 +235,7 @@ export async function generateCollectionsAction(formData: FormData) {
   try {
     const errors: string[] = [];
     for (let i = 0; i < count; i++) {
-      const date = new Date(start_date + "T00:00:00");
+      const date = new Date(`${start_date}T00:00:00`);
       date.setMonth(date.getMonth() + i);
       const due_date = date.toISOString().slice(0, 10);
 

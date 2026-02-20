@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useGuest } from "../layout";
 
-interface Message {
+type Message = {
   id: string;
   created_at: string;
   payload?: {
@@ -19,7 +19,7 @@ interface Message {
     direction?: string;
     sender_name?: string;
   };
-}
+};
 
 export function GuestMessages() {
   "use no memo";

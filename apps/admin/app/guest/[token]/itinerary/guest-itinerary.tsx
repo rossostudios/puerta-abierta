@@ -15,12 +15,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { useGuest } from "../layout";
 
-interface ItineraryData {
+type ItineraryData = {
   reservation: Record<string, unknown>;
   guest: Record<string, unknown> | null;
   unit: Record<string, unknown> | null;
   property: Record<string, unknown> | null;
-}
+};
 
 function asText(
   obj: Record<string, unknown> | null | undefined,

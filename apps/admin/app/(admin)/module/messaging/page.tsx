@@ -241,7 +241,6 @@ export default async function MessagingModulePage({ searchParams }: PageProps) {
           ) : (
             <MessagingInbox
               conversations={conversations}
-              initialSegment={sp.segment}
               initialStatus={sp.status}
               orgId={orgId}
               templates={templates}

@@ -16,10 +16,10 @@ export function ReorderableImageGrid({
 }: ReorderableImageGridProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
-  const dragNode = useRef<HTMLDivElement | null>(null);
+  const dragNode = useRef<HTMLButtonElement | null>(null);
 
   const handleDragStart = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    (e: React.DragEvent<HTMLButtonElement>, index: number) => {
       dragNode.current = e.currentTarget;
       setDragIndex(index);
       e.dataTransfer.effectAllowed = "move";
@@ -43,7 +43,7 @@ export function ReorderableImageGrid({
   }, []);
 
   const handleDragOver = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, index: number) => {
+    (e: React.DragEvent<HTMLButtonElement>, index: number) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
       setOverIndex(index);
@@ -52,7 +52,7 @@ export function ReorderableImageGrid({
   );
 
   const handleDrop = useCallback(
-    (e: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+    (e: React.DragEvent<HTMLButtonElement>, targetIndex: number) => {
       e.preventDefault();
       if (dragIndex === null || dragIndex === targetIndex) {
         handleDragEnd();
@@ -78,21 +78,27 @@ export function ReorderableImageGrid({
               ? "border-primary"
               : "border-transparent"
           }`}
-          draggable
           key={url}
-          onDragEnd={handleDragEnd}
-          onDragOver={(e) => handleDragOver(e, index)}
-          onDragStart={(e) => handleDragStart(e, index)}
-          onDrop={(e) => handleDrop(e, index)}
         >
-          <Image
-            alt={`Image ${index + 1}`}
-            className="h-full w-full cursor-grab object-cover active:cursor-grabbing"
-            draggable={false}
-            fill
-            sizes="(max-width: 768px) 25vw, 20vw"
-            src={url}
-          />
+          <button
+            aria-label={`Reorder image ${index + 1}`}
+            className="absolute inset-0"
+            draggable
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => handleDragOver(e, index)}
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDrop={(e) => handleDrop(e, index)}
+            type="button"
+          >
+            <Image
+              alt={`Image ${index + 1}`}
+              className="h-full w-full cursor-grab object-cover active:cursor-grabbing"
+              draggable={false}
+              fill
+              sizes="(max-width: 768px) 25vw, 20vw"
+              src={url}
+            />
+          </button>
           <span className="absolute top-1 left-1 flex h-5 min-w-5 items-center justify-center rounded bg-black/60 px-1 font-bold text-[10px] text-white">
             {index + 1}
           </span>

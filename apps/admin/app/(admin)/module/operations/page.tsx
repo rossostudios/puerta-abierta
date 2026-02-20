@@ -260,21 +260,16 @@ export default async function OperationsHubPage({ searchParams }: PageProps) {
 
   let requests: Record<string, unknown>[] = [];
   let properties: Record<string, unknown>[] = [];
-  let units: Record<string, unknown>[] = [];
   let members: Record<string, unknown>[] = [];
 
   try {
-    const [requestRows, propertyRows, unitRows, memberRows] = await Promise.all(
-      [
-        fetchList("/maintenance-requests", orgId, 500),
-        fetchList("/properties", orgId, 500),
-        fetchList("/units", orgId, 500),
-        fetchList(`/organizations/${orgId}/members`, orgId, 300),
-      ]
-    );
+    const [requestRows, propertyRows, memberRows] = await Promise.all([
+      fetchList("/maintenance-requests", orgId, 500),
+      fetchList("/properties", orgId, 500),
+      fetchList(`/organizations/${orgId}/members`, orgId, 300),
+    ]);
     requests = requestRows as Record<string, unknown>[];
     properties = propertyRows as Record<string, unknown>[];
-    units = unitRows as Record<string, unknown>[];
     members = memberRows as Record<string, unknown>[];
   } catch (err) {
     const message = errorMessage(err);
@@ -371,10 +366,8 @@ export default async function OperationsHubPage({ searchParams }: PageProps) {
 
           <MaintenanceManager
             members={members}
-            orgId={orgId}
             properties={properties}
             requests={requests}
-            units={units}
           />
         </CardContent>
       </Card>

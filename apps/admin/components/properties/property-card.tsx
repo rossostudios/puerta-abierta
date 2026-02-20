@@ -12,7 +12,7 @@ import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-interface PropertyCardProps {
+type PropertyCardProps = {
   id: string;
   name: string;
   code: string;
@@ -25,7 +25,9 @@ interface PropertyCardProps {
   health: PropertyHealthState;
   overdueCollectionCount: number;
   urgentTaskCount: number;
-}
+};
+
+const WHITESPACE_REGEX = /\s/;
 
 export function PropertyCard({
   id,
@@ -144,7 +146,7 @@ export function PropertyCard({
             <div className="font-medium text-base text-foreground tabular-nums">
               {
                 formatCurrency(revenueMtdPyg, "PYG", formatLocale).split(
-                  /\s/
+                  WHITESPACE_REGEX
                 )[0]
               }
             </div>

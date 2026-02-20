@@ -45,10 +45,10 @@ export default function Loading() {
                 <Skeleton className="h-4 w-full" />
               </div>
               {/* Rows */}
-              {[45, 65, 35, 55, 70, 40].map((w, i) => (
+              {[45, 65, 35, 55, 70, 40].map((w) => (
                 <div
                   className="flex items-center gap-2 border-border/40 border-b px-3 py-3"
-                  key={i}
+                  key={w}
                 >
                   <Skeleton className="h-4 w-28 shrink-0" />
                   <Skeleton className={`h-6 w-[${w}%]`} />

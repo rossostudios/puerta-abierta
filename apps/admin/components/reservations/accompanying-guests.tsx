@@ -145,7 +145,7 @@ export function AccompanyingGuests({
       clearTimeout(timeout);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, orgId, primaryGuestId]);
+  }, [search, orgId, primaryGuestId, linkedGuestIds]);
 
   // Close dropdown on outside click
   useEffect(() => {

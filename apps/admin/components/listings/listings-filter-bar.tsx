@@ -109,10 +109,17 @@ export function ListingsFilterBar({
   const allViews = [...PRESET_VIEWS, ...customViews];
 
   function handleSaveView() {
-    const name = prompt(isEn ? "View name:" : "Nombre de la vista:");
-    if (!name?.trim()) return;
+    const nameParts: string[] = [];
+    if (statusFilter !== "all") nameParts.push(statusFilter);
+    if (readinessFilter !== "all") nameParts.push(readinessFilter);
+    if (globalFilter.trim()) nameParts.push(globalFilter.trim());
+    const fallbackName = isEn
+      ? `View ${customViews.length + 1}`
+      : `Vista ${customViews.length + 1}`;
+    const name =
+      nameParts.length > 0 ? nameParts.join(" · ").slice(0, 60) : fallbackName;
     const view = saveCustomView({
-      name: name.trim(),
+      name,
       globalFilter,
       statusFilter,
       readinessFilter,

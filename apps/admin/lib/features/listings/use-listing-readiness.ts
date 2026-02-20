@@ -7,7 +7,12 @@ import { fetchListingReadiness } from "./listings-api";
 export function useListingReadiness(listingId: string | null) {
   return useQuery({
     queryKey: ["listing-readiness", listingId],
-    queryFn: () => fetchListingReadiness(listingId!),
-    enabled: !!listingId,
+    queryFn: () => {
+      if (!listingId) {
+        throw new Error("listingId is required");
+      }
+      return fetchListingReadiness(listingId);
+    },
+    enabled: Boolean(listingId),
   });
 }

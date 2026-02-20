@@ -8,6 +8,15 @@ use crate::{
     state::AppState,
 };
 
+struct AlertDraft<'a> {
+    alert_type: &'a str,
+    severity: &'a str,
+    title: &'a str,
+    description: &'a str,
+    related_table: Option<&'a str>,
+    related_id: Option<&'a str>,
+}
+
 /// Run all anomaly detection checks for an organization and insert new alerts.
 pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<Value>> {
     let pool = state
@@ -75,15 +84,17 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
                 if let Some(alert) = insert_alert_if_new(
                     pool,
                     org_id,
-                    "revenue_drop",
-                    "warning",
-                    "Revenue drop detected",
-                    &format!(
-                        "Current month revenue ({:.0}) is below 70% of the 3-month average ({:.0}).",
-                        current_revenue, avg
-                    ),
-                    None,
-                    None,
+                    AlertDraft {
+                        alert_type: "revenue_drop",
+                        severity: "warning",
+                        title: "Revenue drop detected",
+                        description: &format!(
+                            "Current month revenue ({:.0}) is below 70% of the 3-month average ({:.0}).",
+                            current_revenue, avg
+                        ),
+                        related_table: None,
+                        related_id: None,
+                    },
                 )
                 .await
                 {
@@ -129,15 +140,17 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
                     if let Some(alert) = insert_alert_if_new(
                         pool,
                         org_id,
-                        "expense_spike",
-                        "warning",
-                        &format!("Expense spike in '{}'", category),
-                        &format!(
-                            "A recent expense ({:.0}) is more than 2x the average ({:.0}) for category '{}'.",
-                            latest, avg, category
-                        ),
-                        Some("expenses"),
-                        None,
+                        AlertDraft {
+                            alert_type: "expense_spike",
+                            severity: "warning",
+                            title: &format!("Expense spike in '{}'", category),
+                            description: &format!(
+                                "A recent expense ({:.0}) is more than 2x the average ({:.0}) for category '{}'.",
+                                latest, avg, category
+                            ),
+                            related_table: Some("expenses"),
+                            related_id: None,
+                        },
                     )
                     .await
                     {
@@ -186,12 +199,17 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
             if let Some(alert) = insert_alert_if_new(
                 pool,
                 org_id,
-                "overdue_tasks",
-                "warning",
-                "Many overdue tasks",
-                &format!("{} tasks are overdue by more than 7 days.", overdue_count),
-                Some("tasks"),
-                None,
+                AlertDraft {
+                    alert_type: "overdue_tasks",
+                    severity: "warning",
+                    title: "Many overdue tasks",
+                    description: &format!(
+                        "{} tasks are overdue by more than 7 days.",
+                        overdue_count
+                    ),
+                    related_table: Some("tasks"),
+                    related_id: None,
+                },
             )
             .await
             {
@@ -236,15 +254,17 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
             if let Some(alert) = insert_alert_if_new(
                 pool,
                 org_id,
-                "deposit_held_long",
-                "warning",
-                "Deposits held too long",
-                &format!(
-                    "{} deposits have been in 'held' status for more than 45 days.",
-                    held_too_long
-                ),
-                Some("escrow_events"),
-                None,
+                AlertDraft {
+                    alert_type: "deposit_held_long",
+                    severity: "warning",
+                    title: "Deposits held too long",
+                    description: &format!(
+                        "{} deposits have been in 'held' status for more than 45 days.",
+                        held_too_long
+                    ),
+                    related_table: Some("escrow_events"),
+                    related_id: None,
+                },
             )
             .await
             {
@@ -259,13 +279,17 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
 async fn insert_alert_if_new(
     pool: &sqlx::PgPool,
     org_id: &str,
-    alert_type: &str,
-    severity: &str,
-    title: &str,
-    description: &str,
-    related_table: Option<&str>,
-    related_id: Option<&str>,
+    alert: AlertDraft<'_>,
 ) -> Option<Value> {
+    let AlertDraft {
+        alert_type,
+        severity,
+        title,
+        description,
+        related_table,
+        related_id,
+    } = alert;
+
     // Dedup: check if a similar alert was created in the last 7 days
     let existing = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint FROM anomaly_alerts

@@ -77,7 +77,7 @@ async function saveSequenceAndSteps(opts: {
   let sequenceId = opts.editingId;
 
   if (opts.editingId) {
-    await authedFetch("/communication-sequences/" + opts.editingId, {
+    await authedFetch(`/communication-sequences/${opts.editingId}`, {
       method: "PATCH",
       body: JSON.stringify({
         name: opts.formName,
@@ -118,14 +118,13 @@ async function saveSequenceAndSteps(opts: {
       (id) => !currentStepIds.has(id)
     );
 
-    for (let i = 0; i < removedStepIds.length; i++) {
-      await authedFetch("/sequence-steps/" + removedStepIds[i], {
+    for (const removedStepId of removedStepIds) {
+      await authedFetch(`/sequence-steps/${removedStepId}`, {
         method: "DELETE",
       });
     }
 
-    for (let i = 0; i < opts.steps.length; i++) {
-      const step = opts.steps[i];
+    for (const step of opts.steps) {
       let templateIdVal: string | undefined;
       if (step.template_id) {
         templateIdVal = step.template_id;
@@ -139,7 +138,7 @@ async function saveSequenceAndSteps(opts: {
         subjectVal = undefined;
       }
       if (step.id) {
-        await authedFetch("/sequence-steps/" + step.id, {
+        await authedFetch(`/sequence-steps/${step.id}`, {
           method: "PATCH",
           body: JSON.stringify({
             step_order: step.step_order,
@@ -151,7 +150,7 @@ async function saveSequenceAndSteps(opts: {
           }),
         });
       } else {
-        await authedFetch("/communication-sequences/" + sequenceId + "/steps", {
+        await authedFetch(`/communication-sequences/${sequenceId}/steps`, {
           method: "POST",
           body: JSON.stringify({
             step_order: step.step_order,
@@ -165,8 +164,7 @@ async function saveSequenceAndSteps(opts: {
       }
     }
   } else {
-    for (let i = 0; i < opts.steps.length; i++) {
-      const step = opts.steps[i];
+    for (const step of opts.steps) {
       if (!(step.body_template || step.template_id)) continue;
       let templateIdVal: string | undefined;
       if (step.template_id) {
@@ -180,7 +178,7 @@ async function saveSequenceAndSteps(opts: {
       } else {
         subjectVal = undefined;
       }
-      await authedFetch("/communication-sequences/" + sequenceId + "/steps", {
+      await authedFetch(`/communication-sequences/${sequenceId}/steps`, {
         method: "POST",
         body: JSON.stringify({
           step_order: step.step_order,
@@ -380,9 +378,7 @@ export function SequencesManager({
     setSubmitting(false);
   }
 
-  async function handleDelete(seqId: string) {
-    if (!confirm(isEn ? "Delete this sequence?" : "¿Eliminar esta secuencia?"))
-      return;
+  async function deleteSequence(seqId: string) {
     try {
       await authedFetch(`/communication-sequences/${seqId}`, {
         method: "DELETE",
@@ -404,6 +400,17 @@ export function SequencesManager({
       }
       toast.error(delErrMsg);
     }
+  }
+
+  function handleDelete(seqId: string) {
+    toast(isEn ? "Delete this sequence?" : "¿Eliminar esta secuencia?", {
+      action: {
+        label: isEn ? "Delete" : "Eliminar",
+        onClick: async () => {
+          await deleteSequence(seqId);
+        },
+      },
+    });
   }
 
   async function toggleActive(seqId: string, currentlyActive: boolean) {

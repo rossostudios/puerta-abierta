@@ -78,8 +78,8 @@ async fn request_access(
 
             let email_match = email
                 .as_deref()
-                .map_or(false, |e| !e.is_empty() && e == guest_email);
-            let phone_match = phone.map_or(false, |p| !p.is_empty() && p == guest_phone);
+                .is_some_and(|e| !e.is_empty() && e == guest_email);
+            let phone_match = phone.is_some_and(|p| !p.is_empty() && p == guest_phone);
 
             if !email_match && !phone_match {
                 return Err(AppError::NotFound(

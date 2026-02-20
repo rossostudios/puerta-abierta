@@ -23,16 +23,16 @@ export const MESSAGE_SKELETON_KEYS = [
   "message-skeleton-5",
 ];
 
-export interface ThreadData {
+export type ThreadData = {
   chat: AgentChatSummary | null;
   messages: AgentChatMessage[];
-}
+};
 
-export interface StreamingTool {
+export type StreamingTool = {
   name: string;
   preview?: string;
   ok?: boolean;
-}
+};
 
 function normalizeChat(payload: unknown): AgentChatSummary | null {
   if (!payload || typeof payload !== "object") return null;

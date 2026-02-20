@@ -34,6 +34,7 @@ function OwnerLoginFormInner({ locale }: { locale: string }) {
   const { isLoading: verifying } = useQuery({
     queryKey: ["owner-verify-token", tokenParam],
     queryFn: async () => {
+      if (!tokenParam) return null;
       const res = await fetch(`${API_BASE}/public/owner/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,7 +49,7 @@ function OwnerLoginFormInner({ locale }: { locale: string }) {
         return null;
       }
       const data = await res.json();
-      localStorage.setItem("owner_token", tokenParam!);
+      localStorage.setItem("owner_token", tokenParam);
       localStorage.setItem(
         "owner_org_id",
         (data as { organization_id?: string }).organization_id ?? ""

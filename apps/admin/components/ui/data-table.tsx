@@ -25,14 +25,13 @@ import { DataTablePagination } from "./data-table-pagination";
 import { DataTableToolbar } from "./data-table-toolbar";
 import {
   type DataTableProps,
-  type DataTableRow,
-  type EmptyStateConfig,
   globalFilterFn,
   keysFromRows,
   nameKeyFromIdKey,
 } from "./data-table-types";
 
-export type { DataTableRow, EmptyStateConfig };
+export type DataTableRow = import("./data-table-types").DataTableRow;
+export type EmptyStateConfig = import("./data-table-types").EmptyStateConfig;
 
 export function DataTable<TRow extends DataTableRow = DataTableRow>({
   data,

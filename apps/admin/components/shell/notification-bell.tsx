@@ -101,21 +101,22 @@ export function NotificationBell({ locale, orgId }: NotificationBellProps) {
   } = useQuery<NotificationsData>({
     queryKey: ["notifications", orgId],
     queryFn: async () => {
+      if (!orgId) {
+        return { notifications: [], unreadCount: 0 };
+      }
       const fallbackMsg = isEn
         ? "Could not load notifications."
         : "No se pudieron cargar las notificaciones.";
+      const encodedOrgId = encodeURIComponent(orgId);
 
       const [countRes, listRes] = await Promise.all([
+        fetch(`/api/notifications/unread-count?org_id=${encodedOrgId}`, {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        }),
         fetch(
-          `/api/notifications/unread-count?org_id=${encodeURIComponent(orgId!)}`,
-          {
-            method: "GET",
-            cache: "no-store",
-            headers: { Accept: "application/json" },
-          }
-        ),
-        fetch(
-          `/api/notifications?org_id=${encodeURIComponent(orgId!)}&status=all&limit=${LIST_LIMIT}`,
+          `/api/notifications?org_id=${encodedOrgId}&status=all&limit=${LIST_LIMIT}`,
           {
             method: "GET",
             cache: "no-store",

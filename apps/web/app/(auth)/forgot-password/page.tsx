@@ -95,7 +95,7 @@ export default function ForgotPasswordPage() {
 
       <CardContent className="relative space-y-4">
         <form className="space-y-3" onSubmit={onSubmit}>
-          <label className="block">
+          <label className="block" htmlFor="forgot-email">
             <span className="mb-1 block font-medium text-muted-foreground text-xs">
               Email
             </span>
@@ -108,6 +108,7 @@ export default function ForgotPasswordPage() {
               <Input
                 autoComplete="email"
                 className="pl-9"
+                id="forgot-email"
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@company.com"
                 type="email"

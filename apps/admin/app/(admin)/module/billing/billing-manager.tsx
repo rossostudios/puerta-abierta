@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,15 +84,7 @@ export function BillingManager({
     }
   }
 
-  async function handleCancel() {
-    if (
-      !confirm(
-        isEn
-          ? "Cancel your subscription? You can resubscribe anytime."
-          : "¿Cancelar tu suscripción? Puedes volver a suscribirte."
-      )
-    )
-      return;
+  async function cancelSubscription() {
     setSubmitting(true);
     try {
       await apiPost("/billing/cancel", { org_id: orgId });
@@ -101,6 +94,22 @@ export function BillingManager({
       /* ignore */
       setSubmitting(false);
     }
+  }
+
+  function handleCancel() {
+    toast(
+      isEn
+        ? "Cancel your subscription? You can resubscribe anytime."
+        : "¿Cancelar tu suscripción? Puedes volver a suscribirte.",
+      {
+        action: {
+          label: isEn ? "Cancel subscription" : "Cancelar suscripción",
+          onClick: async () => {
+            await cancelSubscription();
+          },
+        },
+      }
+    );
   }
 
   return (
@@ -252,7 +261,7 @@ function ReferralCard({ orgId, isEn }: { orgId: string; isEn: boolean }) {
       if (!res.ok) return null;
       const data = await res.json();
       const referral = data.referral;
-      if (referral != null && referral.code) {
+      if (referral?.code) {
         return String(referral.code);
       }
       return null;

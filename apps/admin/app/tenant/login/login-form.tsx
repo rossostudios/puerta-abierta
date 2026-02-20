@@ -11,16 +11,16 @@ import { Input } from "@/components/ui/input";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 
-interface TenantVerifyResult {
+type TenantVerifyResult = {
   authenticated: boolean;
   lease_id?: string | null;
   email?: string | null;
-}
+};
 
-interface RequestAccessResult {
+type RequestAccessResult = {
   ok: boolean;
   detail?: string;
-}
+};
 
 export function TenantLoginForm({ locale }: { locale: string }) {
   return (

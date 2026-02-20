@@ -40,7 +40,6 @@ type MessagingInboxProps = {
   templates: MessageTemplate[];
   orgId: string;
   initialStatus?: string;
-  initialSegment?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -364,7 +363,7 @@ function DetailPanel({
   // Scroll to bottom on mount
   useEffect(() => {
     timelineEnd.current?.scrollIntoView({ behavior: "instant" });
-  }, [convo.guestId]);
+  }, []);
 
   const handleTemplateChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -707,7 +706,6 @@ export function MessagingInbox({
   templates,
   orgId,
   initialStatus,
-  initialSegment,
 }: MessagingInboxProps) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
@@ -750,7 +748,7 @@ export function MessagingInbox({
 
   // Auto-select first conversation (derive during render).
   const effectiveSelectedId =
-    !selectedId && filtered.length > 0 ? filtered[0]!.guestId : selectedId;
+    !selectedId && filtered.length > 0 ? filtered[0]?.guestId : selectedId;
 
   const selectedConvo = useMemo(
     () =>
@@ -773,7 +771,7 @@ export function MessagingInbox({
       (c) => c.guestId === effectiveSelectedId
     );
     if (currentIdx < filtered.length - 1) {
-      handleSelectConvo(filtered[currentIdx + 1]!.guestId);
+      handleSelectConvo(filtered[currentIdx + 1]?.guestId);
     }
   });
 
@@ -784,7 +782,7 @@ export function MessagingInbox({
       (c) => c.guestId === effectiveSelectedId
     );
     if (currentIdx > 0) {
-      handleSelectConvo(filtered[currentIdx - 1]!.guestId);
+      handleSelectConvo(filtered[currentIdx - 1]?.guestId);
     }
   });
 

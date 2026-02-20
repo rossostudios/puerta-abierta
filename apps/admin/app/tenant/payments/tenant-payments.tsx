@@ -58,7 +58,7 @@ function statusLabel(status: string, isEn: boolean): string {
 
 function daysUntilDue(dueDate: string): number {
   const now = new Date();
-  const due = new Date(dueDate + "T00:00:00");
+  const due = new Date(`${dueDate}T00:00:00`);
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 

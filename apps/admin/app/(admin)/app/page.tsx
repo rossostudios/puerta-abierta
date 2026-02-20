@@ -60,6 +60,8 @@ type DashboardPageProps = {
   searchParams: Promise<{ onboarding?: string }>;
 };
 
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 export default async function DashboardPage({
   searchParams,
 }: DashboardPageProps) {
@@ -460,13 +462,13 @@ function buildNeedsAttention(
     const status = String(row.status ?? "").toLowerCase();
     if (status === "paid" || status === "waived") return false;
     const dueDate = String(row.due_date ?? "");
-    return dueDate < todayStr && /^\d{4}-\d{2}-\d{2}$/.test(dueDate);
+    return dueDate < todayStr && ISO_DATE_REGEX.test(dueDate);
   });
 
   const draftListingsOld = listings.filter((row) => {
     if (row.is_published) return false;
     const created = String(row.created_at ?? "").slice(0, 10);
-    if (!(created && /^\d{4}-\d{2}-\d{2}$/.test(created))) return false;
+    if (!(created && ISO_DATE_REGEX.test(created))) return false;
     const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000)
       .toISOString()
       .slice(0, 10);
@@ -477,7 +479,7 @@ function buildNeedsAttention(
     const status = String(row.lease_status ?? "").toLowerCase();
     if (status !== "active") return false;
     const endsOn = String(row.ends_on ?? "");
-    if (!(endsOn && /^\d{4}-\d{2}-\d{2}$/.test(endsOn))) return false;
+    if (!(endsOn && ISO_DATE_REGEX.test(endsOn))) return false;
     const thirtyDaysOut = new Date(Date.now() + 30 * 86_400_000)
       .toISOString()
       .slice(0, 10);

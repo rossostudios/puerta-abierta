@@ -34,6 +34,7 @@ type MarketplaceResultsLayoutProps = {
   listings: MarketplaceListingViewModel[];
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: layout branches for map/list/empty/error states live together for clarity.
 export function MarketplaceResultsLayout({
   locale,
   isEn,

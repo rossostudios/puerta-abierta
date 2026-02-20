@@ -64,7 +64,7 @@ export function PropertyLocationMiniMap({
   );
 }
 
-function ExpandedMap({ city, token }: { city: string; token: string }) {
+function _ExpandedMap({ city, token }: { city: string; token: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

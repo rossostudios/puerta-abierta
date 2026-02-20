@@ -147,9 +147,7 @@ export function IntegrationsManager({
     }
   }
 
-  async function handleDelete(integrationId: string) {
-    if (!confirm(isEn ? "Delete this channel?" : "¿Eliminar este canal?"))
-      return;
+  async function deleteIntegration(integrationId: string) {
     try {
       await authedFetch(`/integrations/${integrationId}`, { method: "DELETE" });
       let delMsg: string;
@@ -169,6 +167,17 @@ export function IntegrationsManager({
       }
       toast.error(delErrMsg);
     }
+  }
+
+  function handleDelete(integrationId: string) {
+    toast(isEn ? "Delete this channel?" : "¿Eliminar este canal?", {
+      action: {
+        label: isEn ? "Delete" : "Eliminar",
+        onClick: async () => {
+          await deleteIntegration(integrationId);
+        },
+      },
+    });
   }
 
   return (
@@ -196,125 +205,117 @@ export function IntegrationsManager({
         </Button>
       </div>
 
-      {tab === "channels" && (
-        <>
-          {integrations.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              {isEn
-                ? "No channels configured yet."
-                : "No hay canales configurados."}
-            </p>
-          ) : (
-            <div className="divide-y rounded-lg border">
-              {integrations.map((row) => {
-                const id = asString(row.id);
-                const unitId = asString(row.unit_id);
-                const kind = asString(row.kind);
-                const syncStatus = asString(row.sync_status) || "unknown";
-                const lastSynced = asString(row.last_synced_at);
+      {tab === "channels" &&
+        (integrations.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {isEn
+              ? "No channels configured yet."
+              : "No hay canales configurados."}
+          </p>
+        ) : (
+          <div className="divide-y rounded-lg border">
+            {integrations.map((row) => {
+              const id = asString(row.id);
+              const unitId = asString(row.unit_id);
+              const kind = asString(row.kind);
+              const syncStatus = asString(row.sync_status) || "unknown";
+              const lastSynced = asString(row.last_synced_at);
 
-                return (
-                  <div
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                    key={id}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {unitNameMap.get(unitId) || unitId.slice(0, 8)}
-                        {" \u00b7 "}
-                        <span className="text-muted-foreground">
-                          {asString(row.channel_name) || kind}
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {kind.toUpperCase()}
-                        {asString(row.external_listing_id)
-                          ? ` \u00b7 ${asString(row.external_listing_id)}`
-                          : ""}
-                        {lastSynced
-                          ? ` \u00b7 ${isEn ? "Synced" : "Sincr."} ${lastSynced.slice(0, 16).replace("T", " ")}`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge label={syncStatus} value={syncStatus} />
-                      {kind === "ical" && (
-                        <Button
-                          disabled={syncingId === id}
-                          onClick={() => handleSync(id)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          {syncingId === id
-                            ? isEn
-                              ? "Syncing..."
-                              : "Sincronizando..."
-                            : isEn
-                              ? "Sync iCal"
-                              : "Sincronizar"}
-                        </Button>
-                      )}
+              return (
+                <div
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  key={id}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">
+                      {unitNameMap.get(unitId) || unitId.slice(0, 8)}
+                      {" \u00b7 "}
+                      <span className="text-muted-foreground">
+                        {asString(row.channel_name) || kind}
+                      </span>
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {kind.toUpperCase()}
+                      {asString(row.external_listing_id)
+                        ? ` \u00b7 ${asString(row.external_listing_id)}`
+                        : ""}
+                      {lastSynced
+                        ? ` \u00b7 ${isEn ? "Synced" : "Sincr."} ${lastSynced.slice(0, 16).replace("T", " ")}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge label={syncStatus} value={syncStatus} />
+                    {kind === "ical" && (
                       <Button
-                        onClick={() => handleDelete(id)}
+                        disabled={syncingId === id}
+                        onClick={() => handleSync(id)}
                         size="sm"
-                        variant="ghost"
+                        variant="outline"
                       >
-                        {isEn ? "Delete" : "Eliminar"}
+                        {syncingId === id
+                          ? isEn
+                            ? "Syncing..."
+                            : "Sincronizando..."
+                          : isEn
+                            ? "Sync iCal"
+                            : "Sincronizar"}
                       </Button>
-                    </div>
+                    )}
+                    <Button
+                      onClick={() => handleDelete(id)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {isEn ? "Delete" : "Eliminar"}
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
 
-      {tab === "events" && (
-        <>
-          {events.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              {isEn ? "No channel events yet." : "No hay eventos de canal."}
-            </p>
-          ) : (
-            <div className="divide-y rounded-lg border">
-              {events.map((evt) => {
-                const id = asString(evt.id);
-                const provider = asString(evt.provider);
-                const eventType = asString(evt.event_type);
-                const status = asString(evt.status) || "received";
-                const createdAt = asString(evt.created_at);
+      {tab === "events" &&
+        (events.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            {isEn ? "No channel events yet." : "No hay eventos de canal."}
+          </p>
+        ) : (
+          <div className="divide-y rounded-lg border">
+            {events.map((evt) => {
+              const id = asString(evt.id);
+              const provider = asString(evt.provider);
+              const eventType = asString(evt.event_type);
+              const status = asString(evt.status) || "received";
+              const createdAt = asString(evt.created_at);
 
-                return (
-                  <div
-                    className="flex items-center justify-between gap-3 px-4 py-3"
-                    key={id}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">
-                        {provider || "—"}
-                        {" \u00b7 "}
-                        <span className="text-muted-foreground">
-                          {eventType}
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {createdAt
-                          ? createdAt.slice(0, 16).replace("T", " ")
-                          : ""}
-                        {asString(evt.external_event_id)
-                          ? ` \u00b7 ${asString(evt.external_event_id)}`
-                          : ""}
-                      </p>
-                    </div>
-                    <StatusBadge label={status} value={status} />
+              return (
+                <div
+                  className="flex items-center justify-between gap-3 px-4 py-3"
+                  key={id}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">
+                      {provider || "—"}
+                      {" \u00b7 "}
+                      <span className="text-muted-foreground">{eventType}</span>
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {createdAt
+                        ? createdAt.slice(0, 16).replace("T", " ")
+                        : ""}
+                      {asString(evt.external_event_id)
+                        ? ` \u00b7 ${asString(evt.external_event_id)}`
+                        : ""}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
+                  <StatusBadge label={status} value={status} />
+                </div>
+              );
+            })}
+          </div>
+        ))}
 
       {/* Create Sheet */}
       <Sheet

@@ -1561,7 +1561,7 @@ async fn send_renewal_offer(
         &app_public_url,
     )
     .await
-    .map_err(|e| AppError::BadRequest(e))?;
+    .map_err(AppError::BadRequest)?;
 
     write_audit_log(
         state.db_pool.as_ref(),

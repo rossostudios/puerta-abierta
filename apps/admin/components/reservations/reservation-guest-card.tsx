@@ -15,6 +15,8 @@ type ReservationGuestCardProps = {
   isEn: boolean;
 };
 
+const NAME_WHITESPACE_REGEX = /\s+/;
+
 function countryFlag(code: string | null): string {
   if (!code || code.length !== 2) return "";
   const upper = code.toUpperCase();
@@ -25,7 +27,7 @@ function countryFlag(code: string | null): string {
 
 function initials(name: string): string {
   return name
-    .split(/\s+/)
+    .split(NAME_WHITESPACE_REGEX)
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");

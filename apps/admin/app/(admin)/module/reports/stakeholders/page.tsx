@@ -53,6 +53,8 @@ type PropertySummaryRow = {
   occupancy_rate: number;
 };
 
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 function firstValue(value: string | string[] | undefined): string | undefined {
   if (typeof value === "string") return value;
   if (Array.isArray(value) && typeof value[0] === "string") return value[0];
@@ -60,7 +62,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 }
 
 function isIsoDate(value: string | undefined): value is string {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  return typeof value === "string" && ISO_DATE_REGEX.test(value);
 }
 
 function asNumber(value: unknown): number {
@@ -173,37 +175,44 @@ export default async function StakeholderReportPage({
 
   const sectionErrors: string[] = [];
 
-  const ownerSummary =
-    ownerResult.status === "fulfilled"
-      ? ownerResult.value
-      : (sectionErrors.push(
-          `${isEn ? "Owner summary" : "Resumen"}: ${errorMessage(ownerResult.reason)}`
-        ),
-        null);
+  let ownerSummary: Record<string, unknown> | null = null;
+  if (ownerResult.status === "fulfilled") {
+    ownerSummary = ownerResult.value;
+  } else {
+    sectionErrors.push(
+      `${isEn ? "Owner summary" : "Resumen"}: ${errorMessage(ownerResult.reason)}`
+    );
+  }
 
-  const financeData =
-    financeResult.status === "fulfilled"
-      ? financeResult.value
-      : (sectionErrors.push(
-          `${isEn ? "Income" : "Ingresos"}: ${errorMessage(financeResult.reason)}`
-        ),
-        { months: [], outstanding_collections: [] });
+  let financeData: FinanceDashboardData = {
+    months: [],
+    outstanding_collections: [],
+  };
+  if (financeResult.status === "fulfilled") {
+    financeData = financeResult.value;
+  } else {
+    sectionErrors.push(
+      `${isEn ? "Income" : "Ingresos"}: ${errorMessage(financeResult.reason)}`
+    );
+  }
 
-  const operationsSummary =
-    operationsResult.status === "fulfilled"
-      ? operationsResult.value
-      : (sectionErrors.push(
-          `${isEn ? "Operations" : "Operaciones"}: ${errorMessage(operationsResult.reason)}`
-        ),
-        null);
+  let operationsSummary: OperationsSummary | null = null;
+  if (operationsResult.status === "fulfilled") {
+    operationsSummary = operationsResult.value;
+  } else {
+    sectionErrors.push(
+      `${isEn ? "Operations" : "Operaciones"}: ${errorMessage(operationsResult.reason)}`
+    );
+  }
 
-  const kpiDashboard =
-    kpiResult.status === "fulfilled"
-      ? kpiResult.value
-      : (sectionErrors.push(
-          `${isEn ? "KPI dashboard" : "KPIs"}: ${errorMessage(kpiResult.reason)}`
-        ),
-        null);
+  let kpiDashboard: KpiDashboard | null = null;
+  if (kpiResult.status === "fulfilled") {
+    kpiDashboard = kpiResult.value;
+  } else {
+    sectionErrors.push(
+      `${isEn ? "KPI dashboard" : "KPIs"}: ${errorMessage(kpiResult.reason)}`
+    );
+  }
 
   let propertySummaries: PropertySummaryRow[] = [];
   if (properties.length > 0) {

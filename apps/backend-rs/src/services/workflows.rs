@@ -34,6 +34,16 @@ struct WorkflowJob {
     max_attempts: i32,
 }
 
+struct EnqueueWorkflowJobInput<'a> {
+    org_id: &'a str,
+    rule_id: &'a str,
+    trigger_event: &'a str,
+    action_type: &'a str,
+    action_config: &'a Value,
+    context: &'a Map<String, Value>,
+    run_at: DateTime<Utc>,
+}
+
 enum ExecutionOutcome {
     Succeeded,
     Skipped(String),
@@ -113,13 +123,15 @@ pub async fn fire_trigger(
             let run_at = Utc::now() + Duration::minutes(delay_minutes);
             if let Err(error) = enqueue_workflow_job(
                 pool,
-                org_id,
-                &rule_id,
-                trigger_event,
-                &action_type,
-                &normalized_config,
-                context,
-                run_at,
+                EnqueueWorkflowJobInput {
+                    org_id,
+                    rule_id: &rule_id,
+                    trigger_event,
+                    action_type: &action_type,
+                    action_config: &normalized_config,
+                    context,
+                    run_at,
+                },
             )
             .await
             {
@@ -192,7 +204,7 @@ fn queue_enabled_for_org_allowlist(org_id: &str, raw_allowlist: &str) -> bool {
         return true;
     }
 
-    allowlist.iter().any(|value| *value == target)
+    allowlist.contains(&target)
 }
 
 /// Process queued workflow jobs using row-level locking and retry policy.
@@ -292,14 +304,18 @@ pub async fn process_workflow_jobs(
 
 async fn enqueue_workflow_job(
     pool: &sqlx::PgPool,
-    org_id: &str,
-    rule_id: &str,
-    trigger_event: &str,
-    action_type: &str,
-    action_config: &Value,
-    context: &Map<String, Value>,
-    run_at: DateTime<Utc>,
+    input: EnqueueWorkflowJobInput<'_>,
 ) -> Result<(), String> {
+    let EnqueueWorkflowJobInput {
+        org_id,
+        rule_id,
+        trigger_event,
+        action_type,
+        action_config,
+        context,
+        run_at,
+    } = input;
+
     let org_uuid =
         Uuid::parse_str(org_id).map_err(|error| format!("invalid org_id '{org_id}': {error}"))?;
     let rule_uuid = Uuid::parse_str(rule_id)

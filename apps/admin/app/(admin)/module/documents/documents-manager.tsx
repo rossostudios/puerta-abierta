@@ -190,9 +190,7 @@ export function DocumentsManager({
     }
   }
 
-  async function handleDelete(docId: string) {
-    if (!confirm(isEn ? "Delete this document?" : "¿Eliminar este documento?"))
-      return;
+  async function deleteDocument(docId: string) {
     try {
       await authedFetch(`/documents/${docId}`, { method: "DELETE" });
       let delMsg: string;
@@ -212,6 +210,17 @@ export function DocumentsManager({
       }
       toast.error(delErrMsg);
     }
+  }
+
+  function handleDelete(docId: string) {
+    toast(isEn ? "Delete this document?" : "¿Eliminar este documento?", {
+      action: {
+        label: isEn ? "Delete" : "Eliminar",
+        onClick: async () => {
+          await deleteDocument(docId);
+        },
+      },
+    });
   }
 
   return (
@@ -391,19 +400,14 @@ export function DocumentsManager({
             const id = asString(doc.id);
             return (
               <div
-                className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
+                className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/30"
                 key={id}
-                onClick={() => setPreviewDoc(doc)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setPreviewDoc(doc);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
               >
-                <div className="min-w-0 flex-1">
+                <button
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setPreviewDoc(doc)}
+                  type="button"
+                >
                   <p className="truncate font-medium text-foreground">
                     {asString(doc.file_name)}
                   </p>
@@ -417,12 +421,8 @@ export function DocumentsManager({
                     {" \u00b7 "}
                     {asString(doc.created_at).slice(0, 10)}
                   </p>
-                </div>
-                <div
-                  className="flex items-center gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                  role="presentation"
-                >
+                </button>
+                <div className="flex items-center gap-2">
                   <StatusBadge
                     label={asString(doc.category)}
                     value={asString(doc.category)}

@@ -104,7 +104,7 @@ function useShellHotkeys(locale: Locale) {
   useGlobalHotkeys({
     onCommandPalette: useCallback(() => setCmdPaletteOpen((prev) => !prev), []),
     onShowHelp: useCallback(() => setHelpOpen((prev) => !prev), []),
-    onEscape: useCallback(() => {}, []),
+    onEscape: useCallback(() => undefined, []),
   });
 
   // Listen for topbar button event
@@ -252,7 +252,6 @@ function AdminShellV2({
         orgId={orgId}
         overlays={overlays}
         role={role}
-        shellSurfaceClass={shellSurfaceClass}
         sidebarCollapsed={sidebarCollapsed}
         sidebarPanelRef={sidebarPanelRef}
         viewportMode={viewportMode}

@@ -32,6 +32,7 @@ export async function generateMetadata({
   };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: page orchestrates fetch, guardrails, and render states in one server entrypoint.
 export default async function MarketplaceApplyPage({
   params,
 }: MarketplaceApplyPageProps) {

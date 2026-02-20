@@ -69,7 +69,7 @@ export function useTableHotkeys<T>({
     }
   });
 
-  useHotkey("Escape", (e: KeyboardEvent) => {
+  useHotkey("Escape", (_e: KeyboardEvent) => {
     if (!enabled || isInputFocused()) return;
     setFocusedRowIndex(-1);
   });

@@ -74,7 +74,11 @@ function extractVariables(body: string): string[] {
   const pattern = /\{\{(\w+)\}\}/g;
   let m = pattern.exec(body);
   while (m) {
-    const name = m[1]!;
+    const name = m[1];
+    if (!name) {
+      m = pattern.exec(body);
+      continue;
+    }
     if (!variables.includes(name)) variables.push(name);
     m = pattern.exec(body);
   }

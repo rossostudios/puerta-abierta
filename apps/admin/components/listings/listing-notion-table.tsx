@@ -289,7 +289,7 @@ export function ListingNotionTable({
         });
       }
     },
-    [addOptimistic, isEn, startTransition, onCommitEdit]
+    [addOptimistic, isEn, onCommitEdit]
   );
 
   /* --- client-side readiness filter (readiness is not server-filterable) --- */
@@ -310,7 +310,7 @@ export function ListingNotionTable({
 
   const toggleColumnPref = useCallback((colId: string) => {
     setUserColumnPrefs((prev) => {
-      const next = { ...prev, [colId]: prev[colId] === false ? true : false };
+      const next = { ...prev, [colId]: prev[colId] === false };
       writeColumnVisibility(next);
       return next;
     });
@@ -796,7 +796,7 @@ export function ListingNotionTable({
                     )}
 
                     {header.column.getCanResize() && (
-                      <div
+                      <button
                         aria-label="Resize column"
                         className={cn(
                           "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none",
@@ -806,7 +806,7 @@ export function ListingNotionTable({
                         onDoubleClick={() => header.column.resetSize()}
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
-                        role="separator"
+                        type="button"
                       />
                     )}
                   </TableHead>

@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { patchJson, postJson } from "@/lib/api";
 
+const LIST_DELIMITER_REGEX = /[\n,]/;
+
 function toStringValue(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -33,7 +35,7 @@ function toOptionalListValue(
   const value = toOptionalStringValue(formData, key);
   if (!value) return undefined;
   const parsed = value
-    .split(/[\n,]/)
+    .split(LIST_DELIMITER_REGEX)
     .map((item) => item.trim())
     .filter(Boolean);
   if (parsed.length === 0) return undefined;

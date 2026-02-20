@@ -248,7 +248,7 @@ export function NotionDataTable<TRow>({
                     )}
 
                     {header.column.getCanResize() && (
-                      <div
+                      <button
                         aria-label="Resize column"
                         className={cn(
                           "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none",
@@ -258,7 +258,7 @@ export function NotionDataTable<TRow>({
                         onDoubleClick={() => header.column.resetSize()}
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
-                        role="separator"
+                        type="button"
                       />
                     )}
                   </TableHead>

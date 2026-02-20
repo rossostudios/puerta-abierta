@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
  * Uses `useSyncExternalStore` so the React Compiler can optimize it
  * (avoids the `useState` + `useEffect` → `setMounted(true)` pattern).
  */
-const emptySubscribe = () => () => {};
+const emptySubscribe = () => () => undefined;
 const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 

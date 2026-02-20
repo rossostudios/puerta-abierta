@@ -20,15 +20,19 @@ export default function Loading() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton className="h-[100px] rounded-xl" key={i} />
-            ))}
+            {Array.from({ length: 4 }, (_, index) => `kpi-${index}`).map(
+              (kpiKey) => (
+                <Skeleton className="h-[100px] rounded-xl" key={kpiKey} />
+              )
+            )}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton className="h-[280px] rounded-xl" key={i} />
-            ))}
+            {Array.from({ length: 2 }, (_, index) => `chart-${index}`).map(
+              (chartKey) => (
+                <Skeleton className="h-[280px] rounded-xl" key={chartKey} />
+              )
+            )}
           </div>
         </CardContent>
       </Card>

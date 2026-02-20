@@ -1,5 +1,6 @@
 "use client";
 
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
   type ChartConfig,
   ChartContainer,
@@ -11,7 +12,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "@/lib/recharts";
 
 export function ReservationsTrendChart({
   isEn,

@@ -181,7 +181,7 @@ function ListingCalendar({ slug, isEn }: { slug: string; isEn: boolean }) {
       ) : (
         <div className="grid grid-cols-7 gap-px">
           {days.map((day) => {
-            const dayDate = new Date(day.date + "T00:00:00");
+            const dayDate = new Date(`${day.date}T00:00:00`);
             const isCurrentMonth =
               dayDate.getMonth() === monthNum &&
               dayDate.getFullYear() === yearNum;

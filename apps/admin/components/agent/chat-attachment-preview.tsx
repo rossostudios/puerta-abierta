@@ -5,6 +5,7 @@ import {
   File01Icon,
   Loading03Icon,
 } from "@hugeicons/core-free-icons";
+import Image from "next/image";
 import type { ChatAttachment } from "@/components/agent/use-chat-attachments";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -26,10 +27,13 @@ export function ChatAttachmentPreview({
           key={att.id}
         >
           {att.previewUrl ? (
-            <img
+            <Image
               alt={att.file.name}
               className="h-full w-full object-cover"
+              height={64}
               src={att.previewUrl}
+              unoptimized
+              width={64}
             />
           ) : (
             <div className="flex flex-col items-center gap-0.5">

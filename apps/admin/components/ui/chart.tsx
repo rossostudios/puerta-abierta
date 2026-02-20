@@ -9,12 +9,15 @@ import {
   useContext,
   useId,
 } from "react";
-import type { NameType, ValueType } from "@/lib/recharts";
 import {
   ResponsiveContainer,
   Tooltip,
   type TooltipContentProps,
-} from "@/lib/recharts";
+} from "recharts";
+import type {
+  NameType,
+  ValueType,
+} from "recharts/types/component/DefaultTooltipContent";
 
 import { cn } from "@/lib/utils";
 

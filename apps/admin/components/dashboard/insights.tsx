@@ -3,6 +3,16 @@
 import { ChartIcon, Task01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useMemo } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -23,16 +33,6 @@ import { formatCurrency, humanizeKey } from "@/lib/format";
 import { useMounted } from "@/lib/hooks/use-mounted";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "@/lib/recharts";
 import { cn } from "@/lib/utils";
 
 export type RevenueSnapshot = {

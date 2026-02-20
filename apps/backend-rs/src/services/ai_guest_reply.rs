@@ -188,13 +188,7 @@ pub async fn queue_ai_reply(
     body: &str,
     confidence: f64,
 ) {
-    let auto_send_threshold = 0.7;
-
-    let status = if confidence >= auto_send_threshold {
-        "queued"
-    } else {
-        "queued" // Still queue but could flag for review in the future
-    };
+    let status = "queued";
 
     let mut msg = Map::new();
     msg.insert(

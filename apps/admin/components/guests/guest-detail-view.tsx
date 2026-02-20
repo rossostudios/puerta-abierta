@@ -56,14 +56,10 @@ export function GuestDetailView({
   deleteAction: (formData: FormData) => void;
   t: (en: string, es: string) => string;
 }) {
-  const viewNextStayLabel =
-    asDateLabel(locale, record.next_stay_start) != null
-      ? asDateLabel(locale, record.next_stay_start)!
-      : "-";
-  const viewLastStayLabel =
-    asDateLabel(locale, record.last_stay_end) != null
-      ? asDateLabel(locale, record.last_stay_end)!
-      : "-";
+  const nextStayLabel = asDateLabel(locale, record.next_stay_start);
+  const viewNextStayLabel = nextStayLabel != null ? nextStayLabel : "-";
+  const lastStayLabel = asDateLabel(locale, record.last_stay_end);
+  const viewLastStayLabel = lastStayLabel != null ? lastStayLabel : "-";
 
   let viewAddressValue: string | null = null;
   const addrPart = record.address != null ? record.address.trim() : "";
@@ -215,7 +211,7 @@ export function GuestDetailView({
               className="object-contain"
               fill
               sizes="(max-width: 640px) 100vw, 36rem"
-              src={record.id_document_url!}
+              src={record.id_document_url || ""}
             />
           </div>
         </div>

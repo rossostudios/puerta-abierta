@@ -66,7 +66,7 @@ export function GettingStarted({
 }: GettingStartedProps) {
   const isEn = locale === "en-US";
 
-  const emptySubscribe = useCallback(() => () => {}, []);
+  const emptySubscribe = useCallback(() => () => undefined, []);
   const getDismissed = useCallback(
     () => localStorage.getItem(DISMISS_KEY) === "true",
     []

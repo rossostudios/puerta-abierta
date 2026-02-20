@@ -5,13 +5,11 @@ import type { MarketplaceListingViewModel } from "@/lib/features/marketplace/vie
 import { getSafeWhatsAppUrl } from "@/lib/security/safe-external-url";
 
 type ScheduleVisitButtonProps = {
-  slug: string;
   isEn: boolean;
   listing: MarketplaceListingViewModel;
 };
 
 export function ScheduleVisitButton({
-  slug,
   isEn,
   listing,
 }: ScheduleVisitButtonProps) {

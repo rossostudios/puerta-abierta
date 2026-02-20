@@ -11,16 +11,16 @@ import { Input } from "@/components/ui/input";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 
-interface VerifyResult {
+type VerifyResult = {
   authenticated: boolean;
   reservation_id?: string | null;
   guest_id?: string | null;
-}
+};
 
-interface RequestAccessResult {
+type RequestAccessResult = {
   ok: boolean;
   detail?: string;
-}
+};
 
 export function GuestLoginForm({ locale }: { locale: string }) {
   return (

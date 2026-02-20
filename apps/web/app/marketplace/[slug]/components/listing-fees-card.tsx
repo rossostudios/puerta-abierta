@@ -5,6 +5,7 @@ type ListingFeesCardProps = {
   listing: MarketplaceListingViewModel;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: fee grouping and bilingual rendering are intentionally colocated.
 export function ListingFeesCard({ isEn, listing }: ListingFeesCardProps) {
   const oneTimeFees = listing.feeLines.filter(
     (l) =>

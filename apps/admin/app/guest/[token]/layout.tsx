@@ -7,13 +7,13 @@ import { createContext, type ReactNode, useContext, useEffect } from "react";
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 
-interface GuestContextValue {
+type GuestContextValue = {
   token: string;
   reservationId: string;
   guestId: string;
   headers: Record<string, string>;
   apiBase: string;
-}
+};
 
 const GuestContext = createContext<GuestContextValue | null>(null);
 

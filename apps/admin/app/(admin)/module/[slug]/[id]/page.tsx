@@ -154,7 +154,7 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
     const { data } = await supabase.auth.getSession();
     accessToken = data.session?.access_token ?? null;
     sessionUserId = data.session?.user?.id ?? null;
-  } catch (err) {
+  } catch (_err) {
     // Session is optional
   }
 

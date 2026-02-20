@@ -5,10 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authedFetch } from "@/lib/api-client";
 
-interface SendGuestPortalLinkProps {
+type SendGuestPortalLinkProps = {
   reservationId: string;
   isEn: boolean;
-}
+};
 
 export function SendGuestPortalLink({
   reservationId,

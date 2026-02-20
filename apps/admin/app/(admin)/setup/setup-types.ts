@@ -1,9 +1,3 @@
-import type {
-  OrganizationProfileType,
-  RentalMode,
-  Row,
-} from "./setup-components";
-
 export type SubmittingState =
   | null
   | "org"
@@ -25,7 +19,10 @@ export type SharedStepProps = {
   submitting: SubmittingState;
 };
 
-export type { OrganizationProfileType, RentalMode, Row };
+export type OrganizationProfileType =
+  import("./setup-components").OrganizationProfileType;
+export type RentalMode = import("./setup-components").RentalMode;
+export type Row = import("./setup-components").Row;
 
 export function fd(form: HTMLFormElement, name: string): string {
   const val = new FormData(form).get(name);

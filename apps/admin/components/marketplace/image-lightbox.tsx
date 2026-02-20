@@ -63,18 +63,13 @@ export function ImageLightbox({
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
-      onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClose();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-    >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90">
+      <button
+        aria-label={alt}
+        className="absolute inset-0"
+        onClick={onClose}
+        type="button"
+      />
       {/* Counter */}
       <div className="absolute top-4 left-4 z-10 rounded-full bg-black/60 px-3 py-1.5 text-sm text-white">
         {index + 1} / {images.length}
@@ -108,7 +103,6 @@ export function ImageLightbox({
         alt={`${alt} ${index + 1}`}
         className="max-h-[90vh] max-w-[90vw] select-none object-contain"
         height={1080}
-        onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => {
           if (touchStart === null) return;
           const diff = e.changedTouches[0].clientX - touchStart;

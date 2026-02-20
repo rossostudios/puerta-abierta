@@ -111,16 +111,12 @@ function formatDate(value: string | null, locale: string): string {
 }
 
 export function MaintenanceManager({
-  orgId,
   requests,
   properties,
-  units,
   members,
 }: {
-  orgId: string;
   requests: Record<string, unknown>[];
   properties: Record<string, unknown>[];
-  units: Record<string, unknown>[];
   members: Record<string, unknown>[];
 }) {
   const locale = useActiveLocale();

@@ -23,7 +23,7 @@ export function dispatchApiError(detail: ApiErrorDetail) {
 export function onApiError(
   handler: (detail: ApiErrorDetail) => void
 ): () => void {
-  if (typeof window === "undefined") return () => {};
+  if (typeof window === "undefined") return () => undefined;
   const listener = (e: Event) => {
     handler((e as CustomEvent<ApiErrorDetail>).detail);
   };
@@ -85,10 +85,14 @@ let cachedClientToken: { token: string | null; expiresAt: number } | null =
 
 function getBrowserSupabaseClient(): BrowserSupabaseClient {
   if (!browserSupabaseClient) {
-    browserSupabaseClient = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!(supabaseUrl && supabaseAnonKey)) {
+      throw new Error(
+        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY"
+      );
+    }
+    browserSupabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);
   }
   return browserSupabaseClient;
 }

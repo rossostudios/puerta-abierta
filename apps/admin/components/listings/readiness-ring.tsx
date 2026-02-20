@@ -18,11 +18,14 @@ export function ReadinessRing({ score }: { score: number }) {
 
   return (
     <svg
+      aria-label={`Readiness ${pct}%`}
       className="shrink-0"
       height={SIZE}
+      role="img"
       viewBox={`0 0 ${SIZE} ${SIZE}`}
       width={SIZE}
     >
+      <title>{`Readiness ${pct}%`}</title>
       <circle
         className="stroke-muted/40"
         cx={SIZE / 2}

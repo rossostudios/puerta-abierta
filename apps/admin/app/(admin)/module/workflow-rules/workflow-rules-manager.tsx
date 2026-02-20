@@ -411,8 +411,7 @@ export function WorkflowRulesManager({
     }
   }
 
-  async function handleDelete(ruleId: string) {
-    if (!confirm(isEn ? "Delete this rule?" : "Eliminar esta regla?")) return;
+  async function deleteRule(ruleId: string) {
     const deletedMessage = isEn ? "Rule deleted" : "Regla eliminada";
     try {
       await authedFetch(`/workflow-rules/${ruleId}`, { method: "DELETE" });
@@ -421,6 +420,17 @@ export function WorkflowRulesManager({
     } catch (error) {
       toast.error(normalizeErrorMessage(error));
     }
+  }
+
+  function handleDelete(ruleId: string) {
+    toast(isEn ? "Delete this rule?" : "Eliminar esta regla?", {
+      action: {
+        label: isEn ? "Delete" : "Eliminar",
+        onClick: async () => {
+          await deleteRule(ruleId);
+        },
+      },
+    });
   }
 
   async function handleApplyTemplate(template: WorkflowTemplate) {

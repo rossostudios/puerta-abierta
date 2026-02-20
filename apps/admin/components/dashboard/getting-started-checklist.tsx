@@ -42,7 +42,7 @@ export function GettingStartedChecklist({
     totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
   const allDone = doneCount === totalCount;
 
-  const emptySubscribe = useCallback(() => () => {}, []);
+  const emptySubscribe = useCallback(() => () => undefined, []);
   const getDismissedSnapshot = useCallback(() => {
     const savedDismissedCount = Number(
       localStorage.getItem(DISMISS_VERSION_KEY) ?? "0"

@@ -560,16 +560,14 @@ pub async fn send_chat_message_streaming(
 
     // Update chat timestamp
     if let Some(row) = assistant_row {
-        if let Ok(created_at) = row.try_get::<Option<String>, _>("created_at") {
-            if let Some(ts) = created_at {
-                let _ = sqlx::query(
-                    "UPDATE ai_chats SET last_message_at = $1::timestamptz WHERE id = $2::uuid",
-                )
-                .bind(&ts)
-                .bind(chat_id)
-                .execute(pool)
-                .await;
-            }
+        if let Ok(Some(ts)) = row.try_get::<Option<String>, _>("created_at") {
+            let _ = sqlx::query(
+                "UPDATE ai_chats SET last_message_at = $1::timestamptz WHERE id = $2::uuid",
+            )
+            .bind(&ts)
+            .bind(chat_id)
+            .execute(pool)
+            .await;
         }
     }
 

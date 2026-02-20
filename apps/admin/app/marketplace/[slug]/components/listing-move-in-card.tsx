@@ -67,7 +67,7 @@ export function ListingMoveInCard({
               listingSlug={slug}
               whatsappUrl={listing.whatsappUrl}
             />
-            <ScheduleVisitButton isEn={isEn} listing={listing} slug={slug} />
+            <ScheduleVisitButton isEn={isEn} listing={listing} />
           </>
         ) : null}
       </div>

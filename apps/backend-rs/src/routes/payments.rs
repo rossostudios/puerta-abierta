@@ -376,7 +376,7 @@ async fn create_stripe_checkout(
         &org_name,
     )
     .await
-    .map_err(|e| AppError::Dependency(e))?;
+    .map_err(AppError::Dependency)?;
 
     // Store the checkout session ID
     let session_id = session

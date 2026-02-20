@@ -90,7 +90,7 @@ export function ImageUpload({
   );
 
   const onDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
+    (e: DragEvent<HTMLButtonElement>) => {
       e.preventDefault();
       setDragging(false);
       handleFiles(e.dataTransfer.files);
@@ -126,7 +126,7 @@ export function ImageUpload({
       ) : null}
 
       {/* Drop zone */}
-      <div
+      <button
         className={cn(
           "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-6 text-sm transition-colors",
           dragging
@@ -144,14 +144,7 @@ export function ImageUpload({
         }}
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        role="button"
-        tabIndex={0}
+        type="button"
       >
         <Icon
           className="text-muted-foreground"
@@ -167,7 +160,7 @@ export function ImageUpload({
               ? "Click or drag to upload"
               : "Clic o arrastra para subir"}
         </p>
-      </div>
+      </button>
 
       <input
         accept="image/*"

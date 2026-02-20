@@ -255,10 +255,13 @@ export default async function MarketplaceListingPage({
             <section className="space-y-4">
               <div className="h-6 w-48 animate-pulse rounded bg-muted" />
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 3 }).map((_, i) => (
+                {Array.from(
+                  { length: 3 },
+                  (_, index) => `similar-${index}`
+                ).map((similarKey) => (
                   <div
                     className="h-64 animate-pulse rounded-2xl bg-muted"
-                    key={i}
+                    key={similarKey}
                   />
                 ))}
               </div>

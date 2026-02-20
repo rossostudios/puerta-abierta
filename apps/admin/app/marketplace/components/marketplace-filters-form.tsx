@@ -20,14 +20,12 @@ type MarketplaceFiltersFormProps = {
   isEn: boolean;
   filters: MarketplaceSearchFilters;
   activeFilters: number;
-  sortLabel: string;
 };
 
 export function MarketplaceFiltersForm({
   isEn,
   filters,
   activeFilters,
-  sortLabel,
 }: MarketplaceFiltersFormProps) {
   const [open, setOpen] = useState(false);
 

@@ -167,7 +167,7 @@ export function UnitNotionTable({
         });
       }
     },
-    [addOptimistic, isEn, startTransition]
+    [addOptimistic, isEn]
   );
 
   const commitText = useCallback(
@@ -521,14 +521,11 @@ export function UnitNotionTable({
                     key={header.id}
                     style={{ width: header.getSize() }}
                   >
-                    {header.isPlaceholder ? null : (
-                      <div
-                        className={cn(
-                          "flex items-center gap-1",
-                          header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-foreground"
-                        )}
+                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                      <button
+                        className="inline-flex items-center gap-1 hover:text-foreground"
                         onClick={header.column.getToggleSortingHandler()}
+                        type="button"
                       >
                         {flexRender(
                           header.column.columnDef.header,
@@ -538,11 +535,16 @@ export function UnitNotionTable({
                           asc: <span className="ml-1 text-[10px]">↑</span>,
                           desc: <span className="ml-1 text-[10px]">↓</span>,
                         }[header.column.getIsSorted() as string] ?? null}
-                      </div>
+                      </button>
+                    ) : (
+                      flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )
                     )}
 
                     {header.column.getCanResize() && (
-                      <div
+                      <button
                         aria-label="Resize column"
                         className={cn(
                           "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none",
@@ -552,7 +554,7 @@ export function UnitNotionTable({
                         onDoubleClick={() => header.column.resetSize()}
                         onMouseDown={header.getResizeHandler()}
                         onTouchStart={header.getResizeHandler()}
-                        role="separator"
+                        type="button"
                       />
                     )}
                   </TableHead>

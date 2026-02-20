@@ -174,7 +174,7 @@ async function generateStakeholderPdf(
     y += 5;
     doc.text(periodLabel, margin, y);
     y += 5;
-    doc.text(propertyPrefix + ": " + propertyLabel, margin, y);
+    doc.text(`${propertyPrefix}: ${propertyLabel}`, margin, y);
     y += 4;
 
     doc.setDrawColor(210);
@@ -239,10 +239,10 @@ async function generateStakeholderPdf(
       if (lastTable.finalY) {
         y = lastTable.finalY + 8;
       } else {
-        y = y + 12;
+        y += 12;
       }
     } else {
-      y = y + 12;
+      y += 12;
     }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -271,10 +271,10 @@ async function generateStakeholderPdf(
       if (lastTable2.finalY) {
         y = lastTable2.finalY + 8;
       } else {
-        y = y + 12;
+        y += 12;
       }
     } else {
-      y = y + 12;
+      y += 12;
     }
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
@@ -315,15 +315,14 @@ async function generateStakeholderPdf(
 
     const totalPages = doc.getNumberOfPages();
     const generatedOn = new Date().toLocaleDateString(locale);
-    const footerLeft = generatedByPrefix + " Casaora \u00B7 " + generatedOn;
+    const footerLeft = `${generatedByPrefix} Casaora \u00B7 ${generatedOn}`;
     for (let i = 1; i <= totalPages; i += 1) {
       doc.setPage(i);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(130);
       const footerY = doc.internal.pageSize.getHeight() - 8;
-      const footerRight =
-        pagePrefix + " " + String(i) + "/" + String(totalPages);
+      const footerRight = `${pagePrefix} ${String(i)}/${String(totalPages)}`;
       doc.text(footerLeft, margin, footerY);
       doc.text(footerRight, pageWidth - margin, footerY, { align: "right" });
     }
@@ -332,7 +331,7 @@ async function generateStakeholderPdf(
     if (!filePart) {
       filePart = "period";
     }
-    const fileName = filePrefix + "-" + filePart + ".pdf";
+    const fileName = `${filePrefix}-${filePart}.pdf`;
     doc.save(fileName);
   } catch (error) {
     console.error("Stakeholder PDF generation failed:", error);

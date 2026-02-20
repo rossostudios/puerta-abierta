@@ -129,7 +129,7 @@ export function groupByConversation(
       return da < db ? -1 : da > db ? 1 : 0;
     });
 
-    const lastMessage = messages[messages.length - 1] ?? null;
+    const lastMessage = messages.at(-1) ?? null;
     const guest = guestMap.get(key);
     const firstMsg = messages[0];
 

@@ -2,8 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
-
 import {
   Card,
   CardContent,
@@ -22,18 +33,6 @@ import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/ui/stat-card";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import type { Locale } from "@/lib/i18n";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  XAxis,
-  YAxis,
-} from "@/lib/recharts";
 
 type MonthData = {
   month: string;

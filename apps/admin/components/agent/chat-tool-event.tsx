@@ -83,11 +83,11 @@ export function ChatToolEventStrip({
 
   return (
     <div className="flex flex-col gap-1.5 py-1">
-      {events.map((event, index) => (
+      {events.map((event) => (
         <ChatToolEventCard
           event={event}
           isEn={isEn}
-          key={`${event.tool_call_id}-${event.phase}-${index}`}
+          key={`${event.tool_call_id}-${event.phase}-${event.preview ?? ""}`}
         />
       ))}
     </div>
@@ -112,13 +112,13 @@ export function ToolTraceBadges({
         onClick={onToggle}
         type="button"
       >
-        {trace.map((tool, index) => (
+        {trace.map((tool) => (
           <Badge
             className={cn(
               "cursor-pointer gap-1 font-normal text-[10px] transition-colors",
               "hover:bg-muted"
             )}
-            key={`trace-${index}`}
+            key={`trace-${tool.tool ?? "tool"}-${tool.preview ?? ""}-${tool.ok !== false ? "ok" : "error"}`}
             variant="outline"
           >
             {tool.ok !== false ? (
@@ -139,10 +139,10 @@ export function ToolTraceBadges({
 
       {isExpanded ? (
         <div className="mt-2 space-y-1 rounded-lg border border-border/50 bg-muted/20 p-2">
-          {trace.map((tool, index) => (
+          {trace.map((tool) => (
             <div
               className="flex items-center justify-between gap-2 rounded-md bg-background/80 px-2.5 py-1.5"
-              key={`trace-detail-${index}`}
+              key={`trace-detail-${tool.tool ?? "tool"}-${tool.preview ?? ""}-${tool.ok !== false ? "ok" : "error"}`}
             >
               <span className="font-mono text-[11px]">
                 {tool.tool ?? "tool"}

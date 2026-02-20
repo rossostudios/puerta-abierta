@@ -129,15 +129,15 @@ async function bulkPublishListings(
   ids: string[],
   action: "publish" | "unpublish"
 ): Promise<void> {
-  for (let i = 0; i < ids.length; i++) {
-    const encodedId = encodeURIComponent(ids[i]);
+  for (const listingId of ids) {
+    const encodedId = encodeURIComponent(listingId);
     if (action === "publish") {
-      await authedFetch("/listings/" + encodedId + "/publish", {
+      await authedFetch(`/listings/${encodedId}/publish`, {
         method: "POST",
         body: "{}",
       });
     } else {
-      await authedFetch("/listings/" + encodedId, {
+      await authedFetch(`/listings/${encodedId}`, {
         method: "PATCH",
         body: JSON.stringify({ is_published: false }),
       });

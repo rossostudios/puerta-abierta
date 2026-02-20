@@ -106,7 +106,7 @@ async fn create_organization(
         .await
         .map_err(|e| AppError::Dependency(format!("txn begin: {e}")))?;
 
-    let org = create_row_tx(&mut *tx, "organizations", &record).await?;
+    let org = create_row_tx(&mut tx, "organizations", &record).await?;
     let org_id = value_str(&org, "id");
 
     sqlx::query(

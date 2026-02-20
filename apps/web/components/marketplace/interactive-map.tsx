@@ -26,6 +26,17 @@ type PopupData = {
   y: number;
 };
 
+type GeoListing = MarketplaceListingViewModel & {
+  latitude: number;
+  longitude: number;
+};
+
+function isGeoListing(
+  listing: MarketplaceListingViewModel
+): listing is GeoListing {
+  return listing.latitude !== null && listing.longitude !== null;
+}
+
 const MARKER_STYLE_ID = "pa-map-marker-styles";
 
 function ensureMarkerStyles() {
@@ -97,7 +108,7 @@ export function InteractiveMap({
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, onBoundsChange]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -106,9 +117,7 @@ export function InteractiveMap({
     for (const marker of markersRef.current) marker.remove();
     markersRef.current = [];
 
-    const geoListings = listings.filter(
-      (l) => l.latitude !== null && l.longitude !== null
-    );
+    const geoListings = listings.filter(isGeoListing);
 
     for (const listing of geoListings) {
       const el = document.createElement("button");
@@ -123,12 +132,12 @@ export function InteractiveMap({
         e.stopPropagation();
         const rect = containerRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const point = map.project([listing.longitude!, listing.latitude!]);
+        const point = map.project([listing.longitude, listing.latitude]);
         setPopup({ listing, x: point.x, y: point.y });
       });
 
       const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([listing.longitude!, listing.latitude!])
+        .setLngLat([listing.longitude, listing.latitude])
         .addTo(map);
 
       markersRef.current.push(marker);
@@ -137,12 +146,14 @@ export function InteractiveMap({
     if (geoListings.length > 1) {
       const bounds = new mapboxgl.LngLatBounds();
       for (const l of geoListings) {
-        bounds.extend([l.longitude!, l.latitude!]);
+        bounds.extend([l.longitude, l.latitude]);
       }
       map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
     } else if (geoListings.length === 1) {
+      const firstListing = geoListings[0];
+      if (!firstListing) return;
       map.flyTo({
-        center: [geoListings[0].longitude!, geoListings[0].latitude!],
+        center: [firstListing.longitude, firstListing.latitude],
         zoom: 13,
       });
     }
@@ -177,7 +188,6 @@ export function InteractiveMap({
         <MapPopup
           isEn={isEn}
           listing={popup.listing}
-          locale={locale}
           onClose={() => setPopup(null)}
           x={popup.x}
           y={popup.y}
@@ -189,14 +199,12 @@ export function InteractiveMap({
 
 function MapPopup({
   listing,
-  locale,
   isEn,
   onClose,
   x,
   y,
 }: {
   listing: MarketplaceListingViewModel;
-  locale: "es-PY" | "en-US";
   isEn: boolean;
   onClose: () => void;
   x: number;

@@ -162,17 +162,10 @@ export function MarkPaidSheet({
 
         <div className="space-y-1 text-sm">
           <span>{isEn ? "Receipt" : "Comprobante"}</span>
-          <div
+          <button
             className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-muted-foreground/25 border-dashed px-4 py-4 text-sm transition-colors hover:border-muted-foreground/50"
             onClick={() => receiptInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                receiptInputRef.current?.click();
-              }
-            }}
-            role="button"
-            tabIndex={0}
+            type="button"
           >
             <p className="text-muted-foreground">
               {uploading
@@ -187,7 +180,7 @@ export function MarkPaidSheet({
                     ? "Click to upload receipt"
                     : "Clic para subir comprobante"}
             </p>
-          </div>
+          </button>
           <input
             accept="image/*,.pdf"
             className="hidden"

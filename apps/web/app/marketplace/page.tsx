@@ -124,12 +124,14 @@ export default async function MarketplacePage({
         <Suspense
           fallback={
             <div className="flex gap-2 overflow-hidden">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted"
-                  key={i}
-                />
-              ))}
+              {Array.from({ length: 6 }, (_, index) => `pill-${index}`).map(
+                (pillKey) => (
+                  <div
+                    className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted"
+                    key={pillKey}
+                  />
+                )
+              )}
             </div>
           }
         >

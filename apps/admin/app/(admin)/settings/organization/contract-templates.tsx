@@ -100,18 +100,18 @@ export function ContractTemplatesSection({ orgId }: { orgId: string }) {
     },
   });
 
-  const extractVariables = (text: string): string[] => {
+  const extractVariables = useCallback((text: string): string[] => {
     const matches = text.match(/\{\{(\w+)\}\}/g) ?? [];
     return [...new Set(matches.map((m) => m.replace(/[{}]/g, "")))];
-  };
+  }, []);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setName("");
     setLanguage("es");
     setBodyTemplate("");
     setIsDefault(false);
     setEditingId(null);
-  };
+  }, []);
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
@@ -197,6 +197,8 @@ export function ContractTemplatesSection({ orgId }: { orgId: string }) {
     editingId,
     isEn,
     queryClient,
+    extractVariables,
+    resetForm,
   ]);
 
   const handleDelete = useCallback(

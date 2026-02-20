@@ -7,7 +7,6 @@ import { SavedSearches } from "@/components/marketplace/saved-searches";
 import { fetchPublicListings, fetchUsdPygRate } from "@/lib/api";
 import {
   countMarketplaceActiveFilters,
-  marketplaceSortLabel,
   parseMarketplaceSearchFilters,
   sortMarketplaceListings,
   toMarketplaceListParams,
@@ -125,12 +124,14 @@ export default async function MarketplacePage({
         <Suspense
           fallback={
             <div className="flex gap-2 overflow-hidden">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                  className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted"
-                  key={i}
-                />
-              ))}
+              {Array.from({ length: 6 }, (_, index) => `pill-${index}`).map(
+                (pillKey) => (
+                  <div
+                    className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted"
+                    key={pillKey}
+                  />
+                )
+              )}
             </div>
           }
         >
@@ -154,7 +155,6 @@ export default async function MarketplacePage({
             activeFilters={activeFilters}
             filters={filters}
             isEn={isEn}
-            sortLabel={marketplaceSortLabel(filters.sort, isEn)}
           />
 
           <div className="p-4 sm:p-5 lg:p-6">

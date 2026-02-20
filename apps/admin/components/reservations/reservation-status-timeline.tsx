@@ -113,12 +113,17 @@ export function ReservationStatusTimeline({
                   >
                     {isCompleted && !isCurrent ? (
                       <svg
+                        aria-hidden="true"
                         className="h-4 w-4"
                         fill="none"
+                        focusable="false"
                         stroke="currentColor"
                         strokeWidth={2.5}
                         viewBox="0 0 24 24"
                       >
+                        <title>
+                          {isEn ? "Completed step" : "Paso completado"}
+                        </title>
                         <path
                           d="M5 13l4 4L19 7"
                           strokeLinecap="round"

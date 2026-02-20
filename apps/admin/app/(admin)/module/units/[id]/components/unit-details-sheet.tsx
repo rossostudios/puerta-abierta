@@ -19,7 +19,7 @@ export type UnitDetailsPanelProps = {
 const UnitDetailsCtx = createContext<{
   open: boolean;
   toggle: (next: boolean) => void;
-}>({ open: false, toggle: () => {} });
+}>({ open: false, toggle: () => undefined });
 
 export function UnitDetailsProvider({
   children,

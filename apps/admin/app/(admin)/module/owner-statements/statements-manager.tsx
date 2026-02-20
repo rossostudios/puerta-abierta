@@ -132,7 +132,7 @@ function StatementsManagerInner({
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const [propertyFilter, setPropertyFilter] = useState("all");
-  const [, startTransition] = useTransition();
+  const [, _startTransition] = useTransition();
 
   const propertyOptions = useMemo(() => {
     return (properties as Record<string, unknown>[])

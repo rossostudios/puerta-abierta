@@ -114,7 +114,7 @@ export function AgentCatalog({
 
   const error =
     agentsQuery.error?.message ?? createChatMutation.error?.message ?? null;
-  const creatingSlug = createChatMutation.isPending
+  const _creatingSlug = createChatMutation.isPending
     ? (createChatMutation.variables ?? null)
     : null;
 
@@ -141,7 +141,7 @@ export function AgentCatalog({
       },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, agents, targetAgentSlug]);
+  }, [loading, agents, createChatMutation]);
 
   return (
     <div className="flex flex-col items-center justify-center space-y-4 p-12">

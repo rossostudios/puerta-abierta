@@ -105,7 +105,7 @@ export function DocumentUpload({
   );
 
   return (
-    <div
+    <button
       className={`flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-sm transition-colors ${
         dragOver
           ? "border-primary/50 bg-primary/5"
@@ -118,14 +118,7 @@ export function DocumentUpload({
         setDragOver(true);
       }}
       onDrop={handleDrop}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          inputRef.current?.click();
-        }
-      }}
-      role="button"
-      tabIndex={0}
+      type="button"
     >
       <p className="text-muted-foreground">
         {uploading
@@ -142,6 +135,6 @@ export function DocumentUpload({
         ref={inputRef}
         type="file"
       />
-    </div>
+    </button>
   );
 }

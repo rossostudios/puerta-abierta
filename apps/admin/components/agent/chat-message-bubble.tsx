@@ -44,7 +44,6 @@ export function ChatMessageBubble({
   onSpeak?: (content: string) => void;
 }) {
   const [traceExpanded, setTraceExpanded] = useState(false);
-  const [hovered, setHovered] = useState(false);
 
   const isUser = message.role === "user";
 
@@ -58,8 +57,6 @@ export function ChatMessageBubble({
         "group flex gap-3",
         isUser ? "justify-end" : "justify-start"
       )}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
     >
       {isUser ? null : (
         <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--sidebar-primary)] to-[var(--sidebar-primary)]/70 text-white">
@@ -101,8 +98,7 @@ export function ChatMessageBubble({
 
         <div
           className={cn(
-            "mt-1.5 flex items-center gap-1 transition-opacity duration-150",
-            hovered ? "opacity-100" : "opacity-0"
+            "mt-1.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100"
           )}
         >
           <Button

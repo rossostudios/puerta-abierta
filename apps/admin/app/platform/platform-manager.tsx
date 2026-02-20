@@ -24,7 +24,7 @@ function asNumber(val: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function nestedStr(obj: unknown, key: string): string {
+function _nestedStr(obj: unknown, key: string): string {
   if (obj && typeof obj === "object" && key in obj) {
     return asString((obj as Record<string, unknown>)[key]);
   }
@@ -84,7 +84,7 @@ export function PlatformManager({ orgs, locale }: PlatformManagerProps) {
             const memberCount = asNumber(org.member_count);
             const propertyCount = asNumber(org.property_count);
             const sub = org.subscription as Record<string, unknown> | null;
-            const planId = sub ? asString(sub.plan_id) : "";
+            const _planId = sub ? asString(sub.plan_id) : "";
             const subStatus = sub ? asString(sub.status) : "";
             const createdAt = asString(org.created_at).slice(0, 10);
 

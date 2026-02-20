@@ -161,7 +161,7 @@ async function generateOwnerStatementPdf(
     doc.text(orgName, margin, y);
     y += 5;
     if (orgRuc) {
-      doc.text("RUC: " + orgRuc, margin, y);
+      doc.text(`RUC: ${orgRuc}`, margin, y);
       y += 5;
     }
     doc.text(periodLabel, margin, y);
@@ -196,7 +196,7 @@ async function generateOwnerStatementPdf(
     // Net payout highlight
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(netPayoutLabel + ": " + netPayout, margin, y);
+    doc.text(`${netPayoutLabel}: ${netPayout}`, margin, y);
     y += 10;
 
     // Occupancy & Performance
@@ -250,22 +250,20 @@ async function generateOwnerStatementPdf(
     // Footer
     const pageCount = doc.getNumberOfPages();
     const generatedDate = new Date().toLocaleDateString(locale);
-    const footerLeft = generatedByPrefix + " Casaora \u2014 " + generatedDate;
+    const footerLeft = `${generatedByPrefix} Casaora \u2014 ${generatedDate}`;
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(150);
       const footerY = doc.internal.pageSize.getHeight() - 10;
-      const footerRight =
-        pagePrefix + " " + String(i) + "/" + String(pageCount);
+      const footerRight = `${pagePrefix} ${String(i)}/${String(pageCount)}`;
       doc.text(footerLeft, margin, footerY);
       doc.text(footerRight, pageWidth - margin, footerY, { align: "right" });
     }
 
     // Download
-    const fileName =
-      filePrefix + "-" + periodLabel.replace(/\s+/g, "-") + ".pdf";
+    const fileName = `${filePrefix}-${periodLabel.replace(/\s+/g, "-")}.pdf`;
     doc.save(fileName);
   } catch (err) {
     console.error("PDF generation failed:", err);

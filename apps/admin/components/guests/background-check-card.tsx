@@ -62,10 +62,7 @@ export function BackgroundCheckCard({
 
   const status = backgroundCheckStatus ?? "not_requested";
 
-  async function updateStatus(
-    newStatus: string,
-    extra?: Record<string, string>
-  ) {
+  function updateStatus(newStatus: string, extra?: Record<string, string>) {
     const successMsg = isEn
       ? "Background check updated"
       : "Verificación de antecedentes actualizada";

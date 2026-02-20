@@ -17,6 +17,20 @@ type SavedSearch = {
   filters: Record<string, string>;
 };
 
+function buildSearchName(
+  params: Record<string, string>,
+  isEn: boolean,
+  nextIndex: number
+): string {
+  const query = params.q?.trim();
+  if (query) return query;
+  const city = params.city?.trim();
+  if (city) {
+    return isEn ? `${city} rentals` : `Alquileres en ${city}`;
+  }
+  return isEn ? `Saved search ${nextIndex}` : `Busqueda guardada ${nextIndex}`;
+}
+
 function getVisitorId(): string {
   if (typeof window === "undefined") return "";
   let id = localStorage.getItem("casaora_visitor_id");
@@ -64,10 +78,7 @@ function SavedSearchesInner({ isEn }: { isEn: boolean }) {
     );
     if (activeKeys.length === 0) return;
 
-    const name = prompt(
-      isEn ? "Name this search:" : "Nombre para esta busqueda:"
-    );
-    if (!name?.trim()) return;
+    const name = buildSearchName(params, isEn, searches.length + 1);
 
     setSaving(true);
     try {
@@ -123,36 +134,25 @@ function SavedSearchesInner({ isEn }: { isEn: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {searches.map((search) => (
-        <button
+        <div
           className="group inline-flex items-center gap-1.5 rounded-full border border-[#e8e4df] bg-white px-3 py-1.5 font-medium text-[var(--marketplace-text)] text-xs transition-colors hover:border-primary/30 hover:bg-primary/5"
           key={search.id}
-          onClick={() => applySearch(search.filters)}
-          type="button"
         >
-          {search.name}
-          <span
+          <button onClick={() => applySearch(search.filters)} type="button">
+            {search.name}
+          </button>
+          <button
             className="ml-0.5 opacity-0 transition-opacity group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteSearch(search.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                e.stopPropagation();
-                deleteSearch(search.id);
-              }
-            }}
-            role="button"
-            tabIndex={0}
+            onClick={() => deleteSearch(search.id)}
+            type="button"
           >
             <Icon
               className="text-muted-foreground"
               icon={Cancel01Icon}
               size={12}
             />
-          </span>
-        </button>
+          </button>
+        </div>
       ))}
 
       {hasActiveFilters ? (

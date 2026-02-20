@@ -263,8 +263,6 @@ pub async fn send_renewal_offer(
         let new_display = format_amount(new_rent, &currency);
         let rent_change = if (new_rent - current_rent).abs() < 0.01 {
             "Misma renta".to_string()
-        } else if new_rent > current_rent {
-            format!("Nueva renta: {new_display} (antes: {current_display})")
         } else {
             format!("Nueva renta: {new_display} (antes: {current_display})")
         };

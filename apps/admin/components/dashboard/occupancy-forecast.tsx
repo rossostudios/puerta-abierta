@@ -1,5 +1,6 @@
 "use client";
 
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -17,7 +18,6 @@ import {
 import { useMounted } from "@/lib/hooks/use-mounted";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "@/lib/recharts";
 
 type ForecastMonth = {
   month: string;

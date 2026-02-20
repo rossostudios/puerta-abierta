@@ -258,7 +258,7 @@ export function buildPropertyOverview(params: {
     0
   );
 
-  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+  const _NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
   const leasesExpiringSoon: LeaseExpiringSoon[] = activeLeases
     .map((lease) => {
       const endsOn = toDate(lease.ends_on) ?? toDate(lease.end_date);

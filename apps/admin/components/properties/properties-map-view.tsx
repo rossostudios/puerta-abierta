@@ -145,13 +145,27 @@ export function PropertiesMapView({
         />
       ) : null}
 
-      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static marker styles - no user input */}
-      <style
-        dangerouslySetInnerHTML={{
-          __html:
-            ".pa-map-marker{background:white;border:1px solid rgba(0,0,0,.08);border-radius:999px;box-shadow:0 2px 8px rgba(0,0,0,.12);color:#1a1a1a;cursor:pointer;font-size:12px;font-weight:600;padding:4px 10px;white-space:nowrap;transition:transform .15s ease,box-shadow .15s ease}.pa-map-marker:hover{transform:scale(1.08);box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:10}",
-        }}
-      />
+      <style>{`
+        .pa-map-marker {
+          background: white;
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: 999px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+          color: #1a1a1a;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 4px 10px;
+          white-space: nowrap;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .pa-map-marker:hover {
+          transform: scale(1.08);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+          z-index: 10;
+        }
+      `}</style>
     </div>
   );
 }

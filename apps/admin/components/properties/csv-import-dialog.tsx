@@ -24,8 +24,10 @@ const EXPECTED_COLUMNS = [
   "country_code",
 ];
 
+const CSV_LINE_BREAK_REGEX = /\r?\n/;
+
 function parseCsv(text: string): CsvRow[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  const lines = text.split(CSV_LINE_BREAK_REGEX).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());

@@ -62,6 +62,7 @@ export function useMarketplaceApplyForm(params: {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: submit flow centralizes validation and API error normalization.
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);

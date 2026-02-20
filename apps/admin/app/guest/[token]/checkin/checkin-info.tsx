@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { useGuest } from "../layout";
 
-interface CheckinData {
+type CheckinData = {
   check_in_date: string | null;
   check_out_date: string | null;
   status: string | null;
@@ -24,7 +24,7 @@ interface CheckinData {
   check_in_instructions: string | null;
   house_rules: string | null;
   emergency_contact: string | null;
-}
+};
 
 export function CheckinInfo() {
   const { token, headers, apiBase } = useGuest();

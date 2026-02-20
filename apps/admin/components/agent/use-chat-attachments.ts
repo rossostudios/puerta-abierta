@@ -139,8 +139,11 @@ export function useChatAttachments(orgId: string, isEn: boolean) {
 
   const getReadyUrls = useCallback((): string[] => {
     return attachments
-      .filter((a) => a.status === "done" && a.uploadedUrl)
-      .map((a) => a.uploadedUrl!);
+      .filter(
+        (a): a is ChatAttachment & { uploadedUrl: string } =>
+          a.status === "done" && typeof a.uploadedUrl === "string"
+      )
+      .map((a) => a.uploadedUrl);
   }, [attachments]);
 
   const clearAttachments = useCallback(() => {

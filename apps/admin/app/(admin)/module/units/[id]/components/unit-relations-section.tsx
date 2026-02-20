@@ -39,7 +39,7 @@ async function RelatedListContent({
         />
       </div>
     );
-  } catch (err) {
+  } catch (_err) {
     return (
       <div className="mt-6 rounded-lg bg-destructive/10 p-4 text-destructive text-sm">
         Failed to load related records.
@@ -61,9 +61,10 @@ export function UnitRelationsSection({
         {isEn ? "Related records" : "Registros relacionados"}
       </h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {links.map((linkStr, i) => {
+        {links.map((linkStr) => {
           const href = String(linkStr.href || "");
           const label = String(linkStr.label || "");
+          const linkKey = `${href}::${label}`;
 
           const urlObj = new URL(href, "http://localhost");
           let slug = urlObj.pathname.split("/").pop() || "";
@@ -86,7 +87,12 @@ export function UnitRelationsSection({
           }
 
           return (
-            <RelationDrawerCard isEn={isEn} key={i} label={label} slug={slug}>
+            <RelationDrawerCard
+              isEn={isEn}
+              key={linkKey}
+              label={label}
+              slug={slug}
+            >
               <Suspense
                 fallback={
                   <div className="mt-8 flex animate-pulse items-center justify-center py-12 text-muted-foreground text-sm">

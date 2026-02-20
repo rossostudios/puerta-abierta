@@ -1,7 +1,7 @@
 "use client";
 
 import { Upload01Icon } from "@hugeicons/core-free-icons";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   batchCreateLeases,
@@ -45,6 +45,8 @@ type DataRow = Record<string, string>;
 
 type MappingEntry = { csvHeader: string; targetField: string };
 
+const XLSX_EXT_REGEX = /\.xlsx$/i;
+
 /** Convert any cell value from read-excel-file to a plain string. */
 function cellToString(value: unknown): string {
   if (value == null) return "";
@@ -54,7 +56,7 @@ function cellToString(value: unknown): string {
 }
 
 function isExcelFile(name: string): boolean {
-  return /\.xlsx$/i.test(name);
+  return XLSX_EXT_REGEX.test(name);
 }
 
 /** Dynamic import helpers — extracted to module scope so the React Compiler can optimize the component. */
@@ -106,6 +108,7 @@ export function DataImportSheet({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [pickingSheet, setPickingSheet] = useState(false);
+  const dropzoneInputRef = useRef<HTMLInputElement | null>(null);
 
   const targetFields =
     mode === "properties"
@@ -487,10 +490,12 @@ export function DataImportSheet({
 
         {/* File drop zone */}
         {showDropZone ? (
-          <div
+          <button
             className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-border/70 border-dashed bg-muted/10 px-4 py-10 text-center transition-colors hover:border-primary/30 hover:bg-muted/20"
+            onClick={() => dropzoneInputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={onDrop}
+            type="button"
           >
             <Icon
               className="text-muted-foreground"
@@ -507,16 +512,17 @@ export function DataImportSheet({
                 {isEn ? "or click to select" : "o haz clic para seleccionar"}
               </p>
             </div>
-            <label className="cursor-pointer rounded-md border bg-background px-3 py-1.5 font-medium text-sm hover:bg-muted/50">
+            <span className="cursor-pointer rounded-md border bg-background px-3 py-1.5 font-medium text-sm hover:bg-muted/50">
               {isEn ? "Select file" : "Seleccionar archivo"}
               <input
                 accept=".csv,.tsv,.txt,.xlsx"
                 className="hidden"
                 onChange={onFileSelect}
+                ref={dropzoneInputRef}
                 type="file"
               />
-            </label>
-          </div>
+            </span>
+          </button>
         ) : null}
 
         {/* Sheet picker for multi-sheet Excel files */}

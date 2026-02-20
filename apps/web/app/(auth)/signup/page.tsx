@@ -229,7 +229,7 @@ function SignupPageInner() {
               &larr; Change role
             </button>
 
-            <label className="block">
+            <label className="block" htmlFor="signup-full-name">
               <span className="mb-1 block font-medium text-muted-foreground text-xs">
                 Full name
               </span>
@@ -242,6 +242,7 @@ function SignupPageInner() {
                 <Input
                   autoComplete="name"
                   className="pl-9"
+                  id="signup-full-name"
                   onChange={(event) => setFullName(event.target.value)}
                   placeholder="Your name"
                   value={fullName}
@@ -249,7 +250,7 @@ function SignupPageInner() {
               </div>
             </label>
 
-            <label className="block">
+            <label className="block" htmlFor="signup-email">
               <span className="mb-1 block font-medium text-muted-foreground text-xs">
                 Email
               </span>
@@ -262,6 +263,7 @@ function SignupPageInner() {
                 <Input
                   autoComplete="email"
                   className="pl-9"
+                  id="signup-email"
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@company.com"
                   type="email"
@@ -270,7 +272,7 @@ function SignupPageInner() {
               </div>
             </label>
 
-            <label className="block">
+            <label className="block" htmlFor="signup-password">
               <span className="mb-1 block font-medium text-muted-foreground text-xs">
                 Password
               </span>
@@ -283,6 +285,7 @@ function SignupPageInner() {
                 <Input
                   autoComplete="new-password"
                   className="pl-9"
+                  id="signup-password"
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Create a password"
                   type="password"
@@ -291,12 +294,13 @@ function SignupPageInner() {
               </div>
             </label>
 
-            <label className="block">
+            <label className="block" htmlFor="signup-referral-code">
               <span className="mb-1 block font-medium text-muted-foreground text-xs">
                 Referral code (optional)
               </span>
               <Input
                 className="font-mono uppercase"
+                id="signup-referral-code"
                 onChange={(event) => setReferralCode(event.target.value)}
                 placeholder="PA-XXXXXXXX"
                 value={referralCode}

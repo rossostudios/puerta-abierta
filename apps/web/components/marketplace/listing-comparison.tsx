@@ -56,6 +56,7 @@ function ComparisonModal({
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${selected.length}, 1fr)` }}
         >
+          {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: each card intentionally inlines field extraction and formatting for readability. */}
           {selected.map((listing) => {
             const id = asText(listing.id);
             const title =

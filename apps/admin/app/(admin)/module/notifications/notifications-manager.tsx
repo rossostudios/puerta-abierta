@@ -312,7 +312,7 @@ export function NotificationsManager({
         body: JSON.stringify({ org_id: orgId }),
       });
     } catch {
-      void queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: ["notifications", orgId, status, category],
       });
     }

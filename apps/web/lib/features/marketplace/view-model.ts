@@ -79,6 +79,7 @@ export function marketplaceListingKey(
   );
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: locale-aware spec formatting keeps translation and unit choices together.
 export function marketplaceSpecsText(params: {
   listing: MarketplaceListingRecord;
   locale: Locale;

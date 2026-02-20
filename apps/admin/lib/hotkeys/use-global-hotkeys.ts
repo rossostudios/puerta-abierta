@@ -24,7 +24,7 @@ export function useGlobalHotkeys({
     }
   });
 
-  useHotkey("Escape", (e) => {
+  useHotkey("Escape", (_e) => {
     // Only invoke global escape if we aren't in a focused input that might need it
     if (!isInputFocused()) {
       onEscape();

@@ -19,8 +19,6 @@ function asNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-type LineItem = { id: string; label: string; amount: number };
-
 export default function OwnerStatementPrintPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();

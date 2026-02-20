@@ -63,8 +63,7 @@ async function performMfaVerify(
     status: string;
     created_at: string;
   }>;
-  for (let i = 0; i < totpArr.length; i++) {
-    const f = totpArr[i];
+  for (const f of totpArr) {
     let friendlyName: string;
     if (f.friendly_name != null) {
       friendlyName = f.friendly_name;

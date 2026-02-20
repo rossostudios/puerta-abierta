@@ -41,10 +41,8 @@ async function loadPdfLibs() {
 }
 
 function buildAndSavePdf(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  jsPDF: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  autoTable: any,
+  jsPDF: typeof import("jspdf").default,
+  autoTable: typeof import("jspdf-autotable").default,
   opts: {
     pdfHeaders: string[];
     pdfBody: string[][];
@@ -93,21 +91,20 @@ function buildAndSavePdf(
   });
 
   const pageCount = doc.getNumberOfPages();
-  const footerLeft = opts.generatedByLabel + " Casaora";
+  const footerLeft = `${opts.generatedByLabel} Casaora`;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(150);
     const footerY = doc.internal.pageSize.getHeight() - 8;
-    const footerRight =
-      opts.pageLabel + " " + String(i) + "/" + String(pageCount);
+    const footerRight = `${opts.pageLabel} ${String(i)}/${String(pageCount)}`;
     doc.text(footerLeft, margin, footerY);
     doc.text(footerRight, pageWidth - margin, footerY, { align: "right" });
   }
 
   const date = new Date().toISOString().slice(0, 10);
-  doc.save("reservations-" + date + ".pdf");
+  doc.save(`reservations-${date}.pdf`);
 }
 
 function downloadBlob(blob: Blob, filename: string) {

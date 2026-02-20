@@ -35,7 +35,7 @@ function fmtAmount(value: number, currency: string): string {
 function fmtDate(dateStr: string, isEn: boolean): string {
   if (!dateStr) return isEn ? "Not specified" : "No especificada";
   try {
-    const d = new Date(dateStr + "T00:00:00");
+    const d = new Date(`${dateStr}T00:00:00`);
     return d.toLocaleDateString(isEn ? "en-US" : "es-PY", {
       year: "numeric",
       month: "long",

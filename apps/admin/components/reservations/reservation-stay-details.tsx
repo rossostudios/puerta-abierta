@@ -49,7 +49,7 @@ export function ReservationStayDetails({
   isEn,
   locale,
 }: StayDetailsProps) {
-  const guestComposition = [
+  const _guestComposition = [
     r.adults > 0 &&
       `${r.adults} ${r.adults === 1 ? (isEn ? "Adult" : "Adulto") : isEn ? "Adults" : "Adultos"}`,
     r.children > 0 &&

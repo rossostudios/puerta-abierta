@@ -53,7 +53,7 @@ export function VerificationCard({
   const [isPending, startTransition] = useTransition();
   const [notes, setNotes] = useState("");
 
-  async function handleReview(decision: "verified" | "rejected") {
+  function handleReview(decision: "verified" | "rejected") {
     const successMsg =
       decision === "verified"
         ? isEn
@@ -109,6 +109,7 @@ export function VerificationCard({
   const isVerified = verificationStatus === "verified";
   const isRejected = verificationStatus === "rejected";
   const noVerification = !verificationStatus;
+  const idDocumentHref = idDocumentUrl ?? "";
 
   return (
     <Card>
@@ -154,7 +155,7 @@ export function VerificationCard({
               </p>
               <a
                 className="block overflow-hidden rounded-lg border hover:opacity-80"
-                href={idDocumentUrl!}
+                href={idDocumentHref}
                 rel="noopener noreferrer"
                 target="_blank"
               >
@@ -163,7 +164,7 @@ export function VerificationCard({
                   className="h-48 w-full object-cover"
                   height={384}
                   sizes="(max-width: 768px) 100vw, 50vw"
-                  src={idDocumentUrl!}
+                  src={idDocumentHref}
                   width={512}
                 />
               </a>

@@ -1,9 +1,9 @@
 "use client";
 
+import { Bar, BarChart, YAxis } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { formatCompactCurrency, formatCurrency } from "@/lib/format";
-import { Bar, BarChart, YAxis } from "@/lib/recharts";
 import { cn } from "@/lib/utils";
 import type { PropertyOverview as PropertyOverviewData } from "../types";
 

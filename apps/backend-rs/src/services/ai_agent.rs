@@ -1131,51 +1131,9 @@ async fn execute_tool(
         "get_org_snapshot" => tool_get_org_snapshot(state, context.org_id).await,
         "list_rows" => tool_list_rows(state, context.org_id, args).await,
         "get_row" => tool_get_row(state, context.org_id, args).await,
-        "create_row" => {
-            tool_create_row(
-                state,
-                context.org_id,
-                context.role,
-                context.allow_mutations,
-                context.confirm_write,
-                context.agent_slug,
-                context.chat_id,
-                context.requested_by_user_id,
-                context.approved_execution,
-                args,
-            )
-            .await
-        }
-        "update_row" => {
-            tool_update_row(
-                state,
-                context.org_id,
-                context.role,
-                context.allow_mutations,
-                context.confirm_write,
-                context.agent_slug,
-                context.chat_id,
-                context.requested_by_user_id,
-                context.approved_execution,
-                args,
-            )
-            .await
-        }
-        "delete_row" => {
-            tool_delete_row(
-                state,
-                context.org_id,
-                context.role,
-                context.allow_mutations,
-                context.confirm_write,
-                context.agent_slug,
-                context.chat_id,
-                context.requested_by_user_id,
-                context.approved_execution,
-                args,
-            )
-            .await
-        }
+        "create_row" => tool_create_row(state, &context, args).await,
+        "update_row" => tool_update_row(state, &context, args).await,
+        "delete_row" => tool_delete_row(state, &context, args).await,
         "delegate_to_agent" => {
             tool_delegate_to_agent(
                 state,
@@ -1430,17 +1388,11 @@ async fn approval_required_by_policy(state: &AppState, org_id: &str, tool_name: 
 
 async fn tool_create_row(
     state: &AppState,
-    org_id: &str,
-    role: &str,
-    allow_mutations: bool,
-    confirm_write: bool,
-    agent_slug: Option<&str>,
-    chat_id: Option<&str>,
-    requested_by_user_id: Option<&str>,
-    approved_execution: bool,
+    context: &ToolContext<'_>,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
-    let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
+    let (allowed, detail) =
+        assert_mutation_allowed(context.role, context.allow_mutations, context.confirm_write);
     if !allowed {
         return Ok(json!({ "ok": false, "error": detail }));
     }
@@ -1454,18 +1406,7 @@ async fn tool_create_row(
         }));
     }
 
-    let tool_context = ToolContext {
-        org_id,
-        role,
-        allow_mutations,
-        confirm_write,
-        allowed_tools: None,
-        agent_slug,
-        chat_id,
-        requested_by_user_id,
-        approved_execution,
-    };
-    if let Some(approval) = maybe_create_approval(state, &tool_context, "create_row", args).await? {
+    if let Some(approval) = maybe_create_approval(state, context, "create_row", args).await? {
         return Ok(approval);
     }
 
@@ -1473,7 +1414,7 @@ async fn tool_create_row(
     payload = sanitize_mutation_payload(payload);
     payload.insert(
         table_cfg.org_column.to_string(),
-        Value::String(org_id.to_string()),
+        Value::String(context.org_id.to_string()),
     );
 
     let pool = db_pool(state)?;
@@ -1488,17 +1429,11 @@ async fn tool_create_row(
 
 async fn tool_update_row(
     state: &AppState,
-    org_id: &str,
-    role: &str,
-    allow_mutations: bool,
-    confirm_write: bool,
-    agent_slug: Option<&str>,
-    chat_id: Option<&str>,
-    requested_by_user_id: Option<&str>,
-    approved_execution: bool,
+    context: &ToolContext<'_>,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
-    let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
+    let (allowed, detail) =
+        assert_mutation_allowed(context.role, context.allow_mutations, context.confirm_write);
     if !allowed {
         return Ok(json!({ "ok": false, "error": detail }));
     }
@@ -1512,18 +1447,7 @@ async fn tool_update_row(
         }));
     }
 
-    let tool_context = ToolContext {
-        org_id,
-        role,
-        allow_mutations,
-        confirm_write,
-        allowed_tools: None,
-        agent_slug,
-        chat_id,
-        requested_by_user_id,
-        approved_execution,
-    };
-    if let Some(approval) = maybe_create_approval(state, &tool_context, "update_row", args).await? {
+    if let Some(approval) = maybe_create_approval(state, context, "update_row", args).await? {
         return Ok(approval);
     }
 
@@ -1587,7 +1511,7 @@ async fn tool_update_row(
         .push(" AND (to_jsonb(t) ->> ")
         .push_bind(table_cfg.org_column)
         .push(") = ")
-        .push_bind(org_id)
+        .push_bind(context.org_id)
         .push(" RETURNING row_to_json(t) AS row");
 
     let row = query
@@ -1608,17 +1532,11 @@ async fn tool_update_row(
 
 async fn tool_delete_row(
     state: &AppState,
-    org_id: &str,
-    role: &str,
-    allow_mutations: bool,
-    confirm_write: bool,
-    agent_slug: Option<&str>,
-    chat_id: Option<&str>,
-    requested_by_user_id: Option<&str>,
-    approved_execution: bool,
+    context: &ToolContext<'_>,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
-    let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
+    let (allowed, detail) =
+        assert_mutation_allowed(context.role, context.allow_mutations, context.confirm_write);
     if !allowed {
         return Ok(json!({ "ok": false, "error": detail }));
     }
@@ -1632,18 +1550,7 @@ async fn tool_delete_row(
         }));
     }
 
-    let tool_context = ToolContext {
-        org_id,
-        role,
-        allow_mutations,
-        confirm_write,
-        allowed_tools: None,
-        agent_slug,
-        chat_id,
-        requested_by_user_id,
-        approved_execution,
-    };
-    if let Some(approval) = maybe_create_approval(state, &tool_context, "delete_row", args).await? {
+    if let Some(approval) = maybe_create_approval(state, context, "delete_row", args).await? {
         return Ok(approval);
     }
 
@@ -1676,7 +1583,7 @@ async fn tool_delete_row(
         .push(" AND (to_jsonb(t) ->> ")
         .push_bind(table_cfg.org_column)
         .push(") = ")
-        .push_bind(org_id)
+        .push_bind(context.org_id)
         .push(" LIMIT 1")
         .build()
         .fetch_optional(pool)
@@ -1700,7 +1607,7 @@ async fn tool_delete_row(
         .push(" AND (to_jsonb(t) ->> ")
         .push_bind(table_cfg.org_column)
         .push(") = ")
-        .push_bind(org_id)
+        .push_bind(context.org_id)
         .build()
         .execute(pool)
         .await
@@ -2156,7 +2063,7 @@ async fn tool_search_knowledge(
 
     let limit = coerce_limit(args.get("limit"), 8).clamp(1, 20);
     let pool = db_pool(state)?;
-    let pattern = format!("%{}%", query.replace('%', "").replace('_', ""));
+    let pattern = format!("%{}%", query.replace(['%', '_'], ""));
 
     let rows = sqlx::query(
         "SELECT

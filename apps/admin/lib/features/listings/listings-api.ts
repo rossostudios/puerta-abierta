@@ -1,4 +1,4 @@
-import { authedFetch } from "@/lib/api-client";
+import { authedFetch as baseAuthedFetch } from "@/lib/api-client";
 
 export type PaginatedListingsResponse = {
   data: Record<string, unknown>[];
@@ -70,4 +70,9 @@ export function fetchListingReadiness(
   return authedFetch<ReadinessResponse>(`/listings/${listingId}/readiness`);
 }
 
-export { authedFetch };
+export function authedFetch<T>(
+  path: string,
+  init?: RequestInit & { body?: string }
+): Promise<T> {
+  return baseAuthedFetch<T>(path, init);
+}

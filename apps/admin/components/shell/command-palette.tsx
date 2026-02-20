@@ -25,14 +25,29 @@ import { cn } from "@/lib/utils";
 
 function PreviewFrame({ href }: { href: string | null }) {
   const [loadedHref, setLoadedHref] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const previewUrl = href
+    ? `${href + (href.includes("?") ? "&" : "?")}preview=1`
+    : undefined;
+
+  useEffect(() => {
+    if (!(href && previewUrl)) {
+      setLoadedHref(null);
+      return;
+    }
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const handleLoad = () => setLoadedHref(href);
+    iframe.addEventListener("load", handleLoad);
+    return () => iframe.removeEventListener("load", handleLoad);
+  }, [href, previewUrl]);
 
   if (!href) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center text-muted-foreground/60 text-xs" />
     );
   }
-
-  const previewUrl = href + (href.includes("?") ? "&" : "?") + "preview=1";
   const loading = loadedHref !== href;
 
   return (
@@ -45,7 +60,7 @@ function PreviewFrame({ href }: { href: string | null }) {
       <iframe
         className="pointer-events-none absolute top-0 left-0 h-[400%] w-[400%] origin-top-left scale-[0.25] border-0"
         key={previewUrl}
-        onLoad={() => setLoadedHref(href)}
+        ref={iframeRef}
         src={previewUrl}
         title="Page preview"
       />

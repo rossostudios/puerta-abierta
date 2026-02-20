@@ -12,7 +12,6 @@ import {
 import type { Locale } from "@/lib/i18n";
 
 type DesktopResizableShellProps = {
-  shellSurfaceClass: string;
   sidebarCollapsed: boolean;
   viewportMode: ViewportMode;
   onSidebarCollapsedChange: (collapsed: boolean) => void;
@@ -31,7 +30,6 @@ type DesktopResizableShellProps = {
 };
 
 export function DesktopResizableShell({
-  shellSurfaceClass,
   sidebarCollapsed,
   viewportMode,
   onSidebarCollapsedChange,

@@ -23,6 +23,7 @@ type MarketplaceFiltersFormProps = {
   sortLabel: string;
 };
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: filter controls are intentionally kept in one component for UX cohesion.
 export function MarketplaceFiltersForm({
   isEn,
   filters,
