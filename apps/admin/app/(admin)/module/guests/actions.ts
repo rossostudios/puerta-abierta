@@ -171,6 +171,25 @@ export async function updateGuestAction(formData: FormData) {
   }
 }
 
+export async function updateGuestInlineAction({
+  guestId,
+  field,
+  value,
+}: {
+  guestId: string;
+  field: string;
+  value: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await patchJson(`/guests/${guestId}`, { [field]: value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message.slice(0, 240) };
+  }
+  revalidatePath("/module/guests");
+  return { ok: true };
+}
+
 export async function deleteGuestAction(formData: FormData) {
   const id = toStringValue(formData.get("id"));
   const next = normalizeNext(

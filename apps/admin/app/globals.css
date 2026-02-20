@@ -18,7 +18,7 @@
   --popover-foreground: #1c1c1e;
 
   /* ── Primary ── */
-  --primary: #1A6DF0;
+  --primary: #FF5D46;
   --primary-foreground: #ffffff;
 
   /* ── Secondary / Muted ──
@@ -69,21 +69,21 @@
   --warning: oklch(0.75 0.18 85);
   --warning-foreground: oklch(0.32 0.08 60);
 
-  /* ── Sidebar (Casaora Blue) ── */
-  --sidebar: #1A6DF0;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #1A6DF0;
-  --sidebar-accent: #2563eb;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1d4ed8;
-  --sidebar-ring: #ffffff;
+  /* ── Sidebar ── */
+  --sidebar: #F8F8F9;
+  --sidebar-foreground: #1c1c1e;
+  --sidebar-primary: #FF5D46;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #EDEDEF;
+  --sidebar-accent-foreground: #1c1c1e;
+  --sidebar-border: #E4E4E7;
+  --sidebar-ring: #FF5D46;
 
   /* ── Shell ── */
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #eff6ff;
-  --shell-active-border: #bfdbfe;
+  --shell-active: #FFF1EE;
+  --shell-active-border: #FECDC6;
   --shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Marketplace ── */
@@ -128,7 +128,7 @@
   --card-foreground: #f2f2f2;
   --popover: #131211;
   --popover-foreground: #f2f2f2;
-  --primary: #1A6DF0;
+  --primary: #FF5D46;
   --primary-foreground: #ffffff;
   --secondary: #222222;
   --secondary-foreground: #f2f2f2;
@@ -142,7 +142,7 @@
   --warning: oklch(0.78 0.16 85);
   --warning-foreground: oklch(0.92 0.04 85);
   --input: #2a2a2a;
-  --ring: #1A6DF0;
+  --ring: #FF5D46;
   --focus-ring: color-mix(in srgb, var(--ring) 48%, transparent);
   --surface-1: #1a1a1a;
   --surface-2: #222222;
@@ -158,16 +158,16 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: #0E0E10;
   --sidebar-foreground: #fafafa;
-  --sidebar-primary: #1A6DF0;
+  --sidebar-primary: #FF5D46;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #1D1D1F;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #1c1c1c;
-  --sidebar-ring: #1A6DF0;
+  --sidebar-ring: #FF5D46;
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #1e3a8a;
-  --shell-active-border: #1d4ed8;
+  --shell-active: #3D1A12;
+  --shell-active-border: #D44030;
   --marketplace-surface: var(--surface-2);
   --marketplace-surface-muted: var(--surface-1);
   --marketplace-hero-glow: #221a1c;
@@ -424,27 +424,27 @@
 
 @layer utilities {
   .bg-casaora-gradient {
-    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    background: linear-gradient(135deg, #8B2E20 0%, #E84D38 100%);
   }
 
   .bg-casaora-gradient-warm {
-    background: linear-gradient(135deg, #1d4ed8 0%, #1a6df0 100%);
+    background: linear-gradient(135deg, #D44030 0%, #FF5D46 100%);
   }
 
   .bg-casaora-gradient-hero {
-    background: linear-gradient(to right, #1d4ed8, #1a6df0);
+    background: linear-gradient(to right, #D44030, #FF5D46);
   }
 
   .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    background: linear-gradient(135deg, #FFF1EE 0%, #FFE4DF 100%);
   }
 
   .dark .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+    background: linear-gradient(135deg, #1A0E0B 0%, #3D1A12 100%);
   }
 
   .text-casaora-gradient {
-    background: linear-gradient(135deg, #2563eb, #1a6df0);
+    background: linear-gradient(135deg, #E84D38, #FF5D46);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -452,14 +452,14 @@
 
   .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(26, 109, 240, 0.08),
-      0 2px 8px rgba(26, 109, 240, 0.1);
+      0 0 0 1px rgba(255, 93, 70, 0.08),
+      0 2px 8px rgba(255, 93, 70, 0.1);
   }
 
   .dark .shadow-casaora {
     box-shadow:
-      0 0 0 1px rgba(26, 109, 240, 0.12),
-      0 2px 8px rgba(26, 109, 240, 0.08);
+      0 0 0 1px rgba(255, 93, 70, 0.12),
+      0 2px 8px rgba(255, 93, 70, 0.08);
   }
 }
 

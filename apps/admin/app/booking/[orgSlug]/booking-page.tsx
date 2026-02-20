@@ -205,7 +205,7 @@ export function BookingPage({
   }
 
   if (bookingState === "confirmed") {
-    const brandColor = org?.brand_color || "#1A6DF0";
+    const brandColor = org?.brand_color || "#FF5D46";
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
         <Card className="max-w-md w-full">
@@ -240,7 +240,7 @@ export function BookingPage({
     );
   }
 
-  const brandColor = org?.brand_color || "#1A6DF0";
+  const brandColor = org?.brand_color || "#FF5D46";
 
   return (
     <div className="min-h-screen bg-background">

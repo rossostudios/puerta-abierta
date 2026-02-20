@@ -12,6 +12,7 @@ import type {
   PropertyStatusFilter,
   PropertyViewMode,
 } from "@/lib/features/properties/types";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useActiveLocale, useDictionary } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 import { CreatePropertySheet } from "./components/create-property-sheet";
@@ -60,16 +61,28 @@ export function PropertiesManager({
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<PropertyStatusFilter>("all");
   const [healthFilter, setHealthFilter] = useState<PropertyHealthFilter>("all");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const isWide = useMediaQuery("(min-width: 1440px)");
+  const isMedium = useMediaQuery("(min-width: 1280px)");
+  const [userSidebarPref, setUserSidebarPref] = useState<boolean | null>(null);
+  const isSidebarOpen = userSidebarPref ?? isMedium;
+
+  // Reset user pref when crossing the 1280px boundary
+  const prevMediumRef = useRef(isMedium);
+  useEffect(() => {
+    if (prevMediumRef.current !== isMedium) {
+      prevMediumRef.current = isMedium;
+      setUserSidebarPref(null);
+    }
+  }, [isMedium]);
 
   const previousSidebarRef = useRef(isSidebarOpen);
 
   const handleViewModeChange = useCallback((next: PropertyViewMode) => {
     if (next === "map") {
       previousSidebarRef.current = isSidebarOpen;
-      setIsSidebarOpen(false);
+      setUserSidebarPref(false);
     } else {
-      setIsSidebarOpen(previousSidebarRef.current);
+      setUserSidebarPref(previousSidebarRef.current);
     }
     setViewMode(next);
   }, [isSidebarOpen]);
@@ -140,7 +153,7 @@ export function PropertiesManager({
               onHealthFilterChange={setHealthFilter}
               onQueryChange={setQuery}
               onStatusFilterChange={setStatusFilter}
-              onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+              onToggleSidebar={() => setUserSidebarPref((prev) => !(prev ?? isMedium))}
               onViewModeChange={handleViewModeChange}
               query={query}
               statusFilter={statusFilter}
@@ -148,6 +161,7 @@ export function PropertiesManager({
             />
 
             <PropertiesList
+              isSidebarOpen={isSidebarOpen}
               locale={locale}
               rows={filteredRows}
               summary={summary}
@@ -160,10 +174,14 @@ export function PropertiesManager({
       <aside
         className={cn(
           "z-10 shrink-0 border-border/30 border-l bg-muted/30 backdrop-blur-md transition-all duration-300 ease-in-out",
-          isSidebarOpen ? "w-[360px]" : "w-0 overflow-hidden border-l-0"
+          isSidebarOpen
+            ? isWide
+              ? "w-[360px]"
+              : "w-[320px]"
+            : "w-0 overflow-hidden border-l-0"
         )}
       >
-        <div className="thin-scrollbar h-full overflow-y-auto px-5 py-8">
+        <div className={cn("thin-scrollbar h-full overflow-y-auto py-8", isWide ? "px-5" : "px-4")}>
           <PortfolioSidebar
             avgRentPyg={summary.averageRentPyg}
             formatLocale={formatLocale}

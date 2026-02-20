@@ -28,6 +28,16 @@ const DOCUMENT_TYPE_OPTIONS = [
   { value: "other", en: "Other", es: "Otro" },
 ] as const;
 
+export const LANGUAGE_OPTIONS = [
+  { value: "", en: "Select...", es: "Seleccionar..." },
+  { value: "es", en: "Spanish", es: "Español" },
+  { value: "en", en: "English", es: "Inglés" },
+  { value: "pt", en: "Portuguese", es: "Portugués" },
+  { value: "gn", en: "Guarani", es: "Guaraní" },
+  { value: "de", en: "German", es: "Alemán" },
+  { value: "fr", en: "French", es: "Francés" },
+] as const;
+
 export function GuestForm({
   mode,
   orgId,
@@ -261,12 +271,13 @@ export function GuestForm({
           <label className="font-medium text-xs" htmlFor="gcf-language">
             {t("Preferred language", "Idioma preferido")}
           </label>
-          <Input
-            defaultValue={record?.preferred_language ?? "es"}
-            id="gcf-language"
-            name="preferred_language"
-            placeholder={isEn ? "en" : "es"}
-          />
+          <Select defaultValue={record?.preferred_language ?? "es"} id="gcf-language" name="preferred_language">
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {isEn ? opt.en : opt.es}
+              </option>
+            ))}
+          </Select>
         </div>
       </fieldset>
 

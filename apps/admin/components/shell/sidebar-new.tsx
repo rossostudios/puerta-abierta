@@ -73,8 +73,8 @@ function SidebarContent({
                   className={cn(
                     "inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium text-[12px] transition-colors",
                     active
-                      ? "bg-sidebar-accent text-sidebar-foreground"
-                      : "text-white/60 hover:bg-sidebar-accent/40 hover:text-white"
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                      : "text-sidebar-foreground/50 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
                   )}
                   href={tab.href}
                   key={tab.key}
@@ -108,7 +108,7 @@ function SidebarContent({
               <TooltipTrigger asChild>
                 <button
                   aria-label={isEn ? "Search" : "Buscar"}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-sidebar-accent/40 hover:text-white"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
                   onClick={openSearch}
                   type="button"
                 >
@@ -152,7 +152,7 @@ function SidebarContent({
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
         <Link
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-sidebar-accent px-3 font-medium text-[13px] text-sidebar-foreground transition-colors hover:bg-sidebar-accent/80"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-sidebar-primary px-3 font-medium text-[13px] text-sidebar-primary-foreground shadow-[0_1px_3px_rgba(255,93,70,0.25)] transition-all hover:brightness-110 hover:shadow-[0_2px_8px_rgba(255,93,70,0.3)]"
           href="/app/agents?new=1"
         >
           <Icon icon={AiVoiceGeneratorIcon} size={14} />

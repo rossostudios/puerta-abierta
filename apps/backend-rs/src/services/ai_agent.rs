@@ -39,6 +39,8 @@ pub enum AgentStreamEvent {
 }
 
 const MUTATION_ROLES: &[&str] = &["owner_admin", "operator", "accountant"];
+const MUTATION_TOOLS: &[&str] = &["create_row", "update_row", "delete_row"];
+const AI_AGENT_DISABLED_MESSAGE: &str = "AI agent is disabled in this environment.";
 
 #[derive(Debug, Clone, Copy)]
 struct TableConfig {
@@ -64,10 +66,14 @@ pub struct RunAiAgentChatParams<'a> {
     pub agent_name: &'a str,
     pub agent_prompt: Option<&'a str>,
     pub allowed_tools: Option<&'a [String]>,
+    pub agent_slug: Option<&'a str>,
+    pub chat_id: Option<&'a str>,
+    pub requested_by_user_id: Option<&'a str>,
 }
 
 pub fn list_supported_tables() -> Vec<String> {
     let mut tables = vec![
+        "agent_approval_policies",
         "agent_approvals",
         "anomaly_alerts",
         "application_events",
@@ -79,6 +85,8 @@ pub fn list_supported_tables() -> Vec<String> {
         "expenses",
         "guests",
         "integration_events",
+        "knowledge_chunks",
+        "knowledge_documents",
         "lease_charges",
         "leases",
         "integrations",
@@ -129,7 +137,7 @@ pub async fn run_ai_agent_chat(
 ) -> AppResult<Map<String, Value>> {
     if !state.config.ai_agent_enabled {
         return Err(AppError::ServiceUnavailable(
-            "AI agent is disabled in this environment.".to_string(),
+            AI_AGENT_DISABLED_MESSAGE.to_string(),
         ));
     }
 
@@ -244,6 +252,10 @@ pub async fn run_ai_agent_chat(
                                 allow_mutations: params.allow_mutations,
                                 confirm_write: params.confirm_write,
                                 allowed_tools: params.allowed_tools,
+                                agent_slug: params.agent_slug,
+                                chat_id: params.chat_id,
+                                requested_by_user_id: params.requested_by_user_id,
+                                approved_execution: false,
                             },
                         )
                         .await
@@ -345,6 +357,10 @@ pub async fn execute_approved_tool(
             allow_mutations: true,
             confirm_write: true,
             allowed_tools: None,
+            agent_slug: Some("system"),
+            chat_id: None,
+            requested_by_user_id: None,
+            approved_execution: true,
         },
     )
     .await
@@ -357,14 +373,20 @@ pub async fn run_ai_agent_chat_streaming(
     tx: tokio::sync::mpsc::Sender<AgentStreamEvent>,
 ) -> AppResult<Map<String, Value>> {
     if !state.config.ai_agent_enabled {
+        let message = AI_AGENT_DISABLED_MESSAGE.to_string();
         let _ = tx
             .send(AgentStreamEvent::Error {
-                message: "AI agent is disabled in this environment.".to_string(),
+                message: message.clone(),
             })
             .await;
-        return Err(AppError::ServiceUnavailable(
-            "AI agent is disabled in this environment.".to_string(),
-        ));
+        let _ = tx
+            .send(AgentStreamEvent::Done {
+                content: message.clone(),
+                tool_trace: Vec::new(),
+            })
+            .await;
+
+        return Ok(disabled_stream_payload());
     }
 
     let role_value = normalize_role(params.role);
@@ -491,6 +513,10 @@ pub async fn run_ai_agent_chat_streaming(
                                 allow_mutations: params.allow_mutations,
                                 confirm_write: params.confirm_write,
                                 allowed_tools: params.allowed_tools,
+                                agent_slug: params.agent_slug,
+                                chat_id: params.chat_id,
+                                requested_by_user_id: params.requested_by_user_id,
+                                approved_execution: false,
                             },
                         )
                         .await
@@ -625,6 +651,19 @@ fn build_agent_result(
     );
     payload.insert("model_used".to_string(), Value::String(model_used));
     payload.insert("fallback_used".to_string(), Value::Bool(fallback_used));
+    payload
+}
+
+fn disabled_stream_payload() -> Map<String, Value> {
+    let mut payload = Map::new();
+    payload.insert(
+        "reply".to_string(),
+        Value::String(AI_AGENT_DISABLED_MESSAGE.to_string()),
+    );
+    payload.insert("tool_trace".to_string(), Value::Array(Vec::new()));
+    payload.insert("mutations_enabled".to_string(), Value::Bool(false));
+    payload.insert("model_used".to_string(), Value::Null);
+    payload.insert("fallback_used".to_string(), Value::Bool(false));
     payload
 }
 
@@ -926,6 +965,53 @@ fn tool_definitions(allowed_tools: Option<&[String]>) -> Vec<Value> {
                 "parameters": {"type": "object", "properties": {}}
             }
         }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_today_ops_brief",
+                "description": "Get today's operations brief with arrivals, departures, overdue tasks, and open maintenance workload.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_lease_risk_summary",
+                "description": "Summarize lease risk, including near-term expirations and active delinquencies.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_collections_risk",
+                "description": "Summarize collection risk for overdue or partially paid records.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_owner_statement_summary",
+                "description": "Summarize owner statements by status for the current reporting month.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "search_knowledge",
+                "description": "Search organization knowledge base chunks by natural language query.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 8}
+                    },
+                    "required": ["query"]
+                }
+            }
+        }),
     ];
 
     let Some(allowed_tools) = allowed_tools else {
@@ -962,6 +1048,10 @@ struct ToolContext<'a> {
     allow_mutations: bool,
     confirm_write: bool,
     allowed_tools: Option<&'a [String]>,
+    agent_slug: Option<&'a str>,
+    chat_id: Option<&'a str>,
+    requested_by_user_id: Option<&'a str>,
+    approved_execution: bool,
 }
 
 async fn execute_tool(
@@ -996,6 +1086,10 @@ async fn execute_tool(
                 context.role,
                 context.allow_mutations,
                 context.confirm_write,
+                context.agent_slug,
+                context.chat_id,
+                context.requested_by_user_id,
+                context.approved_execution,
                 args,
             )
             .await
@@ -1007,6 +1101,10 @@ async fn execute_tool(
                 context.role,
                 context.allow_mutations,
                 context.confirm_write,
+                context.agent_slug,
+                context.chat_id,
+                context.requested_by_user_id,
+                context.approved_execution,
                 args,
             )
             .await
@@ -1018,6 +1116,10 @@ async fn execute_tool(
                 context.role,
                 context.allow_mutations,
                 context.confirm_write,
+                context.agent_slug,
+                context.chat_id,
+                context.requested_by_user_id,
+                context.approved_execution,
                 args,
             )
             .await
@@ -1035,6 +1137,13 @@ async fn execute_tool(
         }
         "get_occupancy_forecast" => tool_get_occupancy_forecast(state, context.org_id, args).await,
         "get_anomaly_alerts" => tool_get_anomaly_alerts(state, context.org_id).await,
+        "get_today_ops_brief" => tool_get_today_ops_brief(state, context.org_id).await,
+        "get_lease_risk_summary" => tool_get_lease_risk_summary(state, context.org_id).await,
+        "get_collections_risk" => tool_get_collections_risk(state, context.org_id).await,
+        "get_owner_statement_summary" => {
+            tool_get_owner_statement_summary(state, context.org_id).await
+        }
+        "search_knowledge" => tool_search_knowledge(state, context.org_id, args).await,
         _ => Ok(json!({
             "ok": false,
             "error": format!("Unknown tool: {tool_name}"),
@@ -1165,18 +1274,21 @@ async fn tool_get_row(
     }))
 }
 
-/// Check if an approval is needed and create one if so.
-/// Returns Some(json) with a pending_approval response, or None to proceed.
-/// Currently available for explicit approval workflows; not auto-gated in mutations.
-#[allow(dead_code)]
+/// Check if an approval is required by policy and enqueue it.
+/// Returns Some(json) for pending approval, or None to proceed immediately.
 async fn maybe_create_approval(
     state: &AppState,
-    org_id: &str,
-    confirm_write: bool,
+    context: &ToolContext<'_>,
     tool_name: &str,
     args: &Map<String, Value>,
 ) -> AppResult<Option<Value>> {
-    if !confirm_write {
+    if context.approved_execution {
+        return Ok(None);
+    }
+    if !is_mutation_tool(tool_name) {
+        return Ok(None);
+    }
+    if !approval_required_by_policy(state, context.org_id, tool_name).await {
         return Ok(None);
     }
 
@@ -1185,24 +1297,83 @@ async fn maybe_create_approval(
         None => return Ok(None),
     };
 
-    // Insert approval request
-    let _row = sqlx::query(
-        "INSERT INTO agent_approvals (organization_id, agent_slug, tool_name, tool_args, status)
-         VALUES ($1::uuid, 'system', $2, $3, 'pending')
-         RETURNING id",
+    let approval = sqlx::query(
+        "INSERT INTO agent_approvals (
+            organization_id,
+            chat_id,
+            agent_slug,
+            tool_name,
+            tool_args,
+            status,
+            requested_by
+         ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, 'pending', $6::uuid)
+         RETURNING id::text AS id",
     )
-    .bind(org_id)
+    .bind(context.org_id)
+    .bind(context.chat_id)
+    .bind(context.agent_slug.unwrap_or("system"))
     .bind(tool_name)
     .bind(Value::Object(args.clone()))
+    .bind(context.requested_by_user_id)
     .fetch_optional(pool)
     .await
-    .ok();
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let approval_id = approval
+        .and_then(|row| row.try_get::<Option<String>, _>("id").ok().flatten())
+        .unwrap_or_default();
 
     Ok(Some(json!({
         "ok": true,
         "status": "pending_approval",
-        "message": "This action requires human approval. It has been queued for review.",
+        "approval_id": approval_id,
+        "tool": tool_name,
+        "message": "This action requires human approval and has been queued.",
     })))
+}
+
+fn is_mutation_tool(tool_name: &str) -> bool {
+    MUTATION_TOOLS.contains(&tool_name)
+}
+
+async fn approval_required_by_policy(state: &AppState, org_id: &str, tool_name: &str) -> bool {
+    if !is_mutation_tool(tool_name) {
+        return false;
+    }
+
+    let Some(pool) = state.db_pool.as_ref() else {
+        return true;
+    };
+
+    let row = sqlx::query(
+        "SELECT approval_mode, enabled
+         FROM agent_approval_policies
+         WHERE organization_id = $1::uuid
+           AND tool_name = $2
+         LIMIT 1",
+    )
+    .bind(org_id)
+    .bind(tool_name)
+    .fetch_optional(pool)
+    .await;
+
+    let Ok(row) = row else {
+        return true;
+    };
+
+    let Some(row) = row else {
+        return true;
+    };
+
+    let enabled = row.try_get::<bool, _>("enabled").unwrap_or(true);
+    if !enabled {
+        return false;
+    }
+
+    let mode = row
+        .try_get::<String, _>("approval_mode")
+        .unwrap_or_else(|_| "required".to_string());
+    mode.trim().eq_ignore_ascii_case("required")
 }
 
 async fn tool_create_row(
@@ -1211,6 +1382,10 @@ async fn tool_create_row(
     role: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    agent_slug: Option<&str>,
+    chat_id: Option<&str>,
+    requested_by_user_id: Option<&str>,
+    approved_execution: bool,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
     let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
@@ -1225,6 +1400,21 @@ async fn tool_create_row(
             "ok": false,
             "error": format!("Create is not allowed for table '{}'.", table),
         }));
+    }
+
+    let tool_context = ToolContext {
+        org_id,
+        role,
+        allow_mutations,
+        confirm_write,
+        allowed_tools: None,
+        agent_slug,
+        chat_id,
+        requested_by_user_id,
+        approved_execution,
+    };
+    if let Some(approval) = maybe_create_approval(state, &tool_context, "create_row", args).await? {
+        return Ok(approval);
     }
 
     let mut payload = normalize_json_object(args.get("payload"), "payload")?;
@@ -1250,6 +1440,10 @@ async fn tool_update_row(
     role: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    agent_slug: Option<&str>,
+    chat_id: Option<&str>,
+    requested_by_user_id: Option<&str>,
+    approved_execution: bool,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
     let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
@@ -1264,6 +1458,21 @@ async fn tool_update_row(
             "ok": false,
             "error": format!("Update is not allowed for table '{}'.", table),
         }));
+    }
+
+    let tool_context = ToolContext {
+        org_id,
+        role,
+        allow_mutations,
+        confirm_write,
+        allowed_tools: None,
+        agent_slug,
+        chat_id,
+        requested_by_user_id,
+        approved_execution,
+    };
+    if let Some(approval) = maybe_create_approval(state, &tool_context, "update_row", args).await? {
+        return Ok(approval);
     }
 
     let row_id = args
@@ -1351,6 +1560,10 @@ async fn tool_delete_row(
     role: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    agent_slug: Option<&str>,
+    chat_id: Option<&str>,
+    requested_by_user_id: Option<&str>,
+    approved_execution: bool,
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
     let (allowed, detail) = assert_mutation_allowed(role, allow_mutations, confirm_write);
@@ -1365,6 +1578,21 @@ async fn tool_delete_row(
             "ok": false,
             "error": format!("Delete is not allowed for table '{}'.", table),
         }));
+    }
+
+    let tool_context = ToolContext {
+        org_id,
+        role,
+        allow_mutations,
+        confirm_write,
+        allowed_tools: None,
+        agent_slug,
+        chat_id,
+        requested_by_user_id,
+        approved_execution,
+    };
+    if let Some(approval) = maybe_create_approval(state, &tool_context, "delete_row", args).await? {
+        return Ok(approval);
     }
 
     let row_id = args
@@ -1530,6 +1758,9 @@ async fn tool_delegate_to_agent(
         agent_name: &name,
         agent_prompt: system_prompt.as_deref(),
         allowed_tools: Some(&target_tools),
+        agent_slug: Some(&slug),
+        chat_id: None,
+        requested_by_user_id: None,
     };
 
     match Box::pin(run_ai_agent_chat(state, params)).await {
@@ -1662,6 +1893,264 @@ async fn tool_get_anomaly_alerts(state: &AppState, org_id: &str) -> AppResult<Va
         "ok": true,
         "alerts": alerts,
         "count": alerts.len(),
+    }))
+}
+
+async fn tool_get_today_ops_brief(state: &AppState, org_id: &str) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let arrivals = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM reservations
+         WHERE organization_id = $1::uuid
+           AND check_in_date = current_date
+           AND status IN ('confirmed', 'checked_in')",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let departures = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM reservations
+         WHERE organization_id = $1::uuid
+           AND check_out_date = current_date
+           AND status IN ('confirmed', 'checked_in')",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let overdue_tasks = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM tasks
+         WHERE organization_id = $1::uuid
+           AND status IN ('todo', 'in_progress')
+           AND due_at IS NOT NULL
+           AND due_at < now()",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let open_maintenance = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM maintenance_requests
+         WHERE organization_id = $1::uuid
+           AND status NOT IN ('completed', 'cancelled')",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    Ok(json!({
+        "ok": true,
+        "today": {
+            "arrivals": arrivals,
+            "departures": departures,
+            "overdue_tasks": overdue_tasks,
+            "open_maintenance_requests": open_maintenance,
+        }
+    }))
+}
+
+async fn tool_get_lease_risk_summary(state: &AppState, org_id: &str) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let expiring_30d = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM leases
+         WHERE organization_id = $1::uuid
+           AND lease_status IN ('active', 'delinquent')
+           AND ends_on BETWEEN current_date AND (current_date + interval '30 days')::date",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let delinquent = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM leases
+         WHERE organization_id = $1::uuid
+           AND lease_status = 'delinquent'",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let overdue_collections = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*)::bigint
+         FROM collection_records
+         WHERE organization_id = $1::uuid
+           AND due_date < current_date
+           AND status IN ('scheduled', 'pending', 'late')",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    Ok(json!({
+        "ok": true,
+        "lease_risk": {
+            "expiring_in_30_days": expiring_30d,
+            "delinquent_leases": delinquent,
+            "overdue_collection_records": overdue_collections,
+        }
+    }))
+}
+
+async fn tool_get_collections_risk(state: &AppState, org_id: &str) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let row = sqlx::query(
+        "SELECT
+            COUNT(*) FILTER (
+              WHERE due_date < current_date
+                AND status IN ('scheduled', 'pending', 'late')
+            )::bigint AS overdue_count,
+            COUNT(*) FILTER (WHERE status = 'late')::bigint AS late_count,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN due_date < current_date
+                    AND status IN ('scheduled', 'pending', 'late')
+                  THEN amount
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS overdue_amount
+         FROM collection_records
+         WHERE organization_id = $1::uuid",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let overdue_count = row.try_get::<i64, _>("overdue_count").unwrap_or(0);
+    let late_count = row.try_get::<i64, _>("late_count").unwrap_or(0);
+    let overdue_amount = row
+        .try_get::<Option<f64>, _>("overdue_amount")
+        .ok()
+        .flatten()
+        .unwrap_or(0.0);
+
+    Ok(json!({
+        "ok": true,
+        "collections_risk": {
+            "overdue_count": overdue_count,
+            "late_count": late_count,
+            "overdue_amount": ((overdue_amount * 100.0).round() / 100.0),
+        }
+    }))
+}
+
+async fn tool_get_owner_statement_summary(state: &AppState, org_id: &str) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let rows = sqlx::query(
+        "SELECT status::text, COUNT(*)::bigint AS total
+         FROM owner_statements
+         WHERE organization_id = $1::uuid
+           AND period_start <= current_date
+           AND period_end >= date_trunc('month', current_date)::date
+         GROUP BY status",
+    )
+    .bind(org_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let mut summary = Map::new();
+    let mut total = 0_i64;
+    for row in rows {
+        let status = row
+            .try_get::<String, _>("status")
+            .unwrap_or_else(|_| "unknown".to_string());
+        let count = row.try_get::<i64, _>("total").unwrap_or(0);
+        total += count;
+        summary.insert(status, Value::from(count));
+    }
+
+    Ok(json!({
+        "ok": true,
+        "current_period_total": total,
+        "by_status": summary,
+    }))
+}
+
+async fn tool_search_knowledge(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let query = args
+        .get("query")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if query.is_empty() {
+        return Ok(json!({ "ok": false, "error": "query is required." }));
+    }
+
+    let limit = coerce_limit(args.get("limit"), 8).clamp(1, 20);
+    let pool = db_pool(state)?;
+    let pattern = format!("%{}%", query.replace('%', "").replace('_', ""));
+
+    let rows = sqlx::query(
+        "SELECT
+            kc.id::text AS id,
+            kc.document_id::text AS document_id,
+            kc.chunk_index,
+            kc.content,
+            kc.metadata,
+            kd.title,
+            kd.source_url
+         FROM knowledge_chunks kc
+         JOIN knowledge_documents kd ON kd.id = kc.document_id
+         WHERE kc.organization_id = $1::uuid
+           AND kd.organization_id = $1::uuid
+           AND kc.content ILIKE $2
+         ORDER BY kc.updated_at DESC, kc.created_at DESC
+         LIMIT $3",
+    )
+    .bind(org_id)
+    .bind(pattern)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let mut hits = Vec::with_capacity(rows.len());
+    for row in rows {
+        hits.push(json!({
+            "id": row.try_get::<String, _>("id").unwrap_or_default(),
+            "document_id": row.try_get::<String, _>("document_id").unwrap_or_default(),
+            "chunk_index": row.try_get::<i32, _>("chunk_index").unwrap_or(0),
+            "title": row.try_get::<String, _>("title").unwrap_or_default(),
+            "source_url": row.try_get::<Option<String>, _>("source_url").ok().flatten(),
+            "content": row.try_get::<String, _>("content").unwrap_or_default(),
+            "metadata": row
+                .try_get::<Option<Value>, _>("metadata")
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| Value::Object(Map::new())),
+        }));
+    }
+
+    Ok(json!({
+        "ok": true,
+        "query": query,
+        "count": hits.len(),
+        "hits": hits,
     }))
 }
 
@@ -1806,7 +2295,15 @@ fn table_config(table: &str) -> AppResult<TableConfig> {
             can_update: true,
             can_delete: false,
         },
-        "audit_logs" | "agent_approvals" | "anomaly_alerts" => TableConfig {
+        "audit_logs" | "agent_approvals" | "agent_approval_policies" | "anomaly_alerts" => {
+            TableConfig {
+                org_column: "organization_id",
+                can_create: false,
+                can_update: false,
+                can_delete: false,
+            }
+        }
+        "knowledge_documents" | "knowledge_chunks" => TableConfig {
             org_column: "organization_id",
             can_create: false,
             can_update: false,
@@ -2094,4 +2591,99 @@ fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
 fn supabase_error(_state: &AppState, error: &sqlx::Error) -> AppError {
     tracing::error!(error = %error, "Database query failed");
     AppError::Dependency("External service request failed.".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use serde_json::Value;
+
+    use super::{
+        run_ai_agent_chat_streaming, AgentStreamEvent, RunAiAgentChatParams,
+        AI_AGENT_DISABLED_MESSAGE,
+    };
+    use crate::{
+        config::AppConfig,
+        state::{AppState, OrgMembershipCache, PublicListingsCache, ReportResponseCache},
+    };
+
+    fn disabled_ai_state() -> AppState {
+        let mut config = AppConfig::from_env();
+        config.ai_agent_enabled = false;
+
+        AppState {
+            config: Arc::new(config),
+            db_pool: None,
+            http_client: reqwest::Client::new(),
+            jwks_cache: None,
+            org_membership_cache: OrgMembershipCache::new(30, 1000),
+            public_listings_cache: PublicListingsCache::new(15, 500),
+            report_response_cache: ReportResponseCache::new(20, 500),
+        }
+    }
+
+    #[tokio::test]
+    async fn streaming_disabled_emits_error_then_done_and_returns_payload() {
+        let state = disabled_ai_state();
+        let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+        let params = RunAiAgentChatParams {
+            org_id: "11111111-1111-1111-1111-111111111111",
+            role: "viewer",
+            message: "health check",
+            conversation: &[],
+            allow_mutations: false,
+            confirm_write: false,
+            agent_name: "Operations Copilot",
+            agent_prompt: None,
+            allowed_tools: None,
+            agent_slug: None,
+            chat_id: None,
+            requested_by_user_id: None,
+        };
+
+        let payload = run_ai_agent_chat_streaming(&state, params, tx)
+            .await
+            .expect("disabled stream should return a fallback payload");
+
+        match rx.recv().await {
+            Some(AgentStreamEvent::Error { message }) => {
+                assert_eq!(message, AI_AGENT_DISABLED_MESSAGE);
+            }
+            other => panic!("expected error event first, got {:?}", other),
+        }
+
+        match rx.recv().await {
+            Some(AgentStreamEvent::Done {
+                content,
+                tool_trace,
+            }) => {
+                assert_eq!(content, AI_AGENT_DISABLED_MESSAGE);
+                assert!(tool_trace.is_empty());
+            }
+            other => panic!("expected done event second, got {:?}", other),
+        }
+
+        assert!(rx.recv().await.is_none());
+        assert_eq!(
+            payload.get("reply").and_then(Value::as_str),
+            Some(AI_AGENT_DISABLED_MESSAGE)
+        );
+        assert_eq!(
+            payload
+                .get("tool_trace")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(0)
+        );
+        assert_eq!(
+            payload.get("mutations_enabled").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(payload.get("model_used"), Some(&Value::Null));
+        assert_eq!(
+            payload.get("fallback_used").and_then(Value::as_bool),
+            Some(false)
+        );
+    }
 }

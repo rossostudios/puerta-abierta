@@ -1,0 +1,11 @@
+# Keep source paths available for the configured rootDirectory (apps/admin),
+# but exclude heavy local artifacts to avoid oversized uploads.
+.git
+.next
+**/node_modules
+**/.next
+**/target
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo

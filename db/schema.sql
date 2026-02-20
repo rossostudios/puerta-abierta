@@ -5,6 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ---------- Enums ----------
 
@@ -1166,6 +1167,119 @@ CREATE INDEX idx_ai_chat_messages_chat_created
 CREATE INDEX idx_ai_chat_messages_org_user_created
   ON ai_chat_messages(organization_id, created_by_user_id, created_at DESC);
 
+-- ---------- Agent approvals and policies ----------
+
+CREATE TABLE agent_approvals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  chat_id uuid REFERENCES ai_chats(id) ON DELETE SET NULL,
+  agent_slug text NOT NULL,
+  tool_name text NOT NULL,
+  tool_args jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'approved', 'rejected', 'executed', 'execution_failed')),
+  requested_by uuid,
+  reviewed_by uuid,
+  review_note text,
+  execution_result jsonb,
+  execution_key text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  reviewed_at timestamptz,
+  executed_at timestamptz
+);
+
+CREATE INDEX idx_agent_approvals_org_status
+  ON agent_approvals(organization_id, status);
+CREATE INDEX idx_agent_approvals_chat
+  ON agent_approvals(chat_id)
+  WHERE chat_id IS NOT NULL;
+CREATE INDEX idx_agent_approvals_tool_status
+  ON agent_approvals(organization_id, tool_name, status);
+CREATE UNIQUE INDEX idx_agent_approvals_execution_key
+  ON agent_approvals(execution_key)
+  WHERE execution_key IS NOT NULL;
+
+CREATE TABLE agent_approval_policies (
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  tool_name text NOT NULL CHECK (tool_name IN ('create_row', 'update_row', 'delete_row')),
+  approval_mode text NOT NULL DEFAULT 'required' CHECK (approval_mode IN ('required', 'auto')),
+  enabled boolean NOT NULL DEFAULT true,
+  updated_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, tool_name)
+);
+
+CREATE INDEX idx_agent_approval_policies_org
+  ON agent_approval_policies(organization_id);
+
+CREATE TRIGGER trg_agent_approval_policies_updated_at
+  BEFORE UPDATE ON agent_approval_policies
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ---------- Anomaly alerts ----------
+
+CREATE TABLE anomaly_alerts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  alert_type text NOT NULL,
+  severity text NOT NULL DEFAULT 'warning'
+    CHECK (severity IN ('info', 'warning', 'critical')),
+  title text NOT NULL,
+  description text,
+  related_table text,
+  related_id uuid,
+  is_dismissed boolean NOT NULL DEFAULT false,
+  detected_at timestamptz NOT NULL DEFAULT now(),
+  dismissed_at timestamptz,
+  dismissed_by uuid
+);
+
+CREATE INDEX idx_anomaly_alerts_org_active
+  ON anomaly_alerts(organization_id, is_dismissed)
+  WHERE NOT is_dismissed;
+
+-- ---------- Knowledge documents ----------
+
+CREATE TABLE knowledge_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  source_url text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_by_user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE knowledge_chunks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
+  chunk_index integer NOT NULL,
+  content text NOT NULL,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  embedding vector(1536),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (document_id, chunk_index)
+);
+
+CREATE INDEX idx_knowledge_documents_org
+  ON knowledge_documents(organization_id, created_at DESC);
+CREATE INDEX idx_knowledge_chunks_org_doc
+  ON knowledge_chunks(organization_id, document_id, chunk_index);
+CREATE INDEX idx_knowledge_chunks_org_created
+  ON knowledge_chunks(organization_id, created_at DESC);
+
+CREATE TRIGGER trg_knowledge_documents_updated_at
+  BEFORE UPDATE ON knowledge_documents
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TRIGGER trg_knowledge_chunks_updated_at
+  BEFORE UPDATE ON knowledge_chunks
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ---------- Tenant access tokens ----------
 
 CREATE TABLE tenant_access_tokens (
@@ -1367,12 +1481,15 @@ CREATE TYPE workflow_trigger_event AS ENUM (
   'reservation_confirmed', 'checked_in', 'checked_out',
   'lease_created', 'lease_activated', 'collection_overdue',
   'application_received', 'maintenance_submitted',
-  'task_completed', 'payment_received', 'lease_expiring'
+  'task_completed', 'payment_received', 'lease_expiring',
+  'anomaly_detected', 'task_overdue_24h', 'application_stalled_48h',
+  'lease_expiring_30d', 'owner_statement_ready'
 );
 
 CREATE TYPE workflow_action_type AS ENUM (
   'create_task', 'send_notification', 'update_status', 'create_expense',
-  'send_whatsapp', 'assign_task_round_robin'
+  'send_whatsapp', 'assign_task_round_robin',
+  'run_agent_playbook', 'request_agent_approval'
 );
 
 CREATE TABLE workflow_rules (
@@ -1824,6 +1941,11 @@ ALTER TABLE workflow_round_robin_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_approvals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_approval_policies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE anomaly_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY properties_org_member_all
   ON properties FOR ALL
@@ -2052,3 +2174,103 @@ CREATE POLICY ai_chat_messages_owner_all
   ON ai_chat_messages FOR ALL
   USING (is_org_member(organization_id) AND created_by_user_id = auth_user_id())
   WITH CHECK (is_org_member(organization_id) AND created_by_user_id = auth_user_id());
+
+CREATE POLICY org_members_can_read_approvals
+  ON agent_approvals FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY operators_can_manage_approvals
+  ON agent_approvals FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  );
+
+CREATE POLICY org_members_can_read_approval_policies
+  ON agent_approval_policies FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY operators_can_manage_approval_policies
+  ON agent_approval_policies FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  );
+
+CREATE POLICY org_members_can_read_anomalies
+  ON anomaly_alerts FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY operators_can_manage_anomalies
+  ON anomaly_alerts FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  );
+
+CREATE POLICY knowledge_documents_org_member_all
+  ON knowledge_documents FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+CREATE POLICY knowledge_chunks_org_member_all
+  ON knowledge_chunks FOR ALL
+  USING (is_org_member(organization_id))
+  WITH CHECK (is_org_member(organization_id));
+
+INSERT INTO agent_approval_policies (organization_id, tool_name, approval_mode, enabled)
+SELECT o.id, t.tool_name, 'required', true
+FROM organizations o
+CROSS JOIN (
+  VALUES
+    ('create_row'),
+    ('update_row'),
+    ('delete_row')
+) AS t(tool_name)
+ON CONFLICT (organization_id, tool_name) DO NOTHING;

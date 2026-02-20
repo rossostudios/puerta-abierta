@@ -4,6 +4,8 @@ use serde_json::{json, Value};
 use crate::state::AppState;
 
 pub mod agent_chats;
+pub mod agent_inbox;
+pub mod agent_playbooks;
 pub mod ai_agent;
 pub mod applications;
 pub mod approvals;
@@ -55,6 +57,8 @@ pub fn v1_router() -> Router<AppState> {
         .route("/me", get(identity::me))
         .route("/public/fx/usd-pyg", get(public_fx_rate))
         .merge(agent_chats::router())
+        .merge(agent_inbox::router())
+        .merge(agent_playbooks::router())
         .merge(ai_agent::router())
         .merge(organizations::router())
         .merge(properties::router())

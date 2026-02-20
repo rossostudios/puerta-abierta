@@ -2,12 +2,13 @@
 
 import { Add01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
-import { DataTable, type DataTableRow } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
@@ -16,10 +17,10 @@ import { cn } from "@/lib/utils";
 
 import { GuestDetailView } from "@/components/guests/guest-detail-view";
 import { GuestForm } from "@/components/guests/guest-form";
+import { GuestNotionTable } from "@/components/guests/guest-notion-table";
 import type { GuestCrmRow, Segment, SheetMode } from "@/components/guests/guests-crm-types";
 import { hasContact } from "@/components/guests/guests-crm-types";
 import { GuestsSegments } from "@/components/guests/guests-segments";
-import { buildGuestColumns } from "@/components/guests/guests-table-columns";
 
 import {
   createGuestAction,
@@ -32,13 +33,28 @@ export type { GuestCrmRow } from "@/components/guests/guests-crm-types";
 export function GuestsCrm({
   orgId,
   rows,
+  successMessage,
+  errorMessage,
 }: {
   orgId: string;
   rows: GuestCrmRow[];
+  successMessage?: string;
+  errorMessage?: string;
 }) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
   const t = useCallback((en: string, es: string) => (isEn ? en : es), [isEn]);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (successMessage) {
+      toast.success(successMessage);
+      router.replace("/module/guests");
+    } else if (errorMessage) {
+      toast.error(errorMessage);
+      router.replace("/module/guests");
+    }
+  }, [successMessage, errorMessage, router]);
 
   const [segment, setSegment] = useState<Segment>("all");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -96,11 +112,6 @@ export function GuestsCrm({
       setSheetMode("view");
     }, 200);
   };
-
-  const columns = useMemo(
-    () => buildGuestColumns(locale, t),
-    [locale, t]
-  );
 
   const recordHref = record ? `/module/guests/${record.id}` : "/module/guests";
   const recordReservationsHref = record
@@ -167,16 +178,17 @@ export function GuestsCrm({
           title={t("No guests yet", "Aún no hay huéspedes")}
         />
       ) : (
-        <div className="rounded-lg border bg-background/40 p-3">
-          <DataTable
-            columns={columns}
-            data={filteredRows}
-            defaultPageSize={20}
-            onRowClick={(row) => openSheet("view", row as GuestCrmRow)}
-            rowHrefBase="/module/guests"
-            searchPlaceholder={t("Search guests...", "Buscar huéspedes...")}
-          />
-        </div>
+        <GuestNotionTable
+          isEn={isEn}
+          locale={locale}
+          onDelete={(guest) => {
+            openSheet("view", guest);
+            setDeleteArmed(true);
+          }}
+          onEdit={(guest) => openSheet("edit", guest)}
+          onRowClick={(guest) => openSheet("view", guest)}
+          rows={filteredRows}
+        />
       )}
 
       <Sheet

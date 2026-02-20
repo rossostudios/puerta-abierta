@@ -15,6 +15,7 @@ type PropertiesListProps = {
   locale: Locale;
   viewMode: PropertyViewMode;
   summary: PropertyPortfolioSummary;
+  isSidebarOpen?: boolean;
 };
 
 export function PropertiesList({
@@ -22,6 +23,7 @@ export function PropertiesList({
   locale,
   viewMode,
   summary,
+  isSidebarOpen,
 }: PropertiesListProps) {
   const isEn = locale === "en-US";
   const formatLocale = isEn ? "en-US" : "es-PY";
@@ -58,6 +60,7 @@ export function PropertiesList({
         <PropertyNotionTable
           formatLocale={formatLocale}
           isEn={isEn}
+          isSidebarOpen={isSidebarOpen}
           rows={rows}
           summary={summary}
         />

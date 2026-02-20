@@ -1,7 +1,7 @@
 "use client";
 
 import { Popover as BasePopover } from "@base-ui/react/popover";
-import { Moon01Icon, Sun01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
+import { ComputerIcon, Moon01Icon, Sun01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -46,6 +46,7 @@ function applyTheme(preference: ThemePreference) {
 
 type ThemeToggleProps = {
   locale?: Locale;
+  mode?: "popover" | "inline";
 };
 
 // Subscribe to prefers-color-scheme changes via useSyncExternalStore.
@@ -61,7 +62,7 @@ function getServerSystemTheme(): ResolvedTheme {
   return "light";
 }
 
-export function ThemeToggle({ locale: localeProp }: ThemeToggleProps) {
+export function ThemeToggle({ locale: localeProp, mode = "popover" }: ThemeToggleProps) {
   const activeLocale = useActiveLocale();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
@@ -120,6 +121,38 @@ export function ThemeToggle({ locale: localeProp }: ThemeToggleProps) {
 
   const icon = resolvedTheme === "dark" ? Moon01Icon : Sun01Icon;
   const title = isEn ? "Theme" : "Tema";
+
+  if (mode === "inline") {
+    const inlineOptions = [
+      { value: "light" as const, icon: Sun01Icon, label: isEn ? "Light" : "Claro" },
+      { value: "dark" as const, icon: Moon01Icon, label: isEn ? "Dark" : "Oscuro" },
+      { value: "system" as const, icon: ComputerIcon, label: isEn ? "System" : "Sistema" },
+    ];
+
+    return (
+      <div className="flex gap-1 rounded-lg bg-muted/60 p-0.5">
+        {inlineOptions.map((opt) => {
+          const selected = opt.value === preference;
+          return (
+            <button
+              className={cn(
+                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all",
+                selected
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              key={opt.value}
+              onClick={() => setPreference(opt.value)}
+              type="button"
+            >
+              <Icon icon={opt.icon} size={13} />
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   if (!THEME_V2_ENABLED) {
     return (

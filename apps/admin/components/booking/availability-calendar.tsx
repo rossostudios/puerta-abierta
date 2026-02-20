@@ -191,7 +191,7 @@ export function AvailabilityCalendar({
                 disabled={!clickable}
                 key={day.date}
                 onClick={() => handleDayClick(day)}
-                style={edge ? { backgroundColor: brandColor || "#1A6DF0" } : undefined}
+                style={edge ? { backgroundColor: brandColor || "#FF5D46" } : undefined}
                 type="button"
               >
                 {dayNum}

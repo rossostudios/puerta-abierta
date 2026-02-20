@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -242,13 +243,13 @@ export function SidebarAccount({
             <span className="block truncate font-medium text-[13px] leading-5">
               {displayName}
             </span>
-            <span className="block truncate text-[11px] text-white/50">
+            <span className="block truncate text-[11px] text-sidebar-foreground/50">
               {subtitle}
             </span>
           </span>
           <Icon
             className={cn(
-              "text-white/50 transition-all group-hover:text-white/90",
+              "text-sidebar-foreground/50 transition-all group-hover:text-sidebar-foreground/90",
               open ? "rotate-180" : "rotate-0",
               collapsed ? "sr-only" : ""
             )}
@@ -403,11 +404,21 @@ export function SidebarAccount({
 
           <div className="my-1.5 h-px bg-border/80" />
 
-          <div className="px-2.5 py-1.5">
-            <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
-              {isEn ? "Language" : "Idioma"}
-            </p>
-            <LanguageSelector className="mt-2 h-8 text-xs" />
+          <div className="space-y-3 px-2.5 py-1.5">
+            <div>
+              <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                {isEn ? "Theme" : "Tema"}
+              </p>
+              <div className="mt-2">
+                <ThemeToggle locale={locale} mode="inline" />
+              </div>
+            </div>
+            <div>
+              <p className="font-medium text-[11px] text-muted-foreground uppercase tracking-wide">
+                {isEn ? "Language" : "Idioma"}
+              </p>
+              <LanguageSelector className="mt-2 h-8 text-xs" />
+            </div>
           </div>
 
           <div className="my-1.5 h-px bg-border/80" />

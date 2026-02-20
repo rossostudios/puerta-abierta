@@ -10,6 +10,7 @@ use uuid::Uuid;
 use crate::{
     config::WorkflowEngineMode,
     repository::table_service::{create_row, get_row, list_rows, update_row},
+    services::notification_center::{emit_event, EmitNotificationEventInput},
 };
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -540,6 +541,12 @@ async fn execute_action(
         "assign_task_round_robin" => {
             execute_assign_task_round_robin(pool, org_id, workflow_rule_id, action_config, context)
                 .await
+        }
+        "run_agent_playbook" => {
+            execute_run_agent_playbook(pool, org_id, action_config, context).await
+        }
+        "request_agent_approval" => {
+            execute_request_agent_approval(pool, org_id, action_config, context).await
         }
         other => Ok(ExecutionOutcome::Skipped(format!(
             "unsupported action_type '{other}'"
@@ -1083,6 +1090,132 @@ async fn execute_assign_task_round_robin(
     Ok(ExecutionOutcome::Succeeded)
 }
 
+async fn execute_run_agent_playbook(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    config: &Value,
+    context: &Map<String, Value>,
+) -> Result<ExecutionOutcome, String> {
+    let playbook_name = config
+        .as_object()
+        .and_then(|obj| obj.get("playbook_name"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Operations playbook");
+
+    let message_template = config
+        .as_object()
+        .and_then(|obj| obj.get("message"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Agent playbook run completed.");
+    let message = resolve_template(message_template, context);
+
+    let mut payload = Map::new();
+    payload.insert(
+        "playbook_name".to_string(),
+        Value::String(playbook_name.to_string()),
+    );
+    payload.insert("message".to_string(), Value::String(message.clone()));
+    if let Some(agent_slug) = config
+        .as_object()
+        .and_then(|obj| obj.get("agent_slug"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        payload.insert(
+            "agent_slug".to_string(),
+            Value::String(agent_slug.to_string()),
+        );
+    }
+
+    emit_event(
+        pool,
+        EmitNotificationEventInput {
+            organization_id: org_id.to_string(),
+            event_type: "agent_playbook_ready".to_string(),
+            category: "operations".to_string(),
+            severity: "info".to_string(),
+            title: format!("Playbook ready: {}", playbook_name),
+            body: message,
+            link_path: Some("/app/chats".to_string()),
+            source_table: None,
+            source_id: None,
+            actor_user_id: None,
+            payload,
+            dedupe_key: None,
+            occurred_at: None,
+            fallback_roles: vec![],
+        },
+    )
+    .await
+    .map_err(|error| error.detail_message())?;
+
+    Ok(ExecutionOutcome::Succeeded)
+}
+
+async fn execute_request_agent_approval(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    config: &Value,
+    context: &Map<String, Value>,
+) -> Result<ExecutionOutcome, String> {
+    let tool_name = config
+        .as_object()
+        .and_then(|obj| obj.get("tool_name"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_default();
+    if tool_name.is_empty() {
+        return Ok(ExecutionOutcome::Skipped(
+            "request_agent_approval requires tool_name".to_string(),
+        ));
+    }
+
+    let tool_args = config
+        .as_object()
+        .and_then(|obj| obj.get("tool_args"))
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let agent_slug = config
+        .as_object()
+        .and_then(|obj| obj.get("agent_slug"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("workflow-agent");
+    let chat_id = context
+        .get("chat_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let requested_by = context
+        .get("triggered_by_user_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+
+    sqlx::query(
+        "INSERT INTO agent_approvals (\n            organization_id,\n            chat_id,\n            agent_slug,\n            tool_name,\n            tool_args,\n            status,\n            requested_by\n         ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, 'pending', $6::uuid)",
+    )
+    .bind(org_id)
+    .bind(chat_id)
+    .bind(agent_slug)
+    .bind(tool_name)
+    .bind(Value::Object(tool_args))
+    .bind(requested_by)
+    .execute(pool)
+    .await
+    .map_err(|error| error.to_string())?;
+
+    Ok(ExecutionOutcome::Succeeded)
+}
+
 async fn resolve_template_id(pool: &sqlx::PgPool, org_id: &str, hint: &str) -> Option<String> {
     if Uuid::parse_str(hint).is_ok() {
         return Some(hint.to_string());
@@ -1342,6 +1475,14 @@ pub fn normalize_action_config(action_type: &str, raw: &Value) -> Value {
                 }
             }
         }
+        "run_agent_playbook" => {
+            alias_key(&mut config, "playbook", "playbook_name");
+            alias_key(&mut config, "prompt", "message");
+        }
+        "request_agent_approval" => {
+            alias_key(&mut config, "tool", "tool_name");
+            alias_key(&mut config, "args", "tool_args");
+        }
         _ => {}
     }
 
@@ -1508,6 +1649,37 @@ mod tests {
             normalized.get("template_id").and_then(Value::as_str),
             Some("rent_overdue")
         );
+    }
+
+    #[test]
+    fn normalizes_agent_playbook_aliases() {
+        let raw = json!({
+            "playbook": "Daily Ops",
+            "prompt": "Summarize {{org_id}}"
+        });
+        let normalized = normalize_action_config("run_agent_playbook", &raw);
+        assert_eq!(
+            normalized.get("playbook_name").and_then(Value::as_str),
+            Some("Daily Ops")
+        );
+        assert_eq!(
+            normalized.get("message").and_then(Value::as_str),
+            Some("Summarize {{org_id}}")
+        );
+    }
+
+    #[test]
+    fn normalizes_agent_approval_aliases() {
+        let raw = json!({
+            "tool": "update_row",
+            "args": {"table": "tasks", "row_id": "1", "payload": {"status": "done"}}
+        });
+        let normalized = normalize_action_config("request_agent_approval", &raw);
+        assert_eq!(
+            normalized.get("tool_name").and_then(Value::as_str),
+            Some("update_row")
+        );
+        assert!(normalized.get("tool_args").is_some());
     }
 
     #[test]

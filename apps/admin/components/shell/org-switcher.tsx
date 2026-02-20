@@ -152,7 +152,7 @@ export function OrgSwitcher({
         </div>
         <svg
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-white/50 transition-colors group-hover:text-white/90"
+          className="h-4 w-4 shrink-0 text-sidebar-foreground/50 transition-colors group-hover:text-sidebar-foreground/90"
           fill="none"
           focusable="false"
           stroke="currentColor"

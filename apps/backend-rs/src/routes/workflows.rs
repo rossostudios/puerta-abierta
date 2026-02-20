@@ -89,6 +89,31 @@ const WORKFLOW_TRIGGER_METADATA: &[TriggerMetadata] = &[
         label_en: "Lease expiring",
         label_es: "Contrato por vencer",
     },
+    TriggerMetadata {
+        value: "anomaly_detected",
+        label_en: "Anomaly detected",
+        label_es: "Anomalia detectada",
+    },
+    TriggerMetadata {
+        value: "task_overdue_24h",
+        label_en: "Task overdue 24h",
+        label_es: "Tarea vencida 24h",
+    },
+    TriggerMetadata {
+        value: "application_stalled_48h",
+        label_en: "Application stalled 48h",
+        label_es: "Solicitud estancada 48h",
+    },
+    TriggerMetadata {
+        value: "lease_expiring_30d",
+        label_en: "Lease expiring 30d",
+        label_es: "Contrato por vencer 30d",
+    },
+    TriggerMetadata {
+        value: "owner_statement_ready",
+        label_en: "Owner statement ready",
+        label_es: "Liquidacion lista",
+    },
 ];
 
 const WORKFLOW_ACTION_METADATA: &[ActionMetadata] = &[
@@ -121,6 +146,16 @@ const WORKFLOW_ACTION_METADATA: &[ActionMetadata] = &[
         value: "create_expense",
         label_en: "Create expense",
         label_es: "Crear gasto",
+    },
+    ActionMetadata {
+        value: "run_agent_playbook",
+        label_en: "Run agent playbook",
+        label_es: "Ejecutar playbook de agente",
+    },
+    ActionMetadata {
+        value: "request_agent_approval",
+        label_en: "Request agent approval",
+        label_es: "Solicitar aprobacion de agente",
     },
 ];
 
@@ -285,6 +320,12 @@ async fn workflow_rules_metadata(
             "create_expense": {
                 "fields": ["category", "amount", "currency", "description", "payment_method"],
                 "legacy_aliases": {"value": "amount", "amount_minor": "amount", "amount_cents": "amount"}
+            },
+            "run_agent_playbook": {
+                "fields": ["playbook_name", "agent_slug", "message", "priority"]
+            },
+            "request_agent_approval": {
+                "fields": ["agent_slug", "tool_name", "tool_args", "note"]
             }
         }
     })))

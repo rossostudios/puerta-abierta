@@ -130,7 +130,7 @@ export function SidebarHomeTab({
           </div>
           <Progress
             aria-valuetext={`${completionPercent}%`}
-            className="mt-2.5 h-2 bg-sidebar-accent"
+            className="mt-2.5 h-2 bg-sidebar-accent [&>div]:bg-sidebar-primary"
             value={completionPercent}
           />
           <p className="mt-1.5 font-medium text-[12px] text-sidebar-foreground/55">

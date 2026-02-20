@@ -249,6 +249,7 @@ pub async fn send_chat_message(
 
     let agent_name = value_str(&agent, "name").unwrap_or_else(|| "Operations Copilot".to_string());
     let agent_prompt = value_str(&agent, "system_prompt");
+    let agent_slug = value_str(&agent, "slug");
     let allowed_tools = agent_allowed_tools(&agent);
 
     let agent_result = run_ai_agent_chat(
@@ -263,6 +264,9 @@ pub async fn send_chat_message(
             agent_name: &agent_name,
             agent_prompt: agent_prompt.as_deref(),
             allowed_tools: allowed_tools.as_deref(),
+            agent_slug: agent_slug.as_deref(),
+            chat_id: Some(chat_id),
+            requested_by_user_id: Some(user_id),
         },
     )
     .await?;
@@ -427,6 +431,7 @@ pub async fn send_chat_message_streaming(
 
     let agent_name = value_str(&agent, "name").unwrap_or_else(|| "Operations Copilot".to_string());
     let agent_prompt = value_str(&agent, "system_prompt");
+    let agent_slug = value_str(&agent, "slug");
     let allowed_tools = agent_allowed_tools(&agent);
 
     let agent_result = run_ai_agent_chat_streaming(
@@ -441,6 +446,9 @@ pub async fn send_chat_message_streaming(
             agent_name: &agent_name,
             agent_prompt: agent_prompt.as_deref(),
             allowed_tools: allowed_tools.as_deref(),
+            agent_slug: agent_slug.as_deref(),
+            chat_id: Some(chat_id),
+            requested_by_user_id: Some(user_id),
         },
         stream_tx,
     )

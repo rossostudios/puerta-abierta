@@ -18,6 +18,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
   type ColumnDef,
+  type VisibilityState,
   flexRender,
   getCoreRowModel,
   useReactTable,
@@ -54,6 +55,7 @@ import type {
   PropertyPortfolioSummary,
 } from "@/lib/features/properties/types";
 import { formatCurrency } from "@/lib/format";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
 /* ---------- helpers ---------- */
@@ -97,6 +99,7 @@ type Props = {
   isEn: boolean;
   formatLocale: "en-US" | "es-PY";
   summary: PropertyPortfolioSummary;
+  isSidebarOpen?: boolean;
 };
 
 /* ---------- component ---------- */
@@ -106,6 +109,7 @@ export function PropertyNotionTable({
   isEn,
   formatLocale,
   summary,
+  isSidebarOpen,
 }: Props) {
   "use no memo";
   const router = useRouter();
@@ -145,6 +149,37 @@ export function PropertyNotionTable({
     },
     [addOptimistic, isEn, startTransition]
   );
+
+  /* --- responsive column visibility --- */
+  const isSm = useMediaQuery("(min-width: 640px)");
+  const isMd = useMediaQuery("(min-width: 768px)");
+  const isLg = useMediaQuery("(min-width: 1024px)");
+  const isXl = useMediaQuery("(min-width: 1280px)");
+  const isXxl = useMediaQuery("(min-width: 1440px)");
+  const is2xl = useMediaQuery("(min-width: 1536px)");
+
+  const columnVisibility = useMemo<VisibilityState>(() => {
+    // When portfolio sidebar is open, available content width is ~600px narrower
+    // than the viewport. Shift breakpoints up accordingly.
+    if (isSidebarOpen) {
+      return {
+        code: false,
+        city: false,
+        occupancyRate: isXl,
+        openTaskCount: isXl,
+        overdueCollectionCount: isXxl,
+        revenueMtdPyg: is2xl,
+      };
+    }
+    return {
+      code: isSm,
+      overdueCollectionCount: isSm,
+      openTaskCount: isSm,
+      occupancyRate: isMd,
+      city: isMd,
+      revenueMtdPyg: isLg,
+    };
+  }, [isSidebarOpen, isSm, isMd, isLg, isXl, isXxl, is2xl]);
 
   const columns = useMemo<ColumnDef<PropertyPortfolioRow>[]>(
     () => [
@@ -423,14 +458,15 @@ export function PropertyNotionTable({
     data: optimisticRows,
     columns,
     columnResizeMode: "onChange",
+    state: { columnVisibility },
     getCoreRowModel: getCoreRowModel(),
   });
 
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table
-        className="table-fixed"
-        style={{ width: table.getTotalSize() }}
+        className="table-fixed w-full"
+        style={{ minWidth: table.getTotalSize() }}
       >
         <TableHeader>
           {table.getHeaderGroups().map((hg) => (

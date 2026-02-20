@@ -113,6 +113,9 @@ async fn ai_agent_chat(
             agent_name: "Operations Copilot",
             agent_prompt: None,
             allowed_tools: None,
+            agent_slug: None,
+            chat_id: None,
+            requested_by_user_id: Some(&user_id),
         },
     )
     .await?;

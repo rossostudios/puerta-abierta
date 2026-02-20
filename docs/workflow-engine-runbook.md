@@ -6,7 +6,7 @@ Use this env profile for a reliability-first, low-cost launch:
 - `WORKFLOW_ENGINE_MODE=queue`
 - `INTERNAL_API_KEY=<strong-random-secret>`
 - `WORKFLOW_QUEUE_ORG_ALLOWLIST=` (empty = all orgs)
-- `AI_AGENT_ENABLED=false` (keeps variable AI cost at zero)
+- `AI_AGENT_ENABLED=true`
 
 In production, `/v1/internal/process-workflow-jobs` now fails closed if
 `INTERNAL_API_KEY` is not configured.
@@ -45,6 +45,42 @@ Railway scheduler assets in this repo:
 
 - Function: `apps/backend-rs/railway-functions/process-workflow-jobs.ts`
 - Setup script (dry-run by default): `./scripts/workflow-queue-scheduler.sh`
+
+Additional production schedulers:
+
+- Anomaly scan (every 10 minutes):
+  - `POST /v1/reports/anomalies/scan?org_id=<ORG_ID>`
+  - Header: `Authorization: Bearer <operator-token>`
+- Notifications retention (daily):
+  - `POST /v1/internal/notifications-retention`
+  - Header: `x-api-key: <INTERNAL_API_KEY>`
+- Optional agent playbook runner:
+  - `POST /v1/internal/agent-playbooks/run`
+  - Header: `x-api-key: <INTERNAL_API_KEY>`
+
+## Agent Route Smoke Check
+Run this after migrations and backend deploy on staging/production.
+
+Command:
+
+```bash
+BASE_URL="https://<backend-domain>/v1" \
+ORG_ID="<org-uuid>" \
+TOKEN="<operator-jwt>" \
+CHAT_ID="<chat-uuid>" \
+./scripts/agent-route-smoke.sh
+```
+
+Expected checkpoints:
+- `GET /agent/chats`
+- `GET /agent/approvals`
+- `GET /agent/approval-policies`
+- `GET /agent/inbox`
+- `POST /agent/chats/{chat_id}/messages/stream`
+
+CI guidance:
+- Use a temporary smoke user (operator role), create one chat, run `./scripts/agent-route-smoke.sh`, then delete the user.
+- Block promotion if the script exits non-zero.
 
 ## Observability Queries
 Queue lag (oldest queued job):
@@ -91,9 +127,10 @@ where status = 'failed'
 ```
 
 ## Rollback
-Rollback is config-only:
-1. Set `WORKFLOW_ENGINE_MODE=legacy`.
-2. Redeploy backend.
-3. Keep queue processor cron disabled while in legacy mode.
+Rollback sequence:
+1. Set `AI_AGENT_ENABLED=false` to disable agent execution paths.
+2. Set `WORKFLOW_ENGINE_MODE=legacy` and redeploy backend.
+3. Redeploy a known-good backend deployment from Railway (as of February 20, 2026: `eae79acf-b675-41ed-89fa-817399a23fbc`; prior checkpoint: `3836b968-9135-4874-95aa-ed7e4fc292db`).
+4. Keep queue processor cron disabled while in legacy mode.
 
-No schema rollback is required.
+Schema rollback is not required for the additive agent migrations in this phase.

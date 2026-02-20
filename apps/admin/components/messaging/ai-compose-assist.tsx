@@ -51,6 +51,10 @@ export function AiComposeAssist({
     const noDraftMsg = isEn ? "No draft generated." : "No se generó borrador.";
     const fallbackErrMsg = isEn ? "AI request failed." : "Error en la solicitud de IA.";
 
+    const draftPrompt = isEn
+      ? `Draft a concise and professional ${channel} reply for guest ${guestName}. Use the conversation context and return only the reply body.`
+      : `Redacta una respuesta breve y profesional por ${channel} para el huesped ${guestName}. Usa el contexto de la conversacion y devuelve solo el texto de respuesta.`;
+
     try {
       const result = await authedFetch<{ reply?: string; message?: string }>(
         "/agent/chat",
@@ -58,11 +62,9 @@ export function AiComposeAssist({
           method: "POST",
           body: JSON.stringify({
             org_id: orgId,
-            messages: preparedMessages,
-            context: {
-              channel,
-              guest_name: guestName,
-            },
+            message: draftPrompt,
+            conversation: preparedMessages,
+            allow_mutations: false,
           }),
         }
       );

@@ -53,8 +53,8 @@ export function NavLinkRow({
       className={cn(
         "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
-          ? "bg-sidebar-accent text-white"
-          : "text-white hover:bg-sidebar-accent/50"
+          ? "bg-[var(--shell-active)] text-sidebar-foreground"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
       )}
       href={href}
     >
@@ -62,8 +62,8 @@ export function NavLinkRow({
         className={cn(
           "shrink-0 transition-colors",
           active
-            ? "text-white"
-            : "text-white/80 group-hover/nav:text-white"
+            ? "text-sidebar-primary"
+            : "text-sidebar-foreground/50 group-hover/nav:text-sidebar-foreground/80"
         )}
         icon={icon}
         size={16}
@@ -72,12 +72,17 @@ export function NavLinkRow({
         {label}
       </span>
       {badge && (
-        <span className="ml-1 rounded-full bg-sidebar-accent/80 px-1.5 py-px text-[9px] font-medium text-sidebar-foreground/50 uppercase tracking-wider">
+        <span className="ml-1 rounded-full bg-sidebar-primary/10 px-1.5 py-px text-[9px] font-medium text-sidebar-primary uppercase tracking-wider">
           {badge}
         </span>
       )}
       {count != null && count > 0 && (
-        <span className="ml-auto shrink-0 rounded-full bg-sidebar-accent/60 px-1.5 py-px text-[10px] text-sidebar-foreground/50 tabular-nums">
+        <span className={cn(
+          "ml-auto shrink-0 rounded-full px-1.5 py-px text-[10px] tabular-nums",
+          active
+            ? "bg-sidebar-primary/15 text-sidebar-primary font-medium"
+            : "bg-sidebar-accent/80 text-sidebar-foreground/50"
+        )}>
           {count}
         </span>
       )}

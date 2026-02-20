@@ -33,23 +33,35 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
     ],
     "es-PY": [
       "Dame las 5 prioridades de hoy.",
-      "\u00bfQu\u00e9 turnovers est\u00e1n en riesgo esta ma\u00f1ana?",
-      "\u00bfCu\u00e1l es el mayor cuello de botella operativo ahora?",
+      "¿Qué turnovers están en riesgo esta mañana?",
+      "¿Cuál es el mayor cuello de botella operativo ahora?",
     ],
   },
-  "guest-concierge": {
+  "ops-dispatch": {
     "en-US": [
-      "Draft a check-in message for this week's arrivals.",
-      "Show me all guests arriving in the next 7 days.",
-      "Write a welcome message for the guest in unit 3.",
+      "Show all tasks at risk of SLA breach today.",
+      "Which team assignments should I rebalance right now?",
+      "Give me a dispatch plan for overdue turnovers.",
     ],
     "es-PY": [
-      "Redacta un mensaje de check-in para las llegadas de esta semana.",
-      "Mu\u00e9strame todos los hu\u00e9spedes que llegan en los pr\u00f3ximos 7 d\u00edas.",
-      "Escribe un mensaje de bienvenida para el hu\u00e9sped de la unidad 3.",
+      "Muestra todas las tareas en riesgo de incumplir SLA hoy.",
+      "¿Qué asignaciones del equipo debo rebalancear ahora?",
+      "Dame un plan de despacho para turnovers vencidos.",
     ],
   },
-  "owner-insight": {
+  "leasing-funnel": {
+    "en-US": [
+      "Which applications are stalled and need follow-up?",
+      "What is slowing down lease conversion this week?",
+      "Prioritize the top applicants that should move forward today.",
+    ],
+    "es-PY": [
+      "¿Qué solicitudes están estancadas y requieren seguimiento?",
+      "¿Qué está frenando la conversión de contratos esta semana?",
+      "Prioriza los mejores solicitantes para avanzar hoy.",
+    ],
+  },
+  "collections-finance": {
     "en-US": [
       "Summarize this month's revenue by property.",
       "Compare revenue vs expenses for the last 3 months.",
@@ -57,8 +69,32 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
     ],
     "es-PY": [
       "Resume los ingresos de este mes por propiedad.",
-      "Compara ingresos vs gastos de los \u00faltimos 3 meses.",
-      "Se\u00f1ala gastos inusuales de este mes.",
+      "Compara ingresos vs gastos de los últimos 3 meses.",
+      "Señala gastos inusuales de este mes.",
+    ],
+  },
+  "guest-comms": {
+    "en-US": [
+      "Draft a check-in message for this week's arrivals.",
+      "Show me all guests arriving in the next 7 days.",
+      "Write a welcome message for the guest in unit 3.",
+    ],
+    "es-PY": [
+      "Redacta un mensaje de check-in para las llegadas de esta semana.",
+      "Muéstrame todos los huéspedes que llegan en los próximos 7 días.",
+      "Escribe un mensaje de bienvenida para el huésped de la unidad 3.",
+    ],
+  },
+  "marketplace-growth": {
+    "en-US": [
+      "Which listings have low conversion this week?",
+      "Identify missing transparency info hurting conversion.",
+      "What listing improvements would raise demand fastest?",
+    ],
+    "es-PY": [
+      "¿Qué anuncios tienen baja conversión esta semana?",
+      "Identifica información de transparencia faltante que afecta conversión.",
+      "¿Qué mejoras de anuncios subirían la demanda más rápido?",
     ],
   },
   "price-optimizer": {
@@ -68,9 +104,9 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
       "Suggest seasonal pricing adjustments for next quarter.",
     ],
     "es-PY": [
-      "\u00bfQu\u00e9 unidades tienen la ocupaci\u00f3n m\u00e1s baja este mes?",
-      "Identifica unidades con precios bajos seg\u00fan tendencias.",
-      "Sugiere ajustes de precios estacionales para el pr\u00f3ximo trimestre.",
+      "¿Qué unidades tienen la ocupación más baja este mes?",
+      "Identifica unidades con precios bajos según tendencias.",
+      "Sugiere ajustes de precios estacionales para el próximo trimestre.",
     ],
   },
   "market-match": {
@@ -80,9 +116,9 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
       "Score the top 5 pending applications by fit.",
     ],
     "es-PY": [
-      "Empareja los \u00faltimos solicitantes con anuncios disponibles.",
-      "\u00bfQu\u00e9 anuncios pet-friendly est\u00e1n disponibles?",
-      "Punt\u00faa las 5 mejores solicitudes pendientes por compatibilidad.",
+      "Empareja los últimos solicitantes con anuncios disponibles.",
+      "¿Qué anuncios pet-friendly están disponibles?",
+      "Puntúa las 5 mejores solicitudes pendientes por compatibilidad.",
     ],
   },
   "maintenance-triage": {
@@ -93,8 +129,8 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
     ],
     "es-PY": [
       "Muestra solicitudes de mantenimiento abiertas por urgencia.",
-      "\u00bfQu\u00e9 propiedades tienen m\u00e1s reparaciones pendientes?",
-      "Estima costos de reparaci\u00f3n para tickets abiertos este mes.",
+      "¿Qué propiedades tienen más reparaciones pendientes?",
+      "Estima costos de reparación para tickets abiertos este mes.",
     ],
   },
   "compliance-guard": {
@@ -104,8 +140,8 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
       "Check document expirations across all properties.",
     ],
     "es-PY": [
-      "Se\u00f1ala contratos que vencen en los pr\u00f3ximos 30 d\u00edas.",
-      "\u00bfQu\u00e9 inquilinos tienen pagos vencidos este mes?",
+      "Señala contratos que vencen en los próximos 30 días.",
+      "¿Qué inquilinos tienen pagos vencidos este mes?",
       "Revisa vencimientos de documentos en todas las propiedades.",
     ],
   },
@@ -117,8 +153,8 @@ const PROMPTS: Record<string, { "en-US": string[]; "es-PY": string[] }> = {
     ],
     "es-PY": [
       "Resume los riesgos clave de hoy.",
-      "\u00bfQu\u00e9 debo corregir primero en operaciones?",
-      "Dame un plan de acci\u00f3n conciso.",
+      "¿Qué debo corregir primero en operaciones?",
+      "Dame un plan de acción conciso.",
     ],
   },
 };

@@ -707,6 +707,45 @@ export type AgentChatMessage = {
   created_at: string;
 };
 
+export type AgentApproval = {
+  id: string;
+  organization_id: string;
+  chat_id: string | null;
+  agent_slug: string;
+  tool_name: string;
+  tool_args: Record<string, unknown>;
+  status:
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "executed"
+    | "execution_failed";
+  review_note: string | null;
+  execution_result: Record<string, unknown> | null;
+  created_at: string;
+  reviewed_at: string | null;
+  executed_at: string | null;
+};
+
+export type AgentApprovalPolicy = {
+  organization_id: string;
+  tool_name: "create_row" | "update_row" | "delete_row";
+  approval_mode: "required" | "auto";
+  enabled: boolean;
+  updated_by?: string | null;
+  updated_at?: string | null;
+};
+
+export type AgentInboxItem = {
+  id: string;
+  kind: "approval" | "anomaly" | "task" | "lease" | "application";
+  priority: "critical" | "high" | "medium" | "low";
+  title: string;
+  body: string;
+  link_path: string | null;
+  created_at: string;
+};
+
 export function fetchAgentDefinitions(orgId: string): Promise<{
   organization_id?: string;
   data?: AgentDefinition[];
@@ -826,4 +865,63 @@ export function deleteAgentChat(
       method: "DELETE",
     }
   );
+}
+
+export function fetchAgentApprovals(orgId: string): Promise<{
+  organization_id?: string;
+  data?: AgentApproval[];
+  count?: number;
+}> {
+  return fetchJson("/agent/approvals", { org_id: orgId });
+}
+
+export function reviewAgentApproval(
+  orgId: string,
+  approvalId: string,
+  action: "approve" | "reject",
+  note?: string | null
+): Promise<Record<string, unknown>> {
+  return fetchJson(
+    `/agent/approvals/${encodeURIComponent(approvalId)}/${action}`,
+    { org_id: orgId },
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ note: typeof note === "string" ? note : null }),
+    }
+  );
+}
+
+export function fetchAgentApprovalPolicies(orgId: string): Promise<{
+  organization_id?: string;
+  data?: AgentApprovalPolicy[];
+}> {
+  return fetchJson("/agent/approval-policies", { org_id: orgId });
+}
+
+export function updateAgentApprovalPolicy(
+  orgId: string,
+  toolName: "create_row" | "update_row" | "delete_row",
+  payload: { approval_mode?: "required" | "auto"; enabled?: boolean }
+): Promise<Record<string, unknown>> {
+  return fetchJson(
+    `/agent/approval-policies/${encodeURIComponent(toolName)}`,
+    { org_id: orgId },
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export function fetchAgentInbox(
+  orgId: string,
+  limit = 60
+): Promise<{ organization_id?: string; data?: AgentInboxItem[]; count?: number }> {
+  return fetchJson("/agent/inbox", { org_id: orgId, limit });
 }
