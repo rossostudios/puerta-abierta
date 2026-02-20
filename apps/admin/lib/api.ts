@@ -158,10 +158,10 @@ let pendingTokenRequest: Promise<string | null> | null = null;
 let cachedAccessToken: { token: string | null; expiresAt: number } | null =
   null;
 
-async function getAccessToken(): Promise<string | null> {
+function getAccessToken(): Promise<string | null> {
   const now = Date.now();
   if (cachedAccessToken && now < cachedAccessToken.expiresAt) {
-    return cachedAccessToken.token;
+    return Promise.resolve(cachedAccessToken.token);
   }
 
   // Dedup concurrent token requests so only one Supabase client/session
@@ -245,10 +245,7 @@ async function requestJson<T>(
   let response = await doFetch(path, url, init, options);
 
   // Retry once on transient errors for safe (GET) requests
-  if (
-    method === "GET" &&
-    TRANSIENT_STATUS_CODES.has(response.status)
-  ) {
+  if (method === "GET" && TRANSIENT_STATUS_CODES.has(response.status)) {
     await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
     response = await doFetch(path, url, init, options);
   }
@@ -289,7 +286,7 @@ async function requestJson<T>(
   return (await response.json()) as T;
 }
 
-export async function fetchJson<T>(
+export function fetchJson<T>(
   path: string,
   query?: Record<string, QueryValue>,
   init?: NextRequestInit
@@ -297,7 +294,7 @@ export async function fetchJson<T>(
   return requestJson(path, query, init, { includeAuth: true });
 }
 
-export async function fetchPublicJson<T>(
+export function fetchPublicJson<T>(
   path: string,
   query?: Record<string, QueryValue>,
   init?: NextRequestInit
@@ -514,7 +511,7 @@ export function fetchAgentPerformance(
   orgId: string
 ): Promise<AgentPerformanceStats> {
   const today = new Date().toISOString().slice(0, 10);
-  const from = new Date(new Date().getTime() - 30 * 86_400_000)
+  const from = new Date(Date.now() - 30 * 86_400_000)
     .toISOString()
     .slice(0, 10);
   return fetchJson<AgentPerformanceStats>("/reports/agent-performance", {
@@ -540,7 +537,7 @@ export function fetchRevenueTrend(
   orgId: string
 ): Promise<RevenueTrendResponse> {
   const today = new Date().toISOString().slice(0, 10);
-  const from = new Date(new Date().getTime() - 180 * 86_400_000)
+  const from = new Date(Date.now() - 180 * 86_400_000)
     .toISOString()
     .slice(0, 10);
   return fetchJson<RevenueTrendResponse>("/reports/revenue-trend", {
@@ -714,12 +711,7 @@ export type AgentApproval = {
   agent_slug: string;
   tool_name: string;
   tool_args: Record<string, unknown>;
-  status:
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "executed"
-    | "execution_failed";
+  status: "pending" | "approved" | "rejected" | "executed" | "execution_failed";
   review_note: string | null;
   execution_result: Record<string, unknown> | null;
   created_at: string;
@@ -922,6 +914,10 @@ export function updateAgentApprovalPolicy(
 export function fetchAgentInbox(
   orgId: string,
   limit = 60
-): Promise<{ organization_id?: string; data?: AgentInboxItem[]; count?: number }> {
+): Promise<{
+  organization_id?: string;
+  data?: AgentInboxItem[];
+  count?: number;
+}> {
   return fetchJson("/agent/inbox", { org_id: orgId, limit });
 }

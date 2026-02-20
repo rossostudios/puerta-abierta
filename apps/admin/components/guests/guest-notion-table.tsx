@@ -53,11 +53,7 @@ import {
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-import {
-  type GuestCrmRow,
-  asDateLabel,
-  initials,
-} from "./guests-crm-types";
+import { asDateLabel, type GuestCrmRow, initials } from "./guests-crm-types";
 
 /* ---------- helpers ---------- */
 
@@ -130,15 +126,15 @@ export function GuestNotionTable({
         value: next,
       });
 
-      if (!result.ok) {
+      if (result.ok) {
+        toast.success(isEn ? "Saved" : "Guardado");
+      } else {
         toast.error(isEn ? "Failed to save" : "Error al guardar", {
           description: result.error,
         });
-      } else {
-        toast.success(isEn ? "Saved" : "Guardado");
       }
     },
-    [addOptimistic, isEn, startTransition]
+    [addOptimistic, isEn]
   );
 
   const languageSelectOptions = useMemo(
@@ -182,17 +178,16 @@ export function GuestNotionTable({
         size: 260,
         minSize: 180,
         header: () => (
-          <ColHeader
-            icon={UserGroupIcon}
-            label={t("Guest", "Huésped")}
-          />
+          <ColHeader icon={UserGroupIcon} label={t("Guest", "Huésped")} />
         ),
         cell: ({ row }) => {
           const guest = row.original;
           const href = `/module/guests/${guest.id}`;
           const emailVal = guest.email != null ? guest.email.trim() : "";
-          const phoneVal = guest.phone_e164 != null ? guest.phone_e164.trim() : "";
-          const contact = emailVal || phoneVal || t("No contact", "Sin contacto");
+          const phoneVal =
+            guest.phone_e164 != null ? guest.phone_e164.trim() : "";
+          const contact =
+            emailVal || phoneVal || t("No contact", "Sin contacto");
 
           return (
             <div className="min-w-0">
@@ -308,11 +303,9 @@ export function GuestNotionTable({
         accessorKey: "lifetime_value",
         size: 120,
         minSize: 90,
-        header: () => (
-          <ColHeader icon={DollarCircleIcon} label="LTV" />
-        ),
+        header: () => <ColHeader icon={DollarCircleIcon} label="LTV" />,
         cell: ({ row }) => (
-          <span className="tabular-nums text-sm">
+          <span className="text-sm tabular-nums">
             {formatCurrency(row.original.lifetime_value, "PYG", locale)}
           </span>
         ),
@@ -429,7 +422,16 @@ export function GuestNotionTable({
         },
       },
     ],
-    [isEn, locale, t, commitEdit, languageSelectOptions, onRowClick, onEdit, onDelete]
+    [
+      isEn,
+      locale,
+      t,
+      commitEdit,
+      languageSelectOptions,
+      onRowClick,
+      onEdit,
+      onDelete,
+    ]
   );
 
   const totalStays = useMemo(
@@ -452,7 +454,7 @@ export function GuestNotionTable({
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table
-        className="table-fixed w-full"
+        className="w-full table-fixed"
         style={{ minWidth: table.getTotalSize() }}
       >
         <TableHeader>
@@ -460,7 +462,7 @@ export function GuestNotionTable({
             <TableRow key={hg.id}>
               {hg.headers.map((header) => (
                 <TableHead
-                  className="relative whitespace-nowrap select-none text-[11px] uppercase tracking-wider"
+                  className="relative select-none whitespace-nowrap text-[11px] uppercase tracking-wider"
                   grid
                   key={header.id}
                   style={{ width: header.getSize() }}
@@ -473,17 +475,17 @@ export function GuestNotionTable({
                       )}
 
                   {header.column.getCanResize() && (
-                    <div
+                    <button
                       aria-label="Resize column"
                       className={cn(
-                        "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                        "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none",
                         "hover:bg-primary/30",
                         header.column.getIsResizing() && "bg-primary/50"
                       )}
                       onDoubleClick={() => header.column.resetSize()}
                       onMouseDown={header.getResizeHandler()}
                       onTouchStart={header.getResizeHandler()}
-                      role="separator"
+                      type="button"
                     />
                   )}
                 </TableHead>
@@ -529,7 +531,7 @@ export function GuestNotionTable({
           <TableRow className="hover:bg-transparent">
             <TableCell grid style={{ width: 40 }} />
             <TableCell
-              className="font-medium uppercase tracking-wider text-xs"
+              className="font-medium text-xs uppercase tracking-wider"
               grid
             >
               {optimisticRows.length} {t("Guests", "Huéspedes")}

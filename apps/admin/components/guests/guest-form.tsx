@@ -22,9 +22,21 @@ import type { GuestCrmRow, SheetMode } from "./guests-crm-types";
 const DOCUMENT_TYPE_OPTIONS = [
   { value: "", en: "Select...", es: "Seleccionar..." },
   { value: "passport", en: "Passport", es: "Pasaporte" },
-  { value: "national_id", en: "National ID (Cédula)", es: "Cédula de Identidad" },
-  { value: "drivers_license", en: "Driver's License", es: "Licencia de Conducir" },
-  { value: "residence_permit", en: "Residence Permit", es: "Permiso de Residencia" },
+  {
+    value: "national_id",
+    en: "National ID (Cédula)",
+    es: "Cédula de Identidad",
+  },
+  {
+    value: "drivers_license",
+    en: "Driver's License",
+    es: "Licencia de Conducir",
+  },
+  {
+    value: "residence_permit",
+    en: "Residence Permit",
+    es: "Permiso de Residencia",
+  },
   { value: "other", en: "Other", es: "Otro" },
 ] as const;
 
@@ -92,7 +104,9 @@ export function GuestForm({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1">
-            <label className="font-medium text-xs" htmlFor="gcf-email">Email</label>
+            <label className="font-medium text-xs" htmlFor="gcf-email">
+              Email
+            </label>
             <Input
               defaultValue={record?.email ?? ""}
               id="gcf-email"
@@ -124,7 +138,11 @@ export function GuestForm({
             <label className="font-medium text-xs" htmlFor="gcf-doc-type">
               {t("Document type", "Tipo de documento")}
             </label>
-            <Select defaultValue={record?.document_type ?? ""} id="gcf-doc-type" name="document_type">
+            <Select
+              defaultValue={record?.document_type ?? ""}
+              id="gcf-doc-type"
+              name="document_type"
+            >
               {DOCUMENT_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {isEn ? opt.en : opt.es}
@@ -271,7 +289,11 @@ export function GuestForm({
           <label className="font-medium text-xs" htmlFor="gcf-language">
             {t("Preferred language", "Idioma preferido")}
           </label>
-          <Select defaultValue={record?.preferred_language ?? "es"} id="gcf-language" name="preferred_language">
+          <Select
+            defaultValue={record?.preferred_language ?? "es"}
+            id="gcf-language"
+            name="preferred_language"
+          >
             {LANGUAGE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {isEn ? opt.en : opt.es}

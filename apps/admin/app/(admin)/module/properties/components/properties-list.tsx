@@ -1,7 +1,7 @@
 "use client";
 
-import { PropertyCard } from "@/components/properties/property-card";
 import { PropertiesMapView } from "@/components/properties/properties-map-view";
+import { PropertyCard } from "@/components/properties/property-card";
 import { PropertyNotionTable } from "@/components/properties/property-notion-table";
 import type {
   PropertyPortfolioRow,

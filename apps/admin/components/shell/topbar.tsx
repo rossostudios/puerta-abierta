@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  Menu01Icon,
-  MenuCollapseIcon,
-} from "@hugeicons/core-free-icons";
+import { Menu01Icon, MenuCollapseIcon } from "@hugeicons/core-free-icons";
 import { usePathname } from "next/navigation";
 
 import { AppBreadcrumbs } from "@/components/shell/app-breadcrumbs";
@@ -49,10 +46,7 @@ export function Topbar({
             onClick={onNavToggle}
             type="button"
           >
-            <Icon
-              icon={isNavOpen ? MenuCollapseIcon : Menu01Icon}
-              size={18}
-            />
+            <Icon icon={isNavOpen ? MenuCollapseIcon : Menu01Icon} size={18} />
           </button>
         ) : null}
 

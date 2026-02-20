@@ -49,7 +49,9 @@ export function AiComposeAssist({
       });
 
     const noDraftMsg = isEn ? "No draft generated." : "No se generó borrador.";
-    const fallbackErrMsg = isEn ? "AI request failed." : "Error en la solicitud de IA.";
+    const fallbackErrMsg = isEn
+      ? "AI request failed."
+      : "Error en la solicitud de IA.";
 
     const draftPrompt = isEn
       ? `Draft a concise and professional ${channel} reply for guest ${guestName}. Use the conversation context and return only the reply body.`
@@ -97,11 +99,11 @@ export function AiComposeAssist({
       <div className="space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
         <div className="flex items-center gap-1.5">
           <Icon className="text-primary" icon={SparklesIcon} size={13} />
-          <span className="text-xs font-medium text-primary">
+          <span className="font-medium text-primary text-xs">
             {isEn ? "AI Draft" : "Borrador IA"}
           </span>
         </div>
-        <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">
+        <p className="whitespace-pre-wrap text-[13px] text-foreground leading-relaxed">
           {draft}
         </p>
         <div className="flex items-center gap-2">
@@ -147,9 +149,7 @@ export function AiComposeAssist({
             ? "Ask AI"
             : "Pedir a IA"}
       </Button>
-      {error && (
-        <span className="text-xs text-destructive">{error}</span>
-      )}
+      {error && <span className="text-destructive text-xs">{error}</span>}
     </div>
   );
 }

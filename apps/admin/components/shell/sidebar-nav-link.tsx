@@ -72,17 +72,19 @@ export function NavLinkRow({
         {label}
       </span>
       {badge && (
-        <span className="ml-1 rounded-full bg-sidebar-primary/10 px-1.5 py-px text-[9px] font-medium text-sidebar-primary uppercase tracking-wider">
+        <span className="ml-1 rounded-full bg-sidebar-primary/10 px-1.5 py-px font-medium text-[9px] text-sidebar-primary uppercase tracking-wider">
           {badge}
         </span>
       )}
       {count != null && count > 0 && (
-        <span className={cn(
-          "ml-auto shrink-0 rounded-full px-1.5 py-px text-[10px] tabular-nums",
-          active
-            ? "bg-sidebar-primary/15 text-sidebar-primary font-medium"
-            : "bg-sidebar-accent/80 text-sidebar-foreground/50"
-        )}>
+        <span
+          className={cn(
+            "ml-auto shrink-0 rounded-full px-1.5 py-px text-[10px] tabular-nums",
+            active
+              ? "bg-sidebar-primary/15 font-medium text-sidebar-primary"
+              : "bg-sidebar-accent/80 text-sidebar-foreground/50"
+          )}
+        >
           {count}
         </span>
       )}

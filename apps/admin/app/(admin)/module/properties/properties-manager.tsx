@@ -77,15 +77,18 @@ export function PropertiesManager({
 
   const previousSidebarRef = useRef(isSidebarOpen);
 
-  const handleViewModeChange = useCallback((next: PropertyViewMode) => {
-    if (next === "map") {
-      previousSidebarRef.current = isSidebarOpen;
-      setUserSidebarPref(false);
-    } else {
-      setUserSidebarPref(previousSidebarRef.current);
-    }
-    setViewMode(next);
-  }, [isSidebarOpen]);
+  const handleViewModeChange = useCallback(
+    (next: PropertyViewMode) => {
+      if (next === "map") {
+        previousSidebarRef.current = isSidebarOpen;
+        setUserSidebarPref(false);
+      } else {
+        setUserSidebarPref(previousSidebarRef.current);
+      }
+      setViewMode(next);
+    },
+    [isSidebarOpen]
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -153,7 +156,9 @@ export function PropertiesManager({
               onHealthFilterChange={setHealthFilter}
               onQueryChange={setQuery}
               onStatusFilterChange={setStatusFilter}
-              onToggleSidebar={() => setUserSidebarPref((prev) => !(prev ?? isMedium))}
+              onToggleSidebar={() =>
+                setUserSidebarPref((prev) => !(prev ?? isMedium))
+              }
               onViewModeChange={handleViewModeChange}
               query={query}
               statusFilter={statusFilter}
@@ -181,7 +186,12 @@ export function PropertiesManager({
             : "w-0 overflow-hidden border-l-0"
         )}
       >
-        <div className={cn("thin-scrollbar h-full overflow-y-auto py-8", isWide ? "px-5" : "px-4")}>
+        <div
+          className={cn(
+            "thin-scrollbar h-full overflow-y-auto py-8",
+            isWide ? "px-5" : "px-4"
+          )}
+        >
           <PortfolioSidebar
             avgRentPyg={summary.averageRentPyg}
             formatLocale={formatLocale}

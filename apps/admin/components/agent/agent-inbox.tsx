@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,9 @@ function normalizeItems(payload: unknown): AgentInboxItem[] {
   if (!Array.isArray(data)) return [];
 
   return data
-    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    .filter((item): item is Record<string, unknown> =>
+      Boolean(item && typeof item === "object")
+    )
     .map((item) => ({
       id: String(item.id ?? ""),
       kind: String(item.kind ?? "task") as AgentInboxItem["kind"],
@@ -49,7 +51,9 @@ function normalizeItems(payload: unknown): AgentInboxItem[] {
     .filter((item) => item.id && item.title);
 }
 
-function priorityVariant(priority: AgentInboxItem["priority"]): "default" | "secondary" | "destructive" | "outline" {
+function priorityVariant(
+  priority: AgentInboxItem["priority"]
+): "default" | "secondary" | "destructive" | "outline" {
   if (priority === "critical") return "destructive";
   if (priority === "high") return "default";
   if (priority === "medium") return "secondary";
@@ -71,7 +75,9 @@ export function AgentInbox({ orgId, locale }: AgentInboxProps) {
       );
       const payload = (await response.json()) as unknown;
       if (!response.ok) {
-        const fallback = isEn ? "Could not load inbox." : "No se pudo cargar la bandeja.";
+        const fallback = isEn
+          ? "Could not load inbox."
+          : "No se pudo cargar la bandeja.";
         const msg =
           payload && typeof payload === "object" && "error" in payload
             ? String((payload as { error?: unknown }).error)
@@ -98,7 +104,9 @@ export function AgentInbox({ orgId, locale }: AgentInboxProps) {
       <CardContent className="space-y-3">
         {inboxQuery.error ? (
           <Alert variant="destructive">
-            <AlertTitle>{isEn ? "Request failed" : "Solicitud fallida"}</AlertTitle>
+            <AlertTitle>
+              {isEn ? "Request failed" : "Solicitud fallida"}
+            </AlertTitle>
             <AlertDescription>{inboxQuery.error.message}</AlertDescription>
           </Alert>
         ) : null}
@@ -111,12 +119,17 @@ export function AgentInbox({ orgId, locale }: AgentInboxProps) {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-xl border border-dashed p-4 text-muted-foreground text-sm">
-            {isEn ? "No inbox items right now." : "No hay elementos en la bandeja ahora."}
+            {isEn
+              ? "No inbox items right now."
+              : "No hay elementos en la bandeja ahora."}
           </div>
         ) : (
           <div className="space-y-2">
             {items.map((item) => (
-              <div className="rounded-xl border p-3" key={`${item.kind}-${item.id}`}>
+              <div
+                className="rounded-xl border p-3"
+                key={`${item.kind}-${item.id}`}
+              >
                 <div className="mb-1 flex flex-wrap items-center gap-2">
                   <Badge variant={priorityVariant(item.priority)}>
                     {item.priority.toUpperCase()}
@@ -127,9 +140,14 @@ export function AgentInbox({ orgId, locale }: AgentInboxProps) {
                   </span>
                 </div>
                 <p className="font-medium text-sm">{item.title}</p>
-                <p className="mt-1 text-muted-foreground text-xs">{item.body}</p>
+                <p className="mt-1 text-muted-foreground text-xs">
+                  {item.body}
+                </p>
                 {item.link_path ? (
-                  <Link className="mt-2 inline-block text-primary text-xs hover:underline" href={item.link_path}>
+                  <Link
+                    className="mt-2 inline-block text-primary text-xs hover:underline"
+                    href={item.link_path}
+                  >
                     {isEn ? "Open" : "Abrir"}
                   </Link>
                 ) : null}

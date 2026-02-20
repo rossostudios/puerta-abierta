@@ -1,9 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
-
 import Image from "next/image";
+import { useCallback, useMemo, useState } from "react";
 
 import { AvailabilityCalendar } from "@/components/booking/availability-calendar";
 import { Button } from "@/components/ui/button";
@@ -11,19 +10,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency } from "@/lib/format";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : value ? String(value) : "";
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 type OrgInfo = {
@@ -107,27 +99,33 @@ export function BookingPage({
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
   const nights = useMemo(() => {
-    if (!checkIn || !checkOut) return 0;
+    if (!(checkIn && checkOut)) return 0;
     const start = new Date(checkIn);
     const end = new Date(checkOut);
-    const diff = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+    const diff = Math.ceil((end.getTime() - start.getTime()) / 86_400_000);
     return diff > 0 ? diff : 0;
   }, [checkIn, checkOut]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!unitId || !checkIn || !checkOut || !guestName) return;
+      if (!(unitId && checkIn && checkOut && guestName)) return;
 
       setBookingState("submitting");
       setBookingError("");
 
-      let emailVal: string | undefined = undefined;
-      if (guestEmail) { emailVal = guestEmail; }
-      let phoneVal: string | undefined = undefined;
-      if (guestPhone) { phoneVal = guestPhone; }
-      let notesVal: string | undefined = undefined;
-      if (notes) { notesVal = notes; }
+      let emailVal: string | undefined;
+      if (guestEmail) {
+        emailVal = guestEmail;
+      }
+      let phoneVal: string | undefined;
+      if (guestPhone) {
+        phoneVal = guestPhone;
+      }
+      let notesVal: string | undefined;
+      if (notes) {
+        notesVal = notes;
+      }
 
       const networkErrMsg = isEn
         ? "Network error. Please try again."
@@ -179,7 +177,18 @@ export function BookingPage({
         setBookingState("error");
       }
     },
-    [unitId, checkIn, checkOut, guestName, guestEmail, guestPhone, numGuests, notes, orgSlug, isEn]
+    [
+      unitId,
+      checkIn,
+      checkOut,
+      guestName,
+      guestEmail,
+      guestPhone,
+      numGuests,
+      notes,
+      orgSlug,
+      isEn,
+    ]
   );
 
   if (loading) {
@@ -195,7 +204,7 @@ export function BookingPage({
   if (fetchError) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">{fetchError}</p>
           </CardContent>
@@ -208,12 +217,12 @@ export function BookingPage({
     const brandColor = org?.brand_color || "#FF5D46";
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardContent className="space-y-4 py-12 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
               <span className="text-3xl">&#10003;</span>
             </div>
-            <h2 className="text-xl font-semibold">
+            <h2 className="font-semibold text-xl">
               {isEn ? "Booking Confirmed!" : "Reserva Confirmada!"}
             </h2>
             <p className="text-muted-foreground text-sm">
@@ -222,12 +231,12 @@ export function BookingPage({
                 : `Gracias, ${guestName}. Tu solicitud de reserva fue enviada y está pendiente de confirmación.`}
             </p>
             <p className="text-sm">
-              {checkIn} &rarr; {checkOut} ({nights}{" "}
-              {isEn ? "nights" : "noches"})
+              {checkIn} &rarr; {checkOut} ({nights} {isEn ? "nights" : "noches"}
+              )
             </p>
             {paymentUrl ? (
               <a
-                className="inline-flex items-center justify-center rounded-lg px-6 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90"
+                className="inline-flex items-center justify-center rounded-lg px-6 py-2.5 font-medium text-sm text-white transition-colors hover:opacity-90"
                 href={paymentUrl}
                 style={{ backgroundColor: brandColor }}
               >
@@ -260,7 +269,7 @@ export function BookingPage({
               width={32}
             />
           ) : null}
-          <h1 className="text-lg font-semibold">{org?.name}</h1>
+          <h1 className="font-semibold text-lg">{org?.name}</h1>
         </div>
       </div>
 
@@ -275,9 +284,7 @@ export function BookingPage({
             <form className="space-y-5" onSubmit={handleSubmit}>
               {/* Unit selection */}
               <label className="block space-y-1 text-sm">
-                <span className="font-medium">
-                  {isEn ? "Unit" : "Unidad"}
-                </span>
+                <span className="font-medium">{isEn ? "Unit" : "Unidad"}</span>
                 <Select
                   onChange={(e) => setUnitId(e.target.value)}
                   required
@@ -337,7 +344,7 @@ export function BookingPage({
               </div>
 
               {nights > 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   {nights} {isEn ? "nights" : "noches"}
                 </p>
               ) : null}
@@ -402,7 +409,7 @@ export function BookingPage({
               </label>
 
               {bookingError ? (
-                <div className="rounded-lg border border-red-200/60 bg-red-50/40 px-3 py-2 text-sm text-red-700 dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400">
+                <div className="rounded-lg border border-red-200/60 bg-red-50/40 px-3 py-2 text-red-700 text-sm dark:border-red-800/40 dark:bg-red-950/20 dark:text-red-400">
                   {bookingError}
                 </div>
               ) : null}

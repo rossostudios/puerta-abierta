@@ -107,7 +107,10 @@ export function SidebarAccount({
     const supabase = getSupabaseBrowserClient();
     let mounted = true;
 
-    function extractAccount(metadata: unknown, email: string | null | undefined) {
+    function extractAccount(
+      metadata: unknown,
+      email: string | null | undefined
+    ) {
       const fullName =
         metadataString(metadata, "full_name") ||
         metadataString(metadata, "name");
@@ -122,15 +125,26 @@ export function SidebarAccount({
       .getUser()
       .then(({ data }) => {
         if (!mounted) return;
-        setAccount({ ...extractAccount(data.user?.user_metadata, data.user?.email), loading: false });
+        setAccount({
+          ...extractAccount(data.user?.user_metadata, data.user?.email),
+          loading: false,
+        });
       })
       .catch(() => {
         if (!mounted) return;
-        setAccount({ avatarUrl: null, email: null, fullName: null, loading: false });
+        setAccount({
+          avatarUrl: null,
+          email: null,
+          fullName: null,
+          loading: false,
+        });
       });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAccount((prev) => ({ ...extractAccount(session?.user?.user_metadata, session?.user?.email), loading: prev.loading }));
+      setAccount((prev) => ({
+        ...extractAccount(session?.user?.user_metadata, session?.user?.email),
+        loading: prev.loading,
+      }));
     });
 
     return () => {
@@ -139,11 +153,18 @@ export function SidebarAccount({
     };
   }, []);
 
-  const { data: planSummary = null, isLoading: planLoading, isError: planError } = useQuery({
+  const {
+    data: planSummary = null,
+    isLoading: planLoading,
+    isError: planError,
+  } = useQuery({
     queryKey: ["billing-plan", orgId],
     queryFn: async (): Promise<PlanSummary> => {
+      if (!orgId) {
+        throw new Error("org_id is required");
+      }
       const response = await fetch(
-        `/api/billing/current?org_id=${encodeURIComponent(orgId!)}`,
+        `/api/billing/current?org_id=${encodeURIComponent(orgId)}`,
         { cache: "no-store" }
       );
       if (!response.ok) {

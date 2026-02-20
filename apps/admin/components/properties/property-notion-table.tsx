@@ -18,10 +18,10 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
   type ColumnDef,
-  type VisibilityState,
   flexRender,
   getCoreRowModel,
   useReactTable,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useOptimistic, useTransition } from "react";
@@ -139,15 +139,15 @@ export function PropertyNotionTable({
         value: next,
       });
 
-      if (!result.ok) {
+      if (result.ok) {
+        toast.success(isEn ? "Saved" : "Guardado");
+      } else {
         toast.error(isEn ? "Failed to save" : "Error al guardar", {
           description: result.error,
         });
-      } else {
-        toast.success(isEn ? "Saved" : "Guardado");
       }
     },
-    [addOptimistic, isEn, startTransition]
+    [addOptimistic, isEn]
   );
 
   /* --- responsive column visibility --- */
@@ -223,17 +223,14 @@ export function PropertyNotionTable({
               displayNode={
                 <div className="flex items-center gap-2">
                   <span
-                    className={cn(
-                      "h-2 w-2 shrink-0 rounded-full",
-                      dotClass
-                    )}
+                    className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)}
                     title={data.health}
                   />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-medium text-foreground text-sm truncate">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate font-medium text-foreground text-sm">
                       {data.name}
                     </span>
-                    <span className="text-muted-foreground text-xs truncate">
+                    <span className="truncate text-muted-foreground text-xs">
                       {data.address}
                     </span>
                   </div>
@@ -253,7 +250,7 @@ export function PropertyNotionTable({
           <ColHeader icon={Tag01Icon} label={isEn ? "Code" : "Código"} />
         ),
         cell: ({ row }) => (
-          <span className="font-mono text-xs text-muted-foreground">
+          <span className="font-mono text-muted-foreground text-xs">
             {row.original.code}
           </span>
         ),
@@ -283,9 +280,7 @@ export function PropertyNotionTable({
           <ColHeader icon={Door01Icon} label={isEn ? "Units" : "Unidades"} />
         ),
         cell: ({ row }) => (
-          <span className="tabular-nums text-sm">
-            {row.original.unitCount}
-          </span>
+          <span className="text-sm tabular-nums">{row.original.unitCount}</span>
         ),
       },
       {
@@ -305,7 +300,7 @@ export function PropertyNotionTable({
           else if (rate < 80) colorClass = "text-[var(--status-warning-fg)]";
           return (
             <span
-              className={cn("tabular-nums text-sm font-medium", colorClass)}
+              className={cn("font-medium text-sm tabular-nums", colorClass)}
             >
               {rate}%
             </span>
@@ -346,7 +341,7 @@ export function PropertyNotionTable({
           />
         ),
         cell: ({ row }) => (
-          <span className="tabular-nums text-sm">
+          <span className="text-sm tabular-nums">
             {formatCurrency(row.original.revenueMtdPyg, "PYG", formatLocale)}
           </span>
         ),
@@ -369,7 +364,7 @@ export function PropertyNotionTable({
           return (
             <span
               className={cn(
-                "tabular-nums text-sm",
+                "text-sm tabular-nums",
                 urgent > 0 && "font-medium text-[var(--status-warning-fg)]"
               )}
             >
@@ -383,10 +378,7 @@ export function PropertyNotionTable({
         size: 90,
         minSize: 60,
         header: () => (
-          <ColHeader
-            icon={Alert02Icon}
-            label={isEn ? "Overdue" : "Vencidos"}
-          />
+          <ColHeader icon={Alert02Icon} label={isEn ? "Overdue" : "Vencidos"} />
         ),
         cell: ({ row }) => {
           const count = row.original.overdueCollectionCount;
@@ -396,7 +388,7 @@ export function PropertyNotionTable({
             );
           }
           return (
-            <span className="tabular-nums text-sm font-medium text-[var(--status-danger-fg)]">
+            <span className="font-medium text-[var(--status-danger-fg)] text-sm tabular-nums">
               {count}
             </span>
           );
@@ -465,7 +457,7 @@ export function PropertyNotionTable({
   return (
     <div className="overflow-x-auto rounded-md border">
       <Table
-        className="table-fixed w-full"
+        className="w-full table-fixed"
         style={{ minWidth: table.getTotalSize() }}
       >
         <TableHeader>
@@ -473,7 +465,7 @@ export function PropertyNotionTable({
             <TableRow key={hg.id}>
               {hg.headers.map((header) => (
                 <TableHead
-                  className="relative whitespace-nowrap select-none text-[11px] uppercase tracking-wider"
+                  className="relative select-none whitespace-nowrap text-[11px] uppercase tracking-wider"
                   grid
                   key={header.id}
                   style={{ width: header.getSize() }}
@@ -486,17 +478,17 @@ export function PropertyNotionTable({
                       )}
 
                   {header.column.getCanResize() && (
-                    <div
+                    <button
                       aria-label="Resize column"
                       className={cn(
-                        "absolute right-0 top-0 h-full w-1 cursor-col-resize select-none touch-none",
+                        "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none",
                         "hover:bg-primary/30",
                         header.column.getIsResizing() && "bg-primary/50"
                       )}
                       onDoubleClick={() => header.column.resetSize()}
                       onMouseDown={header.getResizeHandler()}
                       onTouchStart={header.getResizeHandler()}
-                      role="separator"
+                      type="button"
                     />
                   )}
                 </TableHead>
@@ -530,7 +522,7 @@ export function PropertyNotionTable({
           <TableRow className="hover:bg-transparent">
             <TableCell grid style={{ width: 40 }} />
             <TableCell
-              className="font-medium uppercase tracking-wider text-xs"
+              className="font-medium text-xs uppercase tracking-wider"
               grid
             >
               {optimisticRows.length} {isEn ? "Properties" : "Propiedades"}

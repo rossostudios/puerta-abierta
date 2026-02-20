@@ -2,7 +2,7 @@
 
 import { AiVoiceGeneratorIcon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Suspense, useCallback } from "react";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { OrgSwitcher } from "@/components/shell/org-switcher";
@@ -30,7 +30,7 @@ import type {
 } from "./sidebar-types";
 import { resolvePrimaryTab } from "./sidebar-utils";
 
-export type { ViewportMode, MemberRole } from "./sidebar-types";
+export type { MemberRole, ViewportMode } from "./sidebar-types";
 
 function SidebarContent({
   locale,
@@ -39,7 +39,6 @@ function SidebarContent({
   role,
 }: SidebarContentProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const activeTab = resolvePrimaryTab(pathname);
   const isEn = locale === "en-US";
 
@@ -136,9 +135,7 @@ function SidebarContent({
           <SidebarChatTab locale={locale} orgId={orgId} />
         ) : null}
 
-        {activeTab === "inbox" ? (
-          <SidebarInboxTab locale={locale} />
-        ) : null}
+        {activeTab === "inbox" ? <SidebarInboxTab locale={locale} /> : null}
 
         {activeTab === "home" ? (
           <SidebarHomeTab
@@ -152,7 +149,7 @@ function SidebarContent({
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
         <Link
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-sidebar-primary px-3 font-medium text-[13px] text-sidebar-primary-foreground shadow-[0_1px_3px_rgba(255,93,70,0.25)] transition-all hover:brightness-110 hover:shadow-[0_2px_8px_rgba(255,93,70,0.3)]"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-full bg-sidebar-primary px-3 font-medium text-[13px] text-sidebar-primary-foreground shadow-[0_1px_3px_rgba(255,93,70,0.25)] transition-all hover:shadow-[0_2px_8px_rgba(255,93,70,0.3)] hover:brightness-110"
           href="/app/agents?new=1"
         >
           <Icon icon={AiVoiceGeneratorIcon} size={14} />

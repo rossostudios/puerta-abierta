@@ -5,7 +5,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-
+import { GuestDetailView } from "@/components/guests/guest-detail-view";
+import { GuestForm } from "@/components/guests/guest-form";
+import { GuestNotionTable } from "@/components/guests/guest-notion-table";
+import type {
+  GuestCrmRow,
+  Segment,
+  SheetMode,
+} from "@/components/guests/guests-crm-types";
+import { hasContact } from "@/components/guests/guests-crm-types";
+import { GuestsSegments } from "@/components/guests/guests-segments";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -14,13 +23,6 @@ import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
 import { useActiveLocale } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-
-import { GuestDetailView } from "@/components/guests/guest-detail-view";
-import { GuestForm } from "@/components/guests/guest-form";
-import { GuestNotionTable } from "@/components/guests/guest-notion-table";
-import type { GuestCrmRow, Segment, SheetMode } from "@/components/guests/guests-crm-types";
-import { hasContact } from "@/components/guests/guests-crm-types";
-import { GuestsSegments } from "@/components/guests/guests-segments";
 
 import {
   createGuestAction,
@@ -143,7 +145,10 @@ export function GuestsCrm({
     if (contact) {
       return contact;
     }
-    return t("No contact information yet.", "Aún no hay información de contacto.");
+    return t(
+      "No contact information yet.",
+      "Aún no hay información de contacto."
+    );
   })();
 
   return (

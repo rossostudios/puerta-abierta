@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import type { GuestCrmRow } from "@/components/guests/guests-crm-types";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,8 +15,6 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
-
-import type { GuestCrmRow } from "@/components/guests/guests-crm-types";
 
 import { GuestsCrm } from "./guests-crm";
 
@@ -242,7 +240,9 @@ export default async function GuestsModulePage({ searchParams }: PageProps) {
         id_document_url: asOptionalString(guest.id_document_url),
         date_of_birth: asOptionalString(guest.date_of_birth),
         emergency_contact_name: asOptionalString(guest.emergency_contact_name),
-        emergency_contact_phone: asOptionalString(guest.emergency_contact_phone),
+        emergency_contact_phone: asOptionalString(
+          guest.emergency_contact_phone
+        ),
         address: asOptionalString(guest.address),
         city: asOptionalString(guest.city),
         occupation: asOptionalString(guest.occupation),

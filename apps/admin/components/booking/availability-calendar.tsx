@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 const API_BASE =
@@ -26,12 +26,32 @@ const DAY_LABELS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAY_LABELS_ES = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const MONTH_NAMES_EN = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 const MONTH_NAMES_ES = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
 function toMonthKey(date: Date): string {
@@ -82,33 +102,32 @@ export function AvailabilityCalendar({
       // Start new selection
       setSelectedCheckIn(day.date);
       setSelectedCheckOut(null);
+    } else if (day.date <= selectedCheckIn) {
+      // Restart selection from an earlier date.
+      setSelectedCheckIn(day.date);
+      setSelectedCheckOut(null);
     } else {
       // Complete selection
-      if (day.date <= selectedCheckIn) {
+      // Verify no booked/blocked days in between
+      const inBetween = days.filter(
+        (d) => d.date > selectedCheckIn && d.date < day.date
+      );
+      const hasBlocker = inBetween.some(
+        (d) => d.status === "booked" || d.status === "blocked"
+      );
+      if (hasBlocker) {
+        // Reset and select this day as new check-in
         setSelectedCheckIn(day.date);
         setSelectedCheckOut(null);
       } else {
-        // Verify no booked/blocked days in between
-        const inBetween = days.filter(
-          (d) => d.date > selectedCheckIn && d.date < day.date
-        );
-        const hasBlocker = inBetween.some(
-          (d) => d.status === "booked" || d.status === "blocked"
-        );
-        if (hasBlocker) {
-          // Reset and select this day as new check-in
-          setSelectedCheckIn(day.date);
-          setSelectedCheckOut(null);
-        } else {
-          setSelectedCheckOut(day.date);
-          onDateRangeSelect?.(selectedCheckIn, day.date);
-        }
+        setSelectedCheckOut(day.date);
+        onDateRangeSelect?.(selectedCheckIn, day.date);
       }
     }
   };
 
   const isInRange = (date: string) => {
-    if (!selectedCheckIn || !selectedCheckOut) return false;
+    if (!(selectedCheckIn && selectedCheckOut)) return false;
     return date >= selectedCheckIn && date <= selectedCheckOut;
   };
 
@@ -126,7 +145,9 @@ export function AvailabilityCalendar({
       <div className="mb-3 flex items-center justify-between">
         <button
           className="rounded-lg px-2 py-1 text-sm hover:bg-muted"
-          onClick={() => { setCurrentMonth(addMonths(currentMonth, -1)); }}
+          onClick={() => {
+            setCurrentMonth(addMonths(currentMonth, -1));
+          }}
           type="button"
         >
           &larr;
@@ -136,7 +157,9 @@ export function AvailabilityCalendar({
         </h3>
         <button
           className="rounded-lg px-2 py-1 text-sm hover:bg-muted"
-          onClick={() => { setCurrentMonth(addMonths(currentMonth, 1)); }}
+          onClick={() => {
+            setCurrentMonth(addMonths(currentMonth, 1));
+          }}
           type="button"
         >
           &rarr;
@@ -144,7 +167,7 @@ export function AvailabilityCalendar({
       </div>
 
       {/* Day labels */}
-      <div className="grid grid-cols-7 gap-px text-center text-[11px] font-medium text-muted-foreground">
+      <div className="grid grid-cols-7 gap-px text-center font-medium text-[11px] text-muted-foreground">
         {dayLabels.map((label) => (
           <div className="py-1" key={label}>
             {label}
@@ -155,14 +178,14 @@ export function AvailabilityCalendar({
       {/* Day grid */}
       {loading ? (
         <div className="flex h-48 items-center justify-center">
-          <p className="animate-pulse text-sm text-muted-foreground">
+          <p className="animate-pulse text-muted-foreground text-sm">
             {isEn ? "Loading..." : "Cargando..."}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-7 gap-px">
           {days.map((day) => {
-            const dayDate = new Date(day.date + "T00:00:00");
+            const dayDate = new Date(`${day.date}T00:00:00`);
             const isCurrentMonth =
               dayDate.getMonth() === monthNum &&
               dayDate.getFullYear() === yearNum;
@@ -178,20 +201,22 @@ export function AvailabilityCalendar({
                   !isCurrentMonth && "opacity-30",
                   day.status === "past" && "text-muted-foreground/50",
                   day.status === "available" &&
-                  "cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
+                    "cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
                   day.status === "booked" &&
-                  "bg-red-100/60 text-red-600 dark:bg-red-900/20 dark:text-red-400",
+                    "bg-red-100/60 text-red-600 dark:bg-red-900/20 dark:text-red-400",
                   day.status === "blocked" &&
-                  "bg-muted/40 text-muted-foreground line-through",
-                  inRange &&
-                  !edge &&
-                  "bg-emerald-50 dark:bg-emerald-900/20",
+                    "bg-muted/40 text-muted-foreground line-through",
+                  inRange && !edge && "bg-emerald-50 dark:bg-emerald-900/20",
                   edge && "font-semibold text-white"
                 )}
                 disabled={!clickable}
                 key={day.date}
                 onClick={() => handleDayClick(day)}
-                style={edge ? { backgroundColor: brandColor || "#FF5D46" } : undefined}
+                style={
+                  edge
+                    ? { backgroundColor: brandColor || "#FF5D46" }
+                    : undefined
+                }
                 type="button"
               >
                 {dayNum}
@@ -218,11 +243,11 @@ export function AvailabilityCalendar({
       </div>
 
       {selectedCheckIn && selectedCheckOut ? (
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="mt-2 text-muted-foreground text-xs">
           {selectedCheckIn} &rarr; {selectedCheckOut}
         </div>
       ) : selectedCheckIn ? (
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="mt-2 text-muted-foreground text-xs">
           {isEn ? "Select check-out date" : "Selecciona fecha de salida"}
         </div>
       ) : null}

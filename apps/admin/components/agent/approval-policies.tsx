@@ -26,7 +26,10 @@ type ApprovalPoliciesProps = {
   locale: Locale;
 };
 
-const TOOL_LABELS: Record<Policy["tool_name"], { "en-US": string; "es-PY": string }> = {
+const TOOL_LABELS: Record<
+  Policy["tool_name"],
+  { "en-US": string; "es-PY": string }
+> = {
   create_row: {
     "en-US": "Create records",
     "es-PY": "Crear registros",
@@ -47,7 +50,9 @@ function normalizePolicies(payload: unknown): Policy[] {
   if (!Array.isArray(data)) return [];
 
   return data
-    .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+    .filter((row): row is Record<string, unknown> =>
+      Boolean(row && typeof row === "object")
+    )
     .map((row) => {
       const toolName = String(row.tool_name ?? "") as Policy["tool_name"];
       const modeValue = String(row.approval_mode ?? "required");
@@ -129,13 +134,18 @@ export function ApprovalPolicies({ orgId, locale }: ApprovalPoliciesProps) {
   });
 
   const policies = policiesQuery.data ?? [];
-  const busyTool = updateMutation.isPending ? updateMutation.variables?.toolName : null;
-  const error = policiesQuery.error?.message ?? updateMutation.error?.message ?? null;
+  const busyTool = updateMutation.isPending
+    ? updateMutation.variables?.toolName
+    : null;
+  const error =
+    policiesQuery.error?.message ?? updateMutation.error?.message ?? null;
 
   return (
     <Card>
       <CardHeader className="space-y-2">
-        <CardTitle>{isEn ? "Approval policies" : "Politicas de aprobacion"}</CardTitle>
+        <CardTitle>
+          {isEn ? "Approval policies" : "Politicas de aprobacion"}
+        </CardTitle>
         <CardDescription>
           {isEn
             ? "Control when AI write tools require human review."
@@ -145,7 +155,9 @@ export function ApprovalPolicies({ orgId, locale }: ApprovalPoliciesProps) {
       <CardContent className="space-y-3">
         {error ? (
           <Alert variant="destructive">
-            <AlertTitle>{isEn ? "Request failed" : "Solicitud fallida"}</AlertTitle>
+            <AlertTitle>
+              {isEn ? "Request failed" : "Solicitud fallida"}
+            </AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         ) : null}
@@ -197,7 +209,9 @@ export function ApprovalPolicies({ orgId, locale }: ApprovalPoliciesProps) {
                         toolName: policy.tool_name,
                         patch: {
                           approval_mode:
-                            policy.approval_mode === "required" ? "auto" : "required",
+                            policy.approval_mode === "required"
+                              ? "auto"
+                              : "required",
                         },
                       });
                     }}

@@ -18,7 +18,7 @@
   --popover-foreground: #1c1c1e;
 
   /* ── Primary ── */
-  --primary: #FF5D46;
+  --primary: #ff5d46;
   --primary-foreground: #ffffff;
 
   /* ── Secondary / Muted ──
@@ -54,8 +54,10 @@
 
   /* ── Shadows ──
      Cinematic and diffuse shadows. */
-  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.02), 0 20px 48px rgba(0, 0, 0, 0.04);
-  --shadow-floating: 0 10px 40px rgba(0, 0, 0, 0.06), 0 32px 80px rgba(0, 0, 0, 0.08);
+  --shadow-soft:
+    0 4px 16px rgba(0, 0, 0, 0.02), 0 20px 48px rgba(0, 0, 0, 0.04);
+  --shadow-floating:
+    0 10px 40px rgba(0, 0, 0, 0.06), 0 32px 80px rgba(0, 0, 0, 0.08);
 
   /* ── Charts ── */
   --chart-1: oklch(0.57 0.2 255);
@@ -70,20 +72,20 @@
   --warning-foreground: oklch(0.32 0.08 60);
 
   /* ── Sidebar ── */
-  --sidebar: #F8F8F9;
+  --sidebar: #f8f8f9;
   --sidebar-foreground: #1c1c1e;
-  --sidebar-primary: #FF5D46;
+  --sidebar-primary: #ff5d46;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #EDEDEF;
+  --sidebar-accent: #ededef;
   --sidebar-accent-foreground: #1c1c1e;
-  --sidebar-border: #E4E4E7;
-  --sidebar-ring: #FF5D46;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #ff5d46;
 
   /* ── Shell ── */
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #FFF1EE;
-  --shell-active-border: #FECDC6;
+  --shell-active: #fff1ee;
+  --shell-active-border: #fecdc6;
   --shell-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Marketplace ── */
@@ -94,13 +96,17 @@
   --marketplace-text: #1a1a1a;
   --marketplace-text-muted: #6b6560;
   --marketplace-hero-glow: #f5ede8;
-  --marketplace-hero-gradient: linear-gradient(135deg,
-      #faf8f5 0%,
-      #f5ede8 50%,
-      #faf8f5 100%);
+  --marketplace-hero-gradient: linear-gradient(
+    135deg,
+    #faf8f5 0%,
+    #f5ede8 50%,
+    #faf8f5 100%
+  );
   --marketplace-shell-shadow: var(--shadow-soft);
-  --marketplace-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 12px 40px rgba(0, 0, 0, 0.06);
-  --marketplace-card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.1);
+  --marketplace-card-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04), 0 12px 40px rgba(0, 0, 0, 0.06);
+  --marketplace-card-hover-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.1);
   --marketplace-map-road: rgba(146, 162, 188, 0.24);
   --marketplace-map-road-strong: rgba(113, 130, 160, 0.25);
 
@@ -128,7 +134,7 @@
   --card-foreground: #f2f2f2;
   --popover: #131211;
   --popover-foreground: #f2f2f2;
-  --primary: #FF5D46;
+  --primary: #ff5d46;
   --primary-foreground: #ffffff;
   --secondary: #222222;
   --secondary-foreground: #f2f2f2;
@@ -142,7 +148,7 @@
   --warning: oklch(0.78 0.16 85);
   --warning-foreground: oklch(0.92 0.04 85);
   --input: #2a2a2a;
-  --ring: #FF5D46;
+  --ring: #ff5d46;
   --focus-ring: color-mix(in srgb, var(--ring) 48%, transparent);
   --surface-1: #1a1a1a;
   --surface-2: #222222;
@@ -156,25 +162,27 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #0E0E10;
+  --sidebar: #0e0e10;
   --sidebar-foreground: #fafafa;
-  --sidebar-primary: #FF5D46;
+  --sidebar-primary: #ff5d46;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1D1D1F;
+  --sidebar-accent: #1d1d1f;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #1c1c1c;
-  --sidebar-ring: #FF5D46;
+  --sidebar-ring: #ff5d46;
   --shell-surface: var(--background);
   --shell-surface-muted: var(--surface-3);
-  --shell-active: #3D1A12;
-  --shell-active-border: #D44030;
+  --shell-active: #3d1a12;
+  --shell-active-border: #d44030;
   --marketplace-surface: var(--surface-2);
   --marketplace-surface-muted: var(--surface-1);
   --marketplace-hero-glow: #221a1c;
-  --marketplace-hero-gradient: linear-gradient(135deg,
-      #191817 0%,
-      #1e1a1b 40%,
-      #221a1c 100%);
+  --marketplace-hero-gradient: linear-gradient(
+    135deg,
+    #191817 0%,
+    #1e1a1b 40%,
+    #221a1c 100%
+  );
   --marketplace-shell-shadow: var(--shadow-soft);
   --marketplace-map-road: rgba(180, 180, 180, 0.08);
   --marketplace-map-road-strong: rgba(200, 200, 200, 0.1);
@@ -193,29 +201,33 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      sans-serif);
-  --font-serif: var(--font-playfair,
-      "Playfair Display",
-      Georgia,
-      "Times New Roman",
-      serif);
-  --font-mono: var(--font-geist-mono,
-      ui-monospace,
-      SFMono-Regular,
-      Menlo,
-      Monaco,
-      Consolas,
-      "Liberation Mono",
-      monospace);
-  --font-pixel: var(--font-geist-pixel-square,
-      "Geist Pixel Square",
-      monospace);
+  --font-sans: var(
+    --font-geist-sans,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif
+  );
+  --font-serif: var(
+    --font-playfair,
+    "Playfair Display",
+    Georgia,
+    "Times New Roman",
+    serif
+  );
+  --font-mono: var(
+    --font-geist-mono,
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace
+  );
+  --font-pixel: var(--font-geist-pixel-square, "Geist Pixel Square", monospace);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -280,7 +292,11 @@
   .bg-sidebar,
   [data-sidebar] {
     --foreground: var(--sidebar-foreground);
-    --muted-foreground: color-mix(in srgb, var(--sidebar-foreground) 60%, transparent);
+    --muted-foreground: color-mix(
+      in srgb,
+      var(--sidebar-foreground) 60%,
+      transparent
+    );
     --border: var(--sidebar-border);
     --input: var(--sidebar-border);
   }
@@ -301,30 +317,40 @@
 
   .pa-marketplace-map {
     background:
-      radial-gradient(circle at 16% 24%,
+      radial-gradient(
+        circle at 16% 24%,
         rgba(132, 158, 192, 0.32) 0%,
         rgba(132, 158, 192, 0.1) 34%,
-        transparent 56%),
-      radial-gradient(circle at 78% 32%,
+        transparent 56%
+      ),
+      radial-gradient(
+        circle at 78% 32%,
         rgba(121, 152, 191, 0.3) 0%,
         rgba(121, 152, 191, 0.12) 30%,
-        transparent 52%),
-      linear-gradient(155deg,
+        transparent 52%
+      ),
+      linear-gradient(
+        155deg,
         rgba(255, 255, 255, 0.86),
-        rgba(240, 244, 249, 0.95));
+        rgba(240, 244, 249, 0.95)
+      );
     isolation: isolate;
   }
 
   .dark .pa-marketplace-map {
     background:
-      radial-gradient(circle at 16% 24%,
+      radial-gradient(
+        circle at 16% 24%,
         rgba(30, 30, 30, 0.4) 0%,
         rgba(20, 20, 20, 0.15) 34%,
-        transparent 56%),
-      radial-gradient(circle at 78% 32%,
+        transparent 56%
+      ),
+      radial-gradient(
+        circle at 78% 32%,
         rgba(25, 25, 25, 0.35) 0%,
         rgba(15, 15, 15, 0.12) 30%,
-        transparent 52%),
+        transparent 52%
+      ),
       linear-gradient(155deg, rgba(12, 12, 12, 0.95), rgba(22, 22, 22, 0.98));
   }
 
@@ -338,26 +364,32 @@
 
   .pa-marketplace-map::before {
     background-image:
-      repeating-linear-gradient(34deg,
+      repeating-linear-gradient(
+        34deg,
         transparent 0,
         transparent 58px,
         var(--marketplace-map-road) 58px,
-        var(--marketplace-map-road) 62px),
-      repeating-linear-gradient(112deg,
+        var(--marketplace-map-road) 62px
+      ),
+      repeating-linear-gradient(
+        112deg,
         transparent 0,
         transparent 72px,
         var(--marketplace-map-road) 72px,
-        var(--marketplace-map-road) 76px);
+        var(--marketplace-map-road) 76px
+      );
     opacity: 0.58;
     z-index: -2;
   }
 
   .pa-marketplace-map::after {
-    background-image: repeating-linear-gradient(18deg,
-        transparent 0,
-        transparent 140px,
-        var(--marketplace-map-road-strong) 140px,
-        var(--marketplace-map-road-strong) 148px);
+    background-image: repeating-linear-gradient(
+      18deg,
+      transparent 0,
+      transparent 140px,
+      var(--marketplace-map-road-strong) 140px,
+      var(--marketplace-map-road-strong) 148px
+    );
     opacity: 0.55;
     z-index: -1;
   }
@@ -399,11 +431,13 @@
   }
 
   .sidebar-scroll-mask {
-    mask-image: linear-gradient(to bottom,
-        transparent 0px,
-        black 8px,
-        black calc(100% - 20px),
-        transparent 100%);
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0px,
+      black 8px,
+      black calc(100% - 20px),
+      transparent 100%
+    );
   }
 }
 
@@ -424,27 +458,27 @@
 
 @layer utilities {
   .bg-casaora-gradient {
-    background: linear-gradient(135deg, #8B2E20 0%, #E84D38 100%);
+    background: linear-gradient(135deg, #8b2e20 0%, #e84d38 100%);
   }
 
   .bg-casaora-gradient-warm {
-    background: linear-gradient(135deg, #D44030 0%, #FF5D46 100%);
+    background: linear-gradient(135deg, #d44030 0%, #ff5d46 100%);
   }
 
   .bg-casaora-gradient-hero {
-    background: linear-gradient(to right, #D44030, #FF5D46);
+    background: linear-gradient(to right, #d44030, #ff5d46);
   }
 
   .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #FFF1EE 0%, #FFE4DF 100%);
+    background: linear-gradient(135deg, #fff1ee 0%, #ffe4df 100%);
   }
 
   .dark .bg-casaora-gradient-subtle {
-    background: linear-gradient(135deg, #1A0E0B 0%, #3D1A12 100%);
+    background: linear-gradient(135deg, #1a0e0b 0%, #3d1a12 100%);
   }
 
   .text-casaora-gradient {
-    background: linear-gradient(135deg, #E84D38, #FF5D46);
+    background: linear-gradient(135deg, #e84d38, #ff5d46);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -464,7 +498,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {

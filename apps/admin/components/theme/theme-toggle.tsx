@@ -1,8 +1,13 @@
 "use client";
 
 import { Popover as BasePopover } from "@base-ui/react/popover";
-import { ComputerIcon, Moon01Icon, Sun01Icon, Tick01Icon } from "@hugeicons/core-free-icons";
-import { useEffect, useMemo, useSyncExternalStore, useState } from "react";
+import {
+  ComputerIcon,
+  Moon01Icon,
+  Sun01Icon,
+  Tick01Icon,
+} from "@hugeicons/core-free-icons";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -62,12 +67,17 @@ function getServerSystemTheme(): ResolvedTheme {
   return "light";
 }
 
-export function ThemeToggle({ locale: localeProp, mode = "popover" }: ThemeToggleProps) {
+export function ThemeToggle({
+  locale: localeProp,
+  mode = "popover",
+}: ThemeToggleProps) {
   const activeLocale = useActiveLocale();
   const mounted = useMounted();
   const [open, setOpen] = useState(false);
   const [preference, setPreference] = useState<ThemePreference>(
-    () => (typeof window !== "undefined" ? getStoredThemePreference() : null) ?? "system"
+    () =>
+      (typeof window !== "undefined" ? getStoredThemePreference() : null) ??
+      "system"
   );
 
   // Subscribe to OS-level dark/light changes.
@@ -84,7 +94,12 @@ export function ThemeToggle({ locale: localeProp, mode = "popover" }: ThemeToggl
   // Apply theme to DOM and persist preference whenever it changes.
   useEffect(() => {
     if (!mounted) return;
-    applyTheme(preference);
+    if (preference === "system") {
+      document.documentElement.dataset.themePreference = preference;
+      document.documentElement.classList.toggle("dark", systemTheme === "dark");
+    } else {
+      applyTheme(preference);
+    }
     localStorage.setItem(STORAGE_KEY, preference);
   }, [mounted, preference, systemTheme]);
 
@@ -124,9 +139,21 @@ export function ThemeToggle({ locale: localeProp, mode = "popover" }: ThemeToggl
 
   if (mode === "inline") {
     const inlineOptions = [
-      { value: "light" as const, icon: Sun01Icon, label: isEn ? "Light" : "Claro" },
-      { value: "dark" as const, icon: Moon01Icon, label: isEn ? "Dark" : "Oscuro" },
-      { value: "system" as const, icon: ComputerIcon, label: isEn ? "System" : "Sistema" },
+      {
+        value: "light" as const,
+        icon: Sun01Icon,
+        label: isEn ? "Light" : "Claro",
+      },
+      {
+        value: "dark" as const,
+        icon: Moon01Icon,
+        label: isEn ? "Dark" : "Oscuro",
+      },
+      {
+        value: "system" as const,
+        icon: ComputerIcon,
+        label: isEn ? "System" : "Sistema",
+      },
     ];
 
     return (
@@ -136,7 +163,7 @@ export function ThemeToggle({ locale: localeProp, mode = "popover" }: ThemeToggl
           return (
             <button
               className={cn(
-                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-medium transition-all",
+                "inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-[11px] transition-all",
                 selected
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"

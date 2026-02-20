@@ -167,10 +167,10 @@ const MESSAGE_SKELETON_KEYS = [
   "message-skeleton-5",
 ];
 
-interface ThreadData {
+type ThreadData = {
   chat: AgentChatSummary | null;
   messages: AgentChatMessage[];
-}
+};
 
 function normalizeChat(payload: unknown): AgentChatSummary | null {
   if (!payload || typeof payload !== "object") return null;
@@ -253,7 +253,11 @@ async function fetchThread(chatId: string, orgId: string): Promise<ThreadData> {
 
   if (!chatRes.ok) {
     let message = "Could not load chat.";
-    if (chatPayload != null && typeof chatPayload === "object" && "error" in chatPayload) {
+    if (
+      chatPayload != null &&
+      typeof chatPayload === "object" &&
+      "error" in chatPayload
+    ) {
       message = String((chatPayload as { error?: unknown }).error);
     }
     throw new Error(message);
@@ -261,7 +265,11 @@ async function fetchThread(chatId: string, orgId: string): Promise<ThreadData> {
 
   if (!messagesRes.ok) {
     let message = "Could not load messages.";
-    if (messagesPayload != null && typeof messagesPayload === "object" && "error" in messagesPayload) {
+    if (
+      messagesPayload != null &&
+      typeof messagesPayload === "object" &&
+      "error" in messagesPayload
+    ) {
       message = String((messagesPayload as { error?: unknown }).error);
     }
     throw new Error(message);
@@ -307,10 +315,7 @@ export function ChatThread({
   });
 
   const chat = localChat ?? threadQuery.data?.chat ?? null;
-  const messages = [
-    ...(threadQuery.data?.messages ?? []),
-    ...localMessages,
-  ];
+  const messages = [...(threadQuery.data?.messages ?? []), ...localMessages];
   const loading = threadQuery.isLoading;
 
   const quickPrompts = useMemo(() => {
@@ -351,7 +356,7 @@ export function ChatThread({
       }
     );
 
-    if (!response.ok || !response.body) {
+    if (!(response.ok && response.body)) {
       throw new Error(
         isEn ? "Streaming failed." : "La transmisi\u00f3n fall\u00f3."
       );
@@ -384,18 +389,20 @@ export function ChatThread({
         if (parsedEvent == null) continue;
 
         const eventType = String(parsedEvent.type);
-        const eventName = typeof parsedEvent.name === "string" ? parsedEvent.name : undefined;
+        const eventName =
+          typeof parsedEvent.name === "string" ? parsedEvent.name : undefined;
 
         if (eventType === "tool_call" && eventName) {
           const nameVal = eventName;
-          setStreamingTools((prev) => [
-            ...prev,
-            { name: nameVal },
-          ]);
+          setStreamingTools((prev) => [...prev, { name: nameVal }]);
         } else if (eventType === "tool_result" && eventName) {
           const nameVal = eventName;
-          const previewVal = typeof parsedEvent.preview === "string" ? parsedEvent.preview : undefined;
-          const okVal = typeof parsedEvent.ok === "boolean" ? parsedEvent.ok : undefined;
+          const previewVal =
+            typeof parsedEvent.preview === "string"
+              ? parsedEvent.preview
+              : undefined;
+          const okVal =
+            typeof parsedEvent.ok === "boolean" ? parsedEvent.ok : undefined;
           setStreamingTools((prev) =>
             prev.map((t) => {
               if (t.name === nameVal && t.preview === undefined) {
@@ -404,12 +411,19 @@ export function ChatThread({
               return t;
             })
           );
-        } else if (eventType === "token" && typeof parsedEvent.text === "string") {
+        } else if (
+          eventType === "token" &&
+          typeof parsedEvent.text === "string"
+        ) {
           setStreamingText(parsedEvent.text);
-        } else if (eventType === "done" && typeof parsedEvent.content === "string") {
+        } else if (
+          eventType === "done" &&
+          typeof parsedEvent.content === "string"
+        ) {
           // Finalize: add assistant message
           const doneContent = parsedEvent.content as string;
-          const doneToolTrace = parsedEvent.tool_trace as AgentChatMessage["tool_trace"];
+          const doneToolTrace =
+            parsedEvent.tool_trace as AgentChatMessage["tool_trace"];
           setLocalMessages((prev) => [
             ...prev,
             {
@@ -482,7 +496,9 @@ export function ChatThread({
       // Clear local messages before refetch to avoid duplicates
       setLocalMessages([]);
       setLocalChat(null);
-      await queryClient.invalidateQueries({ queryKey: ["agent-thread", chatId, orgId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["agent-thread", chatId, orgId],
+      });
     }
   };
 
@@ -519,7 +535,9 @@ export function ChatThread({
   const mutateChat = async (action: "archive" | "restore" | "delete") => {
     setBusy(true);
     setError(null);
-    const fallbackErrorMsg = isEn ? "Chat update failed." : "La actualizaci\u00f3n del chat fall\u00f3.";
+    const fallbackErrorMsg = isEn
+      ? "Chat update failed."
+      : "La actualizaci\u00f3n del chat fall\u00f3.";
 
     try {
       let response: Response;
@@ -570,7 +588,9 @@ export function ChatThread({
 
       setLocalMessages([]);
       setLocalChat(null);
-      await queryClient.invalidateQueries({ queryKey: ["agent-thread", chatId, orgId] });
+      await queryClient.invalidateQueries({
+        queryKey: ["agent-thread", chatId, orgId],
+      });
       router.refresh();
       setBusy(false);
     } catch (err) {
@@ -791,7 +811,7 @@ export function ChatThread({
 
           {sending ? (
             <div className="flex justify-start">
-              <div className="max-w-[92%] rounded-2xl border border-border/60 bg-card px-3 py-2 space-y-2">
+              <div className="max-w-[92%] space-y-2 rounded-2xl border border-border/60 bg-card px-3 py-2">
                 {streamingTools.length > 0 ? (
                   <div className="space-y-1">
                     {streamingTools.map((tool) => (
@@ -799,7 +819,7 @@ export function ChatThread({
                         className="flex items-center gap-2 rounded-md bg-muted/30 px-2 py-1 text-[11px]"
                         key={`stream-${tool.name}-${tool.preview ?? ""}-${String(tool.ok)}`}
                       >
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                         <span className="font-mono">{tool.name}</span>
                         {tool.preview ? (
                           <span className="text-muted-foreground">
@@ -819,9 +839,11 @@ export function ChatThread({
                     {streamingText}
                   </p>
                 ) : streamingTools.length === 0 ? (
-                  <p className="text-muted-foreground text-sm flex items-center gap-2">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                    {isEn ? "Agent is thinking..." : "El agente est\u00e1 pensando..."}
+                  <p className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+                    {isEn
+                      ? "Agent is thinking..."
+                      : "El agente est\u00e1 pensando..."}
                   </p>
                 ) : null}
               </div>

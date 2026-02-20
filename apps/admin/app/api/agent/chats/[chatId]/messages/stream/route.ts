@@ -71,7 +71,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     );
 
-    if (!response.ok || !response.body) {
+    if (!(response.ok && response.body)) {
       const text = await response.text().catch(() => "");
       return NextResponse.json(
         {

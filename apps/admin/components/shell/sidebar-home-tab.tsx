@@ -2,10 +2,10 @@
 
 import { Separator } from "@base-ui/react/separator";
 import { Cancel01Icon, Settings03Icon } from "@hugeicons/core-free-icons";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Collapsible,
   CollapsibleContent,
@@ -16,8 +16,12 @@ import { Progress } from "@/components/ui/progress";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { NavLinkRow } from "./sidebar-nav-link";
-import type { MemberRole, OnboardingProgress, ResolvedSection } from "./sidebar-types";
-import { isRouteActive, resolveSections, useCollapsedSections } from "./sidebar-utils";
+import type { MemberRole, OnboardingProgress } from "./sidebar-types";
+import {
+  isRouteActive,
+  resolveSections,
+  useCollapsedSections,
+} from "./sidebar-utils";
 
 export function SidebarHomeTab({
   locale,
@@ -46,17 +50,28 @@ export function SidebarHomeTab({
   const { data: sidebarCounts } = useQuery({
     queryKey: ["sidebar-counts", orgId],
     queryFn: async () => {
+      if (!orgId) {
+        return {
+          listings: null,
+          properties: null,
+          units: null,
+        };
+      }
+
+      const encodedOrgId = encodeURIComponent(orgId);
       const urls = [
-        `/api/listings/count?org_id=${encodeURIComponent(orgId!)}`,
-        `/api/properties/count?org_id=${encodeURIComponent(orgId!)}`,
-        `/api/units/count?org_id=${encodeURIComponent(orgId!)}`,
+        `/api/listings/count?org_id=${encodedOrgId}`,
+        `/api/properties/count?org_id=${encodedOrgId}`,
+        `/api/units/count?org_id=${encodedOrgId}`,
       ] as const;
 
       const results = await Promise.all(
         urls.map((url) =>
           fetch(url, { cache: "no-store" })
             .then((res) => res.json() as Promise<{ count?: number | null }>)
-            .then((body) => (typeof body.count === "number" ? body.count : null))
+            .then((body) =>
+              typeof body.count === "number" ? body.count : null
+            )
             .catch(() => null)
         )
       );
@@ -113,9 +128,7 @@ export function SidebarHomeTab({
             </div>
             <button
               aria-label={
-                isEn
-                  ? "Dismiss setup widget"
-                  : "Cerrar widget de configuración"
+                isEn ? "Dismiss setup widget" : "Cerrar widget de configuración"
               }
               className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
               onClick={(e) => {
@@ -146,9 +159,7 @@ export function SidebarHomeTab({
 
         return (
           <div key={section.key}>
-            {index > 0 && (
-              <Separator className="mx-2 mb-2 h-px bg-border/40" />
-            )}
+            {index > 0 && <Separator className="mx-2 mb-2 h-px bg-border/40" />}
             <Collapsible
               onOpenChange={() => toggleSection(section.key)}
               open={!isCollapsed}
