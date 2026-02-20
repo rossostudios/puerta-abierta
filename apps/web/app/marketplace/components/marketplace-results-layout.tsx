@@ -18,6 +18,7 @@ import {
 } from "@/lib/features/marketplace/view-model";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { MarketplaceSortSelect } from "./marketplace-sort-select";
 
 const InteractiveMap = dynamic(
   () =>
@@ -32,6 +33,7 @@ type MarketplaceResultsLayoutProps = {
   isEn: boolean;
   apiError: string | null;
   listings: MarketplaceListingViewModel[];
+  sortValue: string;
 };
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: layout branches for map/list/empty/error states live together for clarity.
@@ -40,6 +42,7 @@ export function MarketplaceResultsLayout({
   isEn,
   apiError,
   listings,
+  sortValue,
 }: MarketplaceResultsLayoutProps) {
   const [showMap, setShowMap] = useState(false);
   const hasMapToken = !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
@@ -55,12 +58,15 @@ export function MarketplaceResultsLayout({
           {isEn ? "properties" : "propiedades"}
         </p>
 
-        {hasMapToken ? (
+        <div className="flex items-center gap-3">
+          <MarketplaceSortSelect isEn={isEn} value={sortValue} />
+
+          {hasMapToken ? (
           <button
             className={cn(
-              "hidden items-center gap-1.5 rounded-xl border px-3 py-1.5 font-medium text-xs transition-colors lg:inline-flex",
+              "hidden items-center gap-1.5 rounded-xl border px-3 py-1.5 font-medium text-xs transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] lg:inline-flex",
               showMap
-                ? "border-primary/30 bg-primary/10 text-primary"
+                ? "border-[var(--marketplace-text)]/30 bg-[var(--marketplace-bg-muted)] text-[var(--marketplace-text)]"
                 : "border-[#e8e4df] text-[var(--marketplace-text-muted)] hover:text-[var(--marketplace-text)]"
             )}
             onClick={() => setShowMap((v) => !v)}
@@ -76,6 +82,7 @@ export function MarketplaceResultsLayout({
                 : "Ver mapa"}
           </button>
         ) : null}
+        </div>
       </div>
 
       {apiError ? (
@@ -92,13 +99,13 @@ export function MarketplaceResultsLayout({
       ) : listings.length ? (
         <div
           className={cn(
-            "grid gap-6",
+            "grid gap-8",
             showMap ? "lg:grid-cols-[minmax(380px,1fr)_minmax(0,1.2fr)]" : ""
           )}
         >
           <div
             className={cn(
-              "@container grid gap-6",
+              "@container grid gap-8",
               showMap
                 ? "sm:grid-cols-1 lg:max-h-[75vh] lg:overflow-y-auto lg:pr-2"
                 : "@[900px]:grid-cols-3 sm:grid-cols-2 lg:grid-cols-3"
@@ -148,7 +155,7 @@ export function MarketplaceResultsLayout({
               : "Intentá ampliar tu búsqueda o restablecer los filtros."}
           </p>
           <Link
-            className="inline-flex h-10 items-center rounded-xl border border-[#e8e4df] bg-white px-5 font-medium text-[var(--marketplace-text)] text-sm transition-colors hover:bg-[var(--marketplace-bg-muted)]"
+            className="inline-flex h-10 items-center rounded-xl border border-[#e8e4df] bg-white px-5 font-medium text-[var(--marketplace-text)] text-sm transition-all duration-300 ease-out hover:scale-[1.02] hover:bg-[var(--marketplace-bg-muted)] active:scale-[0.98]"
             href="/marketplace"
           >
             {isEn ? "Reset all filters" : "Restablecer filtros"}
@@ -185,7 +192,7 @@ function MobileMapFab({
   return (
     <>
       <button
-        className="fixed bottom-6 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-[var(--marketplace-text)] px-5 py-3 font-medium text-sm text-white shadow-lg transition-transform hover:scale-105 lg:hidden"
+        className="fixed bottom-6 left-1/2 z-40 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-[var(--marketplace-text)] px-5 py-3 font-medium text-[var(--marketplace-bg)] text-sm shadow-lg transition-all duration-300 ease-out hover:scale-105 active:scale-95 lg:hidden"
         onClick={() => setOpen(true)}
         type="button"
       >

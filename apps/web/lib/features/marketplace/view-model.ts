@@ -34,6 +34,10 @@ export type MarketplaceListingViewModel = {
   id: string;
   slug: string;
   organizationId: string;
+  organizationName: string;
+  organizationLogoUrl: string;
+  organizationBrandColor: string;
+  hostName: string;
   title: string;
   summary: string;
   description: string;
@@ -180,6 +184,10 @@ export function toMarketplaceListingViewModel(params: {
     id: listingId(listing),
     slug,
     organizationId: asText(listing.organization_id),
+    organizationName: asText(listing.organization_name),
+    organizationLogoUrl: asText(listing.organization_logo_url),
+    organizationBrandColor: asText(listing.organization_brand_color),
+    hostName: asText(listing.host_name),
     title,
     summary: asText(listing.summary),
     description: asText(listing.description),

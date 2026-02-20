@@ -15,15 +15,11 @@ const PRODUCT_LINKS = [
   { label: "Contact", href: "/contact" },
 ] as const;
 
-const COMPANY_LINKS = [
-  { label: "About", href: "/about" },
-  { label: "Careers", href: "#" },
-  { label: "Press", href: "#" },
-] as const;
+const COMPANY_LINKS = [{ label: "About", href: "/about" }] as const;
 
 const LEGAL_LINKS = [
-  { label: "Privacy Policy", href: "#" },
-  { label: "Terms of Service", href: "#" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
 ] as const;
 
 export function SiteFooter() {
@@ -58,7 +54,7 @@ export function SiteFooter() {
             <h3 className="font-semibold text-sm">Product</h3>
             <ul className="space-y-2.5 text-sm">
               {PRODUCT_LINKS.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     className="text-muted-foreground transition-colors hover:text-foreground"
                     href={link.href}
@@ -75,7 +71,7 @@ export function SiteFooter() {
             <h3 className="font-semibold text-sm">Company</h3>
             <ul className="space-y-2.5 text-sm">
               {COMPANY_LINKS.map((link) => (
-                <li key={link.href}>
+                <li key={link.label}>
                   <Link
                     className="text-muted-foreground transition-colors hover:text-foreground"
                     href={link.href}
@@ -92,13 +88,13 @@ export function SiteFooter() {
             <h3 className="font-semibold text-sm">Legal</h3>
             <ul className="space-y-2.5 text-sm">
               {LEGAL_LINKS.map((link) => (
-                <li key={link.href}>
-                  <a
+                <li key={link.label}>
+                  <Link
                     className="text-muted-foreground transition-colors hover:text-foreground"
                     href={link.href}
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -1388,6 +1388,7 @@ pub struct PublicListingsQuery {
     pub max_move_in: Option<f64>,
     pub min_bedrooms: Option<i32>,
     pub min_bathrooms: Option<f64>,
+    pub max_lease_months: Option<i32>,
     pub org_id: Option<String>,
     #[serde(default = "default_limit_60")]
     pub limit: i64,

@@ -24,6 +24,7 @@ export type MarketplaceSearchFilters = {
   maxMonthly: number | undefined;
   minBedrooms: number | undefined;
   minBathrooms: number | undefined;
+  maxLeaseMonths: number | undefined;
   sort: MarketplaceSortKey;
 };
 
@@ -115,6 +116,10 @@ export function parseMarketplaceSearchFilters(
       min: 0,
       max: MAX_INTEGER_FILTER,
     }),
+    maxLeaseMonths: readNumber(query, "max_lease_months", {
+      min: 0,
+      max: MAX_INTEGER_FILTER,
+    }),
     sort: readSort(query),
   };
 }
@@ -134,6 +139,7 @@ export function countMarketplaceActiveFilters(
   if (filters.maxMonthly !== undefined) count += 1;
   if (filters.minBedrooms !== undefined) count += 1;
   if (filters.minBathrooms !== undefined) count += 1;
+  if (filters.maxLeaseMonths !== undefined) count += 1;
   return count;
 }
 
@@ -152,6 +158,7 @@ export function toMarketplaceListParams(
   maxMonthly?: number;
   minBedrooms?: number;
   minBathrooms?: number;
+  maxLeaseMonths?: number;
   orgId?: string;
   limit: number;
 } {
@@ -167,6 +174,7 @@ export function toMarketplaceListParams(
     maxMonthly: filters.maxMonthly,
     minBedrooms: filters.minBedrooms,
     minBathrooms: filters.minBathrooms,
+    maxLeaseMonths: filters.maxLeaseMonths,
     orgId,
     limit: 120,
   };

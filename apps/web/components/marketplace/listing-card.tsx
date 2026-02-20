@@ -37,6 +37,7 @@ function specsLabel(
   return segments.join(" · ");
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: listing card has many conditional renders for different listing permutations
 export function MarketplaceListingCard({
   listing,
   locale,
@@ -60,12 +61,18 @@ export function MarketplaceListingCard({
   const specs = specsLabel(listing, locale);
   const availableFrom = asText(listing.available_from);
   const propertyType = asText(listing.property_type);
+  const minLease = asOptionalNumber(listing.minimum_lease_months);
+  const isFurnished = listing.furnished === true;
   const monthlyRaw = asNumber(listing.monthly_recurring_total);
   const monthlyUsdApprox =
     currency === "PYG" && monthlyRaw > 0
       ? `~$${Math.round(monthlyRaw / PYG_TO_USD_FALLBACK).toLocaleString("en-US")} USD`
       : null;
   const whatsappUrl = getSafeWhatsAppUrl(asText(listing.whatsapp_contact_url));
+  const orgName = asText(listing.organization_name);
+  const hostName = asText(listing.host_name);
+  const orgLogoUrl = asText(listing.organization_logo_url);
+  const publisherName = orgName || hostName;
 
   return (
     <IntentPrefetchLink
@@ -90,11 +97,18 @@ export function MarketplaceListingCard({
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/20 to-transparent" />
 
-        {availableFrom ? (
-          <span className="absolute top-3 left-3 rounded-lg bg-white/85 px-2.5 py-1 font-medium text-[11px] text-[var(--marketplace-text)] shadow-sm backdrop-blur-sm">
-            {isEn ? "Available now" : "Disponible"}
-          </span>
-        ) : null}
+        <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+          {availableFrom ? (
+            <span className="rounded-lg bg-white/85 px-2.5 py-1 font-medium text-[11px] text-[var(--marketplace-text)] shadow-sm backdrop-blur-sm">
+              {isEn ? "Available now" : "Disponible"}
+            </span>
+          ) : null}
+          {minLease ? (
+            <span className="rounded-lg bg-[var(--marketplace-text)]/85 px-2.5 py-1 font-medium text-[11px] text-white shadow-sm backdrop-blur-sm">
+              {isEn ? `${minLease}+ Months` : `${minLease}+ Meses`}
+            </span>
+          ) : null}
+        </div>
 
         <FavoriteButton className="absolute top-3 right-3" slug={slug} />
       </div>
@@ -114,11 +128,26 @@ export function MarketplaceListingCard({
           </p>
         ) : null}
 
-        {propertyType ? (
-          <p className="text-[var(--marketplace-text-muted)] text-xs">
-            {propertyType}
-          </p>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+          {propertyType ? (
+            <span className="inline-flex items-center rounded-md bg-[var(--marketplace-bg-muted)] px-2 py-1 font-medium text-[10px] text-[var(--marketplace-text-muted)] uppercase tracking-wider">
+              {propertyType === "shared_room"
+                ? isEn
+                  ? "Shared Room"
+                  : "Habitación compartida"
+                : propertyType === "entire_place"
+                  ? isEn
+                    ? "Entire Place"
+                    : "Lugar entero"
+                  : propertyType}
+            </span>
+          ) : null}
+          {isFurnished ? (
+            <span className="inline-flex items-center rounded-md bg-[var(--marketplace-bg-muted)] px-2 py-1 font-medium text-[10px] text-[var(--marketplace-text-muted)] uppercase tracking-wider">
+              {isEn ? "Furnished" : "Amoblado"}
+            </span>
+          ) : null}
+        </div>
 
         <div className="flex items-end justify-between gap-2 pt-1">
           <div className="min-w-0">
@@ -135,19 +164,53 @@ export function MarketplaceListingCard({
               </p>
             ) : null}
           </div>
-          {whatsappUrl ? (
-            <a
-              aria-label="WhatsApp"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition-colors hover:bg-[#25D366]/20"
-              href={whatsappUrl}
-              onClick={(e) => e.stopPropagation()}
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              <Icon icon={WhatsappIcon} size={16} />
-            </a>
-          ) : null}
         </div>
+
+        {publisherName || whatsappUrl ? (
+          <div className="mt-4 flex items-center justify-between border-[#e8e4df]/60 border-t pt-4">
+            {publisherName ? (
+              <div className="flex items-center gap-2.5">
+                {orgLogoUrl ? (
+                  <div className="relative h-8 w-8 overflow-hidden rounded-full border border-[#e8e4df] bg-white">
+                    <Image
+                      alt={publisherName}
+                      className="object-cover"
+                      fill
+                      src={orgLogoUrl}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--marketplace-bg-muted)] font-medium text-[10px] text-[var(--marketplace-text-muted)] uppercase">
+                    {publisherName.substring(0, 2)}
+                  </div>
+                )}
+                <div className="flex flex-col">
+                  <span className="font-medium text-[10px] text-[var(--marketplace-text-muted)] uppercase tracking-wider">
+                    {isEn ? "Listed by" : "Publicado por"}
+                  </span>
+                  <span className="font-medium text-[var(--marketplace-text)] text-sm leading-tight">
+                    {publisherName}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div />
+            )}
+            {whatsappUrl ? (
+              <a
+                aria-label="WhatsApp"
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-[#25D366]/10 px-3 font-medium text-[#25D366] text-xs transition-colors hover:bg-[#25D366]/20"
+                href={whatsappUrl}
+                onClick={(e) => e.stopPropagation()}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <Icon icon={WhatsappIcon} size={14} />
+                <span>{isEn ? "Message Host" : "Contactar"}</span>
+              </a>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </IntentPrefetchLink>
   );

@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { PublicFooter } from "@/components/marketplace/public-footer";
-import { PublicHeader } from "@/components/marketplace/public-header";
+import { SiteFooter } from "@/components/layout/site-footer";
+import { SiteHeader } from "@/components/layout/site-header";
 import { SavedSearches } from "@/components/marketplace/saved-searches";
 import { fetchPublicListings, fetchUsdPygRate } from "@/lib/api";
 import {
   countMarketplaceActiveFilters,
-  marketplaceSortLabel,
   parseMarketplaceSearchFilters,
   sortMarketplaceListings,
   toMarketplaceListParams,
@@ -19,7 +18,6 @@ import {
 import { getActiveLocale } from "@/lib/i18n/server";
 import { CategoryPills } from "./components/category-pills";
 import { FeaturedListings } from "./components/featured-listings";
-import { HowItWorks } from "./components/how-it-works";
 import { MarketplaceFiltersForm } from "./components/marketplace-filters-form";
 import { MarketplaceHero } from "./components/marketplace-hero";
 import { MarketplaceResultsLayout } from "./components/marketplace-results-layout";
@@ -109,8 +107,8 @@ export default async function MarketplacePage({
   const hasActiveFilters = activeFilters > 0 || availableNow;
 
   return (
-    <div className="pa-marketplace-root min-h-dvh">
-      <PublicHeader locale={locale} />
+    <div className="pa-marketplace-root min-h-dvh bg-background">
+      <SiteHeader />
 
       <main className="mx-auto w-full max-w-[1560px] space-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:space-y-14 lg:px-8 lg:py-12">
         <MarketplaceHero
@@ -118,8 +116,6 @@ export default async function MarketplacePage({
           defaultMaxBudget={filters.maxMonthly?.toString()}
           isEn={isEn}
         />
-
-        <HowItWorks isEn={isEn} />
 
         <Suspense
           fallback={
@@ -155,7 +151,6 @@ export default async function MarketplacePage({
             activeFilters={activeFilters}
             filters={filters}
             isEn={isEn}
-            sortLabel={marketplaceSortLabel(filters.sort, isEn)}
           />
 
           <div className="p-4 sm:p-5 lg:p-6">
@@ -164,6 +159,7 @@ export default async function MarketplacePage({
               isEn={isEn}
               listings={listings}
               locale={locale}
+              sortValue={filters.sort}
             />
           </div>
         </section>
@@ -175,7 +171,7 @@ export default async function MarketplacePage({
         />
       </main>
 
-      <PublicFooter locale={locale} />
+      <SiteFooter />
     </div>
   );
 }

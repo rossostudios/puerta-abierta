@@ -571,89 +571,101 @@ async fn list_public_listing_rows(
     query: &PublicListingsQuery,
 ) -> AppResult<Vec<Value>> {
     let mut builder = QueryBuilder::<Postgres>::new(
-        "SELECT row_to_json(t) AS row FROM listings t WHERE t.is_published = true",
+        "SELECT row_to_json(t) AS row FROM (
+            SELECT l.*, o.name AS organization_name, o.logo_url AS organization_logo_url, o.brand_color AS organization_brand_color, u.full_name AS host_name
+            FROM listings l
+            LEFT JOIN organizations o ON l.organization_id = o.id
+            LEFT JOIN app_users u ON o.owner_user_id = u.id
+            WHERE l.is_published = true",
     );
 
     if let Some(org_id) = non_empty_opt(query.org_id.as_deref()) {
         let parsed = uuid::Uuid::parse_str(&org_id)
             .map_err(|_| AppError::BadRequest("Invalid org_id format.".to_string()))?;
-        builder.push(" AND t.organization_id = ").push_bind(parsed);
+        builder.push(" AND l.organization_id = ").push_bind(parsed);
     }
     if let Some(city) = non_empty_opt(query.city.as_deref()) {
         builder
-            .push(" AND lower(t.city) = ")
+            .push(" AND lower(l.city) = ")
             .push_bind(city.to_ascii_lowercase());
     }
     if let Some(neighborhood) = non_empty_opt(query.neighborhood.as_deref()) {
         builder
-            .push(" AND lower(coalesce(t.neighborhood, '')) LIKE ")
+            .push(" AND lower(coalesce(l.neighborhood, '')) LIKE ")
             .push_bind(format!("%{}%", neighborhood.to_ascii_lowercase()));
     }
     if let Some(q) = non_empty_opt(query.q.as_deref()) {
         let needle = format!("%{}%", q.to_ascii_lowercase());
         builder
-            .push(" AND (lower(coalesce(t.title, '')) LIKE ")
+            .push(" AND (lower(coalesce(l.title, '')) LIKE ")
             .push_bind(needle.clone())
-            .push(" OR lower(coalesce(t.summary, '')) LIKE ")
+            .push(" OR lower(coalesce(l.summary, '')) LIKE ")
             .push_bind(needle.clone())
-            .push(" OR lower(coalesce(t.neighborhood, '')) LIKE ")
+            .push(" OR lower(coalesce(l.neighborhood, '')) LIKE ")
             .push_bind(needle.clone())
-            .push(" OR lower(coalesce(t.description, '')) LIKE ")
+            .push(" OR lower(coalesce(l.description, '')) LIKE ")
             .push_bind(needle)
             .push(")");
     }
     if let Some(property_type) = non_empty_opt(query.property_type.as_deref()) {
         builder
-            .push(" AND lower(coalesce(t.property_type, '')) = ")
+            .push(" AND lower(coalesce(l.property_type, '')) = ")
             .push_bind(property_type.to_ascii_lowercase());
     }
     if let Some(furnished) = query.furnished {
-        builder.push(" AND t.furnished = ").push_bind(furnished);
+        builder.push(" AND l.furnished = ").push_bind(furnished);
     }
     if let Some(pet_policy) = non_empty_opt(query.pet_policy.as_deref()) {
         builder
-            .push(" AND lower(coalesce(t.pet_policy, '')) LIKE ")
+            .push(" AND lower(coalesce(l.pet_policy, '')) LIKE ")
             .push_bind(format!("%{}%", pet_policy.to_ascii_lowercase()));
     }
     if let Some(min_parking) = query.min_parking {
         builder
-            .push(" AND coalesce(t.parking_spaces, 0) >= ")
+            .push(" AND coalesce(l.parking_spaces, 0) >= ")
             .push_bind(min_parking);
     }
     if let Some(min_bedrooms) = query.min_bedrooms {
         builder
-            .push(" AND coalesce(t.bedrooms, 0) >= ")
+            .push(" AND coalesce(l.bedrooms, 0) >= ")
             .push_bind(min_bedrooms);
     }
     if let Some(min_bathrooms) = query.min_bathrooms {
         builder
-            .push(" AND coalesce(t.bathrooms, 0) >= ")
+            .push(" AND coalesce(l.bathrooms, 0) >= ")
             .push_bind(min_bathrooms);
+    }
+    if let Some(max_lease_months) = query.max_lease_months {
+        builder
+            .push(" AND coalesce(l.minimum_lease_months, 0) <= ")
+            .push_bind(max_lease_months);
     }
     if let Some(min_monthly) = query.min_monthly {
         builder
-            .push(" AND coalesce(t.monthly_recurring_total, 0) >= ")
+            .push(" AND coalesce(l.monthly_recurring_total, 0) >= ")
             .push_bind(min_monthly);
     }
     if let Some(max_monthly) = query.max_monthly {
         builder
-            .push(" AND coalesce(t.monthly_recurring_total, 0) <= ")
+            .push(" AND coalesce(l.monthly_recurring_total, 0) <= ")
             .push_bind(max_monthly);
     }
     if let Some(min_move_in) = query.min_move_in {
         builder
-            .push(" AND coalesce(t.total_move_in, 0) >= ")
+            .push(" AND coalesce(l.total_move_in, 0) >= ")
             .push_bind(min_move_in);
     }
     if let Some(max_move_in) = query.max_move_in {
         builder
-            .push(" AND coalesce(t.total_move_in, 0) <= ")
+            .push(" AND coalesce(l.total_move_in, 0) <= ")
             .push_bind(max_move_in);
     }
 
     builder
-        .push(" ORDER BY t.published_at DESC NULLS LAST, t.created_at DESC LIMIT ")
+        .push(" ORDER BY l.published_at DESC NULLS LAST, l.created_at DESC LIMIT ")
         .push_bind(clamp_limit_in_range(query.limit, 1, 200));
+
+    builder.push(") t");
 
     let rows = builder.build().fetch_all(pool).await.map_err(|err| {
         tracing::error!(db_error = %err, "Failed listing query");
@@ -673,19 +685,34 @@ async fn get_public_listing(
     ensure_marketplace_public_enabled(&state)?;
     let pool = db_pool(&state)?;
 
-    let rows = list_rows(
-        pool,
-        "listings",
-        Some(&json_map(&[
-            ("public_slug", Value::String(path.slug.clone())),
-            ("is_published", Value::Bool(true)),
-        ])),
-        1,
-        0,
-        "created_at",
-        false,
-    )
-    .await?;
+    let query = "SELECT row_to_json(t) AS row FROM (
+        SELECT l.*, o.name AS organization_name, o.logo_url AS organization_logo_url, o.brand_color AS organization_brand_color, u.full_name AS host_name
+        FROM listings l
+        LEFT JOIN organizations o ON l.organization_id = o.id
+        LEFT JOIN app_users u ON o.owner_user_id = u.id
+        WHERE l.public_slug = $1 AND l.is_published = true
+    ) t LIMIT 1";
+
+    let db_row = sqlx::query(query)
+        .bind(path.slug.clone())
+        .fetch_optional(pool)
+        .await
+        .map_err(|err| {
+            tracing::error!(db_error = %err, "Failed listing query");
+            AppError::Dependency("Database operation failed.".to_string())
+        })?;
+
+    let rows = match db_row {
+        Some(row) => {
+            if let Some(json_val) = row.try_get::<Option<Value>, _>("row").ok().flatten() {
+                vec![json_val]
+            } else {
+                vec![]
+            }
+        }
+        None => vec![],
+    };
+
     if rows.is_empty() {
         return Err(AppError::NotFound("Public listing not found.".to_string()));
     }
@@ -1759,6 +1786,10 @@ fn public_shape(state: &AppState, row: &Value) -> Value {
     json!({
         "id": row.get("id").cloned().unwrap_or(Value::Null),
         "organization_id": row.get("organization_id").cloned().unwrap_or(Value::Null),
+        "organization_name": row.get("organization_name").cloned().unwrap_or(Value::Null),
+        "organization_logo_url": row.get("organization_logo_url").cloned().unwrap_or(Value::Null),
+        "organization_brand_color": row.get("organization_brand_color").cloned().unwrap_or(Value::Null),
+        "host_name": row.get("host_name").cloned().unwrap_or(Value::Null),
         "public_slug": row.get("public_slug").cloned().unwrap_or(Value::Null),
         "title": row.get("title").cloned().unwrap_or(Value::Null),
         "summary": row.get("summary").cloned().unwrap_or(Value::Null),
