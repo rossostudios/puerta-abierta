@@ -285,6 +285,11 @@ export default async function MarketplaceListingPage({
         monthlyUsdApprox={listing.monthlyRecurringUsdApprox}
         slug={slug}
         whatsappUrl={listing.whatsappUrl}
+        bookingUrl={
+          listing.bookingEnabled && listing.organizationSlug
+            ? `/booking/${encodeURIComponent(listing.organizationSlug)}`
+            : null
+        }
       />
 
       <RecentlyViewedTracker slug={slug} />

@@ -686,7 +686,7 @@ async fn get_public_listing(
     let pool = db_pool(&state)?;
 
     let query = "SELECT row_to_json(t) AS row FROM (
-        SELECT l.*, o.name AS organization_name, o.logo_url AS organization_logo_url, o.brand_color AS organization_brand_color, u.full_name AS host_name
+        SELECT l.*, o.name AS organization_name, o.logo_url AS organization_logo_url, o.brand_color AS organization_brand_color, o.org_slug AS organization_slug, o.booking_enabled AS booking_enabled, u.full_name AS host_name
         FROM listings l
         LEFT JOIN organizations o ON l.organization_id = o.id
         LEFT JOIN app_users u ON o.owner_user_id = u.id

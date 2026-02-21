@@ -42,6 +42,18 @@ pub fn router() -> axum::Router<AppState> {
             "/integrations/{integration_id}/sync-ical",
             axum::routing::post(sync_integration_ical),
         )
+        .route(
+            "/integrations/{integration_id}/sync-airbnb",
+            axum::routing::post(sync_integration_airbnb),
+        )
+        .route(
+            "/integrations/airbnb/auth-url",
+            axum::routing::post(airbnb_auth_url),
+        )
+        .route(
+            "/integrations/airbnb/callback",
+            axum::routing::post(airbnb_callback),
+        )
         // --- Integration events ---
         .route(
             "/integration-events",
@@ -609,4 +621,177 @@ fn non_empty_opt(value: Option<&str>) -> Option<String> {
         .map(str::trim)
         .filter(|item| !item.is_empty())
         .map(ToOwned::to_owned)
+}
+
+// ========== Airbnb Connected API ==========
+
+#[derive(Debug, Deserialize)]
+struct AirbnbAuthUrlInput {
+    org_id: String,
+    integration_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AirbnbCallbackInput {
+    org_id: String,
+    integration_id: String,
+    code: String,
+}
+
+async fn airbnb_auth_url(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<AirbnbAuthUrlInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+
+    let config = crate::services::airbnb::AirbnbConfig::from_env()
+        .ok_or_else(|| AppError::Dependency("Airbnb API credentials not configured.".to_string()))?;
+
+    let state_param = format!("{}:{}", payload.org_id, payload.integration_id);
+    let auth_url = config.auth_url(&state_param);
+
+    Ok(Json(json!({ "auth_url": auth_url })))
+}
+
+async fn airbnb_callback(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<AirbnbCallbackInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+    let pool = db_pool(&state)?;
+
+    let config = crate::services::airbnb::AirbnbConfig::from_env()
+        .ok_or_else(|| AppError::Dependency("Airbnb API credentials not configured.".to_string()))?;
+
+    let token_response =
+        crate::services::airbnb::exchange_code(&state.http_client, &config, &payload.code)
+            .await
+            .map_err(|e| AppError::Dependency(e))?;
+
+    // Store tokens in integration metadata
+    sqlx::query(
+        "UPDATE integrations SET
+           metadata = COALESCE(metadata, '{}'::jsonb) ||
+             jsonb_build_object(
+               'airbnb_access_token', $2::text,
+               'airbnb_refresh_token', COALESCE($3::text, ''),
+               'airbnb_token_expires_at', COALESCE($4::bigint, 0)::text
+             ),
+           updated_at = now()
+         WHERE id = $1::uuid",
+    )
+    .bind(&payload.integration_id)
+    .bind(&token_response.access_token)
+    .bind(&token_response.refresh_token)
+    .bind(token_response.expires_at)
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to store Airbnb tokens");
+        AppError::Dependency("Failed to save Airbnb connection.".to_string())
+    })?;
+
+    write_audit_log(
+        Some(pool),
+        Some(&payload.org_id),
+        Some(&user_id),
+        "airbnb_connected",
+        "integrations",
+        Some(&payload.integration_id),
+        None,
+        None,
+    )
+    .await;
+
+    Ok(Json(json!({
+        "ok": true,
+        "message": "Airbnb account connected successfully.",
+        "integration_id": payload.integration_id,
+    })))
+}
+
+async fn sync_integration_airbnb(
+    State(state): State<AppState>,
+    Path(path): Path<IntegrationPath>,
+    headers: HeaderMap,
+) -> AppResult<impl IntoResponse> {
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+    let record = get_row(pool, "integrations", &path.integration_id, "id").await?;
+    let org_id = value_str(&record, "organization_id");
+    let unit_id = value_str(&record, "unit_id");
+    assert_org_role(&state, &user_id, &org_id, &["owner_admin", "operator"]).await?;
+
+    // Get stored tokens
+    let (access_token, listing_id) =
+        crate::services::airbnb::get_integration_airbnb_token(pool, &path.integration_id)
+            .await
+            .map_err(AppError::Dependency)?;
+
+    // Log sync event
+    let integration_event = create_row(
+        pool,
+        "integration_events",
+        &serde_json::from_value::<Map<String, Value>>(json!({
+            "organization_id": org_id,
+            "provider": "airbnb",
+            "event_type": "listing_sync_requested",
+            "payload": json!({"integration_id": path.integration_id, "requested_by_user_id": user_id}).to_string(),
+            "status": "received",
+        }))
+        .unwrap_or_default(),
+    )
+    .await?;
+    let event_id = value_str(&integration_event, "id");
+
+    match crate::services::airbnb::sync_airbnb_integration(
+        pool,
+        &state.http_client,
+        &path.integration_id,
+        &access_token,
+        &listing_id,
+        &org_id,
+        &unit_id,
+    )
+    .await
+    {
+        Ok(report) => {
+            // Mark event as processed
+            let mut patch = Map::new();
+            patch.insert("status".to_string(), Value::String("processed".to_string()));
+            let _ = update_row(pool, "integration_events", &event_id, &patch, "id").await;
+
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "integration_id": path.integration_id,
+                    "sync_report": report,
+                })),
+            ))
+        }
+        Err(err_msg) => {
+            // Mark event as failed
+            let mut patch = Map::new();
+            patch.insert("status".to_string(), Value::String("failed".to_string()));
+            let _ = update_row(pool, "integration_events", &event_id, &patch, "id").await;
+
+            // Store error on integration
+            sqlx::query(
+                "UPDATE integrations SET ical_sync_error = $2, last_ical_sync_at = now()
+                 WHERE id = $1::uuid",
+            )
+            .bind(&path.integration_id)
+            .bind(&err_msg)
+            .execute(pool)
+            .await
+            .ok();
+
+            Err(AppError::Dependency(err_msg))
+        }
+    }
 }

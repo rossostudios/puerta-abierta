@@ -14,6 +14,7 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { PricingManager } from "./pricing-manager";
+import { PricingRecommendations } from "./pricing-recommendations";
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -57,11 +58,14 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
   }
 
   let templates: Record<string, unknown>[] = [];
+  let recommendations: unknown[] = [];
   try {
-    templates = (await fetchList("/pricing/templates", orgId, 500)) as Record<
-      string,
-      unknown
-    >[];
+    const [t, r] = await Promise.all([
+      fetchList("/pricing/templates", orgId, 500),
+      fetchList("/pricing/recommendations", orgId, 50, { status: "pending" }),
+    ]);
+    templates = t as Record<string, unknown>[];
+    recommendations = r;
   } catch (err) {
     const message = errorMessage(err);
     if (isOrgMembershipError(message)) {
@@ -127,6 +131,28 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
 
           <Suspense fallback={null}>
             <PricingManager orgId={orgId} templates={templates} />
+          </Suspense>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isEn ? "AI Rate Recommendations" : "Recomendaciones de Tarifas IA"}
+          </CardTitle>
+          <CardDescription>
+            {isEn
+              ? "The pricing agent analyzes occupancy, seasonality, and market data to suggest rate adjustments."
+              : "El agente de precios analiza ocupación, estacionalidad y datos de mercado para sugerir ajustes de tarifas."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={null}>
+            <PricingRecommendations
+              orgId={orgId}
+              initialRecommendations={recommendations}
+              locale={locale}
+            />
           </Suspense>
         </CardContent>
       </Card>

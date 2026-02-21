@@ -70,6 +70,22 @@ export function AdminStatementPrint({
         }
         totalExpenses={asNumber(statement.total_expenses)}
         totalRevenue={asNumber(statement.total_revenue)}
+        taxSummary={
+          statement.tax_summary
+            ? {
+                managementFee: asNumber(
+                  (statement.tax_summary as Record<string, unknown>)
+                    ?.management_fee
+                ),
+                ivaRatePct: asNumber(
+                  (statement.tax_summary as Record<string, unknown>)
+                    ?.iva_rate_pct
+                ),
+                ivaAmount: asNumber(statement.iva_amount),
+                irpApplicable: statement.irp_applicable === true,
+              }
+            : null
+        }
       />
     </div>
   );

@@ -12,6 +12,7 @@ type ListingMobileCtaProps = {
   monthlyUsdApprox?: string | null;
   whatsappUrl: string;
   isEn: boolean;
+  bookingUrl?: string | null;
 };
 
 export function ListingMobileCta({
@@ -20,6 +21,7 @@ export function ListingMobileCta({
   monthlyUsdApprox,
   whatsappUrl,
   isEn,
+  bookingUrl,
 }: ListingMobileCtaProps) {
   const safeWhatsApp = getSafeWhatsAppUrl(whatsappUrl);
 
@@ -53,12 +55,21 @@ export function ListingMobileCta({
               <span>WhatsApp</span>
             </a>
           ) : null}
-          <Link
-            className="inline-flex h-10 items-center rounded-xl bg-casaora-gradient-warm px-5 font-medium text-sm text-white transition-opacity hover:opacity-90"
-            href={`/marketplace/apply/${encodeURIComponent(slug)}`}
-          >
-            {isEn ? "Apply" : "Aplicar"}
-          </Link>
+          {bookingUrl ? (
+            <Link
+              className="inline-flex h-10 items-center rounded-xl bg-casaora-gradient-warm px-5 font-medium text-sm text-white transition-opacity hover:opacity-90"
+              href={bookingUrl}
+            >
+              {isEn ? "Book" : "Reservar"}
+            </Link>
+          ) : (
+            <Link
+              className="inline-flex h-10 items-center rounded-xl bg-casaora-gradient-warm px-5 font-medium text-sm text-white transition-opacity hover:opacity-90"
+              href={`/marketplace/apply/${encodeURIComponent(slug)}`}
+            >
+              {isEn ? "Apply" : "Aplicar"}
+            </Link>
+          )}
         </div>
       </div>
     </div>

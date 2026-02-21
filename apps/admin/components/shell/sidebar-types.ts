@@ -1,4 +1,5 @@
 import {
+  ArtificialIntelligence02Icon,
   AuditIcon,
   Building01Icon,
   Calendar03Icon,
@@ -15,7 +16,9 @@ import {
   Message01Icon,
   Notification03Icon,
   RepeatIcon,
+  Settings02Icon,
   SparklesIcon,
+  StarIcon,
   Task01Icon,
   UserGroupIcon,
   WebhookIcon,
@@ -53,6 +56,10 @@ export const MODULE_ICONS: Record<string, IconSvgElement> = {
   "workflow-rules": WorkflowSquare03Icon,
   billing: CreditCardIcon,
   "notification-rules": GridViewIcon,
+  knowledge: SparklesIcon,
+  "agent-dashboard": ArtificialIntelligence02Icon,
+  "agent-config": Settings02Icon,
+  reviews: StarIcon,
 };
 
 export type ViewportMode = "desktop" | "tablet" | "mobile";

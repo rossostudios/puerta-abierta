@@ -261,6 +261,46 @@ export const MODULES: ModuleDef[] = [
     description: "Plan de suscripción, uso y configuración de facturación.",
     description_en: "Subscription plan, usage, and billing configuration.",
   },
+  {
+    slug: "knowledge",
+    label: "Base de conocimiento",
+    label_en: "Knowledge Base",
+    endpoint: "/knowledge-documents",
+    description:
+      "Guías de propiedades, reglas de la casa y FAQs para el conserje IA.",
+    description_en:
+      "Property guides, house rules, and FAQs for the AI concierge.",
+  },
+  {
+    slug: "agent-dashboard",
+    label: "Panel de agentes",
+    label_en: "Agent Dashboard",
+    endpoint: "/ai-agents",
+    description:
+      "Actividad de agentes IA, métricas de rendimiento y costos de tokens.",
+    description_en:
+      "AI agent activity, performance metrics, and token cost tracking.",
+  },
+  {
+    slug: "agent-config",
+    label: "Configuración de agentes",
+    label_en: "Agent Config",
+    endpoint: "/ai-agents",
+    description:
+      "Configura prompts, herramientas y políticas de aprobación de agentes IA.",
+    description_en:
+      "Configure AI agent prompts, tools, and approval policies.",
+  },
+  {
+    slug: "reviews",
+    label: "Reseñas",
+    label_en: "Reviews",
+    endpoint: "/reviews",
+    description:
+      "Gestiona reseñas de huéspedes y respuestas sugeridas por IA.",
+    description_en:
+      "Manage guest reviews and AI-suggested responses.",
+  },
 ];
 
 export const MODULE_BY_SLUG = new Map(

@@ -4,7 +4,9 @@ use axum::{
     response::IntoResponse,
     Json,
 };
+use serde::Deserialize;
 use serde_json::{json, Map, Value};
+use sqlx::Row;
 
 use crate::{
     auth::require_user_id,
@@ -33,6 +35,14 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/pricing/templates/{template_id}",
             axum::routing::get(get_pricing_template).patch(update_pricing_template),
+        )
+        .route(
+            "/pricing/recommendations",
+            axum::routing::get(list_pricing_recommendations),
+        )
+        .route(
+            "/pricing/recommendations/{recommendation_id}",
+            axum::routing::patch(update_pricing_recommendation),
         )
 }
 
@@ -351,6 +361,141 @@ async fn set_default_template(
         AppError::Dependency("External service request failed.".to_string())
     })?;
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Pricing recommendations
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct RecommendationsQuery {
+    org_id: String,
+    status: Option<String>,
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecommendationPath {
+    recommendation_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateRecommendationInput {
+    org_id: String,
+    status: String,
+}
+
+async fn list_pricing_recommendations(
+    State(state): State<AppState>,
+    Query(query): Query<RecommendationsQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let limit = clamp_limit_in_range(query.limit.unwrap_or(50), 1, 100);
+    let status_filter = query.status.as_deref().unwrap_or("pending");
+
+    let rows = sqlx::query(
+        "SELECT id, unit_id, recommendation_type, current_rate::float8,
+                recommended_rate::float8, confidence, reasoning,
+                revenue_impact_estimate::float8,
+                date_range_start::text, date_range_end::text,
+                status, agent_slug, created_at::text
+         FROM pricing_recommendations
+         WHERE organization_id = $1::uuid AND status = $2
+         ORDER BY created_at DESC
+         LIMIT $3",
+    )
+    .bind(&query.org_id)
+    .bind(status_filter)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| {
+        tracing::error!(error = %error, "Database query failed");
+        AppError::Dependency("External service request failed.".to_string())
+    })?;
+
+    let data: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.try_get::<sqlx::types::Uuid, _>("id")
+                    .map(|u| u.to_string()).unwrap_or_default(),
+                "unit_id": r.try_get::<Option<sqlx::types::Uuid>, _>("unit_id")
+                    .ok().flatten().map(|u| u.to_string()),
+                "recommendation_type": r.try_get::<String, _>("recommendation_type").unwrap_or_default(),
+                "current_rate": r.try_get::<Option<f64>, _>("current_rate").unwrap_or(None),
+                "recommended_rate": r.try_get::<Option<f64>, _>("recommended_rate").unwrap_or(None),
+                "confidence": r.try_get::<f64, _>("confidence").unwrap_or(0.0),
+                "reasoning": r.try_get::<String, _>("reasoning").unwrap_or_default(),
+                "revenue_impact_estimate": r.try_get::<Option<f64>, _>("revenue_impact_estimate").unwrap_or(None),
+                "date_range_start": r.try_get::<Option<String>, _>("date_range_start").unwrap_or(None),
+                "date_range_end": r.try_get::<Option<String>, _>("date_range_end").unwrap_or(None),
+                "status": r.try_get::<String, _>("status").unwrap_or_default(),
+                "agent_slug": r.try_get::<String, _>("agent_slug").unwrap_or_default(),
+                "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "data": data })))
+}
+
+async fn update_pricing_recommendation(
+    State(state): State<AppState>,
+    Path(path): Path<RecommendationPath>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateRecommendationInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.org_id, PRICING_EDIT_ROLES).await?;
+    let pool = db_pool(&state)?;
+
+    let valid_statuses = ["approved", "dismissed", "applied"];
+    if !valid_statuses.contains(&payload.status.as_str()) {
+        return Err(AppError::BadRequest(format!(
+            "status must be one of: {}",
+            valid_statuses.join(", ")
+        )));
+    }
+
+    let result = sqlx::query(
+        "UPDATE pricing_recommendations
+         SET status = $3, reviewed_by = $4::uuid, reviewed_at = now(), updated_at = now()
+         WHERE id = $1::uuid AND organization_id = $2::uuid
+         RETURNING id",
+    )
+    .bind(&path.recommendation_id)
+    .bind(&payload.org_id)
+    .bind(&payload.status)
+    .bind(&user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| {
+        tracing::error!(error = %error, "Database query failed");
+        AppError::Dependency("External service request failed.".to_string())
+    })?;
+
+    match result {
+        Some(_) => {
+            write_audit_log(
+                state.db_pool.as_ref(),
+                Some(&payload.org_id),
+                Some(&user_id),
+                "update",
+                "pricing_recommendations",
+                Some(&path.recommendation_id),
+                None,
+                Some(json!({ "status": payload.status })),
+            )
+            .await;
+            Ok(Json(json!({ "ok": true, "status": payload.status })))
+        }
+        None => Err(AppError::NotFound("Recommendation not found.".to_string())),
+    }
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {

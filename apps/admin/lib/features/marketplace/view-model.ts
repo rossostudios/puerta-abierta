@@ -63,6 +63,8 @@ export type MarketplaceListingViewModel = {
   longitude: number | null;
   monthlyRecurringUsdApprox: string | null;
   totalMoveInUsdApprox: string | null;
+  bookingEnabled: boolean;
+  organizationSlug: string;
 };
 
 function listingId(listing: MarketplaceListingRecord): string {
@@ -213,5 +215,7 @@ export function toMarketplaceListingViewModel(params: {
       currency === "PYG" ? formatUsdApprox(monthlyRecurring, fxRate) : null,
     totalMoveInUsdApprox:
       currency === "PYG" ? formatUsdApprox(totalMoveIn, fxRate) : null,
+    bookingEnabled: listing.booking_enabled === true,
+    organizationSlug: asText(listing.organization_slug),
   };
 }

@@ -45,6 +45,14 @@ pub fn router() -> axum::Router<AppState> {
             axum::routing::post(create_stripe_checkout),
         )
         .route("/webhooks/stripe", axum::routing::post(stripe_webhook))
+        .route(
+            "/public/payment/{reference_code}/mercado-pago",
+            axum::routing::post(create_mercado_pago_checkout),
+        )
+        .route(
+            "/webhooks/mercado-pago",
+            axum::routing::post(mercado_pago_webhook),
+        )
 }
 
 async fn create_payment_link(
@@ -524,6 +532,263 @@ async fn stripe_webhook(
         }
         _ => {
             tracing::debug!("Unhandled Stripe event type: {event_type}");
+        }
+    }
+
+    Ok(axum::http::StatusCode::OK)
+}
+
+/// Create a Mercado Pago checkout for a public payment (PYG).
+async fn create_mercado_pago_checkout(
+    State(state): State<AppState>,
+    Path(path): Path<PaymentReferencePath>,
+) -> AppResult<Json<Value>> {
+    let pool = db_pool(&state)?;
+
+    let record = get_row(
+        pool,
+        "payment_instructions",
+        &path.reference_code,
+        "reference_code",
+    )
+    .await?;
+
+    let status = value_str(&record, "status");
+    if status != "active" {
+        return Err(AppError::Gone(
+            "This payment link is no longer active.".to_string(),
+        ));
+    }
+
+    let amount = record
+        .as_object()
+        .and_then(|obj| obj.get("amount"))
+        .and_then(|v| {
+            v.as_f64()
+                .or_else(|| v.as_str().and_then(|s| s.parse::<f64>().ok()))
+        })
+        .unwrap_or(0.0);
+    let currency = value_str(&record, "currency");
+    let tenant_name = value_str(&record, "tenant_name");
+    let reference_code = value_str(&record, "reference_code");
+    let org_id = value_str(&record, "organization_id");
+
+    // Get org's Mercado Pago access token
+    let access_token =
+        crate::services::mercado_pago::get_org_mp_access_token(pool, &org_id)
+            .await
+            .map_err(AppError::Dependency)?;
+
+    let org_name = if !org_id.is_empty() {
+        get_row(pool, "organizations", &org_id, "id")
+            .await
+            .ok()
+            .map(|org| value_str(&org, "name"))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let description = if tenant_name.is_empty() {
+        format!("Pago {reference_code} — {org_name}")
+    } else {
+        format!("Pago {reference_code} — {tenant_name} — {org_name}")
+    };
+
+    let success_url = format!(
+        "{}/pay/{}?status=success",
+        state.config.app_public_url, reference_code
+    );
+    let failure_url = format!(
+        "{}/pay/{}?status=failed",
+        state.config.app_public_url, reference_code
+    );
+
+    let mp_currency = if currency.is_empty() { "PYG" } else { &currency };
+
+    let result = crate::services::mercado_pago::create_mp_checkout(
+        &state.http_client,
+        &access_token,
+        amount,
+        mp_currency,
+        &reference_code,
+        &description,
+        &success_url,
+        &failure_url,
+    )
+    .await
+    .map_err(AppError::Dependency)?;
+
+    Ok(Json(result))
+}
+
+/// Mercado Pago webhook handler — processes payment notifications.
+async fn mercado_pago_webhook(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> AppResult<impl IntoResponse> {
+    let pool = db_pool(&state)?;
+
+    let topic = payload
+        .get("type")
+        .or_else(|| payload.get("topic"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    if topic != "payment" {
+        tracing::debug!("Unhandled Mercado Pago event: {topic}");
+        return Ok(axum::http::StatusCode::OK);
+    }
+
+    // Get payment ID from the notification
+    let payment_id_str = if let Some(id) = payload
+        .get("data")
+        .and_then(|d| d.get("id"))
+    {
+        if let Some(s) = id.as_str() {
+            s.to_string()
+        } else if let Some(n) = id.as_i64() {
+            n.to_string()
+        } else {
+            return Ok(axum::http::StatusCode::OK);
+        }
+    } else {
+        return Ok(axum::http::StatusCode::OK);
+    };
+
+    // We need to look up which org this payment belongs to
+    // by checking external_reference in our payment_instructions
+    // First, fetch the payment from MP API to get the external_reference
+    // We'll try all orgs with MP configured (typically just one)
+    let org_rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT organization_id::text, mercado_pago_access_token
+         FROM integrations
+         WHERE mercado_pago_access_token IS NOT NULL
+         LIMIT 10",
+    )
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    for (org_id, access_token) in &org_rows {
+        if access_token.is_empty() {
+            continue;
+        }
+
+        let payment_info = match crate::services::mercado_pago::get_mp_payment(
+            &state.http_client,
+            access_token,
+            &payment_id_str,
+        )
+        .await
+        {
+            Ok(info) => info,
+            Err(_) => continue,
+        };
+
+        let mp_status = payment_info
+            .get("status")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let external_ref = payment_info
+            .get("external_reference")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+
+        if external_ref.is_empty() || mp_status != "approved" {
+            continue;
+        }
+
+        // Find the payment instruction by reference code
+        if let Ok(instruction) = get_row(
+            pool,
+            "payment_instructions",
+            external_ref,
+            "reference_code",
+        )
+        .await
+        {
+            let instruction_id = value_str(&instruction, "id");
+            let collection_id = value_str(&instruction, "collection_record_id");
+
+            // Mark payment instruction as paid
+            let mut pi_patch = serde_json::Map::new();
+            pi_patch.insert("status".to_string(), Value::String("paid".to_string()));
+            let _ = update_row(
+                pool,
+                "payment_instructions",
+                &instruction_id,
+                &pi_patch,
+                "id",
+            )
+            .await;
+
+            // Mark collection record as paid
+            if !collection_id.is_empty() {
+                let mut cr_patch = serde_json::Map::new();
+                cr_patch.insert("status".to_string(), Value::String("paid".to_string()));
+                cr_patch.insert(
+                    "paid_at".to_string(),
+                    Value::String(Utc::now().to_rfc3339()),
+                );
+                cr_patch.insert(
+                    "payment_method".to_string(),
+                    Value::String("mercado_pago".to_string()),
+                );
+                cr_patch.insert(
+                    "payment_reference".to_string(),
+                    Value::String(format!("mp:{payment_id_str}")),
+                );
+                let _ = update_row(
+                    pool,
+                    "collection_records",
+                    &collection_id,
+                    &cr_patch,
+                    "id",
+                )
+                .await;
+            }
+
+            // Queue WhatsApp receipt
+            let tenant_phone = value_str(&instruction, "tenant_phone_e164");
+            let amount = instruction
+                .as_object()
+                .and_then(|o| o.get("amount"))
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            let currency = value_str(&instruction, "currency");
+            let amount_display = if currency == "PYG" {
+                format!("₲{}", amount as i64)
+            } else {
+                format!("${:.2}", amount)
+            };
+
+            if !tenant_phone.is_empty() {
+                let body = format!(
+                    "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {external_ref}) via Mercado Pago ha sido procesado exitosamente.\n\n— Casaora"
+                );
+                let mut msg = serde_json::Map::new();
+                msg.insert(
+                    "organization_id".to_string(),
+                    Value::String(org_id.clone()),
+                );
+                msg.insert(
+                    "channel".to_string(),
+                    Value::String("whatsapp".to_string()),
+                );
+                msg.insert("recipient".to_string(), Value::String(tenant_phone));
+                msg.insert("status".to_string(), Value::String("queued".to_string()));
+                msg.insert(
+                    "direction".to_string(),
+                    Value::String("outbound".to_string()),
+                );
+                let mut pl = serde_json::Map::new();
+                pl.insert("body".to_string(), Value::String(body));
+                msg.insert("payload".to_string(), Value::Object(pl));
+                let _ = create_row(pool, "message_logs", &msg).await;
+            }
+
+            break;
         }
     }
 

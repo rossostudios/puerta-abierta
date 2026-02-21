@@ -511,24 +511,23 @@ async fn whatsapp_webhook(
                                 }
                             }
 
-                            // AI auto-reply for guest messages
+                            // AI auto-reply for guest messages via guest concierge agent
                             if let Some(oid) = &org_id {
                                 if msg_type == "text" && !text.is_empty() {
-                                    let pool = pool.clone();
-                                    let http = state.http_client.clone();
-                                    let config = state.config.clone();
+                                    let agent_state = state.clone();
+                                    let agent_pool = pool.clone();
                                     let oid = oid.clone();
                                     let phone = sender_phone.to_string();
                                     let body = text.clone();
                                     tokio::spawn(async move {
                                         if let Some((reply, confidence)) =
                                             crate::services::ai_guest_reply::generate_ai_reply(
-                                                &pool, &http, &config, &oid, &phone, &body,
+                                                &agent_state, &oid, &phone, &body,
                                             )
                                             .await
                                         {
                                             crate::services::ai_guest_reply::queue_ai_reply(
-                                                &pool, &oid, &phone, &reply, confidence,
+                                                &agent_pool, &oid, &phone, &reply, confidence,
                                             )
                                             .await;
                                         }

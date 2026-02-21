@@ -592,3 +592,145 @@ fn value_str(row: &Value, key: &str) -> String {
         .map(ToOwned::to_owned)
         .unwrap_or_default()
 }
+
+// ---------------------------------------------------------------------------
+// Expo Push Notifications
+// ---------------------------------------------------------------------------
+
+/// Send push notifications to all active push tokens for a list of user IDs.
+pub async fn send_push_notifications(
+    pool: &sqlx::PgPool,
+    http_client: &reqwest::Client,
+    user_ids: &[String],
+    title: &str,
+    body: &str,
+    data: Option<&Map<String, Value>>,
+) -> u32 {
+    if user_ids.is_empty() || title.is_empty() {
+        return 0;
+    }
+
+    // Fetch active push tokens for these users
+    let placeholders: Vec<String> = user_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("${}", i + 1))
+        .collect();
+    let query_str = format!(
+        "SELECT token FROM push_tokens WHERE user_id::text IN ({}) AND is_active = true",
+        placeholders.join(", ")
+    );
+
+    let mut query = sqlx::query(&query_str);
+    for uid in user_ids {
+        query = query.bind(uid);
+    }
+
+    let rows = query.fetch_all(pool).await.unwrap_or_default();
+
+    let tokens: Vec<String> = rows
+        .iter()
+        .filter_map(|row| row.try_get::<String, _>("token").ok())
+        .filter(|t| !t.is_empty())
+        .collect();
+
+    if tokens.is_empty() {
+        return 0;
+    }
+
+    // Build Expo push messages
+    let messages: Vec<Value> = tokens
+        .iter()
+        .map(|token| {
+            let mut msg = json!({
+                "to": token,
+                "title": title,
+                "body": body,
+                "sound": "default",
+            });
+            if let Some(data) = data {
+                msg.as_object_mut()
+                    .unwrap()
+                    .insert("data".to_string(), Value::Object(data.clone()));
+            }
+            msg
+        })
+        .collect();
+
+    // Send in batches of 100 (Expo limit)
+    let mut sent = 0u32;
+    for chunk in messages.chunks(100) {
+        let result = http_client
+            .post("https://exp.host/--/api/v2/push/send")
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .json(&chunk)
+            .send()
+            .await;
+
+        match result {
+            Ok(response) if response.status().is_success() => {
+                sent += chunk.len() as u32;
+            }
+            Ok(response) => {
+                tracing::warn!(
+                    status = %response.status(),
+                    "Expo push API returned non-success status"
+                );
+            }
+            Err(error) => {
+                tracing::error!(%error, "Failed to send Expo push notifications");
+            }
+        }
+    }
+
+    sent
+}
+
+/// Register or refresh a push token for a user.
+pub async fn upsert_push_token(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    user_id: &str,
+    token: &str,
+    platform: &str,
+    device_id: Option<&str>,
+) -> AppResult<Value> {
+    let row = sqlx::query(
+        "INSERT INTO push_tokens (organization_id, user_id, token, platform, device_id, is_active)
+         VALUES ($1::uuid, $2::uuid, $3, $4, $5, true)
+         ON CONFLICT (user_id, token) DO UPDATE
+         SET is_active = true, platform = EXCLUDED.platform, device_id = EXCLUDED.device_id, updated_at = now()
+         RETURNING id::text AS id",
+    )
+    .bind(org_id)
+    .bind(user_id)
+    .bind(token)
+    .bind(platform)
+    .bind(device_id)
+    .fetch_one(pool)
+    .await
+    .map_err(map_sqlx_error)?;
+
+    let id = row.try_get::<String, _>("id").unwrap_or_default();
+    Ok(json!({ "id": id, "ok": true }))
+}
+
+/// Deactivate a push token (e.g., on logout).
+pub async fn deactivate_push_token(
+    pool: &sqlx::PgPool,
+    user_id: &str,
+    token: &str,
+) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE push_tokens SET is_active = false, updated_at = now()
+         WHERE user_id = $1::uuid AND token = $2",
+    )
+    .bind(user_id)
+    .bind(token)
+    .execute(pool)
+    .await
+    .map_err(map_sqlx_error)?;
+
+    Ok(())
+}

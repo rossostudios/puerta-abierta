@@ -53,8 +53,17 @@ export function ListingMoveInCard({
       </div>
 
       <div className="space-y-3">
+        {listing.bookingEnabled && listing.organizationSlug ? (
+          <Link
+            className="flex h-11 w-full items-center justify-center rounded-xl bg-casaora-gradient-warm font-medium text-sm text-white transition-opacity hover:opacity-90"
+            href={`/booking/${encodeURIComponent(listing.organizationSlug)}`}
+          >
+            {isEn ? "Book now" : "Reservar ahora"}
+          </Link>
+        ) : null}
+
         <Link
-          className="flex h-11 w-full items-center justify-center rounded-xl bg-casaora-gradient-warm font-medium text-sm text-white transition-opacity hover:opacity-90"
+          className="flex h-11 w-full items-center justify-center rounded-xl border border-[var(--marketplace-border)] font-medium text-sm text-[var(--marketplace-text)] transition-colors hover:bg-[var(--marketplace-bg-muted)]"
           href={`/marketplace/apply/${encodeURIComponent(slug)}`}
         >
           {isEn ? "Apply now" : "Aplicar ahora"}

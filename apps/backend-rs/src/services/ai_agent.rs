@@ -1064,6 +1064,161 @@ fn tool_definitions(allowed_tools: Option<&[String]>) -> Vec<Value> {
                 }
             }
         }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "send_message",
+                "description": "Send a message to a guest or contact via WhatsApp, email, or SMS. The message is queued and sent asynchronously.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {"type": "string", "enum": ["whatsapp", "email", "sms"], "description": "Message channel."},
+                        "recipient": {"type": "string", "description": "Phone number (E.164) for WhatsApp/SMS, or email address."},
+                        "body": {"type": "string", "description": "The message body text."},
+                        "guest_id": {"type": "string", "description": "Optional guest UUID for tracking."}
+                    },
+                    "required": ["channel", "recipient", "body"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_staff_availability",
+                "description": "Get current task load per staff member to determine who is available for new assignments.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "create_maintenance_task",
+                "description": "Create a maintenance task from a maintenance request with urgency assessment, assignee, and checklist.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "description": "Short task title."},
+                        "description": {"type": "string", "description": "Detailed description including triage reasoning."},
+                        "priority": {"type": "string", "enum": ["critical", "high", "medium", "low"], "description": "Urgency level."},
+                        "assigned_to_user_id": {"type": "string", "description": "UUID of the staff member to assign to."},
+                        "maintenance_request_id": {"type": "string", "description": "UUID of the originating maintenance request."},
+                        "unit_id": {"type": "string", "description": "UUID of the unit where work is needed."},
+                        "checklist": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional checklist items for the task."
+                        }
+                    },
+                    "required": ["title", "description", "priority"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_revenue_analytics",
+                "description": "Get revenue analytics including RevPAN, ADR, occupancy rate, and total revenue for recent months.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "months": {"type": "integer", "minimum": 1, "maximum": 12, "default": 3, "description": "Number of months to analyze."}
+                    }
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "get_seasonal_demand",
+                "description": "Get historical booking patterns and seasonal demand data for pricing optimization.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "months_ahead": {"type": "integer", "minimum": 1, "maximum": 6, "default": 3}
+                    }
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "generate_owner_statement",
+                "description": "Generate a draft owner statement for a specific month, compiling reservations, expenses, management fees, and IVA.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "owner_id": {"type": "string", "description": "UUID of the property owner."},
+                        "period_month": {"type": "string", "description": "Month in YYYY-MM format."}
+                    },
+                    "required": ["owner_id", "period_month"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "reconcile_collections",
+                "description": "Match payments received against expected collection amounts, flagging discrepancies.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "period_month": {"type": "string", "description": "Month in YYYY-MM format."}
+                    },
+                    "required": ["period_month"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "categorize_expense",
+                "description": "Categorize an expense into a standard PMS category and suggest allocation to property/unit.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "expense_id": {"type": "string"},
+                        "description": {"type": "string"},
+                        "amount": {"type": "number"},
+                        "suggested_category": {"type": "string", "enum": ["maintenance", "utilities", "cleaning", "management_fee", "insurance", "taxes", "supplies", "marketing", "other"]}
+                    },
+                    "required": ["expense_id"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "recall_memory",
+                "description": "Recall stored memories for context. Search by key, entity, or context type.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search term to find relevant memories."},
+                        "entity_id": {"type": "string", "description": "Optional entity ID (guest ID, unit ID) to filter memories."},
+                        "context_type": {"type": "string", "description": "Optional context type filter: general, guest_preference, property_insight, financial_pattern."},
+                        "limit": {"type": "integer", "minimum": 1, "maximum": 20, "default": 10}
+                    }
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "store_memory",
+                "description": "Store a key fact in agent memory for future reference. Memories persist across conversations.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "memory_key": {"type": "string", "description": "A short descriptive key for the memory (e.g., 'guest_juan_preference')."},
+                        "memory_value": {"type": "string", "description": "The fact to remember."},
+                        "context_type": {"type": "string", "enum": ["general", "guest_preference", "property_insight", "financial_pattern"], "default": "general"},
+                        "entity_id": {"type": "string", "description": "Optional entity ID this memory relates to."},
+                        "expires_days": {"type": "integer", "minimum": 1, "maximum": 365, "default": 90, "description": "Days until this memory expires."}
+                    },
+                    "required": ["memory_key", "memory_value"]
+                }
+            }
+        }),
     ];
 
     let Some(allowed_tools) = allowed_tools else {
@@ -1154,6 +1309,32 @@ async fn execute_tool(
             tool_get_owner_statement_summary(state, context.org_id).await
         }
         "search_knowledge" => tool_search_knowledge(state, context.org_id, args).await,
+        "send_message" => tool_send_message(state, context.org_id, args).await,
+        "get_staff_availability" => tool_get_staff_availability(state, context.org_id).await,
+        "create_maintenance_task" => {
+            tool_create_maintenance_task(state, context.org_id, args).await
+        }
+        "get_revenue_analytics" => {
+            tool_get_revenue_analytics(state, context.org_id, args).await
+        }
+        "get_seasonal_demand" => {
+            tool_get_seasonal_demand(state, context.org_id, args).await
+        }
+        "generate_owner_statement" => {
+            tool_generate_owner_statement(state, context.org_id, args).await
+        }
+        "reconcile_collections" => {
+            tool_reconcile_collections(state, context.org_id, args).await
+        }
+        "categorize_expense" => {
+            tool_categorize_expense(state, context.org_id, args).await
+        }
+        "recall_memory" => {
+            tool_recall_memory(state, context.org_id, context.agent_slug, args).await
+        }
+        "store_memory" => {
+            tool_store_memory(state, context.org_id, context.agent_slug, args).await
+        }
         _ => Ok(json!({
             "ok": false,
             "error": format!("Unknown tool: {tool_name}"),
@@ -2063,31 +2244,68 @@ async fn tool_search_knowledge(
 
     let limit = coerce_limit(args.get("limit"), 8).clamp(1, 20);
     let pool = db_pool(state)?;
-    let pattern = format!("%{}%", query.replace(['%', '_'], ""));
 
-    let rows = sqlx::query(
-        "SELECT
-            kc.id::text AS id,
-            kc.document_id::text AS document_id,
-            kc.chunk_index,
-            kc.content,
-            kc.metadata,
-            kd.title,
-            kd.source_url
-         FROM knowledge_chunks kc
-         JOIN knowledge_documents kd ON kd.id = kc.document_id
-         WHERE kc.organization_id = $1::uuid
-           AND kd.organization_id = $1::uuid
-           AND kc.content ILIKE $2
-         ORDER BY kc.updated_at DESC, kc.created_at DESC
-         LIMIT $3",
+    // Try vector similarity search first, fall back to ILIKE if embedding fails
+    let embedding_result = crate::services::embeddings::embed_query(
+        &state.http_client,
+        &state.config,
+        query,
     )
-    .bind(org_id)
-    .bind(pattern)
-    .bind(limit)
-    .fetch_all(pool)
-    .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .await;
+
+    let rows = if let Ok(query_embedding) = embedding_result {
+        sqlx::query(
+            "SELECT
+                kc.id::text AS id,
+                kc.document_id::text AS document_id,
+                kc.chunk_index,
+                kc.content,
+                kc.metadata,
+                kd.title,
+                kd.source_url,
+                1 - (kc.embedding <=> $2::vector) AS similarity
+             FROM knowledge_chunks kc
+             JOIN knowledge_documents kd ON kd.id = kc.document_id
+             WHERE kc.organization_id = $1::uuid
+               AND kd.organization_id = $1::uuid
+               AND kc.embedding IS NOT NULL
+             ORDER BY kc.embedding <=> $2::vector
+             LIMIT $3",
+        )
+        .bind(org_id)
+        .bind(&query_embedding)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| supabase_error(state, &error))?
+    } else {
+        // Fallback to ILIKE text search for chunks without embeddings
+        let pattern = format!("%{}%", query.replace(['%', '_'], ""));
+        sqlx::query(
+            "SELECT
+                kc.id::text AS id,
+                kc.document_id::text AS document_id,
+                kc.chunk_index,
+                kc.content,
+                kc.metadata,
+                kd.title,
+                kd.source_url,
+                0.0::float8 AS similarity
+             FROM knowledge_chunks kc
+             JOIN knowledge_documents kd ON kd.id = kc.document_id
+             WHERE kc.organization_id = $1::uuid
+               AND kd.organization_id = $1::uuid
+               AND kc.content ILIKE $2
+             ORDER BY kc.updated_at DESC, kc.created_at DESC
+             LIMIT $3",
+        )
+        .bind(org_id)
+        .bind(pattern)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+        .map_err(|error| supabase_error(state, &error))?
+    };
 
     let mut hits = Vec::with_capacity(rows.len());
     for row in rows {
@@ -2098,6 +2316,7 @@ async fn tool_search_knowledge(
             "title": row.try_get::<String, _>("title").unwrap_or_default(),
             "source_url": row.try_get::<Option<String>, _>("source_url").ok().flatten(),
             "content": row.try_get::<String, _>("content").unwrap_or_default(),
+            "similarity": row.try_get::<f64, _>("similarity").unwrap_or(0.0),
             "metadata": row
                 .try_get::<Option<Value>, _>("metadata")
                 .ok()
@@ -2111,6 +2330,1003 @@ async fn tool_search_knowledge(
         "query": query,
         "count": hits.len(),
         "hits": hits,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: send_message — queue an outbound message (WhatsApp/email/SMS)
+// ---------------------------------------------------------------------------
+
+async fn tool_send_message(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let channel = args
+        .get("channel")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("whatsapp");
+    let recipient = args
+        .get("recipient")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let body = args
+        .get("body")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+
+    if recipient.is_empty() || body.is_empty() {
+        return Ok(json!({ "ok": false, "error": "recipient and body are required." }));
+    }
+    if !matches!(channel, "whatsapp" | "email" | "sms") {
+        return Ok(json!({ "ok": false, "error": "channel must be whatsapp, email, or sms." }));
+    }
+
+    let pool = db_pool(state)?;
+    let mut msg = Map::new();
+    msg.insert(
+        "organization_id".to_string(),
+        Value::String(org_id.to_string()),
+    );
+    msg.insert("channel".to_string(), Value::String(channel.to_string()));
+    msg.insert(
+        "recipient".to_string(),
+        Value::String(recipient.to_string()),
+    );
+    msg.insert("status".to_string(), Value::String("queued".to_string()));
+    msg.insert(
+        "direction".to_string(),
+        Value::String("outbound".to_string()),
+    );
+
+    let mut payload = Map::new();
+    payload.insert("body".to_string(), Value::String(body.to_string()));
+    payload.insert("ai_generated".to_string(), Value::Bool(true));
+    if let Some(guest_id) = args.get("guest_id").and_then(Value::as_str) {
+        payload.insert(
+            "guest_id".to_string(),
+            Value::String(guest_id.to_string()),
+        );
+    }
+    msg.insert("payload".to_string(), Value::Object(payload));
+
+    let created = create_row(pool, "message_logs", &msg).await?;
+    let msg_id = created
+        .as_object()
+        .and_then(|o| o.get("id"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    Ok(json!({
+        "ok": true,
+        "message_id": msg_id,
+        "status": "queued",
+        "channel": channel,
+        "recipient": recipient,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: get_staff_availability — task load per assignable staff member
+// ---------------------------------------------------------------------------
+
+async fn tool_get_staff_availability(state: &AppState, org_id: &str) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let rows = sqlx::query(
+        "SELECT
+            u.id::text AS user_id,
+            u.full_name,
+            u.email,
+            om.role,
+            COALESCE(open_tasks.count, 0) AS open_task_count
+         FROM organization_members om
+         JOIN app_users u ON u.id = om.user_id
+         LEFT JOIN (
+            SELECT assigned_to_user_id, COUNT(*)::int AS count
+            FROM tasks
+            WHERE organization_id = $1::uuid
+              AND status IN ('todo', 'in_progress')
+            GROUP BY assigned_to_user_id
+         ) open_tasks ON open_tasks.assigned_to_user_id = om.user_id
+         WHERE om.organization_id = $1::uuid
+           AND om.role IN ('operator', 'owner_admin')
+         ORDER BY open_task_count ASC, u.full_name ASC",
+    )
+    .bind(org_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let mut staff = Vec::with_capacity(rows.len());
+    for row in &rows {
+        staff.push(json!({
+            "user_id": row.try_get::<String, _>("user_id").unwrap_or_default(),
+            "full_name": row.try_get::<String, _>("full_name").unwrap_or_default(),
+            "email": row.try_get::<String, _>("email").unwrap_or_default(),
+            "role": row.try_get::<String, _>("role").unwrap_or_default(),
+            "open_task_count": row.try_get::<i32, _>("open_task_count").unwrap_or(0),
+        }));
+    }
+
+    Ok(json!({
+        "ok": true,
+        "staff": staff,
+        "count": staff.len(),
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: create_maintenance_task — create a task from a maintenance request
+// ---------------------------------------------------------------------------
+
+async fn tool_create_maintenance_task(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let title = args
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let description = args
+        .get("description")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let priority = args
+        .get("priority")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("medium");
+
+    if title.is_empty() {
+        return Ok(json!({ "ok": false, "error": "title is required." }));
+    }
+
+    let pool = db_pool(state)?;
+
+    let mut task = Map::new();
+    task.insert(
+        "organization_id".to_string(),
+        Value::String(org_id.to_string()),
+    );
+    task.insert("title".to_string(), Value::String(title.to_string()));
+    task.insert(
+        "description".to_string(),
+        Value::String(description.to_string()),
+    );
+    task.insert("priority".to_string(), Value::String(priority.to_string()));
+    task.insert("status".to_string(), Value::String("todo".to_string()));
+    task.insert("category".to_string(), Value::String("maintenance".to_string()));
+
+    if let Some(assigned) = args.get("assigned_to_user_id").and_then(Value::as_str) {
+        task.insert(
+            "assigned_to_user_id".to_string(),
+            Value::String(assigned.to_string()),
+        );
+    }
+    if let Some(unit_id) = args.get("unit_id").and_then(Value::as_str) {
+        task.insert("unit_id".to_string(), Value::String(unit_id.to_string()));
+    }
+    if let Some(mr_id) = args.get("maintenance_request_id").and_then(Value::as_str) {
+        task.insert(
+            "maintenance_request_id".to_string(),
+            Value::String(mr_id.to_string()),
+        );
+    }
+
+    let created = create_row(pool, "tasks", &task).await?;
+    let task_id = created
+        .as_object()
+        .and_then(|o| o.get("id"))
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    // Create checklist items if provided
+    if let Some(checklist) = args.get("checklist").and_then(Value::as_array) {
+        for (index, item) in checklist.iter().enumerate() {
+            if let Some(text) = item.as_str() {
+                let mut ci = Map::new();
+                ci.insert(
+                    "organization_id".to_string(),
+                    Value::String(org_id.to_string()),
+                );
+                ci.insert(
+                    "task_id".to_string(),
+                    Value::String(task_id.to_string()),
+                );
+                ci.insert("title".to_string(), Value::String(text.to_string()));
+                ci.insert("sort_order".to_string(), json!(index as i32));
+                ci.insert("is_done".to_string(), Value::Bool(false));
+                let _ = create_row(pool, "task_items", &ci).await;
+            }
+        }
+    }
+
+    // Update maintenance request status to in_progress if linked
+    if let Some(mr_id) = args.get("maintenance_request_id").and_then(Value::as_str) {
+        sqlx::query(
+            "UPDATE maintenance_requests SET status = 'in_progress', updated_at = now()
+             WHERE id = $1::uuid AND organization_id = $2::uuid AND status = 'open'",
+        )
+        .bind(mr_id)
+        .bind(org_id)
+        .execute(pool)
+        .await
+        .ok();
+    }
+
+    Ok(json!({
+        "ok": true,
+        "task_id": task_id,
+        "title": title,
+        "priority": priority,
+        "status": "todo",
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: get_revenue_analytics — RevPAN, ADR, occupancy for pricing agent
+// ---------------------------------------------------------------------------
+
+async fn tool_get_revenue_analytics(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+    let days = args
+        .get("days")
+        .and_then(Value::as_i64)
+        .unwrap_or(30)
+        .clamp(7, 365);
+
+    let unit_id = args.get("unit_id").and_then(Value::as_str);
+
+    // Revenue and booking metrics
+    let revenue_query = if let Some(uid) = unit_id {
+        sqlx::query(
+            "SELECT
+               COUNT(*)::bigint AS total_reservations,
+               COALESCE(SUM(total_amount), 0)::float8 AS gross_revenue,
+               COALESCE(AVG(nightly_rate), 0)::float8 AS avg_daily_rate,
+               COALESCE(SUM(platform_fee), 0)::float8 AS total_platform_fees,
+               COALESCE(SUM(cleaning_fee), 0)::float8 AS total_cleaning_fees,
+               COALESCE(SUM(check_out_date - check_in_date), 0)::bigint AS total_room_nights
+             FROM reservations
+             WHERE organization_id = $1::uuid
+               AND unit_id = $2::uuid
+               AND status IN ('confirmed', 'checked_in', 'checked_out')
+               AND check_in_date >= current_date - ($3::int || ' days')::interval",
+        )
+        .bind(org_id)
+        .bind(uid)
+        .bind(days as i32)
+        .fetch_one(pool)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT
+               COUNT(*)::bigint AS total_reservations,
+               COALESCE(SUM(total_amount), 0)::float8 AS gross_revenue,
+               COALESCE(AVG(nightly_rate), 0)::float8 AS avg_daily_rate,
+               COALESCE(SUM(platform_fee), 0)::float8 AS total_platform_fees,
+               COALESCE(SUM(cleaning_fee), 0)::float8 AS total_cleaning_fees,
+               COALESCE(SUM(check_out_date - check_in_date), 0)::bigint AS total_room_nights
+             FROM reservations
+             WHERE organization_id = $1::uuid
+               AND status IN ('confirmed', 'checked_in', 'checked_out')
+               AND check_in_date >= current_date - ($2::int || ' days')::interval",
+        )
+        .bind(org_id)
+        .bind(days as i32)
+        .fetch_one(pool)
+        .await
+    };
+
+    let row = revenue_query.map_err(|e| supabase_error(state, &e))?;
+    let total_reservations = row.try_get::<i64, _>("total_reservations").unwrap_or(0);
+    let gross_revenue = row.try_get::<f64, _>("gross_revenue").unwrap_or(0.0);
+    let avg_daily_rate = row.try_get::<f64, _>("avg_daily_rate").unwrap_or(0.0);
+    let total_room_nights = row.try_get::<i64, _>("total_room_nights").unwrap_or(0);
+
+    // Count available units for occupancy calculation
+    let unit_count_row = sqlx::query(
+        "SELECT COUNT(*)::bigint AS cnt FROM units WHERE organization_id = $1::uuid AND is_active = true",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let active_units = unit_count_row.try_get::<i64, _>("cnt").unwrap_or(1).max(1);
+    let available_nights = active_units * days;
+    let occupancy_rate = if available_nights > 0 {
+        (total_room_nights as f64 / available_nights as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    let rev_pan = if available_nights > 0 {
+        gross_revenue / available_nights as f64
+    } else {
+        0.0
+    };
+
+    Ok(json!({
+        "ok": true,
+        "period_days": days,
+        "total_reservations": total_reservations,
+        "gross_revenue": (gross_revenue * 100.0).round() / 100.0,
+        "avg_daily_rate": (avg_daily_rate * 100.0).round() / 100.0,
+        "total_room_nights": total_room_nights,
+        "active_units": active_units,
+        "available_nights": available_nights,
+        "occupancy_rate_pct": (occupancy_rate * 100.0).round() / 100.0,
+        "rev_pan": (rev_pan * 100.0).round() / 100.0,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: get_seasonal_demand — historical booking patterns for pricing agent
+// ---------------------------------------------------------------------------
+
+async fn tool_get_seasonal_demand(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+    let months_back = args
+        .get("months_back")
+        .and_then(Value::as_i64)
+        .unwrap_or(12)
+        .clamp(3, 24);
+
+    let rows = sqlx::query(
+        "SELECT
+           date_trunc('month', check_in_date)::date AS month,
+           COUNT(*)::bigint AS bookings,
+           COALESCE(SUM(total_amount), 0)::float8 AS revenue,
+           COALESCE(AVG(nightly_rate), 0)::float8 AS avg_rate,
+           COALESCE(SUM(check_out_date - check_in_date), 0)::bigint AS room_nights
+         FROM reservations
+         WHERE organization_id = $1::uuid
+           AND status IN ('confirmed', 'checked_in', 'checked_out')
+           AND check_in_date >= (current_date - ($2::int || ' months')::interval)::date
+         GROUP BY 1
+         ORDER BY 1",
+    )
+    .bind(org_id)
+    .bind(months_back as i32)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let months: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "month": r.try_get::<chrono::NaiveDate, _>("month")
+                    .map(|d| d.to_string())
+                    .unwrap_or_default(),
+                "bookings": r.try_get::<i64, _>("bookings").unwrap_or(0),
+                "revenue": r.try_get::<f64, _>("revenue").unwrap_or(0.0),
+                "avg_rate": r.try_get::<f64, _>("avg_rate").unwrap_or(0.0),
+                "room_nights": r.try_get::<i64, _>("room_nights").unwrap_or(0),
+            })
+        })
+        .collect();
+
+    // Identify peak and low months
+    let peak_month = months
+        .iter()
+        .max_by(|a, b| {
+            let a_rn = a.get("room_nights").and_then(Value::as_i64).unwrap_or(0);
+            let b_rn = b.get("room_nights").and_then(Value::as_i64).unwrap_or(0);
+            a_rn.cmp(&b_rn)
+        })
+        .and_then(|v| v.get("month").and_then(Value::as_str))
+        .unwrap_or("N/A");
+
+    let low_month = months
+        .iter()
+        .filter(|v| v.get("bookings").and_then(Value::as_i64).unwrap_or(0) > 0)
+        .min_by(|a, b| {
+            let a_rn = a.get("room_nights").and_then(Value::as_i64).unwrap_or(0);
+            let b_rn = b.get("room_nights").and_then(Value::as_i64).unwrap_or(0);
+            a_rn.cmp(&b_rn)
+        })
+        .and_then(|v| v.get("month").and_then(Value::as_str))
+        .unwrap_or("N/A");
+
+    Ok(json!({
+        "ok": true,
+        "months_analyzed": months.len(),
+        "peak_month": peak_month,
+        "low_month": low_month,
+        "monthly_data": months,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: generate_owner_statement — draft monthly statement for finance agent
+// ---------------------------------------------------------------------------
+
+async fn tool_generate_owner_statement(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let period_start = args
+        .get("period_start")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let period_end = args
+        .get("period_end")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    if period_start.is_empty() || period_end.is_empty() {
+        return Ok(json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }));
+    }
+
+    let unit_id = args.get("unit_id").and_then(Value::as_str);
+    let currency = args
+        .get("currency")
+        .and_then(Value::as_str)
+        .unwrap_or("USD");
+
+    // Reservation revenue for period
+    let rev_query = if let Some(uid) = unit_id {
+        sqlx::query(
+            "SELECT
+               COALESCE(SUM(total_amount), 0)::float8 AS gross_revenue,
+               COALESCE(SUM(platform_fee), 0)::float8 AS platform_fees,
+               COALESCE(SUM(cleaning_fee), 0)::float8 AS cleaning_fees,
+               COALESCE(SUM(tax_amount), 0)::float8 AS taxes_collected,
+               COUNT(*)::bigint AS reservation_count
+             FROM reservations
+             WHERE organization_id = $1::uuid
+               AND unit_id = $4::uuid
+               AND status IN ('confirmed', 'checked_in', 'checked_out')
+               AND check_in_date >= $2::date
+               AND check_in_date < $3::date",
+        )
+        .bind(org_id)
+        .bind(period_start)
+        .bind(period_end)
+        .bind(uid)
+        .fetch_one(pool)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT
+               COALESCE(SUM(total_amount), 0)::float8 AS gross_revenue,
+               COALESCE(SUM(platform_fee), 0)::float8 AS platform_fees,
+               COALESCE(SUM(cleaning_fee), 0)::float8 AS cleaning_fees,
+               COALESCE(SUM(tax_amount), 0)::float8 AS taxes_collected,
+               COUNT(*)::bigint AS reservation_count
+             FROM reservations
+             WHERE organization_id = $1::uuid
+               AND status IN ('confirmed', 'checked_in', 'checked_out')
+               AND check_in_date >= $2::date
+               AND check_in_date < $3::date",
+        )
+        .bind(org_id)
+        .bind(period_start)
+        .bind(period_end)
+        .fetch_one(pool)
+        .await
+    };
+
+    let rev_row = rev_query.map_err(|e| supabase_error(state, &e))?;
+    let gross_revenue = rev_row.try_get::<f64, _>("gross_revenue").unwrap_or(0.0);
+    let platform_fees = rev_row.try_get::<f64, _>("platform_fees").unwrap_or(0.0);
+    let cleaning_fees = rev_row.try_get::<f64, _>("cleaning_fees").unwrap_or(0.0);
+    let taxes_collected = rev_row.try_get::<f64, _>("taxes_collected").unwrap_or(0.0);
+    let reservation_count = rev_row.try_get::<i64, _>("reservation_count").unwrap_or(0);
+
+    // Expenses for period
+    let exp_query = if let Some(uid) = unit_id {
+        sqlx::query(
+            "SELECT
+               category::text,
+               COALESCE(SUM(amount), 0)::float8 AS total,
+               COUNT(*)::bigint AS cnt
+             FROM expenses
+             WHERE organization_id = $1::uuid
+               AND unit_id = $4::uuid
+               AND expense_date >= $2::date
+               AND expense_date < $3::date
+               AND approval_status != 'rejected'
+             GROUP BY category",
+        )
+        .bind(org_id)
+        .bind(period_start)
+        .bind(period_end)
+        .bind(uid)
+        .fetch_all(pool)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT
+               category::text,
+               COALESCE(SUM(amount), 0)::float8 AS total,
+               COUNT(*)::bigint AS cnt
+             FROM expenses
+             WHERE organization_id = $1::uuid
+               AND expense_date >= $2::date
+               AND expense_date < $3::date
+               AND approval_status != 'rejected'
+             GROUP BY category",
+        )
+        .bind(org_id)
+        .bind(period_start)
+        .bind(period_end)
+        .fetch_all(pool)
+        .await
+    };
+
+    let exp_rows = exp_query.map_err(|e| supabase_error(state, &e))?;
+    let mut expense_breakdown = Map::new();
+    let mut total_expenses = 0.0_f64;
+    for row in &exp_rows {
+        let cat = row
+            .try_get::<String, _>("category")
+            .unwrap_or_else(|_| "other".to_string());
+        let amt = row.try_get::<f64, _>("total").unwrap_or(0.0);
+        total_expenses += amt;
+        expense_breakdown.insert(cat, json!(amt));
+    }
+
+    // Compute IVA (10% on service/management fees)
+    let management_fee = gross_revenue * 0.15; // 15% default management fee
+    let iva_rate = 10.0;
+    let iva_amount = management_fee * iva_rate / 100.0;
+
+    let net_payout = gross_revenue - platform_fees - total_expenses - management_fee - iva_amount;
+
+    // Insert draft statement
+    let insert_result = sqlx::query(
+        "INSERT INTO owner_statements (
+           organization_id, unit_id, period_start, period_end, currency,
+           gross_revenue, platform_fees, operating_expenses, taxes_collected,
+           service_fees, net_payout, status, iva_rate, iva_amount, tax_summary
+         ) VALUES (
+           $1::uuid, $2, $3::date, $4::date, $5,
+           $6, $7, $8, $9,
+           $10, $11, 'draft', $12, $13, $14::jsonb
+         ) RETURNING id",
+    )
+    .bind(org_id)
+    .bind(unit_id)
+    .bind(period_start)
+    .bind(period_end)
+    .bind(currency)
+    .bind(gross_revenue)
+    .bind(platform_fees)
+    .bind(total_expenses)
+    .bind(taxes_collected)
+    .bind(management_fee)
+    .bind(net_payout)
+    .bind(iva_rate)
+    .bind(iva_amount)
+    .bind(json!({
+        "management_fee": management_fee,
+        "iva_rate_pct": iva_rate,
+        "iva_on_management": iva_amount,
+    }))
+    .fetch_one(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let statement_id = insert_result
+        .try_get::<sqlx::types::Uuid, _>("id")
+        .map(|u| u.to_string())
+        .unwrap_or_default();
+
+    Ok(json!({
+        "ok": true,
+        "statement_id": statement_id,
+        "period": format!("{} to {}", period_start, period_end),
+        "reservation_count": reservation_count,
+        "gross_revenue": (gross_revenue * 100.0).round() / 100.0,
+        "platform_fees": (platform_fees * 100.0).round() / 100.0,
+        "cleaning_fees": (cleaning_fees * 100.0).round() / 100.0,
+        "total_expenses": (total_expenses * 100.0).round() / 100.0,
+        "expense_breakdown": expense_breakdown,
+        "management_fee": (management_fee * 100.0).round() / 100.0,
+        "iva_amount": (iva_amount * 100.0).round() / 100.0,
+        "taxes_collected": (taxes_collected * 100.0).round() / 100.0,
+        "net_payout": (net_payout * 100.0).round() / 100.0,
+        "currency": currency,
+        "status": "draft",
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: reconcile_collections — match payments vs expected for finance agent
+// ---------------------------------------------------------------------------
+
+async fn tool_reconcile_collections(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let period_start = args
+        .get("period_start")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let period_end = args
+        .get("period_end")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    if period_start.is_empty() || period_end.is_empty() {
+        return Ok(json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }));
+    }
+
+    // Reservation-based expected vs collected
+    let res_row = sqlx::query(
+        "SELECT
+           COUNT(*)::bigint AS total_reservations,
+           COALESCE(SUM(total_amount), 0)::float8 AS expected_total,
+           COALESCE(SUM(amount_paid), 0)::float8 AS collected_total
+         FROM reservations
+         WHERE organization_id = $1::uuid
+           AND status IN ('confirmed', 'checked_in', 'checked_out')
+           AND check_in_date >= $2::date
+           AND check_in_date < $3::date",
+    )
+    .bind(org_id)
+    .bind(period_start)
+    .bind(period_end)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let expected_total = res_row.try_get::<f64, _>("expected_total").unwrap_or(0.0);
+    let collected_total = res_row.try_get::<f64, _>("collected_total").unwrap_or(0.0);
+    let total_reservations = res_row.try_get::<i64, _>("total_reservations").unwrap_or(0);
+    let shortfall = expected_total - collected_total;
+
+    // Collection records status breakdown (lease collections)
+    let coll_rows = sqlx::query(
+        "SELECT
+           status::text,
+           COUNT(*)::bigint AS cnt,
+           COALESCE(SUM(amount), 0)::float8 AS total
+         FROM collection_records
+         WHERE organization_id = $1::uuid
+           AND due_date >= $2::date
+           AND due_date < $3::date
+         GROUP BY status",
+    )
+    .bind(org_id)
+    .bind(period_start)
+    .bind(period_end)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let mut collection_status = Map::new();
+    for row in &coll_rows {
+        let status = row
+            .try_get::<String, _>("status")
+            .unwrap_or_else(|_| "unknown".to_string());
+        let cnt = row.try_get::<i64, _>("cnt").unwrap_or(0);
+        let total = row.try_get::<f64, _>("total").unwrap_or(0.0);
+        collection_status.insert(
+            status,
+            json!({ "count": cnt, "amount": (total * 100.0).round() / 100.0 }),
+        );
+    }
+
+    // Flag unpaid reservations
+    let unpaid_rows = sqlx::query(
+        "SELECT id, check_in_date::text, total_amount::float8, amount_paid::float8,
+                (total_amount - amount_paid)::float8 AS outstanding
+         FROM reservations
+         WHERE organization_id = $1::uuid
+           AND status IN ('confirmed', 'checked_in', 'checked_out')
+           AND check_in_date >= $2::date
+           AND check_in_date < $3::date
+           AND amount_paid < total_amount
+         ORDER BY (total_amount - amount_paid) DESC
+         LIMIT 20",
+    )
+    .bind(org_id)
+    .bind(period_start)
+    .bind(period_end)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let discrepancies: Vec<Value> = unpaid_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "reservation_id": r.try_get::<sqlx::types::Uuid, _>("id")
+                    .map(|u| u.to_string()).unwrap_or_default(),
+                "check_in_date": r.try_get::<String, _>("check_in_date").unwrap_or_default(),
+                "total_amount": r.try_get::<f64, _>("total_amount").unwrap_or(0.0),
+                "amount_paid": r.try_get::<f64, _>("amount_paid").unwrap_or(0.0),
+                "outstanding": r.try_get::<f64, _>("outstanding").unwrap_or(0.0),
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "ok": true,
+        "period": format!("{} to {}", period_start, period_end),
+        "reservations": {
+            "total": total_reservations,
+            "expected": (expected_total * 100.0).round() / 100.0,
+            "collected": (collected_total * 100.0).round() / 100.0,
+            "shortfall": (shortfall * 100.0).round() / 100.0,
+        },
+        "lease_collections": collection_status,
+        "discrepancies": discrepancies,
+        "discrepancy_count": discrepancies.len(),
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: categorize_expense — classify expense into PMS categories
+// ---------------------------------------------------------------------------
+
+async fn tool_categorize_expense(
+    state: &AppState,
+    org_id: &str,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let expense_id = args
+        .get("expense_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let category = args
+        .get("category")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+
+    if expense_id.is_empty() || category.is_empty() {
+        return Ok(json!({ "ok": false, "error": "expense_id and category are required." }));
+    }
+
+    let valid_categories = [
+        "maintenance",
+        "cleaning",
+        "utilities",
+        "insurance",
+        "taxes",
+        "management_fee",
+        "supplies",
+        "marketing",
+        "professional_services",
+        "other",
+    ];
+
+    if !valid_categories.contains(&category) {
+        return Ok(json!({
+            "ok": false,
+            "error": format!("Invalid category. Must be one of: {}", valid_categories.join(", ")),
+        }));
+    }
+
+    let result = sqlx::query(
+        "UPDATE expenses SET category = $3::expense_category, updated_at = now()
+         WHERE id = $1::uuid AND organization_id = $2::uuid
+         RETURNING id, category::text, amount::float8, vendor_name, expense_date::text",
+    )
+    .bind(expense_id)
+    .bind(org_id)
+    .bind(category)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    match result {
+        Some(row) => Ok(json!({
+            "ok": true,
+            "expense_id": row.try_get::<sqlx::types::Uuid, _>("id")
+                .map(|u| u.to_string()).unwrap_or_default(),
+            "category": row.try_get::<String, _>("category").unwrap_or_default(),
+            "amount": row.try_get::<f64, _>("amount").unwrap_or(0.0),
+            "vendor_name": row.try_get::<Option<String>, _>("vendor_name").unwrap_or(None),
+            "expense_date": row.try_get::<String, _>("expense_date").unwrap_or_default(),
+        })),
+        None => Ok(json!({ "ok": false, "error": "Expense not found." })),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tool: recall_memory — retrieve stored memories for context
+// ---------------------------------------------------------------------------
+
+async fn tool_recall_memory(
+    state: &AppState,
+    org_id: &str,
+    agent_slug: Option<&str>,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+    let query_text = args
+        .get("query")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let entity_id = args.get("entity_id").and_then(Value::as_str);
+    let context_type = args.get("context_type").and_then(Value::as_str);
+    let limit = coerce_limit(args.get("limit"), 10).clamp(1, 20);
+
+    let slug = agent_slug.unwrap_or("supervisor");
+
+    let rows = if let Some(eid) = entity_id {
+        sqlx::query(
+            "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
+             FROM agent_memory
+             WHERE organization_id = $1::uuid
+               AND entity_id = $4
+               AND (expires_at IS NULL OR expires_at > now())
+             ORDER BY updated_at DESC
+             LIMIT $5",
+        )
+        .bind(org_id)
+        .bind(slug)
+        .bind(query_text)
+        .bind(eid)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+    } else if !query_text.is_empty() {
+        sqlx::query(
+            "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
+             FROM agent_memory
+             WHERE organization_id = $1::uuid
+               AND (memory_key ILIKE '%' || $2 || '%' OR memory_value ILIKE '%' || $2 || '%')
+               AND (expires_at IS NULL OR expires_at > now())
+             ORDER BY updated_at DESC
+             LIMIT $3",
+        )
+        .bind(org_id)
+        .bind(query_text)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+    } else if let Some(ct) = context_type {
+        sqlx::query(
+            "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
+             FROM agent_memory
+             WHERE organization_id = $1::uuid
+               AND context_type = $2
+               AND (expires_at IS NULL OR expires_at > now())
+             ORDER BY updated_at DESC
+             LIMIT $3",
+        )
+        .bind(org_id)
+        .bind(ct)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+    } else {
+        sqlx::query(
+            "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
+             FROM agent_memory
+             WHERE organization_id = $1::uuid
+               AND (expires_at IS NULL OR expires_at > now())
+             ORDER BY updated_at DESC
+             LIMIT $2",
+        )
+        .bind(org_id)
+        .bind(limit)
+        .fetch_all(pool)
+        .await
+    };
+
+    let rows = rows.map_err(|e| supabase_error(state, &e))?;
+
+    let memories: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "key": r.try_get::<String, _>("memory_key").unwrap_or_default(),
+                "value": r.try_get::<String, _>("memory_value").unwrap_or_default(),
+                "context_type": r.try_get::<String, _>("context_type").unwrap_or_default(),
+                "entity_id": r.try_get::<Option<String>, _>("entity_id").unwrap_or(None),
+                "confidence": r.try_get::<f64, _>("confidence").unwrap_or(0.0),
+                "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
+            })
+        })
+        .collect();
+
+    Ok(json!({
+        "ok": true,
+        "memories": memories,
+        "count": memories.len(),
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// Tool: store_memory — persist a key fact for future reference
+// ---------------------------------------------------------------------------
+
+async fn tool_store_memory(
+    state: &AppState,
+    org_id: &str,
+    agent_slug: Option<&str>,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let pool = db_pool(state)?;
+
+    let memory_key = args
+        .get("memory_key")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    let memory_value = args
+        .get("memory_value")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+
+    if memory_key.is_empty() || memory_value.is_empty() {
+        return Ok(json!({ "ok": false, "error": "memory_key and memory_value are required." }));
+    }
+
+    let context_type = args
+        .get("context_type")
+        .and_then(Value::as_str)
+        .unwrap_or("general");
+    let entity_id = args.get("entity_id").and_then(Value::as_str);
+    let expires_days = args
+        .get("expires_days")
+        .and_then(Value::as_i64)
+        .unwrap_or(90)
+        .clamp(1, 365);
+
+    let slug = agent_slug.unwrap_or("supervisor");
+
+    // Upsert: update if same key+agent exists, insert otherwise
+    let result = sqlx::query(
+        "INSERT INTO agent_memory (organization_id, agent_slug, memory_key, memory_value, context_type, entity_id, expires_at)
+         VALUES ($1::uuid, $2, $3, $4, $5, $6, now() + ($7::int || ' days')::interval)
+         ON CONFLICT (organization_id, agent_slug, memory_key)
+            WHERE false  -- no unique constraint yet, so always insert
+         DO UPDATE SET memory_value = EXCLUDED.memory_value, updated_at = now()
+         RETURNING id",
+    )
+    .bind(org_id)
+    .bind(slug)
+    .bind(memory_key)
+    .bind(memory_value)
+    .bind(context_type)
+    .bind(entity_id)
+    .bind(expires_days as i32)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| supabase_error(state, &e))?;
+
+    let memory_id = result
+        .try_get::<sqlx::types::Uuid, _>("id")
+        .map(|u| u.to_string())
+        .unwrap_or_default();
+
+    Ok(json!({
+        "ok": true,
+        "memory_id": memory_id,
+        "key": memory_key,
+        "expires_days": expires_days,
     }))
 }
 

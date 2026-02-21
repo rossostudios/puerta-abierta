@@ -4,6 +4,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use sqlx::Row;
 use tracing::{info, warn};
 use uuid::Uuid;
 
@@ -564,6 +565,7 @@ async fn execute_action(
         "request_agent_approval" => {
             execute_request_agent_approval(pool, org_id, action_config, context).await
         }
+        "invoke_agent" => execute_invoke_agent(pool, org_id, action_config, context).await,
         other => Ok(ExecutionOutcome::Skipped(format!(
             "unsupported action_type '{other}'"
         ))),
@@ -1228,6 +1230,109 @@ async fn execute_request_agent_approval(
     .execute(pool)
     .await
     .map_err(|error| error.to_string())?;
+
+    Ok(ExecutionOutcome::Succeeded)
+}
+
+/// Invoke an AI agent directly from a workflow trigger with a message and context.
+/// The agent runs asynchronously; results are logged and any mutations go through approval.
+async fn execute_invoke_agent(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    config: &Value,
+    context: &Map<String, Value>,
+) -> Result<ExecutionOutcome, String> {
+    let agent_slug = config
+        .as_object()
+        .and_then(|obj| obj.get("agent_slug"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_default();
+    if agent_slug.is_empty() {
+        return Ok(ExecutionOutcome::Skipped(
+            "invoke_agent requires agent_slug".to_string(),
+        ));
+    }
+
+    let message_template = config
+        .as_object()
+        .and_then(|obj| obj.get("message"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Process this request.");
+    let message = resolve_template(message_template, context);
+
+    // Look up the agent
+    let agent_row = sqlx::query(
+        "SELECT system_prompt, allowed_tools FROM ai_agents WHERE slug = $1 AND is_active = true",
+    )
+    .bind(agent_slug)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let Some(agent_row) = agent_row else {
+        return Ok(ExecutionOutcome::Skipped(format!(
+            "Agent '{agent_slug}' not found or inactive"
+        )));
+    };
+
+    let system_prompt: String = agent_row.try_get("system_prompt").unwrap_or_default();
+    let allowed_tools_str: Option<String> = agent_row
+        .try_get::<Option<String>, _>("allowed_tools")
+        .ok()
+        .flatten();
+    let allowed_tools: Vec<String> = allowed_tools_str
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok())
+        .unwrap_or_default();
+
+    // Append context to the message
+    let context_json = serde_json::to_string_pretty(&Value::Object(context.clone()))
+        .unwrap_or_default();
+    let full_message = format!("{message}\n\nContext:\n```json\n{context_json}\n```");
+
+    // Emit a notification so the agent invocation is visible in the inbox
+    emit_event(
+        pool,
+        EmitNotificationEventInput {
+            organization_id: org_id.to_string(),
+            event_type: "agent_invoked".to_string(),
+            category: "operations".to_string(),
+            severity: "info".to_string(),
+            title: format!("Agent '{agent_slug}' invoked by workflow"),
+            body: full_message.chars().take(500).collect(),
+            link_path: Some("/app/chats".to_string()),
+            source_table: None,
+            source_id: None,
+            actor_user_id: None,
+            payload: {
+                let mut p = Map::new();
+                p.insert(
+                    "agent_slug".to_string(),
+                    Value::String(agent_slug.to_string()),
+                );
+                p.insert("message".to_string(), Value::String(message.clone()));
+                p.insert(
+                    "system_prompt".to_string(),
+                    Value::String(system_prompt),
+                );
+                p.insert(
+                    "allowed_tools".to_string(),
+                    json!(allowed_tools),
+                );
+                p.insert("context".to_string(), Value::Object(context.clone()));
+                p
+            },
+            dedupe_key: None,
+            occurred_at: None,
+            fallback_roles: vec![],
+        },
+    )
+    .await
+    .map_err(|error| error.detail_message())?;
 
     Ok(ExecutionOutcome::Succeeded)
 }

@@ -14,7 +14,8 @@ use crate::{
         clamp_limit_in_range, NotificationPath, NotificationsQuery, ReadAllNotificationsInput,
     },
     services::notification_center::{
-        list_for_user, mark_all_read, mark_read, purge_expired_notifications, unread_count,
+        deactivate_push_token, list_for_user, mark_all_read, mark_read,
+        purge_expired_notifications, unread_count, upsert_push_token,
     },
     state::AppState,
     tenancy::assert_org_member,
@@ -48,6 +49,14 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/internal/notifications-retention",
             axum::routing::post(run_notifications_retention),
+        )
+        .route(
+            "/push-tokens",
+            axum::routing::post(register_push_token),
+        )
+        .route(
+            "/push-tokens/deactivate",
+            axum::routing::post(deactivate_push_token_handler),
         )
 }
 
@@ -152,6 +161,62 @@ async fn run_notifications_retention(
         "user_notifications_deleted": result.user_notifications_deleted,
         "notification_events_deleted": result.notification_events_deleted,
     })))
+}
+
+// ---------------------------------------------------------------------------
+// Push token endpoints
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Deserialize)]
+struct RegisterPushTokenInput {
+    organization_id: String,
+    token: String,
+    #[serde(default = "default_platform")]
+    platform: String,
+    device_id: Option<String>,
+}
+fn default_platform() -> String {
+    "expo".to_string()
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct DeactivatePushTokenInput {
+    token: String,
+}
+
+async fn register_push_token(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<RegisterPushTokenInput>,
+) -> AppResult<impl IntoResponse> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &payload.organization_id).await?;
+    let pool = db_pool(&state)?;
+
+    let result = upsert_push_token(
+        pool,
+        &payload.organization_id,
+        &user_id,
+        &payload.token,
+        &payload.platform,
+        payload.device_id.as_deref(),
+    )
+    .await?;
+
+    Ok((axum::http::StatusCode::CREATED, Json(result)))
+}
+
+async fn deactivate_push_token_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<DeactivatePushTokenInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    let pool = db_pool(&state)?;
+
+    deactivate_push_token(pool, &user_id, &payload.token).await?;
+
+    Ok(Json(json!({ "ok": true })))
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {

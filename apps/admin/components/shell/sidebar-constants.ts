@@ -109,7 +109,7 @@ export const SECTIONS: SectionDef[] = [
       "es-PY": "Alquileres",
       "en-US": "Rentals",
     },
-    moduleSlugs: ["listings", "leases", "reservations", "calendar"],
+    moduleSlugs: ["listings", "leases", "reservations", "calendar", "reviews"],
     roles: ["owner_admin", "operator"],
   },
   {
@@ -156,7 +156,7 @@ export const SECTIONS: SectionDef[] = [
       "es-PY": "Espacio de trabajo",
       "en-US": "Workspace",
     },
-    moduleSlugs: ["documents", "billing"],
+    moduleSlugs: ["documents", "knowledge", "agent-dashboard", "agent-config", "billing"],
     roles: ["owner_admin"],
   },
 ];

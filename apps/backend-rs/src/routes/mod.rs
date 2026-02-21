@@ -5,6 +5,7 @@ use crate::state::AppState;
 
 pub mod agent_chats;
 pub mod agent_inbox;
+pub mod agent_management;
 pub mod agent_playbooks;
 pub mod ai_agent;
 pub mod applications;
@@ -40,10 +41,12 @@ pub mod public_ical;
 pub mod referrals;
 pub mod reports;
 pub mod reservations;
+pub mod reviews;
 pub mod sequences;
 pub mod subscriptions;
 pub mod tasks;
 pub mod tenant;
+pub mod vendor_portal;
 pub mod workflows;
 
 async fn public_fx_rate(State(state): State<AppState>) -> Json<Value> {
@@ -58,6 +61,7 @@ pub fn v1_router() -> Router<AppState> {
         .route("/public/fx/usd-pyg", get(public_fx_rate))
         .merge(agent_chats::router())
         .merge(agent_inbox::router())
+        .merge(agent_management::router())
         .merge(agent_playbooks::router())
         .merge(ai_agent::router())
         .merge(organizations::router())
@@ -95,5 +99,7 @@ pub fn v1_router() -> Router<AppState> {
         .merge(owner_portal::router())
         .merge(guest_portal::router())
         .merge(approvals::router())
+        .merge(vendor_portal::router())
+        .merge(reviews::router())
         .merge(demo::router())
 }

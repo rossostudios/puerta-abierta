@@ -197,6 +197,187 @@ export async function createTaskItem(
   });
 }
 
+// ── Reservations ──
+
+export type Reservation = {
+  id: string;
+  guest_name?: string | null;
+  property_name?: string | null;
+  unit_name?: string | null;
+  check_in: string;
+  check_out: string;
+  status: string;
+  total_amount?: number | null;
+  currency?: string | null;
+  guests_count?: number | null;
+  source?: string | null;
+};
+
+export async function listReservations(params: {
+  orgId: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<Reservation[]> {
+  const payload = await fetchJson<{ data?: Reservation[] }>("/reservations", {
+    baseUrl: getApiBaseUrl(),
+    method: "GET",
+    includeJsonContentType: false,
+    query: {
+      org_id: params.orgId,
+      from: params.from,
+      to: params.to,
+      limit: params.limit ?? 50,
+    },
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+    },
+  });
+
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+// ── Messages ──
+
+export type MessageThread = {
+  id: string;
+  guest_name?: string | null;
+  guest_phone?: string | null;
+  channel?: string | null;
+  last_message?: string | null;
+  last_message_at?: string | null;
+  unread_count?: number | null;
+};
+
+export type Message = {
+  id: string;
+  thread_id: string;
+  direction: "inbound" | "outbound";
+  body: string;
+  channel?: string | null;
+  created_at: string;
+};
+
+export async function listMessageThreads(params: {
+  orgId: string;
+  limit?: number;
+}): Promise<MessageThread[]> {
+  const payload = await fetchJson<{ data?: MessageThread[] }>(
+    "/messaging/threads",
+    {
+      baseUrl: getApiBaseUrl(),
+      method: "GET",
+      includeJsonContentType: false,
+      query: {
+        org_id: params.orgId,
+        limit: params.limit ?? 50,
+      },
+      headers: {
+        Authorization: `Bearer ${await getAccessToken()}`,
+      },
+    }
+  );
+
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function listThreadMessages(params: {
+  orgId: string;
+  threadId: string;
+  limit?: number;
+}): Promise<Message[]> {
+  const payload = await fetchJson<{ data?: Message[] }>(
+    `/messaging/threads/${encodeURIComponent(params.threadId)}/messages`,
+    {
+      baseUrl: getApiBaseUrl(),
+      method: "GET",
+      includeJsonContentType: false,
+      query: {
+        org_id: params.orgId,
+        limit: params.limit ?? 100,
+      },
+      headers: {
+        Authorization: `Bearer ${await getAccessToken()}`,
+      },
+    }
+  );
+
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function sendThreadMessage(params: {
+  orgId: string;
+  threadId: string;
+  body: string;
+}): Promise<void> {
+  await fetchJson(`/messaging/threads/${encodeURIComponent(params.threadId)}/messages`, {
+    baseUrl: getApiBaseUrl(),
+    method: "POST",
+    body: {
+      org_id: params.orgId,
+      body: params.body,
+    },
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+    },
+  });
+}
+
+// ── Notifications ──
+
+export type Notification = {
+  id: string;
+  event_type: string;
+  category: string;
+  severity: string;
+  title: string;
+  body: string;
+  link_path?: string | null;
+  read_at?: string | null;
+  created_at?: string | null;
+};
+
+export async function listNotifications(params: {
+  orgId: string;
+  status?: "all" | "read" | "unread";
+  limit?: number;
+}): Promise<Notification[]> {
+  const payload = await fetchJson<{ data?: Notification[] }>("/notifications", {
+    baseUrl: getApiBaseUrl(),
+    method: "GET",
+    includeJsonContentType: false,
+    query: {
+      org_id: params.orgId,
+      status: params.status ?? "all",
+      limit: params.limit ?? 50,
+    },
+    headers: {
+      Authorization: `Bearer ${await getAccessToken()}`,
+    },
+  });
+
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+export async function markNotificationRead(params: {
+  orgId: string;
+  notificationId: string;
+}): Promise<void> {
+  await fetchJson(
+    `/notifications/${encodeURIComponent(params.notificationId)}/read`,
+    {
+      baseUrl: getApiBaseUrl(),
+      method: "POST",
+      body: { org_id: params.orgId },
+      headers: {
+        Authorization: `Bearer ${await getAccessToken()}`,
+      },
+    }
+  );
+}
+
+// ── Helpers ──
+
 async function getAccessToken(): Promise<string> {
   if (!isSupabaseConfigured) {
     throw new Error("Supabase is not configured.");
