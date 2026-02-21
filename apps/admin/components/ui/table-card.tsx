@@ -27,7 +27,7 @@ export function TableCard({
   const isEn = locale === "en-US";
 
   return (
-    <Card className="border-border/60 bg-card/98">
+    <Card className="glass-surface">
       <CardHeader className="flex flex-row items-start justify-between gap-3 border-border/50 border-b pb-4">
         <div>
           <CardDescription className="text-[11px] uppercase tracking-[0.13em]">

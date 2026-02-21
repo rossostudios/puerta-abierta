@@ -88,7 +88,7 @@ export function AnomalyAlerts({
   if (loading || alerts.length === 0) return null;
 
   return (
-    <Card className="overflow-hidden border-border/80 bg-card/98">
+    <Card className="overflow-hidden">
       <CardHeader className="space-y-3 border-border/70 border-b pb-4">
         <div className="space-y-1">
           <CardTitle className="text-base">

@@ -74,7 +74,7 @@ export function GettingStartedChecklist({
   if (dismissed || totalCount === 0) return null;
 
   return (
-    <Card className="relative overflow-hidden border-border/80 bg-card/98">
+    <Card className="relative overflow-hidden">
       <Button
         className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:bg-muted/50"
         onClick={onDismiss}

@@ -126,6 +126,21 @@ async fn create_expense(
         record.insert("iva_applicable".to_string(), json!(true));
     }
 
+    // Auto-categorize if no category provided
+    let has_category = record
+        .get("category")
+        .and_then(Value::as_str)
+        .is_some_and(|s| !s.trim().is_empty());
+    if !has_category {
+        let vendor = string_from_map(&record, "vendor").unwrap_or_default();
+        let desc = string_from_map(&record, "description").unwrap_or_default();
+        if let Some(category) =
+            crate::services::expense_categorization::auto_categorize(&vendor, &desc, payload.amount)
+        {
+            record.insert("category".to_string(), Value::String(category.to_string()));
+        }
+    }
+
     let created = create_row(pool, "expenses", &record).await?;
     let entity_id = value_str(&created, "id");
 

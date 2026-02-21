@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use serde_json::{json, Map, Value};
 
 use crate::{
@@ -977,6 +977,195 @@ fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
             "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
         )
     })
+}
+
+/// Auto-generate monthly owner statements for all properties with asset owners.
+/// Called by the scheduler on the 1st of each month. Skips properties that
+/// already have a statement for the period.
+pub async fn auto_generate_monthly_statements(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    engine_mode: crate::config::WorkflowEngineMode,
+) -> u32 {
+    let today = chrono::Utc::now().date_naive();
+
+    // Compute previous month period
+    let first_of_this_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)
+        .unwrap_or(today);
+    let period_end = first_of_this_month
+        .pred_opt()
+        .unwrap_or(first_of_this_month);
+    let period_start = NaiveDate::from_ymd_opt(period_end.year(), period_end.month(), 1)
+        .unwrap_or(period_end);
+
+    let period_start_str = period_start.to_string();
+    let period_end_str = period_end.to_string();
+
+    // Find properties with asset owners in this org
+    let properties: Vec<(String, String)> = sqlx::query_as(
+        "SELECT p.id::text, COALESCE(p.name, '') as name
+         FROM properties p
+         WHERE p.organization_id = $1::uuid
+           AND p.asset_owner_id IS NOT NULL
+           AND p.is_active = true",
+    )
+    .bind(org_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let mut created_count: u32 = 0;
+    for (property_id, property_name) in &properties {
+        // Check if a statement already exists for this period + property
+        let existing: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM owner_statements
+                WHERE organization_id = $1::uuid
+                  AND property_id = $2::uuid
+                  AND period_start = $3::date
+                  AND period_end = $4::date
+            )",
+        )
+        .bind(org_id)
+        .bind(property_id.as_str())
+        .bind(&period_start_str)
+        .bind(&period_end_str)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(true); // If query fails, assume exists to avoid duplicates
+
+        if existing {
+            continue;
+        }
+
+        // Build the statement breakdown
+        let breakdown = match build_statement_breakdown(
+            pool,
+            org_id,
+            &period_start_str,
+            &period_end_str,
+            Some(property_id),
+            None,
+        )
+        .await
+        {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(
+                    property_id,
+                    error = %e,
+                    "Failed to build statement breakdown"
+                );
+                continue;
+            }
+        };
+
+        let mut statement = Map::new();
+        statement.insert(
+            "organization_id".to_string(),
+            Value::String(org_id.to_string()),
+        );
+        statement.insert(
+            "property_id".to_string(),
+            Value::String(property_id.clone()),
+        );
+        statement.insert(
+            "period_start".to_string(),
+            Value::String(period_start_str.clone()),
+        );
+        statement.insert(
+            "period_end".to_string(),
+            Value::String(period_end_str.clone()),
+        );
+        statement.insert(
+            "title".to_string(),
+            Value::String(format!(
+                "{property_name} — {} {}",
+                month_name(period_start.month()),
+                period_start.year()
+            )),
+        );
+        statement.insert("gross_revenue".to_string(), json!(breakdown.gross_revenue));
+        statement.insert(
+            "lease_collections".to_string(),
+            json!(breakdown.lease_collections),
+        );
+        statement.insert("service_fees".to_string(), json!(breakdown.service_fees));
+        statement.insert(
+            "collection_fees".to_string(),
+            json!(breakdown.collection_fees),
+        );
+        statement.insert("platform_fees".to_string(), json!(breakdown.platform_fees));
+        statement.insert(
+            "taxes_collected".to_string(),
+            json!(breakdown.taxes_collected),
+        );
+        statement.insert(
+            "operating_expenses".to_string(),
+            json!(breakdown.operating_expenses),
+        );
+        statement.insert("net_payout".to_string(), json!(breakdown.net_payout));
+        statement.insert("status".to_string(), Value::String("draft".to_string()));
+
+        match create_row(pool, "owner_statements", &statement).await {
+            Ok(created) => {
+                created_count += 1;
+                let statement_id = value_str(&created, "id");
+                let mut ctx = Map::new();
+                ctx.insert(
+                    "statement_id".to_string(),
+                    Value::String(statement_id),
+                );
+                ctx.insert(
+                    "property_id".to_string(),
+                    Value::String(property_id.clone()),
+                );
+                ctx.insert(
+                    "period".to_string(),
+                    Value::String(format!("{period_start_str} to {period_end_str}")),
+                );
+                crate::services::workflows::fire_trigger(
+                    pool,
+                    org_id,
+                    "owner_statement_ready",
+                    &ctx,
+                    engine_mode,
+                )
+                .await;
+            }
+            Err(e) => {
+                tracing::warn!(
+                    property_id,
+                    error = %e,
+                    "Failed to create owner statement"
+                );
+            }
+        }
+    }
+
+    if created_count > 0 {
+        tracing::info!(org_id, created_count, "Auto-generated owner statements");
+    }
+
+    created_count
+}
+
+fn month_name(month: u32) -> &'static str {
+    match month {
+        1 => "January",
+        2 => "February",
+        3 => "March",
+        4 => "April",
+        5 => "May",
+        6 => "June",
+        7 => "July",
+        8 => "August",
+        9 => "September",
+        10 => "October",
+        11 => "November",
+        12 => "December",
+        _ => "Unknown",
+    }
 }
 
 fn value_str(row: &Value, key: &str) -> String {

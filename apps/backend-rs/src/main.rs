@@ -74,6 +74,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket_addr: SocketAddr = format!("{}:{}", state.config.host, state.config.port).parse()?;
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
 
+    if state.config.scheduler_enabled {
+        let sched_state = state.clone();
+        tokio::spawn(services::scheduler::run_background_scheduler(sched_state));
+        tracing::info!("Background scheduler enabled");
+    }
+
     tracing::info!(
         app_name = %state.config.app_name,
         environment = %state.config.environment,

@@ -76,7 +76,7 @@ export function ChatInputBar({
     >
       <div className="mx-auto max-w-3xl space-y-3">
         {editingSourceId ? (
-          <div className="flex items-center justify-between rounded-xl border border-border/60 bg-card/70 px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="glass-inner flex items-center justify-between rounded-xl px-3 py-2 text-[11px] text-muted-foreground">
             <span>
               {isEn
                 ? "Editing a previous message before resend"
@@ -110,7 +110,7 @@ export function ChatInputBar({
           />
         ) : null}
 
-        <div className="relative flex rounded-2xl border bg-card shadow-md transition-shadow focus-within:border-[var(--sidebar-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--sidebar-primary)]/30 hover:shadow-lg">
+        <div className="glass-surface relative flex rounded-2xl shadow-md transition-shadow focus-within:ring-1 focus-within:ring-[var(--sidebar-primary)]/30 hover:shadow-lg">
           <div className="flex items-end gap-1 py-2.5 pl-3">
             {onAddFiles ? (
               <>

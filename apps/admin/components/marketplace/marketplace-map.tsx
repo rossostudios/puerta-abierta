@@ -125,7 +125,7 @@ export function MarketplaceMap({
 
         return (
           <Link
-            className="absolute z-10 inline-flex max-w-[9.5rem] -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border/80 bg-background/92 px-3 py-1.5 font-semibold text-sm shadow-[0_10px_24px_rgba(15,23,42,0.16)] transition-all duration-150 ease-out hover:-translate-y-[52%] hover:border-primary/40"
+            className="glass-float absolute z-10 inline-flex max-w-[9.5rem] -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full px-3 py-1.5 font-semibold text-sm transition-all duration-150 ease-out hover:-translate-y-[52%]"
             href={`/marketplace/${encodeURIComponent(slug)}`}
             key={slug || `${title}-${index}`}
             style={{ left: pos.left, top: pos.top }}

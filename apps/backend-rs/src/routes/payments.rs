@@ -1,4 +1,5 @@
 use axum::{
+    body::Bytes,
     extract::{Path, Query, State},
     http::HeaderMap,
     response::IntoResponse,
@@ -15,7 +16,7 @@ use crate::{
         clamp_limit_in_range, CreatePaymentInstructionInput, PaymentInstructionPath,
         PaymentInstructionsQuery, PaymentReferencePath,
     },
-    services::audit::write_audit_log,
+    services::{audit::write_audit_log, reconciliation},
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -415,9 +416,33 @@ async fn create_stripe_checkout(
 /// Stripe webhook handler — processes payment events.
 async fn stripe_webhook(
     State(state): State<AppState>,
-    Json(payload): Json<Value>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> AppResult<impl IntoResponse> {
     let pool = db_pool(&state)?;
+
+    let body_str = String::from_utf8(body.to_vec()).map_err(|_| {
+        AppError::BadRequest("Invalid webhook body encoding.".to_string())
+    })?;
+
+    // Verify Stripe signature if webhook secret is configured
+    if let Some(secret) = state.config.stripe_webhook_secret.as_deref().filter(|s| !s.is_empty()) {
+        let sig_header = headers
+            .get("stripe-signature")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default();
+
+        if !crate::services::payments::verify_stripe_signature(&body_str, sig_header, secret) {
+            tracing::warn!("Stripe webhook signature verification failed");
+            return Err(AppError::Unauthorized(
+                "Invalid webhook signature.".to_string(),
+            ));
+        }
+    }
+
+    let payload: Value = serde_json::from_str(&body_str).map_err(|_| {
+        AppError::BadRequest("Invalid webhook JSON.".to_string())
+    })?;
 
     let event_type = payload
         .get("type")
@@ -439,7 +464,6 @@ async fn stripe_webhook(
                     .unwrap_or_default();
 
                 if !reference_code.is_empty() {
-                    // Find the payment instruction
                     if let Ok(instruction) = get_row(
                         pool,
                         "payment_instructions",
@@ -448,84 +472,25 @@ async fn stripe_webhook(
                     )
                     .await
                     {
-                        let instruction_id = value_str(&instruction, "id");
-                        let collection_id = value_str(&instruction, "collection_record_id");
-
-                        // Mark payment_instructions as paid
-                        let mut pi_patch = serde_json::Map::new();
-                        pi_patch.insert("status".to_string(), Value::String("paid".to_string()));
-                        let _ = update_row(
-                            pool,
-                            "payment_instructions",
-                            &instruction_id,
-                            &pi_patch,
-                            "id",
-                        )
-                        .await;
-
-                        // Mark collection_record as paid
-                        if !collection_id.is_empty() {
-                            let mut cr_patch = serde_json::Map::new();
-                            cr_patch
-                                .insert("status".to_string(), Value::String("paid".to_string()));
-                            cr_patch.insert(
-                                "paid_at".to_string(),
-                                Value::String(Utc::now().to_rfc3339()),
-                            );
-                            cr_patch.insert(
-                                "payment_method".to_string(),
-                                Value::String("card".to_string()),
-                            );
-                            cr_patch.insert(
-                                "payment_reference".to_string(),
-                                Value::String(format!("stripe:{session_id}")),
-                            );
-                            let _ = update_row(
-                                pool,
-                                "collection_records",
-                                &collection_id,
-                                &cr_patch,
-                                "id",
-                            )
-                            .await;
-                        }
-
-                        // Queue WhatsApp receipt notification to tenant
-                        let tenant_phone = value_str(&instruction, "tenant_phone_e164");
-                        let org_id = value_str(&instruction, "organization_id");
                         let amount = instruction
                             .as_object()
                             .and_then(|o| o.get("amount"))
                             .and_then(|v| v.as_f64())
                             .unwrap_or(0.0);
-                        let currency = value_str(&instruction, "currency");
-                        let amount_display = if currency == "PYG" {
-                            format!("₲{}", amount as i64)
-                        } else {
-                            format!("${:.2}", amount)
-                        };
 
-                        if !tenant_phone.is_empty() && !org_id.is_empty() {
-                            let body = format!(
-                                "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {reference_code}) ha sido procesado exitosamente.\n\n— Casaora"
-                            );
-                            let mut msg = serde_json::Map::new();
-                            msg.insert("organization_id".to_string(), Value::String(org_id));
-                            msg.insert(
-                                "channel".to_string(),
-                                Value::String("whatsapp".to_string()),
-                            );
-                            msg.insert("recipient".to_string(), Value::String(tenant_phone));
-                            msg.insert("status".to_string(), Value::String("queued".to_string()));
-                            msg.insert(
-                                "direction".to_string(),
-                                Value::String("outbound".to_string()),
-                            );
-                            let mut pl = serde_json::Map::new();
-                            pl.insert("body".to_string(), Value::String(body));
-                            msg.insert("payload".to_string(), Value::Object(pl));
-                            let _ = create_row(pool, "message_logs", &msg).await;
-                        }
+                        // Reconcile payment (handles exact, partial, overpayment)
+                        reconciliation::reconcile_payment(
+                            pool,
+                            &instruction,
+                            amount,
+                            "card",
+                            &format!("stripe:{session_id}"),
+                            state.config.workflow_engine_mode,
+                        )
+                        .await;
+
+                        // Queue WhatsApp receipt
+                        reconciliation::queue_payment_receipt(pool, &instruction, amount).await;
                     }
                 }
             }
@@ -670,7 +635,7 @@ async fn mercado_pago_webhook(
     .await
     .unwrap_or_default();
 
-    for (org_id, access_token) in &org_rows {
+    for (_org_id, access_token) in &org_rows {
         if access_token.is_empty() {
             continue;
         }
@@ -708,85 +673,30 @@ async fn mercado_pago_webhook(
         )
         .await
         {
-            let instruction_id = value_str(&instruction, "id");
-            let collection_id = value_str(&instruction, "collection_record_id");
+            let mp_amount = payment_info
+                .get("transaction_amount")
+                .and_then(|v| v.as_f64())
+                .or_else(|| {
+                    instruction
+                        .as_object()
+                        .and_then(|o| o.get("amount"))
+                        .and_then(|v| v.as_f64())
+                })
+                .unwrap_or(0.0);
 
-            // Mark payment instruction as paid
-            let mut pi_patch = serde_json::Map::new();
-            pi_patch.insert("status".to_string(), Value::String("paid".to_string()));
-            let _ = update_row(
+            // Reconcile payment (handles exact, partial, overpayment)
+            reconciliation::reconcile_payment(
                 pool,
-                "payment_instructions",
-                &instruction_id,
-                &pi_patch,
-                "id",
+                &instruction,
+                mp_amount,
+                "mercado_pago",
+                &format!("mp:{payment_id_str}"),
+                state.config.workflow_engine_mode,
             )
             .await;
 
-            // Mark collection record as paid
-            if !collection_id.is_empty() {
-                let mut cr_patch = serde_json::Map::new();
-                cr_patch.insert("status".to_string(), Value::String("paid".to_string()));
-                cr_patch.insert(
-                    "paid_at".to_string(),
-                    Value::String(Utc::now().to_rfc3339()),
-                );
-                cr_patch.insert(
-                    "payment_method".to_string(),
-                    Value::String("mercado_pago".to_string()),
-                );
-                cr_patch.insert(
-                    "payment_reference".to_string(),
-                    Value::String(format!("mp:{payment_id_str}")),
-                );
-                let _ = update_row(
-                    pool,
-                    "collection_records",
-                    &collection_id,
-                    &cr_patch,
-                    "id",
-                )
-                .await;
-            }
-
             // Queue WhatsApp receipt
-            let tenant_phone = value_str(&instruction, "tenant_phone_e164");
-            let amount = instruction
-                .as_object()
-                .and_then(|o| o.get("amount"))
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
-            let currency = value_str(&instruction, "currency");
-            let amount_display = if currency == "PYG" {
-                format!("₲{}", amount as i64)
-            } else {
-                format!("${:.2}", amount)
-            };
-
-            if !tenant_phone.is_empty() {
-                let body = format!(
-                    "✅ Pago recibido\n\nTu pago de {amount_display} (ref: {external_ref}) via Mercado Pago ha sido procesado exitosamente.\n\n— Casaora"
-                );
-                let mut msg = serde_json::Map::new();
-                msg.insert(
-                    "organization_id".to_string(),
-                    Value::String(org_id.clone()),
-                );
-                msg.insert(
-                    "channel".to_string(),
-                    Value::String("whatsapp".to_string()),
-                );
-                msg.insert("recipient".to_string(), Value::String(tenant_phone));
-                msg.insert("status".to_string(), Value::String("queued".to_string()));
-                msg.insert(
-                    "direction".to_string(),
-                    Value::String("outbound".to_string()),
-                );
-                let mut pl = serde_json::Map::new();
-                pl.insert("body".to_string(), Value::String(body));
-                msg.insert("payload".to_string(), Value::Object(pl));
-                let _ = create_row(pool, "message_logs", &msg).await;
-            }
+            reconciliation::queue_payment_receipt(pool, &instruction, mp_amount).await;
 
             break;
         }

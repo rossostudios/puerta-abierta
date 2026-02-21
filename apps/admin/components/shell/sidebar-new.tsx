@@ -66,7 +66,7 @@ function SidebarContent({
       </div>
 
       <div className="px-3 pb-2">
-        <div className="flex items-center gap-1 rounded-xl bg-sidebar-accent/20 p-1">
+        <div className="flex items-center gap-1 rounded-xl bg-white/35 p-1 ring-1 ring-white/40 ring-inset dark:bg-white/[0.06] dark:ring-white/[0.06]">
           <div className="flex min-w-0 flex-1 items-center gap-0.5">
             {PRIMARY_TABS.map((tab) => {
               const active = tab.key === activeTab;
@@ -76,8 +76,8 @@ function SidebarContent({
                   className={cn(
                     "inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium text-[12px] transition-all duration-200",
                     active
-                      ? "bg-sidebar-primary/10 text-sidebar-primary shadow-sm ring-1 ring-sidebar-primary/20 ring-inset"
-                      : "text-sidebar-foreground/50 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                      ? "bg-white/60 text-sidebar-primary shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
+                      : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
                   )}
                   href={tab.href}
                   key={tab.key}
@@ -111,7 +111,7 @@ function SidebarContent({
               <TooltipTrigger asChild>
                 <button
                   aria-label={isEn ? "Search" : "Buscar"}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent/40 hover:text-sidebar-foreground"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
                   onClick={openSearch}
                   type="button"
                 >
@@ -153,7 +153,7 @@ function SidebarContent({
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
         <Link
-          className="group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-sidebar-border/50 bg-sidebar-accent/30 px-3 font-medium text-[13px] text-sidebar-foreground shadow-sm transition-all duration-300 hover:border-sidebar-border/80 hover:bg-sidebar-accent hover:shadow"
+          className="glass-inner group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full px-3 font-medium text-[13px] text-sidebar-foreground/80 transition-all duration-300 hover:bg-white/70 hover:text-sidebar-foreground hover:shadow-sm dark:hover:bg-white/10"
           href="/app/agents?new=1"
         >
           <Icon
@@ -161,7 +161,7 @@ function SidebarContent({
             icon={AiVoiceGeneratorIcon}
             size={14}
           />
-          {isEn ? "New chat" : "Nuevo chat"}
+          {isEn ? "Ask Agent" : "Preguntar al agente"}
         </Link>
         <SidebarAccount collapsed={false} locale={locale} orgId={orgId} />
       </div>
@@ -190,7 +190,7 @@ export function SidebarNew({
 
   if (isDesktop) {
     return (
-      <aside className="h-full w-full min-w-0 shrink-0 bg-sidebar text-sidebar-foreground">
+      <aside className="glass-sidebar h-full w-full min-w-0 shrink-0 text-sidebar-foreground">
         <Suspense fallback={null}>
           <SidebarContent
             locale={locale}
@@ -212,7 +212,7 @@ export function SidebarNew({
       open={isMobileDrawerOpen}
       side="left"
     >
-      <div className="h-full bg-sidebar text-sidebar-foreground">
+      <div className="h-full text-sidebar-foreground">
         <Suspense fallback={null}>
           <SidebarContent
             locale={locale}

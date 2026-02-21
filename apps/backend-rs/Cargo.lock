@@ -179,6 +179,7 @@ dependencies = [
  "chrono-tz",
  "dotenvy",
  "futures-core",
+ "hmac",
  "http",
  "jsonwebtoken",
  "reqwest",

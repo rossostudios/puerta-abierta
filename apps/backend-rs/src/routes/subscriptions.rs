@@ -31,6 +31,10 @@ pub fn router() -> axum::Router<AppState> {
             "/public/subscription-plans",
             axum::routing::get(list_public_plans),
         )
+        .route(
+            "/billing/usage",
+            axum::routing::get(get_usage_summary),
+        )
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -369,6 +373,20 @@ async fn cancel_subscription(
     .await;
 
     Ok(Json(json!({ "subscription": updated })))
+}
+
+/// Get usage summary for the current billing period.
+async fn get_usage_summary(
+    State(state): State<AppState>,
+    Query(query): Query<BillingOrgQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let summary = crate::services::metering::get_usage_summary(pool, &query.org_id).await;
+    Ok(Json(summary))
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {

@@ -11,24 +11,10 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { ReviewsManager } from "./reviews-manager";
+import type { ReviewRow } from "./reviews-types";
 
 type PageProps = {
   searchParams: Promise<Record<string, string>>;
-};
-
-type ReviewRow = {
-  id: string;
-  guest_name?: string | null;
-  platform: string;
-  rating?: number | null;
-  review_text?: string | null;
-  response_text?: string | null;
-  response_status: string;
-  ai_suggested_response?: string | null;
-  responded_at?: string | null;
-  review_date?: string | null;
-  property_name?: string | null;
-  created_at?: string | null;
 };
 
 export default async function ReviewsPage({}: PageProps) {

@@ -127,7 +127,7 @@ function useShellHotkeys(locale: Locale) {
         showTrigger={false}
       />
       {gPressed && (
-        <div className="fade-in pointer-events-none fixed bottom-4 left-4 z-50 animate-in rounded-lg border border-border/80 bg-popover/95 px-3 py-1.5 font-mono text-foreground text-sm shadow-lg backdrop-blur">
+        <div className="glass-float fade-in pointer-events-none fixed bottom-4 left-4 z-50 animate-in rounded-lg px-3 py-1.5 font-mono text-foreground text-sm">
           G…
         </div>
       )}
@@ -224,14 +224,14 @@ function AdminShellV2({
 
   const contentColumn = (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <Topbar
-        isNavOpen={isNavOpen}
-        locale={locale}
-        onNavToggle={onNavToggle}
-        showNavToggle={showNavToggle}
-      />
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ScrollArea className="flex-1">
+          <Topbar
+            isNavOpen={isNavOpen}
+            locale={locale}
+            onNavToggle={onNavToggle}
+            showNavToggle={showNavToggle}
+          />
           <div className="mx-auto w-full max-w-screen-2xl p-3 sm:p-4 lg:p-5 xl:p-7">
             {children}
           </div>

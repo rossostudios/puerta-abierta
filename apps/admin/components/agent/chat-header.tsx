@@ -66,10 +66,8 @@ export function ChatHeader({
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 flex shrink-0 items-center justify-between border-b px-4 py-2.5 backdrop-blur",
-        isEmbedded
-          ? "bg-card/95"
-          : "bg-background/95 supports-[backdrop-filter]:bg-background/60"
+        "glass-chrome sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-2.5",
+        isEmbedded && "bg-card/95"
       )}
     >
       <div className="flex w-full items-center justify-between gap-3">

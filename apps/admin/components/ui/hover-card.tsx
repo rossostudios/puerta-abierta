@@ -357,7 +357,7 @@ export const HoverCardContent = forwardRef<
       // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Floating surfaces need hover/focus listeners.
       <div
         className={cn(
-          "z-50 w-80 rounded-lg border bg-popover p-3 text-popover-foreground shadow-lg outline-none",
+          "glass-float z-50 w-80 rounded-lg p-3 text-popover-foreground outline-none",
           className
         )}
         onBlur={() => scheduleClose()}

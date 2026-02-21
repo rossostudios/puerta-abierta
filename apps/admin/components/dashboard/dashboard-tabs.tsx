@@ -23,48 +23,46 @@ export function DashboardTabs({
 
   return (
     <div className="space-y-6">
-      <div className="border-border/60 border-b">
-        <nav aria-label="Tabs" className="-mb-px flex space-x-8">
-          <button
-            aria-current={tab === "overview" ? "page" : undefined}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm transition-colors",
-              tab === "overview"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border/80 hover:text-foreground/80"
-            )}
-            onClick={() => setTab("overview")}
-            type="button"
-          >
-            {isEn ? "Overview" : "Resumen"}
-          </button>
-          <button
-            aria-current={tab === "financials" ? "page" : undefined}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm transition-colors",
-              tab === "financials"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border/80 hover:text-foreground/80"
-            )}
-            onClick={() => setTab("financials")}
-            type="button"
-          >
-            {isEn ? "Financials" : "Finanzas"}
-          </button>
-          <button
-            aria-current={tab === "operations" ? "page" : undefined}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-1 py-4 font-medium text-sm transition-colors",
-              tab === "operations"
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border/80 hover:text-foreground/80"
-            )}
-            onClick={() => setTab("operations")}
-            type="button"
-          >
-            {isEn ? "Operations" : "Operaciones"}
-          </button>
-        </nav>
+      <div className="inline-flex items-center gap-0.5 rounded-xl bg-muted/40 p-1 ring-1 ring-border/20 ring-inset">
+        <button
+          aria-current={tab === "overview" ? "page" : undefined}
+          className={cn(
+            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
+            tab === "overview"
+              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
+              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
+          )}
+          onClick={() => setTab("overview")}
+          type="button"
+        >
+          {isEn ? "Overview" : "Resumen"}
+        </button>
+        <button
+          aria-current={tab === "financials" ? "page" : undefined}
+          className={cn(
+            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
+            tab === "financials"
+              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
+              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
+          )}
+          onClick={() => setTab("financials")}
+          type="button"
+        >
+          {isEn ? "Financials" : "Finanzas"}
+        </button>
+        <button
+          aria-current={tab === "operations" ? "page" : undefined}
+          className={cn(
+            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
+            tab === "operations"
+              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
+              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
+          )}
+          onClick={() => setTab("operations")}
+          type="button"
+        >
+          {isEn ? "Operations" : "Operaciones"}
+        </button>
       </div>
 
       <div className="min-h-[400px] outline-none">

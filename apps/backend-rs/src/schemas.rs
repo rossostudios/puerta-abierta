@@ -3,7 +3,6 @@ use validator::Validate;
 
 use crate::error::AppError;
 
-#[allow(dead_code)]
 pub fn validate_input<T: Validate>(input: &T) -> Result<(), AppError> {
     input
         .validate()

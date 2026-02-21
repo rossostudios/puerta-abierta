@@ -110,6 +110,18 @@ pub async fn process_queued_messages(
                     patch.insert("provider_response".to_string(), resp);
                 }
                 sent += 1;
+
+                // Record usage event for metering
+                let org_id_for_meter = val_str(&msg, "organization_id");
+                if !org_id_for_meter.is_empty() {
+                    crate::services::metering::record_usage_event(
+                        pool,
+                        &org_id_for_meter,
+                        "message_sent",
+                        1,
+                    )
+                    .await;
+                }
             }
             Err(err_msg) => {
                 patch.insert("status".to_string(), Value::String("failed".to_string()));

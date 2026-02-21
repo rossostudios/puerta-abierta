@@ -101,7 +101,7 @@ export function PortfolioSidebar({
         </Card>
 
         <div className="grid grid-cols-2 gap-3">
-          <Card className="border-border/60 bg-card/50 shadow-sm transition-colors hover:bg-card">
+          <Card className="transition-colors">
             <CardContent className="space-y-1 p-3">
               <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
                 {isEn ? "Occupancy" : "Ocupación"}
@@ -111,7 +111,7 @@ export function PortfolioSidebar({
               </div>
             </CardContent>
           </Card>
-          <Card className="border-border/60 bg-card/50 shadow-sm transition-colors hover:bg-card">
+          <Card className="transition-colors">
             <CardContent className="space-y-1 p-3">
               <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
                 {isEn ? "Avg. Rent" : "Alquiler Prom."}
@@ -146,7 +146,7 @@ export function PortfolioSidebar({
         ) : null}
 
         {totalVacantUnits > 0 ? (
-          <Card className="border-border/60 bg-card/50 shadow-sm">
+          <Card>
             <CardContent className="space-y-1 p-3">
               <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
                 {isEn ? "Vacancy Cost" : "Costo de Vacancia"}

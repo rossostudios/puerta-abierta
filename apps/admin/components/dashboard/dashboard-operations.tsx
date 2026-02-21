@@ -24,7 +24,7 @@ export function DashboardOperations({
   return (
     <section
       aria-label={isEn ? "Operations" : "Operaciones"}
-      className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5"
+      className="glass-surface rounded-3xl p-4 sm:p-5"
     >
       <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
         {isEn ? "Operations" : "Operaciones"}

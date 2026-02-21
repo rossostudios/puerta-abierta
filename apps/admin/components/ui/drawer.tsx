@@ -49,9 +49,9 @@ export function Drawer({
         <BaseDialog.Popup
           className={(state) =>
             cn(
-              "fixed inset-y-0 z-50 flex h-full w-[min(86vw,320px)] flex-col border-sidebar-border/70 bg-sidebar shadow-[var(--shadow-floating)]",
+              "glass-sidebar fixed inset-y-0 z-50 flex h-full w-[min(86vw,320px)] flex-col",
               "transition-transform duration-[180ms] ease-[var(--shell-ease)] motion-reduce:transition-none",
-              side === "left" ? "left-0 border-r" : "right-0 border-l",
+              side === "left" ? "left-0" : "right-0",
               side === "left"
                 ? state.open
                   ? "translate-x-0"

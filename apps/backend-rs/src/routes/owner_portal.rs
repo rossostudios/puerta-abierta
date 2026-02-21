@@ -34,6 +34,14 @@ pub fn router() -> axum::Router<AppState> {
             "/owner/reservations",
             axum::routing::get(owner_reservations),
         )
+        .route(
+            "/owner/payout-history",
+            axum::routing::get(owner_payout_history),
+        )
+        .route(
+            "/owner/property-performance",
+            axum::routing::get(owner_property_performance),
+        )
 }
 
 #[derive(Debug, Deserialize)]
@@ -399,6 +407,20 @@ async fn owner_dashboard(
         })
         .collect();
 
+    // YTD net payout from finalized statements
+    let year_start = format!("{}-01-01", today.format("%Y"));
+    let ytd_net_payout: f64 = statements
+        .iter()
+        .filter(|s| val_str(s, "status") == "finalized")
+        .filter(|s| val_str(s, "period_start") >= year_start)
+        .map(|s| val_f64(s, "net_payout"))
+        .sum();
+
+    let finalized_count = statements
+        .iter()
+        .filter(|s| val_str(s, "status") == "finalized")
+        .count();
+
     Ok(Json(json!({
         "organization": org,
         "summary": {
@@ -409,6 +431,8 @@ async fn owner_dashboard(
             "occupancy_rate": (occupancy_rate * 10.0).round() / 10.0,
             "total_collected": total_collected,
             "pending_statements": pending_statements.len(),
+            "finalized_statements": finalized_count,
+            "ytd_net_payout": ytd_net_payout,
         },
         "revenue_by_month": revenue_by_month_arr,
         "revenue_by_property": revenue_by_property_arr,
@@ -569,6 +593,149 @@ async fn owner_reservations(
     .await?;
 
     Ok(Json(json!({ "data": rows })))
+}
+
+/// List finalized owner statements with payout amounts.
+async fn owner_payout_history(
+    State(state): State<AppState>,
+    Query(query): Query<OwnerListQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, org_id) = require_owner(&state, &headers).await?;
+
+    let rows: Vec<Value> = sqlx::query_as::<_, (Value,)>(
+        "SELECT row_to_json(os.*)
+         FROM owner_statements os
+         WHERE os.organization_id = $1::uuid
+           AND os.status = 'finalized'
+         ORDER BY os.period_end DESC
+         LIMIT $2",
+    )
+    .bind(&org_id)
+    .bind(clamp_limit_in_range(query.limit, 1, 500))
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|(v,)| v)
+    .collect();
+
+    let total_payout: f64 = rows.iter().map(|s| val_f64(s, "net_payout")).sum();
+
+    Ok(Json(json!({
+        "data": rows,
+        "total_payout": total_payout,
+    })))
+}
+
+/// Per-property performance: occupancy %, ADR, RevPAR.
+async fn owner_property_performance(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, org_id) = require_owner(&state, &headers).await?;
+
+    let today = Utc::now().date_naive();
+    let period_start = today - chrono::Duration::days(365);
+
+    // Load properties
+    let mut prop_filters = Map::new();
+    prop_filters.insert("organization_id".to_string(), Value::String(org_id.clone()));
+    let properties = list_rows(pool, "properties", Some(&prop_filters), 500, 0, "name", true)
+        .await?;
+
+    // Load units to count per property
+    let units = list_rows(pool, "units", Some(&prop_filters), 2000, 0, "created_at", false)
+        .await?;
+
+    // Load reservations for the period
+    let reservations: Vec<Value> = sqlx::query_as::<_, (Value,)>(
+        "SELECT row_to_json(r.*)
+         FROM reservations r
+         WHERE r.organization_id = $1::uuid
+           AND r.status IN ('confirmed', 'checked_in', 'checked_out')
+           AND r.check_in_date >= $2
+         ORDER BY r.check_in_date",
+    )
+    .bind(&org_id)
+    .bind(period_start.to_string())
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|(v,)| v)
+    .collect();
+
+    let total_days = (today - period_start).num_days().max(1) as f64;
+
+    let mut performance: Vec<Value> = Vec::new();
+    for property in &properties {
+        let pid = val_str(property, "id");
+        let pname = val_str(property, "name");
+
+        let unit_count = units
+            .iter()
+            .filter(|u| val_str(u, "property_id") == pid)
+            .count() as f64;
+        if unit_count == 0.0 {
+            continue;
+        }
+
+        let prop_reservations: Vec<&Value> = reservations
+            .iter()
+            .filter(|r| val_str(r, "property_id") == pid)
+            .collect();
+
+        // Calculate occupied nights
+        let mut occupied_nights: f64 = 0.0;
+        let mut total_revenue: f64 = 0.0;
+        for r in &prop_reservations {
+            let ci = val_str(r, "check_in_date");
+            let co = val_str(r, "check_out_date");
+            if let (Ok(ci_d), Ok(co_d)) = (
+                NaiveDate::parse_from_str(&ci, "%Y-%m-%d"),
+                NaiveDate::parse_from_str(&co, "%Y-%m-%d"),
+            ) {
+                let nights = (co_d - ci_d).num_days().max(0) as f64;
+                occupied_nights += nights;
+                total_revenue += val_f64(r, "total_amount");
+            }
+        }
+
+        let available_nights = unit_count * total_days;
+        let occupancy_pct = if available_nights > 0.0 {
+            (occupied_nights / available_nights * 100.0 * 10.0).round() / 10.0
+        } else {
+            0.0
+        };
+
+        let adr = if occupied_nights > 0.0 {
+            (total_revenue / occupied_nights * 100.0).round() / 100.0
+        } else {
+            0.0
+        };
+
+        let revpar = if available_nights > 0.0 {
+            (total_revenue / available_nights * 100.0).round() / 100.0
+        } else {
+            0.0
+        };
+
+        performance.push(json!({
+            "property_id": pid,
+            "property_name": pname,
+            "unit_count": unit_count,
+            "occupied_nights": occupied_nights,
+            "available_nights": available_nights,
+            "occupancy_pct": occupancy_pct,
+            "adr": adr,
+            "revpar": revpar,
+            "total_revenue": total_revenue,
+            "reservations": prop_reservations.len(),
+        }));
+    }
+
+    Ok(Json(json!({ "data": performance })))
 }
 
 /// Authenticate an owner from the x-owner-token header.

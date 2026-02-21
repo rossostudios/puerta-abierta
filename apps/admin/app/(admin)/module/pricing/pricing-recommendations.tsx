@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { authedFetch } from "@/lib/api-client";
 
 type Recommendation = {
@@ -62,8 +63,8 @@ export function PricingRecommendations({
           body: JSON.stringify({ org_id: orgId, status: action }),
         });
         setRecommendations((prev) => prev.filter((r) => r.id !== id));
-      } catch (err) {
-        console.error("Failed to update recommendation:", err);
+      } catch {
+        toast.error("Failed to update recommendation");
       } finally {
         setUpdating(null);
       }

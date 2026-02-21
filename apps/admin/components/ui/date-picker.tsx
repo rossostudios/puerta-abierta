@@ -139,7 +139,7 @@ export function DatePicker({
             <BasePopover.Popup
               className={(state) =>
                 cn(
-                  "z-50 w-[min(92vw,18rem)] rounded-2xl border border-border/85 bg-popover p-3 text-popover-foreground shadow-[var(--shadow-soft)]",
+                  "glass-float z-50 w-[min(92vw,18rem)] rounded-2xl p-3 text-popover-foreground",
                   "transition-[opacity,transform] duration-[140ms] ease-[var(--shell-ease)] motion-reduce:transition-none",
                   state.open
                     ? "translate-y-0 opacity-100"

@@ -21,7 +21,7 @@ export function DashboardHeader({
   isEn,
 }: DashboardHeaderProps) {
   return (
-    <header className="flex flex-col gap-4 rounded-3xl border border-border/80 bg-card/98 p-5 md:flex-row md:items-center md:justify-between">
+    <header className="glass-surface flex flex-col gap-4 rounded-3xl p-5 md:flex-row md:items-center md:justify-between">
       <div>
         <h1 className="font-semibold text-2xl">{greetingTitle}</h1>
         <p className="text-muted-foreground/90 text-sm">{subtitle}</p>

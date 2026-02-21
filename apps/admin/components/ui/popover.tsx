@@ -32,7 +32,7 @@ function PopoverContent({
       <BasePopover.Positioner align={align} side={side} sideOffset={sideOffset}>
         <BasePopover.Popup
           className={cn(
-            "z-50 min-w-[220px] rounded-xl border border-border/80 bg-popover p-1 text-popover-foreground shadow-lg outline-none",
+            "glass-float z-50 min-w-[220px] rounded-xl p-1 text-popover-foreground outline-none",
             "fade-in-0 zoom-in-95 animate-in",
             className
           )}

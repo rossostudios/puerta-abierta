@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use reqwest::Client;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -31,6 +33,7 @@ pub async fn embed_text(
         .post(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .json(&payload)
+        .timeout(Duration::from_secs(30))
         .send()
         .await
         .map_err(|e| format!("Embedding request failed: {e}"))?;

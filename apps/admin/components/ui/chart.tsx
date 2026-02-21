@@ -133,7 +133,7 @@ export function ChartTooltipContent({
     : (label as ReactNode);
 
   return (
-    <div className="grid min-w-[200px] gap-2 rounded-lg border bg-popover px-3 py-2 text-popover-foreground shadow-md">
+    <div className="glass-float grid min-w-[200px] gap-2 rounded-lg px-3 py-2 text-popover-foreground">
       {header ? (
         <div className="font-medium text-muted-foreground text-xs">
           {header}

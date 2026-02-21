@@ -41,7 +41,7 @@ export function ChatEmptyState({
           {quickPrompts.slice(0, 3).map((prompt) => (
             <button
               className={cn(
-                "group relative w-full rounded-xl border border-border/60 bg-card/80 px-4 py-3 text-left text-sm transition-all",
+                "glass-inner group relative w-full rounded-xl px-4 py-3 text-left text-sm transition-all",
                 "hover:border-[var(--sidebar-primary)]/40 hover:bg-[var(--sidebar-primary)]/5 hover:shadow-sm",
                 "disabled:cursor-not-allowed disabled:opacity-50"
               )}

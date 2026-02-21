@@ -44,12 +44,17 @@ export function DesktopResizableShell({
 }: DesktopResizableShellProps) {
   return (
     <div
-      className="h-full min-h-0 w-full overflow-hidden bg-[var(--sidebar)]"
+      className="relative h-full min-h-0 w-full overflow-hidden bg-[var(--background)]"
       data-nav-open={!sidebarCollapsed}
       data-shell-mode={viewportMode}
     >
+      {/* Ambient color fields — the liquid glass sidebar refracts these */}
+      <div className="pointer-events-none absolute -left-[6%] -top-[8%] z-0 h-[45%] w-[28%] rounded-full bg-sidebar-primary/[0.14] blur-[100px]" />
+      <div className="pointer-events-none absolute bottom-[5%] left-[2%] z-0 h-[35%] w-[22%] rounded-full bg-indigo-500/[0.08] blur-[100px]" />
+      <div className="pointer-events-none absolute top-[30%] -left-[4%] z-0 h-[25%] w-[18%] rounded-full bg-cyan-400/[0.06] blur-[80px]" />
+
       <ResizablePanelGroup
-        className="h-full min-h-0 w-full overflow-hidden"
+        className="relative z-10 h-full min-h-0 w-full overflow-hidden"
         orientation="horizontal"
       >
         <ResizablePanel
@@ -74,7 +79,7 @@ export function DesktopResizableShell({
         </ResizablePanel>
         <ResizableHandle className="w-0 after:hidden" />
         <ResizablePanel
-          className="min-h-0 min-w-0 overflow-hidden rounded-l-[20px] bg-[var(--shell-surface)]"
+          className="min-h-0 min-w-0 overflow-hidden bg-[var(--shell-surface)]"
           minSize="50%"
         >
           {contentColumn}

@@ -8,7 +8,7 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-border/80 bg-background text-foreground",
+        default: "glass-surface text-foreground",
         info: "status-tone-info [&>svg]:text-[var(--status-info-fg)]",
         success: "status-tone-success [&>svg]:text-[var(--status-success-fg)]",
         warning: "status-tone-warning [&>svg]:text-[var(--status-warning-fg)]",

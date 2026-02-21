@@ -26,7 +26,7 @@ const TableHeader = forwardRef<
 >(({ className, ...props }, ref) => (
   <thead
     className={cn(
-      "bg-muted/35 [&_tr]:border-border/75 [&_tr]:border-b",
+      "bg-white/30 dark:bg-white/[0.04] [&_tr]:border-border/75 [&_tr]:border-b",
       className
     )}
     ref={ref}
@@ -53,7 +53,7 @@ const TableFooter = forwardRef<
 >(({ className, ...props }, ref) => (
   <tfoot
     className={cn(
-      "border-t bg-muted/30 text-muted-foreground text-xs",
+      "border-t bg-white/25 dark:bg-white/[0.03] text-muted-foreground text-xs",
       className
     )}
     ref={ref}

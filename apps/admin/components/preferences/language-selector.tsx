@@ -145,7 +145,7 @@ export function LanguageSelector({ className }: LanguageSelectorProps) {
           <BasePopover.Popup
             className={(state) =>
               cn(
-                "z-50 w-[min(90vw,16rem)] rounded-2xl border border-border/85 bg-popover/98 p-2 shadow-[var(--shadow-soft)]",
+                "glass-float z-50 w-[min(90vw,16rem)] rounded-2xl p-2",
                 "transition-[opacity,transform] duration-150 ease-[var(--shell-ease)] motion-reduce:transition-none",
                 state.open
                   ? "translate-y-0 opacity-100"

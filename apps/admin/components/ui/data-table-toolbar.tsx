@@ -66,7 +66,7 @@ export function DataTableToolbar<TRow extends DataTableRow>({
         >
           {isEn ? "Columns" : "Columnas"}
         </summary>
-        <div className="absolute right-0 z-20 mt-2 w-64 rounded-md border bg-popover p-2 shadow-md">
+        <div className="glass-float absolute right-0 z-20 mt-2 w-64 rounded-xl p-2">
           <p className="px-2 pb-1 font-medium text-muted-foreground text-xs">
             {isEn ? "Show/hide columns" : "Mostrar/ocultar columnas"}
           </p>

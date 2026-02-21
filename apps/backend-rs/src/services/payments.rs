@@ -1,7 +1,11 @@
+use hmac::{Hmac, Mac};
 use reqwest::Client;
 use serde_json::{json, Value};
+use sha2::Sha256;
 
 use crate::config::AppConfig;
+
+type HmacSha256 = Hmac<Sha256>;
 
 /// Create a Stripe Checkout Session for a payment instruction.
 pub async fn create_stripe_checkout_session(
@@ -90,15 +94,71 @@ pub async fn create_stripe_checkout_session(
     }
 }
 
-/// Verify a Stripe webhook signature (simplified — uses raw body + timing-safe compare).
-/// In production, use the `stripe` crate or a proper HMAC-SHA256 verification.
-#[allow(dead_code)]
+/// Verify a Stripe webhook signature using HMAC-SHA256.
+///
+/// Parses the `Stripe-Signature` header (format: `t=<timestamp>,v1=<signature>`),
+/// constructs the signed payload `<timestamp>.<body>`, computes HMAC-SHA256
+/// with the webhook secret, and uses constant-time comparison.
+/// Rejects signatures older than 5 minutes to prevent replay attacks.
 pub fn verify_stripe_signature(
-    _payload: &str,
-    _signature_header: &str,
-    _webhook_secret: &str,
+    payload: &str,
+    signature_header: &str,
+    webhook_secret: &str,
 ) -> bool {
-    // For now, accept all webhooks if a secret is configured.
-    // TODO: Implement proper Stripe signature verification with HMAC-SHA256.
-    true
+    const TOLERANCE_SECS: i64 = 300; // 5 minutes
+
+    let mut timestamp: Option<&str> = None;
+    let mut signature: Option<&str> = None;
+
+    for part in signature_header.split(',') {
+        let part = part.trim();
+        if let Some(t) = part.strip_prefix("t=") {
+            timestamp = Some(t);
+        } else if let Some(v1) = part.strip_prefix("v1=") {
+            signature = Some(v1);
+        }
+    }
+
+    let (Some(ts_str), Some(expected_hex)) = (timestamp, signature) else {
+        return false;
+    };
+
+    let Ok(ts) = ts_str.parse::<i64>() else {
+        return false;
+    };
+
+    // Reject stale signatures
+    let now = chrono::Utc::now().timestamp();
+    if (now - ts).abs() > TOLERANCE_SECS {
+        tracing::warn!(
+            "Stripe webhook signature too old: delta={}s",
+            (now - ts).abs()
+        );
+        return false;
+    }
+
+    let signed_payload = format!("{ts_str}.{payload}");
+
+    let Ok(mut mac) = HmacSha256::new_from_slice(webhook_secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(signed_payload.as_bytes());
+
+    // Decode expected hex to bytes
+    let Ok(expected_bytes) = hex_decode(expected_hex) else {
+        return false;
+    };
+
+    mac.verify_slice(&expected_bytes).is_ok()
+}
+
+/// Decode a hex string into bytes.
+fn hex_decode(hex: &str) -> Result<Vec<u8>, ()> {
+    if hex.len() % 2 != 0 {
+        return Err(());
+    }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| ()))
+        .collect()
 }

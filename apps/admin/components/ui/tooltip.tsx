@@ -60,7 +60,7 @@ const TooltipContent = forwardRef<HTMLDivElement, TooltipContentProps>(
           <BaseTooltip.Popup
             className={(state) =>
               cn(
-                "z-50 rounded-xl border border-border/80 bg-popover/98 px-2.5 py-1.5 font-medium text-[11px] text-popover-foreground shadow-lg",
+                "glass-float z-50 rounded-xl px-2.5 py-1.5 font-medium text-[11px] text-popover-foreground",
                 "transition-[opacity,transform] duration-[120ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                 state.open
                   ? "translate-y-0 opacity-100"

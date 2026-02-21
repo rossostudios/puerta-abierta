@@ -53,8 +53,8 @@ export function NavLinkRow({
       className={cn(
         "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
-          ? "bg-[var(--shell-active)] text-sidebar-foreground"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+          ? "bg-white/50 text-sidebar-foreground font-semibold shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.6)] dark:bg-white/[0.08] dark:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.06)]"
+          : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
       )}
       href={href}
     >
@@ -68,7 +68,7 @@ export function NavLinkRow({
         icon={icon}
         size={16}
       />
-      <span className="truncate font-medium text-[14px] leading-5">
+      <span className="truncate font-medium text-[13px] leading-5">
         {label}
       </span>
       {badge && (

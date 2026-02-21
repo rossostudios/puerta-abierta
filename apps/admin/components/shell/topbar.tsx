@@ -26,7 +26,7 @@ export function Topbar({
   const isEn = locale === "en-US";
 
   return (
-    <header className="border-border/40 border-b bg-background px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
+    <header className="glass-chrome sticky top-0 z-20 px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
       <div className="flex items-center gap-2.5">
         {showNavToggle ? (
           <button

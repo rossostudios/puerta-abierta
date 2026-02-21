@@ -735,7 +735,7 @@ export function ChatThread({
       className={cn(
         "relative flex h-full flex-col",
         isEmbedded
-          ? "min-h-[38rem] overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-[0_24px_60px_-40px_hsl(var(--foreground)/0.65)]"
+          ? "glass-surface min-h-[38rem] overflow-hidden rounded-3xl shadow-[0_24px_60px_-40px_hsl(var(--foreground)/0.65)]"
           : "min-h-[calc(100vh-4rem)] bg-background"
       )}
     >

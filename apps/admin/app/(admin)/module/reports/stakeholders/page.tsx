@@ -23,6 +23,8 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
+import type { PropertySummaryRow } from "./stakeholder-types";
+
 const StakeholderReport = dynamic(() =>
   import("./stakeholder-report").then((m) => m.StakeholderReport)
 );
@@ -42,15 +44,6 @@ type FinanceDashboardData = {
     collection_rate: number;
   }[];
   outstanding_collections?: Record<string, unknown>[];
-};
-
-type PropertySummaryRow = {
-  property_id: string;
-  property_name: string;
-  income: number;
-  expenses: number;
-  net_payout: number;
-  occupancy_rate: number;
 };
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;

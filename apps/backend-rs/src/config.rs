@@ -88,6 +88,9 @@ pub struct AppConfig {
     pub twilio_phone_number: Option<String>,
     pub app_public_url: String,
     pub workflow_engine_mode: WorkflowEngineMode,
+    pub scheduler_enabled: bool,
+    pub ical_sync_interval_minutes: u64,
+    pub workflow_poll_interval_seconds: u64,
 }
 
 impl AppConfig {
@@ -167,6 +170,9 @@ impl AppConfig {
             twilio_phone_number: env_opt("TWILIO_PHONE_NUMBER"),
             app_public_url: env_or("APP_PUBLIC_URL", "http://localhost:3000"),
             workflow_engine_mode: WorkflowEngineMode::from_env(env_opt("WORKFLOW_ENGINE_MODE")),
+            scheduler_enabled: env_parse_bool_or("SCHEDULER_ENABLED", false),
+            ical_sync_interval_minutes: env_parse_or("ICAL_SYNC_INTERVAL_MINUTES", 30),
+            workflow_poll_interval_seconds: env_parse_or("WORKFLOW_POLL_INTERVAL_SECONDS", 300),
         }
     }
 

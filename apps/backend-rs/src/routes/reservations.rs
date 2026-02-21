@@ -420,7 +420,66 @@ async fn transition_status(
         }
     }
 
+    // Trigger immediate iCal re-sync for integrations linked to this unit
+    let unit_id_for_sync = value_str(&updated, "unit_id");
+    if !unit_id_for_sync.is_empty() {
+        let sync_pool = pool.clone();
+        let sync_client = state.http_client.clone();
+        tokio::spawn(async move {
+            trigger_ical_resync_for_unit(&sync_pool, &sync_client, &unit_id_for_sync).await;
+        });
+    }
+
     Ok(Json(updated))
+}
+
+/// Trigger iCal re-sync for all integrations linked to a given unit.
+async fn trigger_ical_resync_for_unit(
+    pool: &sqlx::PgPool,
+    client: &reqwest::Client,
+    unit_id: &str,
+) {
+    // Find integrations that have an ical_import_url and are linked to this unit's listing
+    let integrations: Vec<Value> = sqlx::query_as::<_, (Value,)>(
+        "SELECT row_to_json(i) FROM integrations i
+         JOIN listings l ON l.id = i.listing_id
+         WHERE l.unit_id = $1::uuid
+           AND i.is_active = true
+           AND i.ical_import_url IS NOT NULL
+           AND i.ical_import_url != ''
+         LIMIT 10"
+    )
+    .bind(unit_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|(v,)| v)
+    .collect();
+
+    for integration in &integrations {
+        match crate::services::ical::sync_listing_ical_reservations(
+            pool, client, integration, "system",
+        )
+        .await
+        {
+            Ok(_) => {
+                let integration_id = integration
+                    .as_object()
+                    .and_then(|o| o.get("id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                tracing::debug!(
+                    integration_id,
+                    unit_id,
+                    "iCal re-sync triggered after status change"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, unit_id, "iCal re-sync failed after status change");
+            }
+        }
+    }
 }
 
 async fn has_overlap(
@@ -428,49 +487,33 @@ async fn has_overlap(
     unit_id: &str,
     check_in_date: &str,
     check_out_date: &str,
-    org_id: &str,
+    _org_id: &str,
 ) -> AppResult<bool> {
-    let reservations = list_rows(
-        pool,
-        "reservations",
-        Some(&json_map(&[
-            ("organization_id", Value::String(org_id.to_string())),
-            ("unit_id", Value::String(unit_id.to_string())),
-        ])),
-        1000,
-        0,
-        "created_at",
-        false,
+    // Validate dates parse correctly
+    let _ = parse_date(check_in_date)?;
+    let _ = parse_date(check_out_date)?;
+
+    // Single SQL query using daterange overlap — eliminates TOCTOU race and 1000-row limit.
+    // The DB-level GiST exclusion constraint is the ultimate guard; this gives a friendlier error.
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM reservations
+            WHERE unit_id = $1::uuid
+              AND daterange(check_in_date, check_out_date, '[)') && daterange($2::date, $3::date, '[)')
+              AND status IN ('pending', 'confirmed', 'checked_in')
+        )",
     )
-    .await?;
+    .bind(unit_id)
+    .bind(check_in_date)
+    .bind(check_out_date)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Reservation overlap check failed");
+        AppError::Internal("Failed to check reservation overlap.".to_string())
+    })?;
 
-    let new_start = parse_date(check_in_date)?;
-    let new_end = parse_date(check_out_date)?;
-
-    for reservation in reservations {
-        let Some(obj) = reservation.as_object() else {
-            continue;
-        };
-        let status = value_string(obj.get("status")).unwrap_or_default();
-        if !ACTIVE_BOOKING_STATUSES.contains(&status.as_str()) {
-            continue;
-        }
-
-        let Some(existing_start_raw) = value_string(obj.get("check_in_date")) else {
-            continue;
-        };
-        let Some(existing_end_raw) = value_string(obj.get("check_out_date")) else {
-            continue;
-        };
-        let existing_start = parse_date(&existing_start_raw)?;
-        let existing_end = parse_date(&existing_end_raw)?;
-
-        if !(new_end <= existing_start || new_start >= existing_end) {
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
+    Ok(exists)
 }
 
 async fn sync_turnover_tasks_for_status(

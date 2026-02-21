@@ -1,8 +1,9 @@
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::{header::CONTENT_TYPE, HeaderValue, Response, StatusCode},
+    http::{header::CONTENT_TYPE, HeaderMap, HeaderValue, Response, StatusCode},
 };
+use sha2::{Digest, Sha256};
 use serde_json::Value;
 
 use crate::{
@@ -20,6 +21,7 @@ pub fn router() -> axum::Router<AppState> {
 async fn export_ical(
     State(state): State<AppState>,
     Path(path): Path<IcalPath>,
+    headers: HeaderMap,
 ) -> AppResult<Response<Body>> {
     let raw_token = path.token.trim();
     let token = raw_token.strip_suffix(".ics").unwrap_or(raw_token);
@@ -58,6 +60,31 @@ async fn export_ical(
 
     let ics = build_unit_ical_export(pool, &org_id, &unit_id, calendar_name).await?;
 
+    // Generate ETag from content hash
+    let mut hasher = Sha256::new();
+    hasher.update(ics.as_bytes());
+    let hash = hasher.finalize();
+    let etag = format!(
+        "\"{}\"",
+        hash[..16]
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    );
+
+    // Support If-None-Match for efficient cache validation
+    if let Some(if_none_match) = headers.get("if-none-match").and_then(|v| v.to_str().ok()) {
+        if if_none_match == etag || if_none_match.trim_matches('"') == etag.trim_matches('"') {
+            return Response::builder()
+                .status(StatusCode::NOT_MODIFIED)
+                .body(Body::empty())
+                .map_err(|error| {
+                    tracing::error!(error = %error, "Could not build 304 response");
+                    AppError::Internal("Could not build response.".to_string())
+                });
+        }
+    }
+
     let mut response = Response::builder()
         .status(StatusCode::OK)
         .body(Body::from(ics))
@@ -65,9 +92,17 @@ async fn export_ical(
             tracing::error!(error = %error, "Could not build iCal response");
             AppError::Internal("Could not build iCal response.".to_string())
         })?;
-    response.headers_mut().insert(
+    let headers = response.headers_mut();
+    headers.insert(
         CONTENT_TYPE,
         HeaderValue::from_static("text/calendar; charset=utf-8"),
+    );
+    if let Ok(val) = HeaderValue::from_str(&etag) {
+        headers.insert("etag", val);
+    }
+    headers.insert(
+        "cache-control",
+        HeaderValue::from_static("public, max-age=1800"),
     );
     Ok(response)
 }

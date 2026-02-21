@@ -241,7 +241,7 @@ export function PropertyDashboard({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <section className="space-y-4">
-          <Card className="border-border/80 bg-card/98">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-3">
               <div>
                 <CardTitle className="text-xl">
@@ -420,7 +420,7 @@ export function PropertyDashboard({
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-card/98">
+          <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
                 {isEn ? "Workflow lane" : "Flujo operativo"}
@@ -455,7 +455,7 @@ export function PropertyDashboard({
         </section>
 
         <section className="space-y-4">
-          <Card className="border-border/80 bg-card/98">
+          <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-xl">
@@ -634,7 +634,7 @@ export function PropertyDashboard({
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 bg-card/98">
+          <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="flex items-center gap-2 text-xl">

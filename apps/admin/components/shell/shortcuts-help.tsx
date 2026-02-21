@@ -75,7 +75,7 @@ export function ShortcutsHelp({
       />
       <div className="absolute inset-4 flex items-start justify-center overflow-auto pt-[6vh] pb-8 sm:inset-8">
         <div
-          className="w-full max-w-2xl rounded-2xl border border-border/80 bg-popover/98 shadow-[var(--shadow-floating)]"
+          className="glass-float w-full max-w-2xl rounded-2xl"
           ref={panelRef}
         >
           <div className="flex items-center justify-between border-border/75 border-b px-5 py-4">

@@ -598,6 +598,7 @@ fn value_str(row: &Value, key: &str) -> String {
 // ---------------------------------------------------------------------------
 
 /// Send push notifications to all active push tokens for a list of user IDs.
+#[allow(dead_code)] // Called once workflow-triggered push delivery is wired up
 pub async fn send_push_notifications(
     pool: &sqlx::PgPool,
     http_client: &reqwest::Client,

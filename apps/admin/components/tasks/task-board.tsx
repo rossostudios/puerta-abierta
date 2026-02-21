@@ -48,7 +48,7 @@ export function TaskBoard({
     <section className="grid gap-3 xl:grid-cols-3">
       {boardLanes.map((lane) => (
         <article
-          className="rounded-3xl border border-border/80 bg-card/85 p-3"
+          className="glass-surface rounded-3xl p-3"
           key={lane.key}
         >
           <div className="mb-2 flex items-center justify-between">

@@ -234,7 +234,7 @@ export function GettingStarted({
   }
 
   return (
-    <Card className="relative overflow-hidden border-border/80 bg-card/98 transition-all duration-300 hover:border-border">
+    <Card className="relative overflow-hidden transition-all duration-300">
       <Button
         className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:bg-muted/50"
         onClick={onDismiss}

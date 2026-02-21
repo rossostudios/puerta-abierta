@@ -82,11 +82,11 @@ async fn list_reviews(
 
     let mut bind_idx = 2;
 
-    if let Some(ref status) = query.response_status {
+    if query.response_status.is_some() {
         sql.push_str(&format!(" AND r.response_status = ${bind_idx}"));
         bind_idx += 1;
     }
-    if let Some(ref platform) = query.platform {
+    if query.platform.is_some() {
         sql.push_str(&format!(" AND r.platform = ${bind_idx}"));
         // bind_idx += 1;
     }

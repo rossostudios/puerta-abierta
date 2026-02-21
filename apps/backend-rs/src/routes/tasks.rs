@@ -9,6 +9,7 @@ use serde_json::{json, Map, Value};
 
 use crate::{
     auth::require_user_id,
+    config::WorkflowEngineMode,
     error::{AppError, AppResult},
     repository::table_service::{create_row, delete_row, get_row, list_rows, update_row},
     schemas::{
@@ -89,9 +90,10 @@ async fn list_tasks(
     )
     .await?;
 
+    let engine_mode = state.config.workflow_engine_mode;
     let mut flagged = Vec::with_capacity(rows.len());
     for row in rows {
-        flagged.push(flag_sla_breach(pool, row).await);
+        flagged.push(flag_sla_breach(pool, row, engine_mode).await);
     }
 
     let enriched = enrich_tasks(pool, flagged, &query.org_id).await?;
@@ -144,7 +146,7 @@ async fn get_task(
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
 
-    let flagged = flag_sla_breach(pool, record).await;
+    let flagged = flag_sla_breach(pool, record, state.config.workflow_engine_mode).await;
     let mut enriched = enrich_tasks(pool, vec![flagged], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
@@ -545,7 +547,11 @@ async fn next_sort_order(pool: &sqlx::PgPool, task_id: &str) -> AppResult<i32> {
     Ok(value as i32)
 }
 
-async fn flag_sla_breach(pool: &sqlx::PgPool, task: Value) -> Value {
+async fn flag_sla_breach(
+    pool: &sqlx::PgPool,
+    task: Value,
+    engine_mode: WorkflowEngineMode,
+) -> Value {
     let Some(obj) = task.as_object() else {
         return task;
     };
@@ -575,6 +581,12 @@ async fn flag_sla_breach(pool: &sqlx::PgPool, task: Value) -> Value {
         );
 
         if let Ok(updated) = update_row(pool, "tasks", &task_id, &patch, "id").await {
+            let org_id = value_string(obj.get("organization_id")).unwrap_or_default();
+            if !org_id.is_empty() {
+                let context = build_task_workflow_context(&task_id, &updated);
+                fire_trigger(pool, &org_id, "task_overdue_24h", &context, engine_mode)
+                    .await;
+            }
             return updated;
         }
     }

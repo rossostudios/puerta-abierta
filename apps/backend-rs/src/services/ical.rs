@@ -62,6 +62,8 @@ pub async fn build_unit_ical_export(
         "PRODID:-//Casaora//iCal Export//EN".to_string(),
         "CALSCALE:GREGORIAN".to_string(),
         "METHOD:PUBLISH".to_string(),
+        "REFRESH-INTERVAL;VALUE=DURATION:PT30M".to_string(),
+        "X-PUBLISHED-TTL:PT30M".to_string(),
         format!("X-WR-CALNAME:{}", escape_ical_text(calendar_name)),
     ];
 

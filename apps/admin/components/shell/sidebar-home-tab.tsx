@@ -112,17 +112,17 @@ export function SidebarHomeTab({
     <nav className="space-y-3">
       {showOnboardingHub && !onboardingCompleted ? (
         <Link
-          className="group block rounded-xl border border-sidebar-border/60 bg-sidebar-accent/40 p-3 transition-colors hover:border-sidebar-primary/30 hover:bg-sidebar-accent/60"
+          className="glass-inner group block rounded-xl p-3 transition-all hover:bg-white/70 hover:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.9)] dark:hover:bg-white/10"
           href="/setup"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <Icon
-                className="text-sidebar-primary/80"
+                className="text-sidebar-foreground/60"
                 icon={Settings03Icon}
                 size={15}
               />
-              <span className="truncate font-semibold text-[13px] text-sidebar-foreground">
+              <span className="truncate font-semibold text-[13px] text-sidebar-foreground/90">
                 {isEn ? "Setup" : "Configuración"}
               </span>
             </div>
@@ -130,7 +130,7 @@ export function SidebarHomeTab({
               aria-label={
                 isEn ? "Dismiss setup widget" : "Cerrar widget de configuración"
               }
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-white/50 hover:text-sidebar-foreground dark:hover:bg-white/10"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -143,10 +143,11 @@ export function SidebarHomeTab({
           </div>
           <Progress
             aria-valuetext={`${completionPercent}%`}
-            className="mt-2.5 h-2 bg-sidebar-accent [&>div]:bg-sidebar-primary"
+            className="mt-2.5 h-1.5 bg-black/10 dark:bg-white/15"
+            indicatorClassName="bg-sidebar-primary"
             value={completionPercent}
           />
-          <p className="mt-1.5 font-medium text-[12px] text-sidebar-foreground/55">
+          <p className="mt-1.5 font-medium text-[12px] text-sidebar-foreground/50">
             {isEn
               ? `${completionPercent}% complete`
               : `${completionPercent}% completado`}
@@ -159,7 +160,7 @@ export function SidebarHomeTab({
 
         return (
           <div key={section.key}>
-            {index > 0 && <Separator className="mx-2 mb-2 h-px bg-border/40" />}
+            {index > 0 && <Separator className="mx-2 mb-2 h-px bg-white/30 dark:bg-white/[0.06]" />}
             <Collapsible
               onOpenChange={() => toggleSection(section.key)}
               open={!isCollapsed}

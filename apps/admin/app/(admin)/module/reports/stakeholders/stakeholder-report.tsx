@@ -32,6 +32,8 @@ import { Select } from "@/components/ui/select";
 import { StatCard } from "@/components/ui/stat-card";
 import { formatCurrency } from "@/lib/format";
 
+import type { PropertySummaryRow } from "./stakeholder-types";
+
 type FinanceMonth = {
   month: string;
   revenue: number;
@@ -40,15 +42,6 @@ type FinanceMonth = {
   collections_scheduled: number;
   collections_paid: number;
   collection_rate: number;
-};
-
-type PropertySummaryRow = {
-  property_id: string;
-  property_name: string;
-  income: number;
-  expenses: number;
-  net_payout: number;
-  occupancy_rate: number;
 };
 
 type StakeholderReportProps = {

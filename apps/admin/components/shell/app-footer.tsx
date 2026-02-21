@@ -10,7 +10,7 @@ export function AppFooter({ locale }: { locale: Locale }) {
   const isEn = locale === "en-US";
 
   return (
-    <footer className="flex h-9 shrink-0 items-center justify-between border-border/40 border-t bg-background px-4 text-[11px] text-muted-foreground/70">
+    <footer className="glass-chrome glass-edge-top relative flex h-9 shrink-0 items-center justify-between px-4 text-[11px] text-muted-foreground/70">
       <div className="flex items-center gap-4">
         <Link
           className="transition-colors hover:text-foreground"

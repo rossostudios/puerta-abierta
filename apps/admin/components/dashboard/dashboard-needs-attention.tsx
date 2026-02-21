@@ -21,7 +21,7 @@ export function DashboardNeedsAttention({
   if (items.length === 0) return null;
 
   return (
-    <section className="rounded-3xl border border-border/80 bg-card/98 p-4 sm:p-5">
+    <section className="glass-surface rounded-3xl p-4 sm:p-5">
       <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
         {isEn ? "Needs attention" : "Requiere atención"}
       </h2>

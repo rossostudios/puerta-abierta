@@ -206,12 +206,18 @@ async fn dashboard_stats(
     assert_org_member(&state, &user_id, &query.org_id).await?;
     let pool = db_pool(&state)?;
 
-    // Active agents count
+    // Active agents count — filter to agents that have activity in the requesting org
     let agents_row = sqlx::query(
-        "SELECT COUNT(*)::bigint AS total,
-                COUNT(*) FILTER (WHERE is_active)::bigint AS active
-         FROM ai_agents",
+        "SELECT COUNT(DISTINCT a.slug)::bigint AS total,
+                COUNT(DISTINCT a.slug) FILTER (WHERE a.is_active)::bigint AS active
+         FROM ai_agents a
+         WHERE EXISTS (
+           SELECT 1 FROM ai_agent_chats c
+           WHERE c.agent_slug = a.slug
+             AND c.organization_id = $1::uuid
+         )",
     )
+    .bind(&query.org_id)
     .fetch_one(pool)
     .await
     .map_err(|e| {

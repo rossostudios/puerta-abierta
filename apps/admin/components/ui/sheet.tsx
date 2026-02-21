@@ -168,7 +168,7 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         aria-modal="true"
         className={cn(
-          "absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] border border-border/80 bg-background/95 shadow-[var(--shadow-floating)] transition-transform",
+          "glass-float absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] transition-transform",
           panelSide.wrapper,
           open
             ? cn(panelSide.exit, "pointer-events-auto")

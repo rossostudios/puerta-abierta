@@ -68,20 +68,16 @@ export default function ProfileScreen() {
     );
   }
 
-  const user = me?.user as Record<string, unknown> | undefined;
-  const email = typeof user?.email === "string" ? user.email : "—";
-  const fullName =
-    typeof user?.full_name === "string" ? user.full_name : undefined;
+  const user = me?.user;
+  const email = user?.email ?? "—";
+  const fullName = user?.full_name;
 
-  const orgs: OrgInfo[] = (
-    Array.isArray(me?.memberships) ? me.memberships : []
-  )
-    .map((m) => {
-      const orgIdVal =
-        typeof m?.organization_id === "string" ? m.organization_id : "";
-      const role = typeof m?.role === "string" ? m.role : undefined;
-      return { id: orgIdVal, name: orgIdVal.slice(0, 8), role };
-    })
+  const orgs: OrgInfo[] = (me?.memberships ?? [])
+    .map((m) => ({
+      id: m.organization_id,
+      name: m.organization_id.slice(0, 8),
+      role: m.role,
+    }))
     .filter((o) => o.id.length > 0);
 
   return (

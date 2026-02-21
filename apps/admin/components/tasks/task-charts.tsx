@@ -126,7 +126,7 @@ export function TaskCharts({
 
   return (
     <section className="grid gap-3 xl:grid-cols-2">
-      <article className="rounded-3xl border border-border/80 bg-card/85 p-3.5">
+      <article className="glass-surface rounded-3xl p-3.5">
         <div className="mb-2">
           <p className="font-semibold text-sm">
             {isEn ? "Task distribution" : "Distribución de tareas"}
@@ -164,7 +164,7 @@ export function TaskCharts({
         </ChartContainer>
       </article>
 
-      <article className="rounded-3xl border border-border/80 bg-card/85 p-3.5">
+      <article className="glass-surface rounded-3xl p-3.5">
         <div className="mb-2">
           <p className="font-semibold text-sm">
             {isEn ? "SLA breaches trend" : "Tendencia de SLA vencido"}

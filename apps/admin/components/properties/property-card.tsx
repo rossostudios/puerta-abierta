@@ -63,7 +63,7 @@ export function PropertyCard({
         : "bg-[var(--status-success-fg)]";
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden border-border/40 bg-card/60 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-border/60 hover:shadow-[var(--shadow-floating)]">
+    <Card className="group flex h-full flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-floating)]">
       {/* Compact cover area */}
       <div className="relative h-32 w-full shrink-0 overflow-hidden bg-muted/30">
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] dark:opacity-[0.12]">
@@ -73,7 +73,7 @@ export function PropertyCard({
         <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
           <Badge
             className={cn(
-              "border-border/30 bg-background/60 px-2 py-0.5 font-semibold text-[10px] uppercase tracking-widest backdrop-blur-md",
+              "glass-float px-2 py-0.5 font-semibold text-[10px] uppercase tracking-widest",
               statusColor
             )}
             variant="secondary"
@@ -90,14 +90,14 @@ export function PropertyCard({
         </div>
 
         <div className="absolute bottom-3 left-3 z-10">
-          <div className="rounded-lg border border-border/30 bg-background/60 px-2.5 py-1 font-semibold text-[10px] text-foreground tracking-wide shadow-sm backdrop-blur-md">
+          <div className="glass-float rounded-lg px-2.5 py-1 font-semibold text-[10px] text-foreground tracking-wide">
             {code}
           </div>
         </div>
 
         {unitCount > 0 ? (
           <div className="absolute right-3 bottom-3 z-10">
-            <div className="rounded-lg border border-border/30 bg-background/60 px-2 py-1 font-medium text-[10px] text-foreground shadow-sm backdrop-blur-md">
+            <div className="glass-float rounded-lg px-2 py-1 font-medium text-[10px] text-foreground">
               {unitCount} {isEn ? "units" : "unid."}
             </div>
           </div>

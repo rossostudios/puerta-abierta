@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -72,18 +73,21 @@ export default function NotificationsScreen() {
   const handleMarkRead = useCallback(
     async (id: string) => {
       if (!orgId) return;
+      const previous = notifications;
+      // Optimistic update
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === id ? { ...n, read_at: new Date().toISOString() } : n
+        )
+      );
       try {
         await markNotificationRead({ orgId, notificationId: id });
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === id ? { ...n, read_at: new Date().toISOString() } : n
-          )
-        );
       } catch {
-        // silent
+        setNotifications(previous);
+        Alert.alert("Error", "Failed to mark notification as read.");
       }
     },
-    [orgId]
+    [orgId, notifications]
   );
 
   const refreshControl = useMemo(

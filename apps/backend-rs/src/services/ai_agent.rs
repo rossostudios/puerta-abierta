@@ -687,6 +687,7 @@ fn disabled_stream_payload() -> Map<String, Value> {
         "reply".to_string(),
         Value::String(AI_AGENT_DISABLED_MESSAGE.to_string()),
     );
+    payload.insert("error".to_string(), Value::Bool(true));
     payload.insert("tool_trace".to_string(), Value::Array(Vec::new()));
     payload.insert("mutations_enabled".to_string(), Value::Bool(false));
     payload.insert("model_used".to_string(), Value::Null);
@@ -1179,9 +1180,24 @@ fn tool_definitions(allowed_tools: Option<&[String]>) -> Vec<Value> {
                         "expense_id": {"type": "string"},
                         "description": {"type": "string"},
                         "amount": {"type": "number"},
-                        "suggested_category": {"type": "string", "enum": ["maintenance", "utilities", "cleaning", "management_fee", "insurance", "taxes", "supplies", "marketing", "other"]}
+                        "suggested_category": {"type": "string", "enum": ["maintenance", "utilities", "cleaning", "management_fee", "insurance", "taxes", "supplies", "marketing", "professional_services", "other"]}
                     },
                     "required": ["expense_id"]
+                }
+            }
+        }),
+        json!({
+            "type": "function",
+            "function": {
+                "name": "classify_and_delegate",
+                "description": "Classify the user's intent and automatically delegate to the best-fit specialist agent. Use when the request clearly falls within another agent's domain.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "user_message": {"type": "string", "description": "The user's original message to classify."},
+                        "context_hint": {"type": "string", "description": "Optional extra context (e.g., 'guest question', 'financial report')."}
+                    },
+                    "required": ["user_message"]
                 }
             }
         }),
@@ -1328,6 +1344,18 @@ async fn execute_tool(
         }
         "categorize_expense" => {
             tool_categorize_expense(state, context.org_id, args).await
+        }
+        "classify_and_delegate" => {
+            tool_classify_and_delegate(
+                state,
+                context.org_id,
+                context.role,
+                context.allow_mutations,
+                context.confirm_write,
+                context.agent_slug,
+                args,
+            )
+            .await
         }
         "recall_memory" => {
             tool_recall_memory(state, context.org_id, context.agent_slug, args).await
@@ -1922,6 +1950,159 @@ async fn tool_delegate_to_agent(
             "error": format!("Delegation to '{}' failed: {}", slug, error.detail_message()),
         })),
     }
+}
+
+/// Intent-to-agent mapping for automatic delegation.
+const INTENT_RULES: &[(&[&str], &str, &str)] = &[
+    // (keywords, agent_slug, description)
+    (&["guest", "huésped", "check-in", "check-out", "reservation", "reserva", "booking", "hospedaje", "wifi", "amenities"],
+     "guest-concierge", "Guest questions and hospitality"),
+    (&["maintenance", "mantenimiento", "repair", "reparación", "plumbing", "plomería", "electrical", "eléctrico", "broken", "roto", "leak", "fuga"],
+     "maintenance-triage", "Maintenance and repair issues"),
+    (&["lease", "contrato", "rent", "alquiler", "tenant", "inquilino", "renewal", "renovación", "eviction", "desalojo", "deposit", "depósito"],
+     "leasing-advisor", "Leasing and tenant matters"),
+    (&["payment", "pago", "collection", "cobranza", "invoice", "factura", "revenue", "ingreso", "expense", "gasto", "statement", "estado de cuenta", "financial", "financiero"],
+     "finance-controller", "Financial operations and reporting"),
+    (&["price", "pricing", "precio", "rate", "tarifa", "occupancy", "ocupación", "demand", "demanda", "revenue management"],
+     "pricing-optimizer", "Pricing and revenue optimization"),
+    (&["clean", "limpieza", "housekeeping", "turnover", "turnos", "inspection", "inspección"],
+     "operations-coordinator", "Operations and housekeeping"),
+    (&["owner", "propietario", "landlord", "dueño", "statement", "payout", "liquidación"],
+     "owner-liaison", "Property owner communications"),
+    (&["compliance", "cumplimiento", "legal", "regulation", "regulación", "license", "licencia"],
+     "compliance-monitor", "Compliance and regulatory matters"),
+];
+
+async fn tool_classify_and_delegate(
+    state: &AppState,
+    org_id: &str,
+    role: &str,
+    allow_mutations: bool,
+    confirm_write: bool,
+    caller_agent_slug: Option<&str>,
+    args: &Map<String, Value>,
+) -> AppResult<Value> {
+    let user_message = args
+        .get("user_message")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if user_message.is_empty() {
+        return Ok(json!({ "ok": false, "error": "user_message is required." }));
+    }
+
+    let context_hint = args
+        .get("context_hint")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+
+    let search_text = format!("{user_message} {context_hint}").to_lowercase();
+
+    // Check if we have a learned delegation pattern in agent_memory
+    let pool = db_pool(state)?;
+    let caller_slug = caller_agent_slug.unwrap_or("supervisor");
+
+    // Score each agent by keyword matches
+    let mut best_slug = "";
+    let mut best_score = 0usize;
+    let mut best_desc = "";
+
+    for &(keywords, slug, desc) in INTENT_RULES {
+        let score: usize = keywords
+            .iter()
+            .filter(|kw| search_text.contains(**kw))
+            .count();
+        if score > best_score {
+            best_score = score;
+            best_slug = slug;
+            best_desc = desc;
+        }
+    }
+
+    // Check for learned patterns that might override
+    let learned: Option<String> = sqlx::query_scalar(
+        "SELECT memory_value FROM agent_memory
+         WHERE organization_id = $1::uuid
+           AND agent_slug = $2
+           AND memory_key = $3
+           AND (expires_at IS NULL OR expires_at > now())
+         LIMIT 1"
+    )
+    .bind(org_id)
+    .bind(caller_slug)
+    .bind(format!("delegation_pattern:{}", &search_text[..search_text.len().min(50)]))
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    if let Some(learned_slug) = learned.as_deref().filter(|s| !s.is_empty()) {
+        // Verify the learned agent still exists and is active
+        let exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM ai_agents WHERE slug = $1 AND is_active = true)"
+        )
+        .bind(learned_slug)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(false);
+
+        if exists {
+            best_slug = learned_slug;
+            best_score = 100; // learned pattern takes priority
+        }
+    }
+
+    if best_score == 0 || best_slug.is_empty() {
+        return Ok(json!({
+            "ok": false,
+            "error": "Could not classify intent. Please handle directly or specify an agent.",
+            "suggestion": "Try delegate_to_agent with an explicit agent_slug."
+        }));
+    }
+
+    // Delegate to the identified agent
+    let mut delegate_args = Map::new();
+    delegate_args.insert("agent_slug".to_string(), Value::String(best_slug.to_string()));
+    delegate_args.insert("message".to_string(), Value::String(user_message.to_string()));
+
+    let result = tool_delegate_to_agent(
+        state, org_id, role, allow_mutations, confirm_write, &delegate_args,
+    ).await?;
+
+    let delegation_ok = result
+        .as_object()
+        .and_then(|o| o.get("ok"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    // Store successful delegation pattern for learning
+    if delegation_ok {
+        let pattern_key = format!(
+            "delegation_pattern:{}",
+            &search_text[..search_text.len().min(50)]
+        );
+        let _ = sqlx::query(
+            "INSERT INTO agent_memory (organization_id, agent_slug, memory_key, memory_value, context_type, expires_at)
+             VALUES ($1::uuid, $2, $3, $4, 'general', now() + interval '90 days')
+             ON CONFLICT (organization_id, agent_slug, memory_key)
+             DO UPDATE SET memory_value = EXCLUDED.memory_value, expires_at = EXCLUDED.expires_at, updated_at = now()"
+        )
+        .bind(org_id)
+        .bind(caller_slug)
+        .bind(&pattern_key)
+        .bind(best_slug)
+        .execute(pool)
+        .await;
+    }
+
+    // Enrich the result with classification info
+    let mut enriched = result.as_object().cloned().unwrap_or_default();
+    enriched.insert("classified_as".to_string(), Value::String(best_desc.to_string()));
+    enriched.insert("classified_agent".to_string(), Value::String(best_slug.to_string()));
+    enriched.insert("classification_score".to_string(), json!(best_score));
+
+    Ok(Value::Object(enriched))
 }
 
 async fn tool_get_occupancy_forecast(
@@ -3177,14 +3358,14 @@ async fn tool_recall_memory(
             "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
              FROM agent_memory
              WHERE organization_id = $1::uuid
-               AND entity_id = $4
+               AND agent_slug = $2
+               AND entity_id = $3
                AND (expires_at IS NULL OR expires_at > now())
              ORDER BY updated_at DESC
-             LIMIT $5",
+             LIMIT $4",
         )
         .bind(org_id)
         .bind(slug)
-        .bind(query_text)
         .bind(eid)
         .bind(limit)
         .fetch_all(pool)
@@ -3194,12 +3375,14 @@ async fn tool_recall_memory(
             "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
              FROM agent_memory
              WHERE organization_id = $1::uuid
-               AND (memory_key ILIKE '%' || $2 || '%' OR memory_value ILIKE '%' || $2 || '%')
+               AND agent_slug = $2
+               AND (memory_key ILIKE '%' || $3 || '%' OR memory_value ILIKE '%' || $3 || '%')
                AND (expires_at IS NULL OR expires_at > now())
              ORDER BY updated_at DESC
-             LIMIT $3",
+             LIMIT $4",
         )
         .bind(org_id)
+        .bind(slug)
         .bind(query_text)
         .bind(limit)
         .fetch_all(pool)
@@ -3209,12 +3392,14 @@ async fn tool_recall_memory(
             "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
              FROM agent_memory
              WHERE organization_id = $1::uuid
-               AND context_type = $2
+               AND agent_slug = $2
+               AND context_type = $3
                AND (expires_at IS NULL OR expires_at > now())
              ORDER BY updated_at DESC
-             LIMIT $3",
+             LIMIT $4",
         )
         .bind(org_id)
+        .bind(slug)
         .bind(ct)
         .bind(limit)
         .fetch_all(pool)
@@ -3224,11 +3409,13 @@ async fn tool_recall_memory(
             "SELECT memory_key, memory_value, context_type, entity_id, confidence, created_at::text
              FROM agent_memory
              WHERE organization_id = $1::uuid
+               AND agent_slug = $2
                AND (expires_at IS NULL OR expires_at > now())
              ORDER BY updated_at DESC
-             LIMIT $2",
+             LIMIT $3",
         )
         .bind(org_id)
+        .bind(slug)
         .bind(limit)
         .fetch_all(pool)
         .await
@@ -3302,8 +3489,11 @@ async fn tool_store_memory(
         "INSERT INTO agent_memory (organization_id, agent_slug, memory_key, memory_value, context_type, entity_id, expires_at)
          VALUES ($1::uuid, $2, $3, $4, $5, $6, now() + ($7::int || ' days')::interval)
          ON CONFLICT (organization_id, agent_slug, memory_key)
-            WHERE false  -- no unique constraint yet, so always insert
-         DO UPDATE SET memory_value = EXCLUDED.memory_value, updated_at = now()
+         DO UPDATE SET memory_value = EXCLUDED.memory_value,
+                       context_type = EXCLUDED.context_type,
+                       entity_id = EXCLUDED.entity_id,
+                       expires_at = EXCLUDED.expires_at,
+                       updated_at = now()
          RETURNING id",
     )
     .bind(org_id)

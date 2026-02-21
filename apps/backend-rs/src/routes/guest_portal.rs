@@ -24,6 +24,18 @@ pub fn router() -> axum::Router<AppState> {
             "/guest/checkin-info",
             axum::routing::get(guest_checkin_info),
         )
+        .route(
+            "/guest/request-service",
+            axum::routing::post(guest_request_service),
+        )
+        .route(
+            "/guest/payment-info",
+            axum::routing::get(guest_payment_info),
+        )
+        .route(
+            "/guest/access-codes",
+            axum::routing::get(guest_access_codes),
+        )
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -31,6 +43,13 @@ struct RequestAccessInput {
     email: Option<String>,
     phone_e164: Option<String>,
     reservation_id: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ServiceRequestInput {
+    title: String,
+    description: Option<String>,
+    priority: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -416,6 +435,150 @@ async fn guest_checkin_info(
     });
 
     Ok(Json(checkin_info))
+}
+
+/// Submit a service request (creates a task linked to the reservation).
+async fn guest_request_service(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ServiceRequestInput>,
+) -> AppResult<impl IntoResponse> {
+    let (pool, reservation_id, guest_id) = require_guest(&state, &headers).await?;
+
+    let reservation = get_row(pool, "reservations", &reservation_id, "id").await?;
+    let org_id = val_str(&reservation, "organization_id");
+    let property_id = val_str(&reservation, "property_id");
+    let unit_id = val_str(&reservation, "unit_id");
+
+    let guest = get_row(pool, "guests", &guest_id, "id").await.ok();
+    let guest_name = guest
+        .as_ref()
+        .map(|g| val_str(g, "full_name"))
+        .unwrap_or_else(|| "Guest".to_string());
+
+    let priority = payload
+        .priority
+        .as_deref()
+        .filter(|p| matches!(*p, "low" | "medium" | "high" | "urgent"))
+        .unwrap_or("medium");
+
+    let mut task = Map::new();
+    task.insert(
+        "organization_id".to_string(),
+        Value::String(org_id.clone()),
+    );
+    task.insert("type".to_string(), Value::String("guest_request".to_string()));
+    task.insert(
+        "title".to_string(),
+        Value::String(format!("[Guest Request] {}: {}", guest_name, payload.title)),
+    );
+    if let Some(ref desc) = payload.description {
+        task.insert("description".to_string(), Value::String(desc.clone()));
+    }
+    task.insert("priority".to_string(), Value::String(priority.to_string()));
+    task.insert("status".to_string(), Value::String("todo".to_string()));
+    task.insert(
+        "reservation_id".to_string(),
+        Value::String(reservation_id),
+    );
+    if !property_id.is_empty() {
+        task.insert("property_id".to_string(), Value::String(property_id));
+    }
+    if !unit_id.is_empty() {
+        task.insert("unit_id".to_string(), Value::String(unit_id));
+    }
+
+    let created = create_row(pool, "tasks", &task).await?;
+    Ok((axum::http::StatusCode::CREATED, Json(created)))
+}
+
+/// Return pending payment instructions for the guest's reservation.
+async fn guest_payment_info(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, reservation_id, _guest_id) = require_guest(&state, &headers).await?;
+
+    let reservation = get_row(pool, "reservations", &reservation_id, "id").await?;
+    let org_id = val_str(&reservation, "organization_id");
+
+    // Find payment instructions linked to this reservation's collection records
+    let instructions: Vec<Value> = sqlx::query_as::<_, (Value,)>(
+        "SELECT row_to_json(pi.*)
+         FROM payment_instructions pi
+         JOIN collection_records cr ON cr.id = pi.collection_record_id
+         WHERE cr.reservation_id = $1::uuid
+           AND cr.organization_id = $2::uuid
+           AND pi.status = 'active'
+         ORDER BY pi.created_at DESC
+         LIMIT 10",
+    )
+    .bind(&reservation_id)
+    .bind(&org_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .into_iter()
+    .map(|(v,)| v)
+    .collect();
+
+    Ok(Json(json!({ "data": instructions })))
+}
+
+/// Return access codes/instructions, only when reservation is checked_in.
+async fn guest_access_codes(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let (pool, reservation_id, _guest_id) = require_guest(&state, &headers).await?;
+
+    let reservation = get_row(pool, "reservations", &reservation_id, "id").await?;
+    let status = val_str(&reservation, "status");
+
+    if status != "checked_in" {
+        return Err(AppError::Forbidden(
+            "Access codes are only available during your stay.".to_string(),
+        ));
+    }
+
+    let unit_id = val_str(&reservation, "unit_id");
+    let property_id = val_str(&reservation, "property_id");
+
+    let mut access_info = Map::new();
+
+    // Get property access instructions
+    if !property_id.is_empty() {
+        if let Ok(property) = get_row(pool, "properties", &property_id, "id").await {
+            let instructions = val_str(&property, "access_instructions");
+            if !instructions.is_empty() {
+                access_info.insert(
+                    "access_instructions".to_string(),
+                    Value::String(instructions),
+                );
+            }
+        }
+    }
+
+    // Get unit-specific details (WiFi, lock codes)
+    if !unit_id.is_empty() {
+        if let Ok(unit) = get_row(pool, "units", &unit_id, "id").await {
+            let wifi_name = val_str(&unit, "wifi_network_name");
+            let wifi_pass = val_str(&unit, "wifi_password");
+            let lock_code = val_str(&unit, "lock_code");
+
+            if !wifi_name.is_empty() {
+                access_info.insert("wifi_network".to_string(), Value::String(wifi_name));
+            }
+            if !wifi_pass.is_empty() {
+                access_info.insert("wifi_password".to_string(), Value::String(wifi_pass));
+            }
+            if !lock_code.is_empty() {
+                access_info.insert("lock_code".to_string(), Value::String(lock_code));
+            }
+        }
+    }
+
+    Ok(Json(Value::Object(access_info)))
 }
 
 /// Authenticate a guest from the x-guest-token header.

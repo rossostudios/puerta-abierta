@@ -49,7 +49,7 @@ export function ReservationHero({
     .join(" \u00B7 ");
 
   return (
-    <Card className="overflow-hidden border-border/60 bg-card/50 shadow-sm backdrop-blur-md">
+    <Card className="glass-surface overflow-hidden">
       <CardContent className="p-0">
         <section className="relative overflow-hidden bg-[#fdfcfb] dark:bg-neutral-900/40">
           <div className="absolute -top-16 -right-16 opacity-[0.03] dark:opacity-[0.08]">

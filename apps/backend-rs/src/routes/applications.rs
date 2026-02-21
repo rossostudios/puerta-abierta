@@ -20,6 +20,7 @@ use crate::{
         lease_schedule::ensure_monthly_lease_schedule,
         notification_center::{emit_event, EmitNotificationEventInput},
         pricing::lease_financials_from_lines,
+        workflows::fire_trigger,
     },
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
@@ -489,6 +490,78 @@ async fn convert_application_to_lease(
         first_collection = schedule.first_collection.clone();
         schedule_due_dates = schedule.due_dates.clone();
         schedule_collections_created = schedule.collections.len();
+    }
+
+    // Create security deposit collection record if deposit > 0
+    if security_deposit > 0.0 {
+        let deposit_record = json_map(&[
+            ("organization_id", Value::String(org_id.clone())),
+            ("lease_id", Value::String(lease_id.clone())),
+            (
+                "property_id",
+                lease.get("property_id").cloned().unwrap_or(Value::Null),
+            ),
+            (
+                "unit_id",
+                lease.get("unit_id").cloned().unwrap_or(Value::Null),
+            ),
+            ("charge_type", Value::String("security_deposit".to_string())),
+            ("amount", json!(security_deposit)),
+            ("currency", Value::String(payload.currency.clone())),
+            ("due_date", Value::String(payload.starts_on.clone())),
+            ("status", Value::String("pending".to_string())),
+        ]);
+        let _ = create_row(pool, "collection_records", &deposit_record).await;
+    }
+
+    // Create move-in preparation task
+    {
+        let tenant_name = application_value(&application, "full_name")
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_else(|| "Tenant".to_string());
+        let task_record = json_map(&[
+            ("organization_id", Value::String(org_id.clone())),
+            (
+                "property_id",
+                lease.get("property_id").cloned().unwrap_or(Value::Null),
+            ),
+            (
+                "unit_id",
+                lease.get("unit_id").cloned().unwrap_or(Value::Null),
+            ),
+            ("type", Value::String("check_in".to_string())),
+            (
+                "title",
+                Value::String(format!("Move-in preparation: {tenant_name}")),
+            ),
+            ("status", Value::String("todo".to_string())),
+            ("priority", Value::String("high".to_string())),
+            ("due_date", Value::String(payload.starts_on.clone())),
+        ]);
+        let _ = create_row(pool, "tasks", &task_record).await;
+    }
+
+    // Fire lease_created and lease_activated workflow triggers
+    {
+        let mut wf_ctx = Map::new();
+        wf_ctx.insert("lease_id".to_string(), Value::String(lease_id.clone()));
+        wf_ctx.insert(
+            "application_id".to_string(),
+            Value::String(path.application_id.clone()),
+        );
+        if let Some(pid) = lease.get("property_id") {
+            if !pid.is_null() {
+                wf_ctx.insert("property_id".to_string(), pid.clone());
+            }
+        }
+        if let Some(uid) = lease.get("unit_id") {
+            if !uid.is_null() {
+                wf_ctx.insert("unit_id".to_string(), uid.clone());
+            }
+        }
+        let engine_mode = state.config.workflow_engine_mode;
+        fire_trigger(pool, &org_id, "lease_created", &wf_ctx, engine_mode).await;
+        fire_trigger(pool, &org_id, "lease_activated", &wf_ctx, engine_mode).await;
     }
 
     let now_iso = Utc::now().to_rfc3339();

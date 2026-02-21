@@ -203,6 +203,14 @@ async fn approve_approval(
     .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::Internal("Approval finalization failed.".to_string()))?;
 
+    // Write agent evaluation record for feedback loop
+    let agent_slug = approval
+        .as_object()
+        .and_then(|obj| obj.get("agent_slug"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    write_agent_evaluation(pool, &query.org_id, agent_slug, "approved", &path.id).await;
+
     Ok(Json(json!({
         "ok": true,
         "approval": finalized,
@@ -248,6 +256,14 @@ async fn reject_approval(
     let approval = row
         .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
         .ok_or_else(|| AppError::NotFound("Approval not found or already reviewed.".to_string()))?;
+
+    // Write agent evaluation record for feedback loop
+    let agent_slug = approval
+        .as_object()
+        .and_then(|obj| obj.get("agent_slug"))
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    write_agent_evaluation(pool, &query.org_id, agent_slug, "rejected", &path.id).await;
 
     Ok(Json(json!({
         "ok": true,
@@ -446,4 +462,28 @@ fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
             "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
         )
     })
+}
+
+/// Write an agent_evaluation record after approval or rejection.
+/// These records feed the confidence feedback loop in ai_guest_reply.
+async fn write_agent_evaluation(
+    pool: &sqlx::PgPool,
+    org_id: &str,
+    agent_slug: &str,
+    outcome: &str,
+    approval_id: &str,
+) {
+    let _ = sqlx::query(
+        "INSERT INTO agent_evaluations (organization_id, agent_slug, outcome, approval_id, created_at)
+         VALUES ($1::uuid, $2, $3, $4::uuid, now())"
+    )
+    .bind(org_id)
+    .bind(agent_slug)
+    .bind(outcome)
+    .bind(approval_id)
+    .execute(pool)
+    .await
+    .map_err(|error| {
+        tracing::warn!(error = %error, "Failed to write agent evaluation record");
+    });
 }

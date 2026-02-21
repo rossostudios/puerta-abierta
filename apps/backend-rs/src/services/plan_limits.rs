@@ -61,6 +61,18 @@ pub async fn check_plan_limit(
             "team members",
             "miembros del equipo",
         ),
+        PlanResource::AgentCall => (
+            "max_agent_calls_monthly",
+            "usage_events",
+            "agent calls this month",
+            "llamadas de agente este mes",
+        ),
+        PlanResource::MessageSent => (
+            "max_messages_monthly",
+            "usage_events",
+            "messages this month",
+            "mensajes este mes",
+        ),
     };
 
     let max = plan
@@ -74,19 +86,44 @@ pub async fn check_plan_limit(
         return Ok(());
     }
 
-    let current = list_rows(
-        pool,
-        table,
-        Some(&org_filter),
-        max as i64 + 1,
-        0,
-        "id",
-        true,
-    )
-    .await
-    .unwrap_or_default();
+    // For usage-based resources, count events in the current billing period
+    let current_count: i64 = match resource {
+        PlanResource::AgentCall | PlanResource::MessageSent => {
+            let event_type = match resource {
+                PlanResource::AgentCall => "agent_call",
+                PlanResource::MessageSent => "message_sent",
+                _ => unreachable!(),
+            };
+            sqlx::query_scalar(
+                "SELECT COALESCE(SUM(quantity), 0)::bigint
+                 FROM usage_events
+                 WHERE organization_id = $1::uuid
+                   AND event_type = $2
+                   AND billing_period = to_char(now(), 'YYYY-MM')",
+            )
+            .bind(org_id)
+            .bind(event_type)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(0)
+        }
+        _ => {
+            let rows = list_rows(
+                pool,
+                table,
+                Some(&org_filter),
+                max as i64 + 1,
+                0,
+                "id",
+                true,
+            )
+            .await
+            .unwrap_or_default();
+            rows.len() as i64
+        }
+    };
 
-    if current.len() as i64 >= max {
+    if current_count >= max {
         let plan_name = val_str(&plan, "name");
         return Err(AppError::Forbidden(format!(
             "Plan limit reached: your {plan_name} plan allows up to {max} {label_en} ({label_es}). Upgrade your plan to add more."
@@ -96,10 +133,13 @@ pub async fn check_plan_limit(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub enum PlanResource {
     Property,
     Unit,
     User,
+    AgentCall,
+    MessageSent,
 }
 
 fn val_str(row: &Value, key: &str) -> String {

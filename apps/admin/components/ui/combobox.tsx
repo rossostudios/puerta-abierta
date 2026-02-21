@@ -177,7 +177,7 @@ export function Combobox({
             <BaseCombobox.Popup
               className={(state) =>
                 cn(
-                  "z-50 w-[min(92vw,20rem)] rounded-xl border border-border/80 bg-popover p-2 text-popover-foreground shadow-xl",
+                  "glass-float z-50 w-[min(92vw,20rem)] rounded-xl p-2 text-popover-foreground",
                   "transition-[opacity,transform] duration-[140ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                   state.open
                     ? "translate-y-0 opacity-100"

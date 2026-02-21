@@ -3,32 +3,20 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { authedFetch } from "@/lib/api-client";
 
-type Review = {
-  id: string;
-  guest_name?: string | null;
-  platform: string;
-  rating?: number | null;
-  review_text?: string | null;
-  response_text?: string | null;
-  response_status: string;
-  ai_suggested_response?: string | null;
-  responded_at?: string | null;
-  review_date?: string | null;
-  property_name?: string | null;
-  created_at?: string | null;
-};
+import type { ReviewRow } from "./reviews-types";
 
 type Props = {
   orgId: string;
-  initialReviews: Review[];
+  initialReviews: ReviewRow[];
   locale: string;
 };
 
 export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
   const isEn = locale === "en-US";
-  const [reviews, setReviews] = useState<Review[]>(initialReviews);
+  const [reviews, setReviews] = useState<ReviewRow[]>(initialReviews);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [updating, setUpdating] = useState<string | null>(null);
   const [editingResponse, setEditingResponse] = useState<string | null>(null);
@@ -37,7 +25,7 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
   const refresh = useCallback(
     async (status = statusFilter) => {
       try {
-        const res = await authedFetch<{ data: Review[] }>(
+        const res = await authedFetch<{ data: ReviewRow[] }>(
           `/reviews?org_id=${orgId}&response_status=${status}&limit=50`
         );
         setReviews(res.data ?? []);
@@ -57,7 +45,7 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
   );
 
   const handleAcceptSuggestion = useCallback(
-    async (review: Review) => {
+    async (review: ReviewRow) => {
       if (!review.ai_suggested_response) return;
       setUpdating(review.id);
       try {
@@ -80,8 +68,8 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
               : r
           )
         );
-      } catch (err) {
-        console.error("Failed to accept suggestion:", err);
+      } catch {
+        toast.error("Failed to accept suggestion");
       } finally {
         setUpdating(null);
       }
@@ -104,8 +92,8 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
               : r
           )
         );
-      } catch (err) {
-        console.error("Failed to publish:", err);
+      } catch {
+        toast.error("Failed to publish response");
       } finally {
         setUpdating(null);
       }
@@ -135,8 +123,8 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
         );
         setEditingResponse(null);
         setResponseText("");
-      } catch (err) {
-        console.error("Failed to save response:", err);
+      } catch {
+        toast.error("Failed to save response");
       } finally {
         setUpdating(null);
       }
@@ -156,8 +144,8 @@ export function ReviewsManager({ orgId, initialReviews, locale }: Props) {
           }),
         });
         setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-      } catch (err) {
-        console.error("Failed to skip:", err);
+      } catch {
+        toast.error("Failed to skip review");
       } finally {
         setUpdating(null);
       }

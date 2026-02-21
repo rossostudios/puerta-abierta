@@ -11,19 +11,10 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { AgentConfigManager } from "./agent-config-manager";
+import type { AgentRow } from "./agent-config-types";
 
 type PageProps = {
   searchParams: Promise<Record<string, string>>;
-};
-
-type AgentRow = {
-  slug: string;
-  name: string;
-  description: string;
-  icon_key: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 };
 
 export default async function AgentConfigPage({}: PageProps) {

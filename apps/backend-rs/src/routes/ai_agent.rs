@@ -137,6 +137,11 @@ async fn ai_agent_chat(
     )
     .await;
 
+    // Record usage event for metering
+    if let Some(pool) = state.db_pool.as_ref() {
+        crate::services::metering::record_usage_event(pool, &payload.org_id, "agent_call", 1).await;
+    }
+
     let mut response = Map::new();
     response.insert(
         "organization_id".to_string(),

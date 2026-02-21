@@ -281,7 +281,7 @@ export function CommandPalette({
           />
 
           <div className="absolute top-[9vh] left-1/2 w-[min(760px,calc(100vw-32px))] -translate-x-1/2 md:w-[min(1100px,calc(100vw-32px))]">
-            <div className="overflow-hidden rounded-3xl border border-border/80 bg-popover/98 shadow-[var(--shadow-floating)]">
+            <div className="glass-float overflow-hidden rounded-3xl">
               <div className="flex items-center gap-2 border-border/75 border-b px-4 py-3">
                 <Icon
                   className="text-muted-foreground"

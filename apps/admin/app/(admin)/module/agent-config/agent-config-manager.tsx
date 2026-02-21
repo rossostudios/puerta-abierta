@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { authedFetch } from "@/lib/api-client";
 
 const ALL_TOOLS = [
@@ -33,15 +34,7 @@ const ALL_TOOLS = [
   "store_memory",
 ] as const;
 
-type AgentRow = {
-  slug: string;
-  name: string;
-  description: string;
-  icon_key: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-};
+import type { AgentRow } from "./agent-config-types";
 
 type AgentDetail = AgentRow & {
   system_prompt?: string | null;
@@ -84,8 +77,8 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
         setPrompt(detail.system_prompt ?? "");
         setEnabledTools(new Set(detail.allowed_tools ?? []));
         setIsActive(detail.is_active);
-      } catch (err) {
-        console.error("Failed to fetch agent:", err);
+      } catch {
+        toast.error("Failed to load agent details");
       } finally {
         setLoading(false);
       }
@@ -112,8 +105,8 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
           a.slug === selected.slug ? { ...a, is_active: isActive } : a
         )
       );
-    } catch (err) {
-      console.error("Failed to save agent:", err);
+    } catch {
+      toast.error("Failed to save agent configuration");
     } finally {
       setSaving(false);
     }

@@ -196,7 +196,7 @@ export function DashboardInsights({
 
   return (
     <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-      <Card className="overflow-hidden border-border/80 bg-card/98">
+      <Card className="overflow-hidden">
         <CardHeader className="space-y-3 border-border/70 border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
@@ -293,7 +293,7 @@ export function DashboardInsights({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-border/80 bg-card/98">
+      <Card className="overflow-hidden">
         <CardHeader className="space-y-3 border-border/70 border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
@@ -367,7 +367,7 @@ export function DashboardInsights({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden border-border/80 bg-card/98">
+      <Card className="overflow-hidden">
         <CardHeader className="space-y-3 border-border/70 border-b pb-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="space-y-1">
