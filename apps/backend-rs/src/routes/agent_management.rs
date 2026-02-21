@@ -212,8 +212,8 @@ async fn dashboard_stats(
                 COUNT(DISTINCT a.slug) FILTER (WHERE a.is_active)::bigint AS active
          FROM ai_agents a
          WHERE EXISTS (
-           SELECT 1 FROM ai_agent_chats c
-           WHERE c.agent_slug = a.slug
+           SELECT 1 FROM ai_chats c
+           WHERE c.agent_id = a.id
              AND c.organization_id = $1::uuid
          )",
     )

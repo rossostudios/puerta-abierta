@@ -1,15 +1,18 @@
+import { BookOpen01Icon } from "@hugeicons/core-free-icons";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Icon } from "@/components/ui/icon";
 import { fetchList } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
+
 import { KnowledgeManager } from "./knowledge-manager";
 
 type PageProps = {
@@ -77,7 +80,7 @@ export default async function KnowledgeModulePage({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {success && (
         <Alert>
           <AlertDescription>{success}</AlertDescription>
@@ -89,25 +92,27 @@ export default async function KnowledgeModulePage({
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
+      <header className="glass-surface flex items-center gap-4 rounded-3xl p-5">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/60 bg-muted/50">
+          <Icon icon={BookOpen01Icon} size={20} className="text-muted-foreground" />
+        </span>
+        <div>
+          <h1 className="font-semibold text-2xl">
             {isEn ? "Knowledge Base" : "Base de Conocimiento"}
-          </CardTitle>
-          <CardDescription>
+          </h1>
+          <p className="text-muted-foreground/90 text-sm">
             {isEn
               ? "Upload property guides, house rules, and FAQs. The AI concierge uses this knowledge to answer guest questions."
               : "Suba guías de propiedades, reglas de la casa y preguntas frecuentes. El conserje IA usa este conocimiento para responder a los huéspedes."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <KnowledgeManager
-            orgId={orgId}
-            initialDocuments={documents}
-            locale={locale}
-          />
-        </CardContent>
-      </Card>
+          </p>
+        </div>
+      </header>
+
+      <KnowledgeManager
+        orgId={orgId}
+        initialDocuments={documents}
+        locale={locale}
+      />
     </div>
   );
 }

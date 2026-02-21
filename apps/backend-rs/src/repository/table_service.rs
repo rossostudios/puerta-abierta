@@ -49,6 +49,8 @@ const ALLOWED_TABLES: &[&str] = &[
     "tenant_access_tokens",
     "units",
     "documents",
+    "knowledge_documents",
+    "knowledge_chunks",
     "workflow_rules",
     "workflow_jobs",
     "workflow_job_attempts",
