@@ -1,13 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  BookOpen01Icon,
-  Cancel01Icon,
-  CheckmarkCircle02Icon,
-  File02Icon,
-  Upload04Icon,
-} from "@hugeicons/core-free-icons";
+import { Cancel01Icon } from "@hugeicons/core-free-icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +39,7 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(
     (initialDocuments as KnowledgeDocument[]) ?? []
   );
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
@@ -84,6 +79,7 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
       setNewTitle("");
       setNewContent("");
       setNewSourceUrl("");
+      setShowCreateForm(false);
       await refreshDocuments();
     } catch (err) {
       console.error("Failed to create knowledge document:", err);
@@ -142,67 +138,9 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Create new document */}
-      <div className="glass-inner rounded-2xl p-5 space-y-4">
+      {/* Header row — Documents label + count + Add button */}
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon icon={Upload04Icon} size={14} className="text-muted-foreground" />
-          <h3 className="font-medium text-sm">
-            {isEn
-              ? "Add Knowledge Document"
-              : "Agregar Documento de Conocimiento"}
-          </h3>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Input
-            placeholder={isEn ? "Document title" : "Titulo del documento"}
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-          />
-          <Input
-            placeholder={
-              isEn ? "Source URL (optional)" : "URL de origen (opcional)"
-            }
-            value={newSourceUrl}
-            onChange={(e) => setNewSourceUrl(e.target.value)}
-          />
-        </div>
-        <Textarea
-          placeholder={
-            isEn
-              ? "Paste document content here. It will be split into chunks and embedded for AI search."
-              : "Pegue el contenido del documento aqui. Se dividira en fragmentos y se indexara para busqueda IA."
-          }
-          rows={5}
-          value={newContent}
-          onChange={(e) => setNewContent(e.target.value)}
-        />
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={handleCreate}
-            disabled={isCreating || !newTitle.trim()}
-            size="sm"
-          >
-            {isCreating
-              ? isEn
-                ? "Processing..."
-                : "Procesando..."
-              : isEn
-                ? "Add & Process"
-                : "Agregar y Procesar"}
-          </Button>
-          {isCreating && (
-            <p className="text-xs text-muted-foreground animate-pulse">
-              {isEn
-                ? "Splitting and embedding content..."
-                : "Dividiendo e indexando contenido..."}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Document list */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
           <h3 className="font-medium text-sm">
             {isEn ? "Documents" : "Documentos"}
           </h3>
@@ -210,71 +148,120 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
             {documents.length}
           </Badge>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs h-7"
+          onClick={() => setShowCreateForm((v) => !v)}
+        >
+          {showCreateForm
+            ? isEn ? "Cancel" : "Cancelar"
+            : isEn ? "+ Add Document" : "+ Agregar Documento"}
+        </Button>
+      </div>
 
-        {documents.length === 0 && (
-          <div className="glass-inner flex flex-col items-center justify-center rounded-2xl py-12">
-            <Icon
-              icon={BookOpen01Icon}
-              size={32}
-              className="text-muted-foreground/30 mb-3"
+      {/* Create form — progressive disclosure */}
+      {showCreateForm && (
+        <div className="border border-border/50 rounded-lg p-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              placeholder={isEn ? "Document title" : "Titulo del documento"}
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
             />
-            <p className="text-sm text-muted-foreground">
-              {isEn
-                ? "No knowledge documents yet. Add one above."
-                : "No hay documentos aun. Agregue uno arriba."}
-            </p>
+            <Input
+              placeholder={
+                isEn ? "Source URL (optional)" : "URL de origen (opcional)"
+              }
+              value={newSourceUrl}
+              onChange={(e) => setNewSourceUrl(e.target.value)}
+            />
           </div>
-        )}
+          <Textarea
+            placeholder={
+              isEn
+                ? "Paste document content here. It will be split into chunks and embedded for AI search."
+                : "Pegue el contenido del documento aqui. Se dividira en fragmentos y se indexara para busqueda IA."
+            }
+            rows={5}
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+          />
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleCreate}
+              disabled={isCreating || !newTitle.trim()}
+              size="sm"
+            >
+              {isCreating
+                ? isEn
+                  ? "Processing..."
+                  : "Procesando..."
+                : isEn
+                  ? "Add & Process"
+                  : "Agregar y Procesar"}
+            </Button>
+            {isCreating && (
+              <p className="text-xs text-muted-foreground animate-pulse">
+                {isEn
+                  ? "Splitting and embedding content..."
+                  : "Dividiendo e indexando contenido..."}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+      {/* Document list */}
+      {documents.length === 0 && (
+        <div className="rounded-lg border border-border/50 py-12 text-center">
+          <p className="text-sm text-muted-foreground mb-3">
+            {isEn
+              ? "No knowledge documents yet."
+              : "No hay documentos aun."}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => setShowCreateForm(true)}
+          >
+            {isEn ? "+ Add Document" : "+ Agregar Documento"}
+          </Button>
+        </div>
+      )}
+
+      {documents.length > 0 && (
+        <div className="rounded-lg border border-border/50 divide-y divide-border/40 overflow-hidden">
           {documents.map((doc) => (
             <div
               key={doc.id}
-              className="glass-inner rounded-xl p-4 space-y-3 transition-all hover:shadow-sm"
+              className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-muted/20 transition-colors"
             >
-              <div className="flex items-start gap-3">
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/50 mt-0.5">
-                  <Icon
-                    icon={File02Icon}
-                    size={14}
-                    className="text-muted-foreground"
-                  />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">{doc.title}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <Badge
-                      variant="secondary"
-                      className="text-[10px] tabular-nums"
-                    >
-                      {doc.chunk_count ?? 0}{" "}
-                      {isEn ? "chunks" : "fragmentos"}
-                    </Badge>
-                    {doc.has_embeddings ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px] status-tone-success"
-                        )}
-                      >
-                        <Icon
-                          icon={CheckmarkCircle02Icon}
-                          size={10}
-                          className="mr-0.5"
-                        />
-                        {isEn ? "Embedded" : "Indexado"}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px]">
-                        {isEn ? "Not embedded" : "Sin indexar"}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm truncate">{doc.title}</p>
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] tabular-nums shrink-0"
+                  >
+                    {doc.chunk_count ?? 0}{" "}
+                    {isEn ? "chunks" : "fragmentos"}
+                  </Badge>
+                  {doc.has_embeddings ? (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] status-tone-success shrink-0"
+                    >
+                      {isEn ? "Embedded" : "Indexado"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] shrink-0">
+                      {isEn ? "Not embedded" : "Sin indexar"}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                   {doc.created_at && (
                     <span>{formatDate(doc.created_at)}</span>
                   )}
@@ -292,50 +279,50 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => handleViewChunks(doc)}
-                  >
-                    {isEn ? "View" : "Ver"}
-                  </Button>
-                  {confirmDeleteId === doc.id ? (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(doc.id)}
-                      >
-                        {isEn ? "Confirm" : "Confirmar"}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => setConfirmDeleteId(null)}
-                      >
-                        <Icon icon={Cancel01Icon} size={12} />
-                      </Button>
-                    </div>
-                  ) : (
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => handleViewChunks(doc)}
+                >
+                  {isEn ? "View" : "Ver"}
+                </Button>
+                {confirmDeleteId === doc.id ? (
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-7 text-xs text-destructive hover:text-destructive"
-                      onClick={() => setConfirmDeleteId(doc.id)}
+                      onClick={() => handleDelete(doc.id)}
                     >
-                      {isEn ? "Delete" : "Eliminar"}
+                      {isEn ? "Confirm" : "Confirmar"}
                     </Button>
-                  )}
-                </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setConfirmDeleteId(null)}
+                    >
+                      <Icon icon={Cancel01Icon} size={12} />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={() => setConfirmDeleteId(doc.id)}
+                  >
+                    {isEn ? "Delete" : "Eliminar"}
+                  </Button>
+                )}
               </div>
             </div>
           ))}
         </div>
-      </div>
+      )}
 
       {/* Chunks sheet */}
       <Sheet
@@ -344,19 +331,14 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
         title={selectedDoc?.title}
         description={`${chunks.length} ${isEn ? "chunks" : "fragmentos"}`}
       >
-        <div className="space-y-3">
+        <div>
           {loadingChunks && (
-            <p className="text-sm text-muted-foreground animate-pulse">
+            <p className="text-sm text-muted-foreground animate-pulse py-4">
               {isEn ? "Loading..." : "Cargando..."}
             </p>
           )}
           {!loadingChunks && chunks.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Icon
-                icon={File02Icon}
-                size={28}
-                className="text-muted-foreground/30 mb-2"
-              />
+            <div className="py-8 text-center">
               <p className="text-sm text-muted-foreground">
                 {isEn
                   ? "No chunks found. Process the document to create chunks."
@@ -364,35 +346,34 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
               </p>
             </div>
           )}
-          {chunks.map((chunk, i) => (
-            <div key={chunk.id}>
-              {i > 0 && (
-                <div className="h-px bg-border/50 my-3" />
-              )}
-              <div className="glass-inner rounded-xl p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground tabular-nums">
-                    {isEn ? "Chunk" : "Fragmento"} #{chunk.chunk_index}
-                  </span>
-                  {chunk.has_embedding ? (
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] status-tone-success"
-                    >
-                      {isEn ? "embedded" : "indexado"}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[10px]">
-                      {isEn ? "no vector" : "sin vector"}
-                    </Badge>
-                  )}
+          {chunks.length > 0 && (
+            <div className="divide-y divide-border/40">
+              {chunks.map((chunk) => (
+                <div key={chunk.id} className="py-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                      {isEn ? "Chunk" : "Fragmento"} #{chunk.chunk_index}
+                    </span>
+                    {chunk.has_embedding ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] status-tone-success"
+                      >
+                        {isEn ? "embedded" : "indexado"}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        {isEn ? "no vector" : "sin vector"}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {chunk.content}
+                  </p>
                 </div>
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {chunk.content}
-                </p>
-              </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       </Sheet>
     </div>

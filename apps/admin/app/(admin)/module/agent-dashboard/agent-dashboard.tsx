@@ -8,7 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import { Badge } from "@/components/ui/badge";
-import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 
@@ -43,12 +42,6 @@ function statusTone(s: string) {
   if (s === "rejected") return "status-tone-danger";
   if (s === "pending") return "status-tone-warning";
   return "status-tone-neutral";
-}
-
-function statusIcon(s: string) {
-  if (s === "approved") return CheckmarkCircle02Icon;
-  if (s === "rejected") return AlertCircleIcon;
-  return SparklesIcon;
 }
 
 function relativeTime(dateStr: string): string {
@@ -123,12 +116,7 @@ export function AgentDashboard({ initialStats, locale }: Props) {
         </h3>
 
         {recentActivity.length === 0 && (
-          <div className="glass-inner flex flex-col items-center justify-center rounded-2xl py-12">
-            <Icon
-              icon={SparklesIcon}
-              size={32}
-              className="text-muted-foreground/30 mb-3"
-            />
+          <div className="rounded-lg border border-border/50 py-12 text-center">
             <p className="text-sm text-muted-foreground">
               {isEn
                 ? "No agent activity recorded yet."
@@ -138,49 +126,41 @@ export function AgentDashboard({ initialStats, locale }: Props) {
         )}
 
         {recentActivity.length > 0 && (
-          <div className="glass-inner rounded-2xl divide-y divide-border/50 overflow-hidden">
+          <div className="rounded-lg border border-border/50 divide-y divide-border/40 overflow-hidden">
             {recentActivity.map((item, i) => (
               <div
                 key={i}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-muted/20 transition-colors"
+                className="px-4 py-3 hover:bg-muted/20 transition-colors"
               >
-                <span
-                  className={cn(
-                    "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border mt-0.5",
-                    statusTone(item.status)
-                  )}
-                >
-                  <Icon icon={statusIcon(item.status)} size={14} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
                     {item.agent_slug && (
                       <Badge
                         variant="secondary"
-                        className="text-[10px] font-normal"
+                        className="text-[10px] font-normal shrink-0"
                       >
                         {item.agent_slug}
                       </Badge>
                     )}
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium truncate">
                       {item.tool_name.replace(/_/g, " ")}
                     </span>
                     <Badge
                       variant="outline"
-                      className={cn("text-[10px]", statusTone(item.status))}
+                      className={cn("text-[10px] shrink-0", statusTone(item.status))}
                     >
                       {item.status}
                     </Badge>
                   </div>
-                  {item.reasoning && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                      {item.reasoning}
-                    </p>
-                  )}
+                  <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                    {relativeTime(item.created_at)}
+                  </span>
                 </div>
-                <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums mt-0.5">
-                  {relativeTime(item.created_at)}
-                </span>
+                {item.reasoning && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                    {item.reasoning}
+                  </p>
+                )}
               </div>
             ))}
           </div>

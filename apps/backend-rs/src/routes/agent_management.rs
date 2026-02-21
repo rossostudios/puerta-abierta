@@ -249,7 +249,7 @@ async fn dashboard_stats(
 
     // Recent activity
     let recent_rows = sqlx::query(
-        "SELECT agent_slug, tool_name, status, created_at::text, reasoning
+        "SELECT agent_slug, tool_name, status, created_at::text, review_note
          FROM agent_approvals
          WHERE organization_id = $1::uuid
          ORDER BY created_at DESC
@@ -271,7 +271,7 @@ async fn dashboard_stats(
                 "tool_name": r.try_get::<String, _>("tool_name").unwrap_or_default(),
                 "status": r.try_get::<String, _>("status").unwrap_or_default(),
                 "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
-                "reasoning": r.try_get::<Option<String>, _>("reasoning").unwrap_or(None),
+                "reasoning": r.try_get::<Option<String>, _>("review_note").unwrap_or(None),
             })
         })
         .collect();

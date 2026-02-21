@@ -1,12 +1,9 @@
-import { Settings02Icon } from "@hugeicons/core-free-icons";
-
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Icon } from "@/components/ui/icon";
 import { fetchJson, getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -82,15 +79,12 @@ export default async function AgentConfigPage({}: PageProps) {
 
   return (
     <div className="space-y-6">
-      <header className="glass-surface flex items-center gap-4 rounded-3xl p-5">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/60 bg-muted/50">
-          <Icon icon={Settings02Icon} size={20} className="text-muted-foreground" />
-        </span>
-        <div>
-          <h1 className="font-semibold text-2xl">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="font-bold text-2xl text-foreground tracking-tight">
             {isEn ? "Agent Configuration" : "Configuración de Agentes"}
           </h1>
-          <p className="text-muted-foreground/90 text-sm">
+          <p className="font-medium text-muted-foreground text-sm">
             {isEn
               ? "Manage AI agent prompts, tools, and activation status."
               : "Administra los prompts, herramientas y estado de activación de los agentes IA."}

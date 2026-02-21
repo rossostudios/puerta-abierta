@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import {
-  Cancel01Icon,
+  ArrowDown01Icon,
   CheckmarkCircle02Icon,
   Database02Icon,
   MessageSearch01Icon,
@@ -138,6 +138,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
   const [testResult, setTestResult] = useState("");
   const [testing, setTesting] = useState(false);
 
+  const [testOpen, setTestOpen] = useState(false);
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set()
   );
@@ -275,10 +276,10 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
             key={agent.slug}
             onClick={() => selectAgent(agent.slug)}
             className={cn(
-              "glass-inner w-full text-left px-3 py-2.5 rounded-xl transition-all",
+              "w-full text-left px-3 py-2 rounded-md transition-colors",
               selected?.slug === agent.slug
-                ? "ring-2 ring-primary/50 shadow-sm"
-                : "hover:shadow-sm"
+                ? "bg-muted/60 text-foreground"
+                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             )}
           >
             <div className="flex items-center gap-2.5">
@@ -296,7 +297,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
           </button>
         ))}
         {agents.length === 0 && (
-          <div className="glass-inner rounded-xl p-4 text-center">
+          <div className="py-8 text-center">
             <p className="text-sm text-muted-foreground">
               {isEn ? "No agents configured." : "No hay agentes configurados."}
             </p>
@@ -307,12 +308,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
       {/* Detail panel — right */}
       <div className="flex-1 min-w-0">
         {!selected && !loading && (
-          <div className="glass-inner flex flex-col items-center justify-center h-64 rounded-2xl">
-            <Icon
-              icon={SparklesIcon}
-              size={32}
-              className="text-muted-foreground/40 mb-3"
-            />
+          <div className="flex items-center justify-center h-64">
             <p className="text-sm text-muted-foreground">
               {isEn
                 ? "Select an agent to configure."
@@ -322,7 +318,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
         )}
 
         {loading && (
-          <div className="glass-inner flex items-center justify-center h-64 rounded-2xl">
+          <div className="flex items-center justify-center h-64">
             <p className="text-sm text-muted-foreground animate-pulse">
               {isEn ? "Loading..." : "Cargando..."}
             </p>
@@ -332,51 +328,49 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
         {selected && !loading && (
           <div className="space-y-5">
             {/* Header section */}
-            <div className="glass-surface rounded-2xl p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-border/60 bg-muted/50 shrink-0">
-                    <Icon
-                      icon={SparklesIcon}
-                      size={20}
-                      className="text-muted-foreground"
-                    />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="text-lg font-semibold truncate">
-                      {selected.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {selected.description}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 shrink-0">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Switch
-                      checked={isActive}
-                      onCheckedChange={setIsActive}
-                    />
-                    <span className="text-muted-foreground">
-                      {isActive
-                        ? isEn
-                          ? "Active"
-                          : "Activo"
-                        : isEn
-                          ? "Inactive"
-                          : "Inactivo"}
-                    </span>
-                  </label>
-                  <Button size="sm" disabled={saving} onClick={handleSave}>
-                    {saving
+            <div className="flex items-center justify-between gap-4 pb-4 border-b border-border/50">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold truncate">
+                  {selected.name}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {selected.description}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Switch
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                  />
+                  <span className="text-muted-foreground">
+                    {isActive
                       ? isEn
-                        ? "Saving..."
-                        : "Guardando..."
+                        ? "Active"
+                        : "Activo"
                       : isEn
-                        ? "Save Changes"
-                        : "Guardar Cambios"}
-                  </Button>
-                </div>
+                        ? "Inactive"
+                        : "Inactivo"}
+                  </span>
+                </label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setTestOpen((v) => !v)}
+                  title={isEn ? "Test Agent" : "Probar Agente"}
+                >
+                  <Icon icon={TestTube01Icon} size={16} className={cn("text-muted-foreground", testOpen && "text-foreground")} />
+                </Button>
+                <Button size="sm" disabled={saving} onClick={handleSave}>
+                  {saving
+                    ? isEn
+                      ? "Saving..."
+                      : "Guardando..."
+                    : isEn
+                      ? "Save"
+                      : "Guardar"}
+                </Button>
               </div>
             </div>
 
@@ -444,7 +438,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
                   return (
                     <div
                       key={cat.key}
-                      className="glass-inner rounded-xl overflow-hidden"
+                      className="border-b border-border/40 last:border-b-0"
                     >
                       <button
                         onClick={() => toggleCollapse(cat.key)}
@@ -483,11 +477,11 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
                                 : "Seleccionar todo"}
                           </button>
                           <Icon
-                            icon={Cancel01Icon}
+                            icon={ArrowDown01Icon}
                             size={12}
                             className={cn(
                               "text-muted-foreground transition-transform",
-                              isCollapsed ? "-rotate-45" : "rotate-0"
+                              isCollapsed ? "-rotate-90" : "rotate-0"
                             )}
                           />
                         </div>
@@ -516,52 +510,44 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
               </div>
             </div>
 
-            {/* Test panel */}
-            <div className="glass-inner rounded-2xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Icon
-                  icon={TestTube01Icon}
-                  size={14}
-                  className="text-muted-foreground"
-                />
-                <h4 className="text-sm font-medium">
-                  {isEn ? "Test Agent" : "Probar Agente"}
-                </h4>
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  value={testInput}
-                  onChange={(e) => setTestInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) handleTest();
-                  }}
-                  placeholder={
-                    isEn
-                      ? "Type a test message..."
-                      : "Escribe un mensaje de prueba..."
-                  }
-                  className="flex-1"
-                />
-                <Button
-                  size="sm"
-                  disabled={testing || !testInput.trim()}
-                  onClick={handleTest}
-                >
-                  {testing
-                    ? isEn
-                      ? "Running..."
-                      : "Ejecutando..."
-                    : isEn
-                      ? "Send"
-                      : "Enviar"}
-                </Button>
-              </div>
-              {testResult && (
-                <div className="rounded-xl bg-muted/50 p-3 text-sm whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                  {testResult}
+            {/* Test panel — progressive disclosure */}
+            {testOpen && (
+              <div className="border-t border-border/50 pt-4 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={testInput}
+                    onChange={(e) => setTestInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) handleTest();
+                    }}
+                    placeholder={
+                      isEn
+                        ? "Type a test message..."
+                        : "Escribe un mensaje de prueba..."
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    size="sm"
+                    disabled={testing || !testInput.trim()}
+                    onClick={handleTest}
+                  >
+                    {testing
+                      ? isEn
+                        ? "Running..."
+                        : "Ejecutando..."
+                      : isEn
+                        ? "Send"
+                        : "Enviar"}
+                  </Button>
                 </div>
-              )}
-            </div>
+                {testResult && (
+                  <div className="rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                    {testResult}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
