@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 
+import { CasaoraLogo } from "@/components/icons/casaora-logo";
 import { LanguageSelector } from "@/components/preferences/language-selector";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
@@ -80,6 +81,7 @@ export function PublicHeader({ locale }: { locale: HeaderLocale }) {
             className="inline-flex items-center gap-2.5 transition-opacity hover:opacity-80"
             href="/"
           >
+            <CasaoraLogo className="inline-flex" size={28} />
             <span className="font-bold text-[var(--marketplace-text)] text-xl tracking-tight">
               CASAORA
             </span>

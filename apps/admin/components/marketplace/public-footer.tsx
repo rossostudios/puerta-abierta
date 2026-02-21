@@ -7,6 +7,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
+import { CasaoraLogo } from "@/components/ui/casaora-logo";
 import { Icon } from "@/components/ui/icon";
 
 const POPULAR_CITIES = [
@@ -32,9 +33,12 @@ export function PublicFooter({ locale }: { locale: "es-PY" | "en-US" }) {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-4">
-            <span className="font-bold text-[#faf8f5] text-lg tracking-tight">
-              CASAORA
-            </span>
+            <div className="flex items-center gap-2.5">
+              <CasaoraLogo className="inline-flex" size={28} />
+              <span className="font-bold text-[#faf8f5] text-lg tracking-tight">
+                CASAORA
+              </span>
+            </div>
             <p className="font-serif text-[#faf8f5]/50 text-sm italic">
               {isEn
                 ? "Where transparency meets home."

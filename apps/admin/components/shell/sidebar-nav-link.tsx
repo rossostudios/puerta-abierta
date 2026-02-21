@@ -2,6 +2,7 @@
 
 import type { IconSvgElement } from "@hugeicons/react";
 import Link from "next/link";
+import type { MouseEvent } from "react";
 import { Icon } from "@/components/ui/icon";
 import {
   Tooltip,
@@ -10,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SHORTCUT_BY_HREF } from "@/lib/hotkeys/config";
 import type { Locale } from "@/lib/i18n";
+import { useTabContext } from "@/lib/tabs/tab-context";
 import { cn } from "@/lib/utils";
 import type { RouteLinkDef } from "./sidebar-types";
 import { isRouteActive } from "./sidebar-utils";
@@ -47,6 +49,14 @@ export function NavLinkRow({
   label: string;
 }) {
   const shortcutKeys = SHORTCUT_BY_HREF[href];
+  const tabCtx = useTabContext();
+
+  const handleClick = (e: MouseEvent) => {
+    if ((e.metaKey || e.ctrlKey) && tabCtx) {
+      e.preventDefault();
+      tabCtx.addTab(href);
+    }
+  };
 
   const link = (
     <Link
@@ -57,6 +67,7 @@ export function NavLinkRow({
           : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
       )}
       href={href}
+      onClick={handleClick}
     >
       <Icon
         className={cn(

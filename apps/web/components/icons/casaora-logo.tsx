@@ -1,23 +1,28 @@
-export function CasaoraLogo({ className }: { className?: string }) {
+import Image from "next/image";
+
+export function CasaoraLogo({
+  className,
+  size = 24,
+}: {
+  className?: string;
+  size?: number;
+}) {
   return (
-    <svg
-      aria-label="Casaora Logo"
-      className={className}
-      fill="none"
-      role="img"
-      stroke="currentColor"
-      viewBox="0 0 100 100"
-    >
-      <g strokeLinecap="round" strokeLinejoin="round" strokeWidth="8">
-        {/* The dominant hut roof canopy */}
-        <path d="M 12 50 L 50 16 L 88 50" />
-
-        {/* The brand accent 'Aura' dot */}
-        <circle cx="50" cy="36" fill="currentColor" r="4" stroke="none" />
-
-        {/* The continuous base and arched door */}
-        <path d="M 26 60 L 26 84 L 42 84 L 42 72 A 8 8 0 0 1 58 72 L 58 84 L 74 84 L 74 60" />
-      </g>
-    </svg>
+    <span className={className}>
+      <Image
+        alt="Casaora"
+        className="block dark:hidden"
+        height={size}
+        src="/casaora-light.svg"
+        width={size}
+      />
+      <Image
+        alt="Casaora"
+        className="hidden dark:block"
+        height={size}
+        src="/casaora-dark.svg"
+        width={size}
+      />
+    </span>
   );
 }

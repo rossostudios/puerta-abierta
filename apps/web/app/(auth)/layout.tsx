@@ -1,6 +1,7 @@
 import { Building01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
+import { CasaoraLogo } from "@/components/icons/casaora-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Icon } from "@/components/ui/icon";
 
@@ -20,6 +21,7 @@ export default function AuthLayout({
             className="flex items-center gap-2 font-bold text-foreground text-lg tracking-tight transition-opacity hover:opacity-80"
             href="/"
           >
+            <CasaoraLogo size={24} />
             CASAORA
           </Link>
         </div>

@@ -199,7 +199,7 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-geist-sans,
+  --font-sans: var(--font-diatype,
       ui-sans-serif,
       system-ui,
       -apple-system,

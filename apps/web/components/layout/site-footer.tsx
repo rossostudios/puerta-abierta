@@ -1,6 +1,8 @@
 import { Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import Link from "next/link";
 
+import { CasaoraLogo } from "@/components/icons/casaora-logo";
+
 const SOCIAL_LINKS = [
   { icon: Instagram, label: "Instagram", href: "#" },
   { icon: Facebook, label: "Facebook", href: "#" },
@@ -29,7 +31,10 @@ export function SiteFooter() {
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-4">
-            <span className="font-bold text-lg tracking-tight">CASAORA</span>
+            <div className="flex items-center gap-2.5">
+              <CasaoraLogo size={28} />
+              <span className="font-bold text-lg tracking-tight">CASAORA</span>
+            </div>
             <p className="font-serif text-muted-foreground text-sm italic">
               The operating system for property management.
             </p>

@@ -14,6 +14,7 @@ import type { PanelImperativeHandle } from "react-resizable-panels";
 import { AppFooter } from "@/components/shell/app-footer";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ShortcutsHelp } from "@/components/shell/shortcuts-help";
+import { TabBar } from "@/components/shell/tab-bar";
 import type { MemberRole, ViewportMode } from "@/components/shell/sidebar-new";
 import { SidebarNew } from "@/components/shell/sidebar-new";
 import { Topbar } from "@/components/shell/topbar";
@@ -21,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGlobalHotkeys } from "@/lib/hotkeys/use-global-hotkeys";
 import { useNavigationHotkeys } from "@/lib/hotkeys/use-navigation-hotkeys";
 import type { Locale } from "@/lib/i18n";
+import { TabProvider } from "@/lib/tabs/tab-context";
 import { cn } from "@/lib/utils";
 
 const DesktopResizableShell = dynamic(
@@ -223,22 +225,25 @@ function AdminShellV2({
   }
 
   const contentColumn = (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <ScrollArea className="flex-1">
-          <Topbar
-            isNavOpen={isNavOpen}
-            locale={locale}
-            onNavToggle={onNavToggle}
-            showNavToggle={showNavToggle}
-          />
-          <div className="mx-auto w-full max-w-screen-2xl p-3 sm:p-4 lg:p-5 xl:p-7">
-            {children}
-          </div>
-        </ScrollArea>
-      </main>
-      <AppFooter locale={locale} />
-    </div>
+    <TabProvider locale={locale}>
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+        <TabBar />
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <ScrollArea className="flex-1">
+            <Topbar
+              isNavOpen={isNavOpen}
+              locale={locale}
+              onNavToggle={onNavToggle}
+              showNavToggle={showNavToggle}
+            />
+            <div className="mx-auto w-full max-w-screen-2xl p-3 sm:p-4 lg:p-5 xl:p-7">
+              {children}
+            </div>
+          </ScrollArea>
+        </main>
+        <AppFooter locale={locale} />
+      </div>
+    </TabProvider>
   );
 
   if (isDesktop) {

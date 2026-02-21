@@ -1,9 +1,32 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistPixelSquare } from "geist/font/pixel";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
+
+const diatype = localFont({
+  src: [
+    { path: "../public/Diatype/ABCDiatype-Thin-Trial.woff2", weight: "100", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-ThinItalic-Trial.woff2", weight: "100", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Light-Trial.woff2", weight: "300", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-LightItalic-Trial.woff2", weight: "300", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Regular-Trial.woff2", weight: "400", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-RegularItalic-Trial.woff2", weight: "400", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Medium-Trial.woff2", weight: "500", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-MediumItalic-Trial.woff2", weight: "500", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Bold-Trial.woff2", weight: "700", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-BoldItalic-Trial.woff2", weight: "700", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Heavy-Trial.woff2", weight: "800", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-HeavyItalic-Trial.woff2", weight: "800", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Black-Trial.woff2", weight: "900", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-BlackItalic-Trial.woff2", weight: "900", style: "italic" },
+    { path: "../public/Diatype/ABCDiatype-Ultra-Trial.woff2", weight: "950", style: "normal" },
+    { path: "../public/Diatype/ABCDiatype-UltraItalic-Trial.woff2", weight: "950", style: "italic" },
+  ],
+  variable: "--font-diatype",
+  display: "swap",
+});
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -92,7 +115,7 @@ export default async function RootLayout({
   const locale = await getActiveLocale();
   return (
     <html
-      className={`${GeistSans.variable} ${GeistMono.variable} ${GeistPixelSquare.variable} ${playfair.variable}`}
+      className={`${diatype.variable} ${GeistMono.variable} ${GeistPixelSquare.variable} ${playfair.variable}`}
       lang={locale}
       suppressHydrationWarning
     >

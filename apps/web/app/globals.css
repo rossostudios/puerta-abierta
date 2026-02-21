@@ -130,6 +130,13 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-diatype,
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

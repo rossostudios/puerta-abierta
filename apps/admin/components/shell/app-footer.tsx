@@ -3,6 +3,7 @@
 import { KeyboardIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
+import { CasaoraLogo } from "@/components/ui/casaora-logo";
 import { Icon } from "@/components/ui/icon";
 import type { Locale } from "@/lib/i18n";
 
@@ -38,7 +39,8 @@ export function AppFooter({ locale }: { locale: Locale }) {
         </button>
       </div>
 
-      <span className="font-bold text-[11px] text-muted-foreground/70 tracking-wider">
+      <span className="inline-flex items-center gap-1.5 font-bold text-[11px] text-muted-foreground/70 tracking-wider">
+        <CasaoraLogo className="inline-flex" size={14} />
         CASAORA
       </span>
 
