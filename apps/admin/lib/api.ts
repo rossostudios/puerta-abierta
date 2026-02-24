@@ -701,6 +701,7 @@ export type AgentChatMessage = {
   }> | null;
   model_used?: string | null;
   fallback_used?: boolean;
+  feedback_rating?: "positive" | "negative" | null;
   created_at: string;
 };
 

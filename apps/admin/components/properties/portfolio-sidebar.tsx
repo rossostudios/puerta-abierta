@@ -18,6 +18,8 @@ import type {
 import { formatCompactCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { AgentActivityFeed } from "@/app/(admin)/module/properties/components/agent-activity-feed";
+
 type PortfolioStatsProps = {
   totalValuePyg: number;
   occupancyRate: number;
@@ -30,6 +32,7 @@ type PortfolioStatsProps = {
   notifications: PropertyNotificationItem[];
   isEn: boolean;
   formatLocale: "en-US" | "es-PY";
+  orgId?: string;
 };
 
 function relativeTimeLabel(timestamp: Date, isEn: boolean): string {
@@ -68,6 +71,7 @@ export function PortfolioSidebar({
   notifications,
   isEn,
   formatLocale,
+  orgId,
 }: PortfolioStatsProps) {
   return (
     <div className="space-y-8">
@@ -253,6 +257,8 @@ export function PortfolioSidebar({
           </div>
         ) : null}
       </div>
+
+      {orgId && <AgentActivityFeed isEn={isEn} orgId={orgId} />}
     </div>
   );
 }

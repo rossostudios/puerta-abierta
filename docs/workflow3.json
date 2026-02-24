@@ -1,0 +1,102 @@
+{
+    "sectionTitle": "What’s Next — Prioritized Roadmap (AI-Agent-Centric)",
+    "description": "Prioritized next steps from the pure AI agent perspective to turn your already elite foundation into fully autonomous, production-grade agents.",
+    "roadmap": [
+      {
+        "priority": 1,
+        "timeframe": "This week (3–5 days)",
+        "goal": "End-to-End Guest Reply Agent",
+        "whyItMatters": "Turns “propose → approve” into “propose → approve → send → confirm delivery → update thread”. This is the #1 value driver for hosts.",
+        "quickImplementationPath": [
+          "Add Twilio/WhatsApp Business or Resend/SendGrid integration (or use existing messaging service)",
+          "On approval webhook: call `send_guest_message` tool with idempotency_key",
+          "Add delivery/status webhook listener → update `ai_chat_messages` + approval record",
+          "Show “Sent ✓” + timestamp in admin chat + mobile inbox"
+        ]
+      },
+      {
+        "priority": 2,
+        "timeframe": "This week / early next",
+        "goal": "MCP Playground + 1-Click Demo",
+        "whyItMatters": "Let users (and you) instantly test the full power of the 79+ tools + RAG resources. Perfect for dogfooding and demos.",
+        "quickImplementationPath": [
+          "New admin page `/agent/playground`",
+          "Use `@modelcontextprotocol/sdk` to connect to your MCP server",
+          "Pre-load prompt: “Reply to guest Maria about late check-in using house rules”",
+          "Add session history + tool-call visualization"
+        ]
+      },
+      {
+        "priority": 3,
+        "timeframe": "Next 7–10 days",
+        "goal": "Supervisor / Orchestrator Agent",
+        "whyItMatters": "Enables true multi-agent collaboration instead of siloed agents (AnomalyDetection → TaskTriage → GuestComm).",
+        "quickImplementationPath": [
+          "Add `supervisor` type in `ai_agents` table",
+          "Implement router (LLM tool-calling or simple rule-based using `workflow_rules`)",
+          "Spawn sub-`workflow_jobs` for specialized agents"
+        ]
+      },
+      {
+        "priority": 4,
+        "timeframe": "Next 2 weeks",
+        "goal": "Advanced Memory & Guest RAG",
+        "whyItMatters": "Agents become personalized instead of generic (“Remember Maria always asks about WiFi”).",
+        "quickImplementationPath": [
+          "Add `guest_memory_summaries` table or enrich `ai_chat_messages` with `guest_id` filter",
+          "Extend RAG resource: `casaora://org/{orgId}/guest/{guestId}/history`",
+          "Auto-summarize every chat on close"
+        ]
+      },
+      {
+        "priority": 5,
+        "timeframe": "Next 3 weeks",
+        "goal": "Eval Suite + Feedback Loop",
+        "whyItMatters": "Stop flying blind on quality and continuously improve.",
+        "quickImplementationPath": [
+          "LLM-as-judge (Claude) scoring for tone/accuracy/completeness",
+          "Thumbs-up/down in inbox → `agent_feedback` table",
+          "Monthly eval report in the new analytics dashboard"
+        ]
+      },
+      {
+        "priority": 6,
+        "timeframe": "Next month",
+        "goal": "Dynamic Pricing Agent v1 (closed loop)",
+        "whyItMatters": "One of the highest-ROI agents in short-term rentals.",
+        "quickImplementationPath": [
+          "Connect market data (or partner API)",
+          "Enhance with RAG for local events/regs",
+          "Full flow: analyze → propose → approve → update price + calendar"
+        ]
+      },
+      {
+        "priority": 7,
+        "timeframe": "Ongoing",
+        "goal": "Voice Agent Live + No-Code Builder Teaser",
+        "whyItMatters": "Make ElevenLabs voice fully functional and start letting users build their own agents.",
+        "quickImplementationPath": [
+          "Hook voice to MCP tools",
+          "UI: drag-drop tools + system prompt editor"
+        ]
+      }
+    ],
+    "recommendedNextSprint": {
+      "title": "Recommended Next Sprint (Days 1–7)",
+      "goal": "Ship at least one agent that fully autonomously completes a real guest interaction (human approval only for the send step).",
+      "deliverables": [
+        "End-to-End Guest Reply flow (detection → approval → delivery → confirmation)",
+        "MCP Playground page in admin",
+        "Updated AGENTS.md with “End-to-End Flows” section + new Mermaid sequence diagram"
+      ]
+    },
+    "whatICanGiveYouRightNow": [
+      "Full code for the approval → WhatsApp/SMS execution handler (including webhook listener)",
+      "Complete MCP Playground React component (using @modelcontextprotocol/sdk)",
+      "Supervisor router pattern (Rust or TypeScript)",
+      "New Mermaid diagrams ready for AGENTS.md",
+      "Eval prompt templates (LLM-as-judge for guest replies)",
+      "Ready-to-copy PR description + Linear ticket template"
+    ],
+    "closingNote": "You’re moving at warp speed. The foundation is genuinely elite — now it’s time to make the agents do the real work. What do you want to ship first?"
+  }

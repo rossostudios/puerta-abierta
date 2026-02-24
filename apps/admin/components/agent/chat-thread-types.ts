@@ -109,6 +109,10 @@ function normalizeMessages(payload: unknown): AgentChatMessage[] {
         model_used:
           typeof row.model_used === "string" ? row.model_used : undefined,
         fallback_used: Boolean(row.fallback_used ?? false),
+        feedback_rating:
+          row.feedback_rating === "positive" || row.feedback_rating === "negative"
+            ? row.feedback_rating
+            : null,
         created_at: String(row.created_at ?? ""),
       };
     })

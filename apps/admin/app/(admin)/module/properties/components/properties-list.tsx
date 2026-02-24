@@ -1,8 +1,11 @@
 "use client";
 
+import { SparklesIcon } from "@hugeicons/core-free-icons";
+
 import { PropertiesMapView } from "@/components/properties/properties-map-view";
 import { PropertyCard } from "@/components/properties/property-card";
 import { PropertyNotionTable } from "@/components/properties/property-notion-table";
+import { Icon } from "@/components/ui/icon";
 import type {
   PropertyPortfolioRow,
   PropertyPortfolioSummary,
@@ -16,6 +19,7 @@ type PropertiesListProps = {
   viewMode: PropertyViewMode;
   summary: PropertyPortfolioSummary;
   isSidebarOpen?: boolean;
+  agentStatus?: "active" | "offline" | "loading";
 };
 
 export function PropertiesList({
@@ -24,9 +28,34 @@ export function PropertiesList({
   viewMode,
   summary,
   isSidebarOpen,
+  agentStatus,
 }: PropertiesListProps) {
   const isEn = locale === "en-US";
   const formatLocale = isEn ? "en-US" : "es-PY";
+
+  if (rows.length === 0) {
+    return (
+      <section className="pb-12">
+        <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-casaora-gradient text-white shadow-casaora">
+            <Icon className="h-6 w-6" icon={SparklesIcon} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-semibold text-lg text-foreground">
+              {isEn
+                ? "Your AI-powered portfolio starts here"
+                : "Tu portafolio potenciado por IA comienza aquí"}
+            </h3>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {isEn
+                ? "Connect your first property and let agents manage it 24/7."
+                : "Conecta tu primera propiedad y deja que los agentes la gestionen 24/7."}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="pb-12">
@@ -58,6 +87,7 @@ export function PropertiesList({
         </div>
       ) : (
         <PropertyNotionTable
+          agentStatus={agentStatus}
           formatLocale={formatLocale}
           isEn={isEn}
           isSidebarOpen={isSidebarOpen}

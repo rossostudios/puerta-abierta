@@ -25,6 +25,18 @@
       "env": {
         "MAPBOX_ACCESS_TOKEN": "pk.eyJ1IjoiY2hyaXNyb3Nzb3BtcCIsImEiOiJjbWlhbGR4bmgweW14MmtxNnlsNWIxcnh4In0.IfE2Izst8hGUjwCBcqKMfA"
       }
+    },
+    "casaora": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "packages/mcp-server/src/index.ts"
+      ],
+      "env": {
+        "CASAORA_API_BASE_URL": "http://localhost:8000/v1",
+        "CASAORA_API_TOKEN": "",
+        "CASAORA_ORG_ID": ""
+      }
     }
   }
 }

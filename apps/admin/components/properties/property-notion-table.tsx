@@ -12,6 +12,7 @@ import {
   Layers01Icon,
   MoreVerticalIcon,
   PencilEdit02Icon,
+  SparklesIcon,
   Tag01Icon,
   Task01Icon,
   ViewIcon,
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -100,6 +102,7 @@ type Props = {
   formatLocale: "en-US" | "es-PY";
   summary: PropertyPortfolioSummary;
   isSidebarOpen?: boolean;
+  agentStatus?: "active" | "offline" | "loading";
 };
 
 /* ---------- component ---------- */
@@ -110,6 +113,7 @@ export function PropertyNotionTable({
   formatLocale,
   summary,
   isSidebarOpen,
+  agentStatus,
 }: Props) {
   "use no memo";
   const router = useRouter();
@@ -165,6 +169,7 @@ export function PropertyNotionTable({
       return {
         code: false,
         city: false,
+        aiStatus: isXl,
         occupancyRate: isXl,
         openTaskCount: isXl,
         overdueCollectionCount: isXxl,
@@ -175,6 +180,7 @@ export function PropertyNotionTable({
       code: isSm,
       overdueCollectionCount: isSm,
       openTaskCount: isSm,
+      aiStatus: isLg,
       occupancyRate: isMd,
       city: isMd,
       revenueMtdPyg: isLg,
@@ -331,6 +337,37 @@ export function PropertyNotionTable({
         },
       },
       {
+        id: "aiStatus",
+        size: 90,
+        minSize: 70,
+        header: () => (
+          <ColHeader icon={SparklesIcon} label="AI" />
+        ),
+        cell: () => {
+          if (agentStatus === "loading") {
+            return (
+              <span className="text-muted-foreground text-xs">&hellip;</span>
+            );
+          }
+          return agentStatus === "active" ? (
+            <Badge
+              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[10px]"
+              variant="outline"
+            >
+              <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              {isEn ? "Active" : "Activo"}
+            </Badge>
+          ) : (
+            <Badge
+              className="border-border/40 bg-muted/20 text-muted-foreground text-[10px]"
+              variant="outline"
+            >
+              {isEn ? "Offline" : "Sin conexión"}
+            </Badge>
+          );
+        },
+      },
+      {
         accessorKey: "revenueMtdPyg",
         size: 140,
         minSize: 100,
@@ -432,6 +469,43 @@ export function PropertyNotionTable({
                   {isEn ? "Copy ID" : "Copiar ID"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuLabel>
+                  <span className="flex items-center gap-1">
+                    <Icon icon={SparklesIcon} size={12} />
+                    {isEn ? "AI Agent" : "Agente IA"}
+                  </span>
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(
+                      `/module/agent-playground?property_id=${encodeURIComponent(property.id)}&property_name=${encodeURIComponent(property.name)}`
+                    )
+                  }
+                >
+                  <Icon className="mr-2" icon={SparklesIcon} size={14} />
+                  {isEn ? "Ask AI about this property" : "Preguntar a IA sobre esta propiedad"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(
+                      `/module/agent-playground?property_id=${encodeURIComponent(property.id)}&property_name=${encodeURIComponent(property.name)}&agent=dynamic-pricing`
+                    )
+                  }
+                >
+                  <Icon className="mr-2" icon={DollarCircleIcon} size={14} />
+                  {isEn ? "Run Dynamic Pricing" : "Ejecutar Precio Dinámico"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    router.push(
+                      `/module/agent-playground?property_id=${encodeURIComponent(property.id)}&property_name=${encodeURIComponent(property.name)}&agent=maintenance-coordinator`
+                    )
+                  }
+                >
+                  <Icon className="mr-2" icon={Task01Icon} size={14} />
+                  {isEn ? "Scan Maintenance" : "Escanear Mantenimiento"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-900/10">
                   <Icon className="mr-2" icon={Delete02Icon} size={14} />
                   {isEn ? "Delete" : "Eliminar"}
@@ -442,7 +516,7 @@ export function PropertyNotionTable({
         },
       },
     ],
-    [isEn, formatLocale, commitEdit, router]
+    [isEn, formatLocale, commitEdit, router, agentStatus]
   );
 
   // eslint-disable-next-line react-hooks-js/incompatible-library
@@ -535,6 +609,7 @@ export function PropertyNotionTable({
             <TableCell className="tabular-nums" grid>
               {summary.averageOccupancy}%
             </TableCell>
+            <TableCell grid />
             <TableCell grid />
             <TableCell className="tabular-nums" grid>
               {formatCurrency(summary.totalRevenueMtdPyg, "PYG", formatLocale)}

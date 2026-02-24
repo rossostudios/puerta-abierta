@@ -67,6 +67,11 @@ export const CHAT_LINKS: RouteLinkDef[] = [
     icon: Settings02Icon,
     label: { "es-PY": "Configuración de agentes", "en-US": "Agent Config" },
   },
+  {
+    href: "/module/agent-playground",
+    icon: WorkflowSquare03Icon,
+    label: { "es-PY": "Playground", "en-US": "Playground" },
+  },
 ];
 
 export const INBOX_STATUS_LINKS: RouteLinkDef[] = [
@@ -208,4 +213,5 @@ export const HOME_TAB_HIDDEN_MODULE_SLUGS = new Set([
   "knowledge",
   "agent-dashboard",
   "agent-config",
+  "agent-playground",
 ]);

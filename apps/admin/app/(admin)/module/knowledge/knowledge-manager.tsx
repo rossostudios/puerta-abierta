@@ -50,6 +50,7 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
   const [chunks, setChunks] = useState<KnowledgeChunk[]>([]);
   const [loadingChunks, setLoadingChunks] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isSeeding, setIsSeeding] = useState(false);
 
   const refreshDocuments = useCallback(async () => {
     try {
@@ -86,6 +87,22 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
       setIsCreating(false);
     }
   }, [orgId, newTitle, newContent, newSourceUrl, refreshDocuments]);
+
+  const handleSeed = useCallback(async () => {
+    setIsSeeding(true);
+    try {
+      await fetch("/api/knowledge/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ org_id: orgId }),
+      });
+      await refreshDocuments();
+    } catch (err) {
+      console.error("Failed to seed knowledge base:", err);
+    } finally {
+      setIsSeeding(false);
+    }
+  }, [orgId, refreshDocuments]);
 
   const handleDelete = useCallback(
     async (docId: string) => {
@@ -221,14 +238,38 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
           <p className="mb-3 text-muted-foreground text-sm">
             {isEn ? "No knowledge documents yet." : "No hay documentos aun."}
           </p>
-          <Button
-            className="text-xs"
-            onClick={() => setShowCreateForm(true)}
-            size="sm"
-            variant="ghost"
-          >
-            {isEn ? "+ Add Document" : "+ Agregar Documento"}
-          </Button>
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              className="text-xs"
+              onClick={() => setShowCreateForm(true)}
+              size="sm"
+              variant="ghost"
+            >
+              {isEn ? "+ Add Document" : "+ Agregar Documento"}
+            </Button>
+            <Button
+              className="text-xs"
+              disabled={isSeeding}
+              onClick={handleSeed}
+              size="sm"
+              variant="outline"
+            >
+              {isSeeding
+                ? isEn
+                  ? "Seeding..."
+                  : "Sembrando..."
+                : isEn
+                  ? "Seed Knowledge Base"
+                  : "Sembrar Base de Conocimiento"}
+            </Button>
+          </div>
+          {isSeeding && (
+            <p className="mt-3 animate-pulse text-muted-foreground text-xs">
+              {isEn
+                ? "Creating and embedding 5 default documents — this may take a minute..."
+                : "Creando e indexando 5 documentos predeterminados — esto puede tomar un minuto..."}
+            </p>
+          )}
         </div>
       )}
 

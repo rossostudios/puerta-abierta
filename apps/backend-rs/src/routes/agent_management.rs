@@ -24,6 +24,10 @@ pub fn router() -> axum::Router<AppState> {
             axum::routing::get(dashboard_stats),
         )
         .route(
+            "/ai-agents/dashboard/analytics",
+            axum::routing::get(dashboard_analytics),
+        )
+        .route(
             "/ai-agents/{agent_slug}",
             axum::routing::get(get_agent).patch(update_agent),
         )
@@ -32,6 +36,16 @@ pub fn router() -> axum::Router<AppState> {
 #[derive(Debug, Deserialize)]
 struct OrgQuery {
     org_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AnalyticsQuery {
+    org_id: String,
+    #[serde(default = "default_period")]
+    period: i32,
+}
+fn default_period() -> i32 {
+    7
 }
 
 #[derive(Debug, Deserialize)]
@@ -299,6 +313,157 @@ async fn dashboard_stats(
         },
         "memory_count": memory_count,
         "recent_activity": recent_activity,
+    })))
+}
+
+async fn dashboard_analytics(
+    State(state): State<AppState>,
+    Query(query): Query<AnalyticsQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+    let period = query.period.max(1).min(90);
+    let interval_str = format!("{} days", period);
+
+    // Query 1 — Per-agent stats from agent_traces
+    let agent_rows = sqlx::query(
+        "SELECT agent_slug,
+           COUNT(*)::int AS total_runs,
+           COUNT(*) FILTER (WHERE success)::int AS successful_runs,
+           (COUNT(*) FILTER (WHERE success)::numeric / NULLIF(COUNT(*), 0) * 100)::float8 AS success_rate,
+           COALESCE(SUM(total_tokens), 0)::bigint AS total_tokens,
+           COALESCE(SUM(prompt_tokens * 0.000005 + completion_tokens * 0.000015), 0)::float8 AS estimated_cost_usd,
+           COALESCE(ROUND(AVG(latency_ms)), 0)::int AS avg_latency_ms
+         FROM agent_traces
+         WHERE organization_id = $1::uuid AND created_at >= now() - $2::interval
+         GROUP BY agent_slug ORDER BY total_runs DESC",
+    )
+    .bind(&query.org_id)
+    .bind(&interval_str)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    // Query 2 — Human override % from agent_approvals
+    let approval_rows = sqlx::query(
+        "SELECT agent_slug,
+           COUNT(*) FILTER (WHERE status IN ('approved','executed'))::int AS approved,
+           COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+           COUNT(*)::int AS total_reviewed
+         FROM agent_approvals
+         WHERE organization_id = $1::uuid AND created_at >= now() - $2::interval
+           AND status IN ('approved','executed','rejected')
+         GROUP BY agent_slug",
+    )
+    .bind(&query.org_id)
+    .bind(&interval_str)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    // Build approval lookup by slug
+    let mut approval_map: std::collections::HashMap<String, (i32, i32, i32)> =
+        std::collections::HashMap::new();
+    for r in &approval_rows {
+        let slug = r.try_get::<Option<String>, _>("agent_slug")
+            .unwrap_or(None)
+            .unwrap_or_default();
+        let approved = r.try_get::<i32, _>("approved").unwrap_or(0);
+        let rejected = r.try_get::<i32, _>("rejected").unwrap_or(0);
+        let total = r.try_get::<i32, _>("total_reviewed").unwrap_or(0);
+        approval_map.insert(slug, (approved, rejected, total));
+    }
+
+    // Merge agent stats with approval data
+    let agents: Vec<Value> = agent_rows
+        .iter()
+        .map(|r| {
+            let slug = r.try_get::<String, _>("agent_slug").unwrap_or_default();
+            let (_, rejected, total_reviewed) = approval_map.get(&slug).copied().unwrap_or((0, 0, 0));
+            let override_pct = if total_reviewed > 0 {
+                (rejected as f64 / total_reviewed as f64) * 100.0
+            } else {
+                0.0
+            };
+            json!({
+                "slug": slug,
+                "total_runs": r.try_get::<i32, _>("total_runs").unwrap_or(0),
+                "successful_runs": r.try_get::<i32, _>("successful_runs").unwrap_or(0),
+                "success_rate": r.try_get::<f64, _>("success_rate").unwrap_or(0.0),
+                "total_tokens": r.try_get::<i64, _>("total_tokens").unwrap_or(0),
+                "estimated_cost_usd": r.try_get::<f64, _>("estimated_cost_usd").unwrap_or(0.0),
+                "avg_latency_ms": r.try_get::<i32, _>("avg_latency_ms").unwrap_or(0),
+                "human_override_pct": (override_pct * 10.0).round() / 10.0,
+            })
+        })
+        .collect();
+
+    // Query 3 — Most-used tools from agent_traces.tool_calls JSONB
+    let tool_rows = sqlx::query(
+        "SELECT tool->>'name' AS tool_name,
+           COUNT(*)::int AS call_count,
+           COUNT(*) FILTER (WHERE (tool->>'ok')::boolean IS NOT FALSE)::int AS success_count
+         FROM agent_traces, jsonb_array_elements(COALESCE(tool_calls, '[]'::jsonb)) AS tool
+         WHERE organization_id = $1::uuid AND created_at >= now() - $2::interval
+         GROUP BY tool->>'name' ORDER BY call_count DESC LIMIT 20",
+    )
+    .bind(&query.org_id)
+    .bind(&interval_str)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let top_tools: Vec<Value> = tool_rows
+        .iter()
+        .map(|r| {
+            let calls = r.try_get::<i32, _>("call_count").unwrap_or(0);
+            let successes = r.try_get::<i32, _>("success_count").unwrap_or(0);
+            let rate = if calls > 0 {
+                (successes as f64 / calls as f64) * 100.0
+            } else {
+                0.0
+            };
+            json!({
+                "name": r.try_get::<String, _>("tool_name").unwrap_or_default(),
+                "calls": calls,
+                "success_rate": (rate * 10.0).round() / 10.0,
+            })
+        })
+        .collect();
+
+    // Query 4 — Daily cost trend
+    let trend_rows = sqlx::query(
+        "SELECT DATE(created_at)::text AS date,
+           COALESCE(SUM(prompt_tokens * 0.000005 + completion_tokens * 0.000015), 0)::float8 AS cost_usd,
+           COALESCE(SUM(total_tokens), 0)::bigint AS token_count
+         FROM agent_traces
+         WHERE organization_id = $1::uuid AND created_at >= now() - $2::interval
+         GROUP BY DATE(created_at) ORDER BY date",
+    )
+    .bind(&query.org_id)
+    .bind(&interval_str)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+
+    let cost_trend: Vec<Value> = trend_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "date": r.try_get::<String, _>("date").unwrap_or_default(),
+                "cost_usd": r.try_get::<f64, _>("cost_usd").unwrap_or(0.0),
+                "token_count": r.try_get::<i64, _>("token_count").unwrap_or(0),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({
+        "period_days": period,
+        "agents": agents,
+        "top_tools": top_tools,
+        "cost_trend": cost_trend,
     })))
 }
 

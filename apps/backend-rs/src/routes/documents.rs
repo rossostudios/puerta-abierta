@@ -46,6 +46,10 @@ pub fn router() -> axum::Router<AppState> {
             "/knowledge-documents/{document_id}/chunks",
             axum::routing::get(list_knowledge_chunks),
         )
+        .route(
+            "/knowledge-documents/seed",
+            axum::routing::post(seed_knowledge_documents),
+        )
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -610,4 +614,233 @@ async fn list_knowledge_chunks(
     }
 
     Ok(Json(json!({ "data": chunks })))
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge base seeding
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, serde::Deserialize)]
+struct SeedInput {
+    organization_id: String,
+}
+
+const SEED_DOCS: &[(&str, &str)] = &[
+    (
+        "Check-in / Check-out Procedures",
+        r#"## Check-in / Check-out Procedures
+
+### Standard Check-in
+- **Check-in time:** 3:00 PM (15:00)
+- **Early check-in:** Available upon request, subject to availability. Extra fee of 50,000 PYG may apply.
+- **Key handoff:** Digital lockbox code sent via WhatsApp 2 hours before check-in. For smart lock properties, a temporary access code is generated automatically.
+- **Welcome packet:** Located inside the property — includes WiFi password, emergency contacts, house rules, and local recommendations.
+
+### Standard Check-out
+- **Check-out time:** 11:00 AM (11:00)
+- **Late check-out:** Available until 2:00 PM for 100,000 PYG. Must be requested 24 hours in advance.
+- **Check-out checklist:** Take out trash, wash dishes, strip bed linens, close all windows, lock all doors, return keys to lockbox.
+
+### Cleaning Protocol
+- Professional cleaning scheduled within 2 hours of check-out.
+- Inspection photos taken before and after cleaning.
+- Minimum 4-hour turnover window between guests.
+- Deep cleaning performed monthly or every 4 turnovers.
+"#,
+    ),
+    (
+        "House Rules & FAQ",
+        r#"## House Rules & Frequently Asked Questions
+
+### WiFi
+- **Network name:** Displayed on the welcome card in the living room.
+- **Password:** Included in the welcome packet and sent via WhatsApp at check-in.
+- **Speed:** Minimum 50 Mbps. Report issues to property manager immediately.
+
+### Parking
+- Designated parking spot included (where available). Do not park in neighboring spaces.
+- Street parking is available in most neighborhoods. Lock your vehicle.
+
+### Quiet Hours
+- **10:00 PM – 8:00 AM** — No loud music, parties, or excessive noise.
+- Violations may result in a warning or early termination of stay.
+
+### Pets
+- Not allowed unless explicitly listed as pet-friendly. Pet fee: 150,000 PYG per stay.
+
+### Smoking
+- Strictly prohibited inside all properties. Smoking is only allowed in designated outdoor areas.
+- A cleaning fee of 500,000 PYG will be charged for violations.
+
+### Garbage
+- Separate recyclables from general waste. Collection days vary by neighborhood.
+- Take trash to the designated bin area before check-out.
+
+### Pool / Amenities
+- Pool hours: 8:00 AM – 9:00 PM. No diving. Children must be supervised.
+- BBQ grills available — clean after use. Charcoal provided.
+- Gym access included where available. Use equipment at own risk.
+"#,
+    ),
+    (
+        "Paraguay Short-Term Rental Regulations",
+        r#"## Paraguay Short-Term Rental Regulations
+
+### Legal Framework
+- **Ley 6524/2020 (Ley de Turismo):** Regulates tourist accommodations including short-term rentals.
+- All short-term rental operators must register with SENATUR (Secretaría Nacional de Turismo).
+- Properties must meet minimum safety and hygiene standards.
+
+### Tax Obligations
+- **IVA (Value Added Tax):** 10% applies to rental income from tourist accommodations.
+- **SET Registration:** Operators must register with the Subsecretaría de Estado de Tributación.
+- **Income tax:** Rental income is subject to IRACIS (corporate) or IRP (personal) depending on structure.
+- Monthly IVA declarations are required via the Marangatú system.
+
+### Guest ID Requirements
+- All guests must present valid identification at check-in.
+- Foreign guests: passport required. Paraguayan guests: cédula de identidad.
+- Guest registry must be maintained and available for inspection.
+- Guest data must be reported to SENATUR within 24 hours of check-in.
+
+### Safety Requirements
+- Fire extinguisher (minimum 1 per floor).
+- Smoke detectors in every bedroom and hallway.
+- Emergency exit signage.
+- First aid kit.
+- Emergency contact information posted visibly.
+"#,
+    ),
+    (
+        "Emergency Contacts & Procedures",
+        r#"## Emergency Contacts & Procedures
+
+### Emergency Numbers (Paraguay)
+- **General Emergency (Police/Fire/Ambulance):** 911
+- **Police (Policía Nacional):** 911 or (021) 441-111
+- **Fire Department (Bomberos):** 132
+- **Ambulance (SEME):** 141
+- **Hospital de Clínicas:** (021) 420-980
+- **Hospital Italiano:** (021) 615-666
+
+### Property Emergency Escalation
+1. **Immediate danger (fire, flood, break-in):** Call 911 first, then property manager.
+2. **Urgent maintenance (water leak, power outage, AC failure):** Contact property manager via WhatsApp. Response within 30 minutes.
+3. **Non-urgent issues (minor repairs, replacements):** Submit via the guest portal or WhatsApp. Response within 4 hours during business hours.
+
+### Property Manager Contact
+- Available 24/7 for emergencies.
+- Business hours: 8:00 AM – 8:00 PM, Monday – Saturday.
+- WhatsApp is the preferred communication channel.
+
+### Natural Disasters
+- Paraguay experiences occasional storms and flooding during rainy season (October – March).
+- In case of severe weather: stay indoors, away from windows. Follow local authorities' instructions.
+- Emergency supplies (flashlight, water) available in the utility closet.
+"#,
+    ),
+    (
+        "OTA Channel Guidelines",
+        r#"## OTA Channel Guidelines
+
+### Airbnb
+- **Commission:** 3% host fee (host-only pricing model).
+- **Cancellation policy:** Moderate — full refund if cancelled 5+ days before check-in.
+- **Review response SLA:** Respond to all reviews within 48 hours. Professional, courteous tone.
+- **Listing sync:** Calendar synced every 15 minutes via iCal. Price changes pushed immediately via API.
+- **Superhost requirements:** 4.8+ rating, <1% cancellation rate, 90%+ response rate, 10+ stays/year.
+
+### Booking.com
+- **Commission:** 15% per booking.
+- **Cancellation policy:** Free cancellation up to 48 hours before check-in (default).
+- **Guest communication:** All pre-booking messages go through Booking.com extranet. Post-booking, direct WhatsApp is allowed.
+- **Listing sync:** Channel manager integration with real-time availability updates.
+- **Genius program:** Properties with 8.0+ rating and low cancellation qualify for visibility boost.
+
+### General OTA Rules
+- **Rate parity:** Maintain consistent pricing across all channels (±5% allowed for commission offset).
+- **Minimum stay:** 2 nights (weekends), 1 night (weekdays) — adjust seasonally.
+- **Listing photos:** Minimum 20 professional photos per listing. Update annually.
+- **Description accuracy:** All amenities, rules, and restrictions must be accurately listed. Misrepresentation leads to penalties.
+- **Response time:** Reply to all inquiries within 1 hour during business hours, 4 hours outside.
+"#,
+    ),
+];
+
+async fn seed_knowledge_documents(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<SeedInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.organization_id, DOC_EDIT_ROLES).await?;
+    let pool = db_pool(&state)?;
+
+    let mut seeded = 0u32;
+    let mut skipped = 0u32;
+
+    for (title, content) in SEED_DOCS {
+        // Idempotent: check if a document with this title already exists for this org
+        let existing: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM knowledge_documents WHERE organization_id = $1::uuid AND title = $2)",
+        )
+        .bind(&payload.organization_id)
+        .bind(title)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(false);
+
+        if existing {
+            skipped += 1;
+            continue;
+        }
+
+        // Create knowledge document
+        let row = sqlx::query(
+            "INSERT INTO knowledge_documents (organization_id, title, source_url, created_by_user_id)
+             VALUES ($1::uuid, $2, 'seed', $3::uuid)
+             RETURNING id::text AS id",
+        )
+        .bind(&payload.organization_id)
+        .bind(title)
+        .bind(&user_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| AppError::Dependency(e.to_string()))?;
+
+        let kd_id: String = row.try_get("id").unwrap_or_default();
+
+        // Process and embed the content
+        let _ = embeddings::process_and_embed_document(
+            pool,
+            &state.http_client,
+            &state.config,
+            &payload.organization_id,
+            &kd_id,
+            content,
+            title,
+        )
+        .await;
+
+        seeded += 1;
+    }
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&payload.organization_id),
+        Some(&user_id),
+        "seed_knowledge",
+        "knowledge_documents",
+        None,
+        None,
+        Some(json!({ "seeded": seeded, "skipped": skipped })),
+    )
+    .await;
+
+    Ok(Json(json!({
+        "ok": true,
+        "seeded": seeded,
+        "skipped": skipped,
+        "total_available": SEED_DOCS.len(),
+    })))
 }

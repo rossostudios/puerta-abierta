@@ -304,6 +304,31 @@ pub async fn queue_ai_reply(
             "status".to_string(),
             Value::String("pending".to_string()),
         );
+        approval.insert(
+            "kind".to_string(),
+            Value::String("guest_reply".to_string()),
+        );
+        approval.insert(
+            "priority".to_string(),
+            Value::String("high".to_string()),
+        );
+        approval.insert(
+            "reason".to_string(),
+            Value::String(format!(
+                "AI confidence {:.0}% — below 80% threshold. Draft reply to {}: {}",
+                confidence * 100.0,
+                recipient,
+                body
+            )),
+        );
+        approval.insert(
+            "estimated_impact".to_string(),
+            json!({
+                "channel": "whatsapp",
+                "recipient": recipient,
+                "confidence": confidence,
+            }),
+        );
 
         let _ = create_row(pool, "agent_approvals", &approval).await;
         return;
@@ -323,6 +348,14 @@ pub async fn queue_ai_reply(
     msg.insert(
         "direction".to_string(),
         Value::String("outbound".to_string()),
+    );
+
+    // Idempotency key to prevent duplicate auto-replies within the same minute
+    let ts_minute = chrono::Utc::now().format("%Y%m%d%H%M").to_string();
+    let idem_key = format!("ai_reply:{}:{}:{}", org_id, recipient, ts_minute);
+    msg.insert(
+        "idempotency_key".to_string(),
+        Value::String(idem_key),
     );
 
     let mut payload = Map::new();

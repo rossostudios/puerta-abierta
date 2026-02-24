@@ -12,6 +12,7 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
+import { AgentAnalytics } from "./agent-analytics";
 import { AgentDashboard } from "./agent-dashboard";
 import { AgentHealth } from "./agent-health";
 import { AgentTraces } from "./agent-traces";
@@ -106,6 +107,29 @@ export default async function AgentDashboardPage(_props: PageProps) {
       </header>
 
       <AgentDashboard initialStats={stats} locale={locale} orgId={orgId} />
+
+      <Card>
+        <CardHeader className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">Analytics</Badge>
+            <CardTitle className="text-lg">
+              {isEn
+                ? "Agent Analytics"
+                : "Analíticas de Agentes"}
+            </CardTitle>
+          </div>
+          <CardDescription>
+            {isEn
+              ? "Per-agent success rates, cost estimates, tool usage, and human override metrics."
+              : "Tasas de éxito por agente, estimaciones de costos, uso de herramientas y métricas de intervención humana."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={null}>
+            <AgentAnalytics orgId={orgId} locale={locale} />
+          </Suspense>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="space-y-1">

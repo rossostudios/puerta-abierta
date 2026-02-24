@@ -1,0 +1,77 @@
+{
+    "sectionTitle": "Agent Integration & Polish for /module/properties",
+    "githubAnalysisSummary": "Fresh scan of apps/admin/app/(admin)/module/properties/ (page.tsx + [id]/page.tsx), components, backend routes/properties.rs, and recent commits (delivery loop, MCP playground, analytics, feedback). Clean table/card grid with zero AI surface yet → perfect high-impact canvas.",
+    "recommendedStrategy": {
+      "phase1": {
+        "title": "Phase 1 – 1–2 hour polish (immediate magic)",
+        "items": [
+          {
+            "title": "AI Agent Status column + pill in main list",
+            "details": "Add ai_last_run, ai_confidence, ai_score to Property query. Render colored pill with tooltip (e.g., 'Dynamic Pricing ran 2h ago — +8% suggested')",
+            "files": ["properties/page.tsx", "properties table row or card"]
+          },
+          {
+            "title": "Quick Agent Actions dropdown per property",
+            "details": "Run Dynamic Pricing, Scan Maintenance (Vision), Generate Guest Report, Chat with Property Agent → all open playground pre-filled with property_id",
+            "files": ["property-card.tsx or table row"]
+          },
+          {
+            "title": "AI Insights card at top of list page",
+            "details": "Reuse /ai-agents/dashboard/analytics + lightweight properties_ai_summary SQL. Show latest insights with expandable Why cards",
+            "files": ["properties/page.tsx"]
+          }
+        ]
+      },
+      "phase2": {
+        "title": "Phase 2 – 3–4 hour demo-killer",
+        "items": [
+          {
+            "title": "Live Agent Activity Feed sidebar",
+            "details": "Supabase realtime on agent_approvals + workflow_jobs filtered by property_id. Show delivered replies with thumbs",
+            "files": ["properties/page.tsx", "[id]/page.tsx"]
+          },
+          {
+            "title": "Property Detail enhancements ([id]/page.tsx)",
+            "details": "AI Agent Score banner (94/100), dedicated Agents tab (re-use analytics), Seed Knowledge button, MCP Snapshot widget",
+            "files": ["[id]/page.tsx"]
+          },
+          {
+            "title": "Floating 'Ask AI about this property' FAB",
+            "details": "Opens playground with auto-prompt including property context",
+            "files": ["[id]/page.tsx"]
+          }
+        ]
+      }
+    },
+    "exactFilesToTouch": [
+      {
+        "file": "apps/admin/app/(admin)/module/properties/page.tsx",
+        "changes": "Add AI Insights card + Agent Status column"
+      },
+      {
+        "file": "apps/admin/app/(admin)/module/properties/[id]/page.tsx",
+        "changes": "Add Agents tab + MCP snapshot widget + FAB"
+      },
+      {
+        "file": "apps/admin/components/properties/property-card.tsx (or table row)",
+        "changes": "Quick actions dropdown + status pill"
+      },
+      {
+        "file": "apps/backend-rs/src/routes/properties.rs",
+        "changes": "Extend list/detail queries with 2 AI columns (ai_last_run, ai_score) — 5-line SQL join"
+      },
+      {
+        "file": "apps/admin/lib/api.ts",
+        "changes": "Extend Property type with AI fields (already patterned from chat messages)"
+      }
+    ],
+    "bonusMicroPolish": [
+      "Hover glow on property cards + 'Agent ready' badge",
+      "Confetti on Delivered events in activity feed (reuse delivery loop)",
+      "Keyboard shortcut Cmd/Ctrl + Shift + A → open property playground",
+      "Empty state: 'Connect your first property and let agents manage it 24/7' + Seed button",
+      "Tooltips on confidence badges + micro-animations"
+    ],
+    "implementationNote": "You already have every backend primitive (MCP resources, approvals, analytics, realtime, playground). This is 90% frontend + 1 tiny SQL extension.",
+    "nextActionOffer": "Ready for exact ready-to-paste code diffs? Just say 'give me the code for phase 1' or specific file and I'll drop full blocks."
+  }

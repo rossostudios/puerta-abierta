@@ -5,6 +5,8 @@ import {
   Edit02Icon,
   Refresh01Icon,
   SparklesIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
   VolumeHighIcon,
 } from "@hugeicons/core-free-icons";
 import { useCallback, useState } from "react";
@@ -25,8 +27,17 @@ export type DisplayMessage = {
   content: string;
   model_used?: string | null;
   tool_trace?: ToolTraceEntry[] | null;
+  feedback_rating?: "positive" | "negative" | null;
   source: "server" | "live";
 };
+
+const FEEDBACK_REASONS = [
+  "Too formal",
+  "Wrong facts",
+  "Too long",
+  "Missed context",
+  "Other",
+] as const;
 
 export function ChatMessage({
   message,
@@ -36,6 +47,8 @@ export function ChatMessage({
   onRetry,
   onEdit,
   onSpeak,
+  onFeedback,
+  onRegenerate,
 }: {
   message: DisplayMessage;
   isEn: boolean;
@@ -44,9 +57,16 @@ export function ChatMessage({
   onRetry: (messageId: string) => void;
   onEdit: (messageId: string, content: string) => void;
   onSpeak?: (content: string) => void;
+  onFeedback?: (
+    messageId: string,
+    rating: "positive" | "negative",
+    reason?: string
+  ) => void;
+  onRegenerate?: (messageId: string) => void;
 }) {
   const [traceExpanded, setTraceExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showReasons, setShowReasons] = useState(false);
   const isUser = message.role === "user";
 
   const handleCopy = useCallback(() => {
@@ -54,6 +74,21 @@ export function ChatMessage({
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [message.content, onCopy]);
+
+  const handleThumbsDown = useCallback(() => {
+    if (!onFeedback) return;
+    onFeedback(message.id, "negative");
+    setShowReasons(true);
+  }, [message.id, onFeedback]);
+
+  const handleReasonSelect = useCallback(
+    (reason: string) => {
+      if (!onFeedback) return;
+      onFeedback(message.id, "negative", reason);
+      setShowReasons(false);
+    },
+    [message.id, onFeedback]
+  );
 
   return (
     <Message
@@ -155,9 +190,85 @@ export function ChatMessage({
                   </span>
                 </Button>
               ) : null}
+
+              {onFeedback ? (
+                <>
+                  <span className="mx-0.5 h-3 w-px bg-border/40" />
+                  <Button
+                    className={cn(
+                      "h-7 w-7 rounded-md transition-all hover:scale-110 active:scale-95",
+                      message.feedback_rating === "positive"
+                        ? "text-emerald-500 hover:text-emerald-500"
+                        : "text-muted-foreground/60 hover:bg-muted/60 hover:text-emerald-500"
+                    )}
+                    onClick={() => onFeedback(message.id, "positive")}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Icon className="h-3.5 w-3.5" icon={ThumbsUpIcon} />
+                    <span className="sr-only">
+                      {isEn ? "Good response" : "Buena respuesta"}
+                    </span>
+                  </Button>
+                  <Button
+                    className={cn(
+                      "h-7 w-7 rounded-md transition-all hover:scale-110 active:scale-95",
+                      message.feedback_rating === "negative"
+                        ? "text-destructive hover:text-destructive"
+                        : "text-muted-foreground/60 hover:bg-muted/60 hover:text-destructive"
+                    )}
+                    onClick={handleThumbsDown}
+                    size="icon"
+                    variant="ghost"
+                  >
+                    <Icon className="h-3.5 w-3.5" icon={ThumbsDownIcon} />
+                    <span className="sr-only">
+                      {isEn ? "Bad response" : "Mala respuesta"}
+                    </span>
+                  </Button>
+
+                  {/* Item 3: Regenerate button after thumbs-down */}
+                  {onRegenerate &&
+                  message.feedback_rating === "negative" ? (
+                    <Button
+                      className="h-7 w-7 rounded-md text-amber-500 transition-all hover:scale-110 hover:bg-amber-500/10 hover:text-amber-600 active:scale-95"
+                      disabled={isSending}
+                      onClick={() => onRegenerate(message.id)}
+                      size="icon"
+                      title={
+                        isEn
+                          ? "Regenerate with more context"
+                          : "Regenerar con mas contexto"
+                      }
+                      variant="ghost"
+                    >
+                      <Icon className="h-3.5 w-3.5" icon={Refresh01Icon} />
+                      <span className="sr-only">
+                        {isEn ? "Regenerate" : "Regenerar"}
+                      </span>
+                    </Button>
+                  ) : null}
+                </>
+              ) : null}
             </>
           )}
         </div>
+
+        {/* Item 5a: Feedback reasons dropdown */}
+        {showReasons && message.feedback_rating === "negative" ? (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {FEEDBACK_REASONS.map((reason) => (
+              <button
+                className="rounded-full border border-border/50 bg-muted/40 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                key={reason}
+                onClick={() => handleReasonSelect(reason)}
+                type="button"
+              >
+                {reason}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </MessageContent>
     </Message>
   );

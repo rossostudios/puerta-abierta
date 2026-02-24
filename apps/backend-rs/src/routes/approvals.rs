@@ -336,11 +336,24 @@ async fn approve_approval(
         "execution_failed"
     };
 
+    // If the executed tool was send_message, link the created message_log to this approval
+    let delivery_message_log_id = if tool_name == "send_message" && execution_ok {
+        execution_result
+            .as_object()
+            .and_then(|obj| obj.get("message_id"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string())
+    } else {
+        None
+    };
+
     let finalized = sqlx::query(
         "UPDATE agent_approvals
          SET status = $1,
              execution_result = $2,
-             executed_at = now()
+             executed_at = now(),
+             delivery_status = CASE WHEN $5::text IS NOT NULL THEN 'pending' ELSE delivery_status END,
+             delivery_message_log_id = COALESCE($5::uuid, delivery_message_log_id)
          WHERE id = $3::uuid
            AND organization_id = $4::uuid
          RETURNING row_to_json(agent_approvals.*) AS row",
@@ -349,6 +362,7 @@ async fn approve_approval(
     .bind(execution_result.clone())
     .bind(&path.id)
     .bind(&query.org_id)
+    .bind(&delivery_message_log_id)
     .fetch_optional(pool)
     .await
     .map_err(|error| {

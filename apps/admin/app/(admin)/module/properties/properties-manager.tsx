@@ -1,10 +1,13 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DataImportSheet } from "@/components/import/data-import-sheet";
 import { PortfolioSidebar } from "@/components/properties/portfolio-sidebar";
 import { filterPropertyPortfolioRows } from "@/lib/features/properties/analytics";
+import type { AgentDefinition } from "@/lib/api";
+import { normalizeAgents } from "@/components/agent/chat-thread-types";
 import type {
   PropertyHealthFilter,
   PropertyRecord,
@@ -15,6 +18,7 @@ import type {
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useActiveLocale, useDictionary } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
+import { AiInsightsBanner } from "./components/ai-insights-banner";
 import { CreatePropertySheet } from "./components/create-property-sheet";
 import { PropertiesFeedback } from "./components/properties-feedback";
 import { PropertiesFilterBar } from "./components/properties-filter-bar";
@@ -112,6 +116,29 @@ export function PropertiesManager({
     }
   );
 
+  // Agent status for AI column
+  const agentsQuery = useQuery<AgentDefinition[], Error>({
+    queryKey: ["agents-property-status", orgId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/agent/agents?org_id=${encodeURIComponent(orgId)}`,
+        { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+      );
+      if (!res.ok) return [];
+      const payload = (await res.json()) as unknown;
+      return normalizeAgents(payload);
+    },
+    staleTime: 60_000,
+    enabled: !!orgId,
+    retry: false,
+  });
+
+  const agentStatus: "active" | "offline" | "loading" = agentsQuery.isPending
+    ? "loading"
+    : (agentsQuery.data ?? []).some((a) => a.is_active !== false)
+      ? "active"
+      : "offline";
+
   const filteredRows = useMemo(
     () =>
       filterPropertyPortfolioRows({
@@ -142,6 +169,12 @@ export function PropertiesManager({
               title={title}
             />
 
+            <AiInsightsBanner
+              isEn={isEn}
+              orgId={orgId}
+              propertyCount={filteredRows.length}
+            />
+
             <PropertiesFeedback
               error={errorLabel ?? ""}
               errorLabel={common.error}
@@ -166,6 +199,7 @@ export function PropertiesManager({
             />
 
             <PropertiesList
+              agentStatus={agentStatus}
               isSidebarOpen={isSidebarOpen}
               locale={locale}
               rows={filteredRows}
@@ -198,6 +232,7 @@ export function PropertiesManager({
             isEn={isEn}
             notifications={notifications}
             occupancyRate={summary.averageOccupancy}
+            orgId={orgId}
             recentActivity={recentActivity}
             totalOverdueCollections={summary.totalOverdueCollections}
             totalRevenueMtdPyg={summary.totalRevenueMtdPyg}

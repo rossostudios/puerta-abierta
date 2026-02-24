@@ -8,6 +8,7 @@ const PropertyOverviewKpiCards = dynamic(() =>
   )
 );
 
+import { PropertyOverviewAgents } from "./property-overview-agents";
 import { PropertyOverviewOperations } from "./property-overview-operations";
 
 type PropertyOverviewProps = {
@@ -15,6 +16,9 @@ type PropertyOverviewProps = {
   recordId: string;
   locale: "en-US" | "es-PY";
   isEn: boolean;
+  orgId?: string | null;
+  propertyId?: string;
+  propertyName?: string;
 };
 
 export function PropertyOverview({
@@ -22,6 +26,9 @@ export function PropertyOverview({
   recordId,
   locale,
   isEn,
+  orgId,
+  propertyId,
+  propertyName,
 }: PropertyOverviewProps) {
   return (
     <div className="space-y-4">
@@ -45,6 +52,15 @@ export function PropertyOverview({
           recordId={recordId}
         />
       </div>
+
+      {orgId && propertyId && propertyName && (
+        <PropertyOverviewAgents
+          isEn={isEn}
+          orgId={orgId}
+          propertyId={propertyId}
+          propertyName={propertyName}
+        />
+      )}
     </div>
   );
 }

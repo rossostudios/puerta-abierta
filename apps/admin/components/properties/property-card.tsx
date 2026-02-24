@@ -1,7 +1,8 @@
 "use client";
 
-import { Building03Icon, Invoice03Icon } from "@hugeicons/core-free-icons";
+import { Building03Icon, Invoice03Icon, SparklesIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -42,6 +43,7 @@ export function PropertyCard({
   health,
   overdueCollectionCount,
 }: PropertyCardProps) {
+  const router = useRouter();
   const locale = useActiveLocale();
   const formatLocale = locale === "en-US" ? "en-US" : "es-PY";
   const isEn = locale === "en-US";
@@ -63,7 +65,7 @@ export function PropertyCard({
         : "bg-[var(--status-success-fg)]";
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--shadow-floating)]">
+    <Card className="group flex h-full flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:ring-1 hover:ring-primary/20 hover:shadow-[var(--shadow-floating)]">
       {/* Compact cover area */}
       <div className="relative h-32 w-full shrink-0 overflow-hidden bg-muted/30">
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] dark:opacity-[0.12]">
@@ -82,12 +84,40 @@ export function PropertyCard({
           </Badge>
           <span
             className={cn(
+              "glass-float inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold text-primary/80"
+            )}
+          >
+            <Icon className="h-2.5 w-2.5" icon={SparklesIcon} />
+            AI
+          </span>
+          <span
+            className={cn(
               "h-2 w-2 rounded-full shadow-sm",
               healthDotColor,
               health === "critical" && "animate-pulse"
             )}
           />
         </div>
+
+        {/* AI quick action button */}
+        <button
+          aria-label={isEn ? "Ask AI" : "Preguntar a IA"}
+          className={cn(
+            "glass-float absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-lg",
+            "text-primary opacity-0 transition-all group-hover:opacity-100",
+            "hover:bg-primary/10"
+          )}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            router.push(
+              `/module/agent-playground?property_id=${encodeURIComponent(id)}&property_name=${encodeURIComponent(name)}`
+            );
+          }}
+          type="button"
+        >
+          <Icon className="h-4 w-4" icon={SparklesIcon} />
+        </button>
 
         <div className="absolute bottom-3 left-3 z-10">
           <div className="glass-float rounded-lg px-2.5 py-1 font-semibold text-[10px] text-foreground tracking-wide">

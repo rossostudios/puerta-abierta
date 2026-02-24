@@ -24,6 +24,8 @@ import {
 } from "@/lib/modules";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
+import { PropertyAiBanner } from "./components/property-ai-banner";
+import { PropertyAiFab } from "./components/property-ai-fab";
 import {
   PropertyDetailsPanel,
   PropertyDetailsProvider,
@@ -111,9 +113,13 @@ export default async function PropertyRecordPage({
       ? "Track occupancy, leases, and collections."
       : "Controla ocupación, contratos y cobros.";
 
+  const activeOrgId = await getActiveOrgId();
   const { data } = result;
   const href = `/module/properties/${data.recordId}`;
   const city = String(data.record.city ?? data.record.district ?? "asuncion");
+  const propertyAddress = String(data.record.address ?? data.record.location ?? "");
+  const occupancyRate = data.overview?.occupancyRate ?? null;
+  const unitCount = data.overview?.unitCount ?? 0;
 
   return (
     <PropertyDetailsProvider>
@@ -182,6 +188,15 @@ export default async function PropertyRecordPage({
           </div>
         </div>
 
+        {activeOrgId && (
+          <PropertyAiBanner
+            isEn={isEn}
+            orgId={activeOrgId}
+            propertyId={data.recordId}
+            propertyName={data.title}
+          />
+        )}
+
         <PropertyDetailsPanel
           isEn={isEn}
           keys={data.keys}
@@ -195,10 +210,26 @@ export default async function PropertyRecordPage({
           <PropertyOverview
             isEn={isEn}
             locale={locale}
+            orgId={activeOrgId}
             overview={data.overview}
+            propertyId={data.recordId}
+            propertyName={data.title}
             recordId={data.recordId}
           />
         ) : null}
+
+        {activeOrgId && (
+          <PropertyAiFab
+            isEn={isEn}
+            occupancyRate={occupancyRate}
+            orgId={activeOrgId}
+            propertyAddress={propertyAddress}
+            propertyCode={data.propertyCodeLabel ?? undefined}
+            propertyId={data.recordId}
+            propertyName={data.title}
+            unitCount={unitCount}
+          />
+        )}
       </div>
     </PropertyDetailsProvider>
   );

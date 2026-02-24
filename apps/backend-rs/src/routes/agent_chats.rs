@@ -14,7 +14,7 @@ use sqlx::Row;
 
 use crate::{
     auth::require_user_id,
-    error::AppResult,
+    error::{AppError, AppResult},
     services::{agent_chats, audit::write_audit_log},
     state::AppState,
     tenancy::assert_org_member,
@@ -64,6 +64,18 @@ struct AgentChatPath {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+struct AgentChatMessagePath {
+    chat_id: String,
+    message_id: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct MessageFeedbackInput {
+    rating: String,
+    reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 struct UpdateChatPreferencesInput {
     preferred_model: Option<String>,
 }
@@ -99,6 +111,10 @@ pub fn router() -> axum::Router<AppState> {
         .route(
             "/agent/chats/{chat_id}/restore",
             axum::routing::post(restore_agent_chat),
+        )
+        .route(
+            "/agent/chats/{chat_id}/messages/{message_id}/feedback",
+            axum::routing::post(post_message_feedback),
         )
         .route("/agent/traces", axum::routing::get(get_agent_traces))
         .route(
@@ -680,5 +696,102 @@ async fn get_evaluations_summary(
         "organization_id": query.org_id,
         "period": query.period,
         "agents": agents,
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// POST /agent/chats/{chat_id}/messages/{message_id}/feedback
+// ---------------------------------------------------------------------------
+
+async fn post_message_feedback(
+    State(state): State<AppState>,
+    Path(path): Path<AgentChatMessagePath>,
+    Query(query): Query<AgentOrgQuery>,
+    headers: HeaderMap,
+    Json(payload): Json<MessageFeedbackInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+
+    let rating = payload.rating.trim().to_string();
+    if !matches!(rating.as_str(), "positive" | "negative") {
+        return Err(AppError::BadRequest(
+            "rating must be 'positive' or 'negative'.".to_string(),
+        ));
+    }
+
+    let pool = state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database not configured.".into()))?;
+
+    let reason = payload
+        .reason
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned);
+
+    // Update the ai_chat_messages row with feedback
+    let updated = sqlx::query(
+        "UPDATE ai_chat_messages
+         SET feedback_rating = $1,
+             feedback_at = now(),
+             feedback_reason = $4
+         WHERE id = $2::uuid
+           AND chat_id = $3::uuid
+           AND role = 'assistant'
+         RETURNING chat_id, feedback_rating",
+    )
+    .bind(&rating)
+    .bind(&path.message_id)
+    .bind(&path.chat_id)
+    .bind(&reason)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| {
+        tracing::error!(error = %error, "Failed to update message feedback");
+        AppError::Dependency("Failed to save feedback.".to_string())
+    })?;
+
+    if updated.is_none() {
+        return Err(AppError::NotFound(
+            "Message not found or not an assistant message.".to_string(),
+        ));
+    }
+
+    // Also insert an agent_evaluations record to feed the confidence scoring loop
+    let outcome = if rating == "positive" {
+        "approved"
+    } else {
+        "rejected"
+    };
+
+    // Look up agent_slug from the chat
+    let agent_slug: String = sqlx::query_scalar(
+        "SELECT COALESCE(agent_slug, 'unknown') FROM ai_chats WHERE id = $1::uuid",
+    )
+    .bind(&path.chat_id)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .unwrap_or_else(|| "unknown".to_string());
+
+    let _ = sqlx::query(
+        "INSERT INTO agent_evaluations (organization_id, agent_slug, outcome, created_at)
+         VALUES ($1::uuid, $2, $3, now())",
+    )
+    .bind(&query.org_id)
+    .bind(&agent_slug)
+    .bind(outcome)
+    .execute(pool)
+    .await;
+
+    Ok(Json(serde_json::json!({
+        "ok": true,
+        "message_id": path.message_id,
+        "feedback_rating": rating,
+        "feedback_reason": reason,
     })))
 }

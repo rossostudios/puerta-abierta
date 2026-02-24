@@ -27,6 +27,7 @@ const VALUE_TONE: Record<string, StatusTone> = {
   done: "success",
   finalized: "success",
   sent: "success",
+  delivered: "success",
   paid: "success",
   processed: "success",
   completed: "success",

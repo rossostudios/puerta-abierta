@@ -522,6 +522,7 @@ export function ChatThread({
         content: m.content,
         model_used: m.model_used ?? null,
         tool_trace: m.tool_trace,
+        feedback_rating: m.feedback_rating ?? null,
         source: "server",
       })),
     [serverMessages]
@@ -694,6 +695,54 @@ export function ChatThread({
     }
   };
 
+  // --- feedback on assistant messages ------------------------------------
+  const [feedbackOverrides, setFeedbackOverrides] = useState<
+    Record<string, "positive" | "negative">
+  >({});
+
+  const handleFeedback = useCallback(
+    async (
+      messageId: string,
+      rating: "positive" | "negative",
+      reason?: string
+    ) => {
+      const cid = activeChatIdRef.current;
+      if (!cid) return;
+
+      // Optimistic update
+      setFeedbackOverrides((prev) => ({ ...prev, [messageId]: rating }));
+
+      try {
+        const res = await fetch(
+          `/api/agent/chats/${encodeURIComponent(cid)}/messages/${encodeURIComponent(messageId)}/feedback?org_id=${encodeURIComponent(orgId)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ rating, reason }),
+          }
+        );
+        if (!res.ok) {
+          // Revert on failure
+          setFeedbackOverrides((prev) => {
+            const next = { ...prev };
+            delete next[messageId];
+            return next;
+          });
+        }
+      } catch {
+        setFeedbackOverrides((prev) => {
+          const next = { ...prev };
+          delete next[messageId];
+          return next;
+        });
+      }
+    },
+    [orgId]
+  );
+
   const resetToFreshThread = () => {
     setActiveChatId(undefined);
     activeChatIdRef.current = undefined;
@@ -704,6 +753,7 @@ export function ChatThread({
     setLocalChat(null);
     setLiveMessages([]);
     setStreamToolEvents([]);
+    setFeedbackOverrides({});
     setStreamStatus(null);
     setStreamMetaByMessageId({});
     attachmentHook.clearAttachments();
@@ -859,29 +909,51 @@ export function ChatThread({
               quickPrompts={quickPrompts}
             />
           ) : (
-            displayMessages.map((msg) => (
-              <ChatMessage
-                isEn={isEn}
-                isSending={isSending}
-                key={msg.id}
-                message={msg}
-                onCopy={(content) => {
-                  handleCopyMessage(content).catch(() => undefined);
-                }}
-                onEdit={(_, content) => {
-                  setDraft(content);
-                  setEditingSourceId(msg.id);
-                }}
-                onRetry={(id) => {
-                  handleRetryAssistant(id).catch(() => undefined);
-                }}
-                onSpeak={
-                  voice.isSupported
-                    ? (content) => voice.speak(content)
-                    : undefined
-                }
-              />
-            ))
+            displayMessages.map((msg) => {
+              const feedbackMsg =
+                feedbackOverrides[msg.id] !== undefined
+                  ? { ...msg, feedback_rating: feedbackOverrides[msg.id] }
+                  : msg;
+              return (
+                <ChatMessage
+                  isEn={isEn}
+                  isSending={isSending}
+                  key={msg.id}
+                  message={feedbackMsg}
+                  onCopy={(content) => {
+                    handleCopyMessage(content).catch(() => undefined);
+                  }}
+                  onEdit={(_, content) => {
+                    setDraft(content);
+                    setEditingSourceId(msg.id);
+                  }}
+                  onFeedback={
+                    msg.role === "assistant" && msg.source === "server"
+                      ? (id, rating, reason) => {
+                          handleFeedback(id, rating, reason).catch(
+                            () => undefined
+                          );
+                        }
+                      : undefined
+                  }
+                  onRegenerate={
+                    msg.role === "assistant" && msg.source === "server"
+                      ? (id) => {
+                          handleRetryAssistant(id).catch(() => undefined);
+                        }
+                      : undefined
+                  }
+                  onRetry={(id) => {
+                    handleRetryAssistant(id).catch(() => undefined);
+                  }}
+                  onSpeak={
+                    voice.isSupported
+                      ? (content) => voice.speak(content)
+                      : undefined
+                  }
+                />
+              );
+            })
           )}
 
           {/* Streaming indicator */}

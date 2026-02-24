@@ -605,9 +605,26 @@ async fn whatsapp_webhook(
                                             "status".to_string(),
                                             Value::String(our_status.to_string()),
                                         );
+                                        if our_status == "delivered" {
+                                            patch.insert(
+                                                "delivered_at".to_string(),
+                                                Value::String(chrono::Utc::now().to_rfc3339()),
+                                            );
+                                        }
                                         let _ =
                                             update_row(pool, "message_logs", &msg_id, &patch, "id")
                                                 .await;
+
+                                        // Propagate delivery status to linked agent_approvals
+                                        let _ = sqlx::query(
+                                            "UPDATE agent_approvals
+                                             SET delivery_status = $1
+                                             WHERE delivery_message_log_id = $2::uuid",
+                                        )
+                                        .bind(our_status)
+                                        .bind(&msg_id)
+                                        .execute(pool)
+                                        .await;
                                     }
                                     break;
                                 }
