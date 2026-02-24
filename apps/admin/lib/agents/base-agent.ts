@@ -55,14 +55,21 @@ export function buildToolsFromDefinitions(
       continue;
     }
 
-    const schema = def.parameters ?? { type: "object", properties: {} };
+    // Ensure schema is always a valid JSON Schema object type.
+    // Backend may return null/undefined parameters or missing "type" field.
+    const raw = def.parameters ?? {};
+    const schema = {
+      ...raw,
+      type: "object" as const,
+      properties: (raw as Record<string, unknown>).properties ?? {},
+    };
 
     // Build tool object directly — tool() is an identity function in AI SDK 6
     // so we construct the object manually to avoid TypeScript generics issues
     // with jsonSchema's inferred never type.
     tools[def.name] = {
       description: def.description,
-      parameters: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
+      inputSchema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>) => {
         const response = await executeToolOnBackend(token, {
           org_id: orgId,
