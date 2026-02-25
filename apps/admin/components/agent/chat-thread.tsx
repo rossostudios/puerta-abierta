@@ -332,7 +332,9 @@ export function ChatThread({
     error: chatError,
     clearError,
   } = useChat<UIMessage>({
-    id: activeChatId ? `agent-${activeChatId}` : "agent-draft",
+    // Use a stable id so the hook's internal state is never reset mid-stream.
+    // The transport already routes to the correct chat via activeChatIdRef.
+    id: "agent-chat",
     transport,
     onData: (part: DataUIPart<UIDataTypes>) => {
       const typed = part as { type: string; data?: unknown };
