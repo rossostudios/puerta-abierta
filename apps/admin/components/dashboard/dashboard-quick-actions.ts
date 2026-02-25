@@ -51,10 +51,10 @@ export function roleQuickActions(role: DashboardRole): QuickAction[] {
       },
       {
         href: "/module/collections",
-        labelEn: "Collections",
-        labelEs: "Cobranzas",
-        detailEn: "Monitor paid, pending, and overdue collections.",
-        detailEs: "Monitorea cobranzas pagadas, pendientes y vencidas.",
+        labelEn: "Payments",
+        labelEs: "Pagos",
+        detailEn: "Monitor received, pending, and overdue payments.",
+        detailEs: "Monitorea pagos recibidos, pendientes y vencidos.",
         icon: ChartIcon,
       },
       {

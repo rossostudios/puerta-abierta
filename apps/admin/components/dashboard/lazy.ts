@@ -4,6 +4,18 @@ export const LazyDashboardInsights = dynamic(() =>
   import("./insights").then((m) => m.DashboardInsights)
 );
 
+export const LazyRevenueSnapshotCard = dynamic(() =>
+  import("./insights").then((m) => m.RevenueSnapshotCard)
+);
+
+export const LazyTaskStatusCard = dynamic(() =>
+  import("./insights").then((m) => m.TaskStatusCard)
+);
+
+export const LazyOperationsHealthCard = dynamic(() =>
+  import("./insights").then((m) => m.OperationsHealthCard)
+);
+
 export const LazyOccupancyForecast = dynamic(() =>
   import("./occupancy-forecast").then((m) => m.OccupancyForecast)
 );

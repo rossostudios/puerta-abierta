@@ -1,8 +1,7 @@
 "use client";
 
-import { useHotkey } from "@tanstack/react-hotkeys";
 import type { Table as ReactTable } from "@tanstack/react-table";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { humanizeKey } from "@/lib/format";
@@ -31,11 +30,22 @@ export function DataTableToolbar<TRow extends DataTableRow>({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useHotkey("/", (e) => {
-    if (isInputFocused() || hideSearch) return;
-    e.preventDefault();
-    inputRef.current?.focus();
-  });
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (hideSearch) return;
+      if (e.key !== "/") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isInputFocused()) return;
+
+      e.preventDefault();
+      inputRef.current?.focus();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [hideSearch]);
 
   return (
     <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">

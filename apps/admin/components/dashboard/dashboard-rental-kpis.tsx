@@ -2,6 +2,7 @@
 
 import {
   CalendarCheckIn01Icon,
+  ChartIcon,
   File01Icon,
   Home01Icon,
   Invoice01Icon,
@@ -14,34 +15,45 @@ import { formatCurrency } from "@/lib/format";
 
 import { numberOrZero } from "./dashboard-utils";
 
-type DashboardRentalKpisProps = {
+type DashboardFinancialKpisProps = {
   isEn: boolean;
   locale: string;
   kpiDashboard: KpiDashboard;
+  grossRevenue: number;
+  expenses: number;
+  netPayout: number;
 };
 
-export function DashboardRentalKpis({
+type DashboardOperationalPlanningKpisProps = {
+  isEn: boolean;
+  kpiDashboard: KpiDashboard;
+};
+
+export function DashboardFinancialKpis({
   isEn,
   locale,
   kpiDashboard,
-}: DashboardRentalKpisProps) {
+  grossRevenue,
+  expenses,
+  netPayout,
+}: DashboardFinancialKpisProps) {
   return (
     <section
-      aria-label={isEn ? "Rental performance" : "Rendimiento de alquileres"}
+      aria-label={isEn ? "Financial pulse" : "Pulso financiero"}
       className="glass-surface rounded-3xl p-4 sm:p-5"
     >
       <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-        {isEn ? "Rental performance" : "Rendimiento de alquileres"}
+        {isEn ? "Financial pulse" : "Pulso financiero"}
       </h2>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
           helper={
             isEn
-              ? `${numberOrZero(kpiDashboard.paid_collections)}/${numberOrZero(kpiDashboard.total_collections)} paid`
-              : `${numberOrZero(kpiDashboard.paid_collections)}/${numberOrZero(kpiDashboard.total_collections)} pagadas`
+              ? `${numberOrZero(kpiDashboard.paid_collections)}/${numberOrZero(kpiDashboard.total_collections)} payments received`
+              : `${numberOrZero(kpiDashboard.paid_collections)}/${numberOrZero(kpiDashboard.total_collections)} pagos recibidos`
           }
           icon={Invoice01Icon}
-          label={isEn ? "Collection rate" : "Tasa de cobro"}
+          label={isEn ? "Payment rate" : "Tasa de pago"}
           value={`${(numberOrZero(kpiDashboard.collection_rate) * 100).toFixed(1)}%`}
         />
         <StatCard
@@ -49,6 +61,24 @@ export function DashboardRentalKpis({
           icon={CalendarCheckIn01Icon}
           label={isEn ? "Avg days late" : "Promedio dias de atraso"}
           value={`${numberOrZero(kpiDashboard.avg_days_late).toFixed(1)}d`}
+        />
+        <StatCard
+          helper={isEn ? "After expenses" : "Después de gastos"}
+          icon={File01Icon}
+          label={isEn ? "Net payout" : "Pago neto"}
+          value={formatCurrency(netPayout, "PYG", locale)}
+        />
+        <StatCard
+          helper={isEn ? "Current month gross" : "Bruto del mes"}
+          icon={ChartIcon}
+          label={isEn ? "Gross revenue" : "Ingresos brutos"}
+          value={formatCurrency(grossRevenue, "PYG", locale)}
+        />
+        <StatCard
+          helper={isEn ? "Current month" : "Mes actual"}
+          icon={Invoice01Icon}
+          label={isEn ? "Expenses" : "Gastos"}
+          value={formatCurrency(expenses, "PYG", locale)}
         />
         <StatCard
           helper={
@@ -64,6 +94,24 @@ export function DashboardRentalKpis({
             locale
           )}
         />
+      </div>
+    </section>
+  );
+}
+
+export function DashboardOperationalPlanningKpis({
+  isEn,
+  kpiDashboard,
+}: DashboardOperationalPlanningKpisProps) {
+  return (
+    <section
+      aria-label={isEn ? "Occupancy planning" : "Planificación de ocupación"}
+      className="glass-surface rounded-3xl p-4 sm:p-5"
+    >
+      <h2 className="mb-3 font-medium text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+        {isEn ? "Occupancy planning" : "Planificación de ocupación"}
+      </h2>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard
           helper={
             isEn
@@ -73,6 +121,12 @@ export function DashboardRentalKpis({
           icon={Home01Icon}
           label={isEn ? "Occupancy rate" : "Tasa de ocupacion"}
           value={`${(numberOrZero(kpiDashboard.occupancy_rate) * 100).toFixed(1)}%`}
+        />
+        <StatCard
+          helper={isEn ? "Next 60 days" : "Próximos 60 días"}
+          icon={File01Icon}
+          label={isEn ? "Expiring leases" : "Contratos por vencer"}
+          value={String(numberOrZero(kpiDashboard.expiring_leases_60d))}
         />
         <StatCard
           helper={
@@ -91,12 +145,6 @@ export function DashboardRentalKpis({
               ? `${numberOrZero(kpiDashboard.avg_maintenance_response_hours).toFixed(0)}h`
               : "--"
           }
-        />
-        <StatCard
-          helper={isEn ? "Next 60 days" : "Próximos 60 días"}
-          icon={File01Icon}
-          label={isEn ? "Expiring leases" : "Contratos por vencer"}
-          value={String(numberOrZero(kpiDashboard.expiring_leases_60d))}
         />
       </div>
     </section>

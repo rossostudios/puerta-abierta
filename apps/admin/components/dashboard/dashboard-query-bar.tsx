@@ -1,6 +1,10 @@
 "use client";
 
-import { SparklesIcon } from "@hugeicons/core-free-icons";
+import {
+  ArrowRight01Icon,
+  Mic01Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Icon } from "@/components/ui/icon";
@@ -14,47 +18,100 @@ export function DashboardQueryBar({ isEn }: DashboardQueryBarProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
+  const suggestions = isEn
+    ? [
+        "Draft a message to guest in Unit 4",
+        "Show me revenue forecast for next month",
+      ]
+    : [
+        "Redacta un mensaje para el huésped de la Unidad 4",
+        "Muéstrame el pronóstico de ingresos del próximo mes",
+      ];
+
+  const submitQuery = useCallback(
+    (nextQuery: string) => {
+      const trimmed = nextQuery.trim();
+      if (!trimmed) return;
+      router.push(`/app/agents?q=${encodeURIComponent(trimmed)}`);
+    },
+    [router]
+  );
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      const trimmed = query.trim();
-      if (!trimmed) return;
-      router.push(
-        `/app/agents?q=${encodeURIComponent(trimmed)}`
-      );
+      submitQuery(query);
     },
-    [query, router]
+    [query, submitQuery]
   );
 
   return (
-    <form
-      className={cn(
-        "glass-float relative flex items-center gap-3 rounded-2xl border border-border/40 px-4 py-3",
-        "transition-all duration-200",
-        "focus-within:border-[var(--sidebar-primary)]/30 focus-within:shadow-sm"
-      )}
-      onSubmit={handleSubmit}
-    >
-      <Icon
-        className="h-4 w-4 shrink-0 text-[var(--sidebar-primary)]/60"
-        icon={SparklesIcon}
-      />
-      <input
-        className="w-full bg-transparent text-[13.5px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder={
-          isEn
-            ? "Ask about your portfolio..."
-            : "Pregunta sobre tu portafolio..."
-        }
-        type="text"
-        value={query}
-      />
-      {query.trim() ? (
-        <span className="shrink-0 text-[11px] text-muted-foreground/40">
-          {isEn ? "Enter to ask" : "Enter para preguntar"}
-        </span>
-      ) : null}
-    </form>
+    <div className="relative space-y-3">
+      <div className="pointer-events-none absolute inset-x-6 top-3 -z-10 h-16 rounded-full bg-[var(--sidebar-primary)]/18 blur-2xl" />
+      <form
+        className={cn(
+          "glass-float relative flex items-center gap-2 rounded-3xl border border-[var(--sidebar-primary)]/20 p-2.5",
+          "shadow-[0_10px_30px_-18px_var(--sidebar-primary)] transition-all duration-200",
+          "focus-within:border-[var(--sidebar-primary)]/35 focus-within:shadow-[0_14px_36px_-18px_var(--sidebar-primary)]"
+        )}
+        onSubmit={handleSubmit}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-border/50 bg-background/80 px-3 py-3 backdrop-blur-sm">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--sidebar-primary)]/8 text-[var(--sidebar-primary)]">
+            <Icon className="h-4 w-4" icon={SparklesIcon} />
+          </span>
+          <input
+            className="w-full min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none md:text-[15px]"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              isEn
+                ? "Ask about your portfolio..."
+                : "Pregunta sobre tu portafolio..."
+            }
+            type="text"
+            value={query}
+          />
+        </div>
+
+        <button
+          aria-label={isEn ? "Open voice chat" : "Abrir chat de voz"}
+          className={cn(
+            "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/50 bg-background/80 text-muted-foreground",
+            "transition-colors hover:text-foreground"
+          )}
+          onClick={() => router.push("/app/agents")}
+          type="button"
+        >
+          <Icon className="h-4 w-4" icon={Mic01Icon} />
+        </button>
+
+        <button
+          aria-label={isEn ? "Send query" : "Enviar consulta"}
+          className={cn(
+            "inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--sidebar-primary)] text-white",
+            "shadow-[0_10px_20px_-12px_var(--sidebar-primary)] transition-transform active:scale-95"
+          )}
+          type="submit"
+        >
+          <Icon className="h-4 w-4" icon={ArrowRight01Icon} />
+        </button>
+      </form>
+
+      <div className="flex flex-wrap gap-2 px-1">
+        {suggestions.map((suggestion) => (
+          <button
+            className={cn(
+              "rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground",
+              "transition-colors hover:border-[var(--sidebar-primary)]/25 hover:text-foreground"
+            )}
+            key={suggestion}
+            onClick={() => submitQuery(suggestion)}
+            type="button"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

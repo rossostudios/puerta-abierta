@@ -22,50 +22,52 @@ export function DashboardTabs({
   );
 
   return (
-    <div className="space-y-6">
-      <div className="inline-flex items-center gap-0.5 rounded-xl bg-muted/40 p-1 ring-1 ring-border/20 ring-inset">
-        <button
-          aria-current={tab === "overview" ? "page" : undefined}
-          className={cn(
-            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
-            tab === "overview"
-              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
-              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
-          )}
-          onClick={() => setTab("overview")}
-          type="button"
-        >
-          {isEn ? "Overview" : "Resumen"}
-        </button>
-        <button
-          aria-current={tab === "financials" ? "page" : undefined}
-          className={cn(
-            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
-            tab === "financials"
-              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
-              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
-          )}
-          onClick={() => setTab("financials")}
-          type="button"
-        >
-          {isEn ? "Financials" : "Finanzas"}
-        </button>
-        <button
-          aria-current={tab === "operations" ? "page" : undefined}
-          className={cn(
-            "whitespace-nowrap rounded-lg px-3 py-2 font-medium text-sm transition-all duration-200",
-            tab === "operations"
-              ? "bg-white/60 text-foreground shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
-              : "text-muted-foreground hover:bg-white/30 hover:text-foreground/80 dark:hover:bg-white/[0.06]"
-          )}
-          onClick={() => setTab("operations")}
-          type="button"
-        >
-          {isEn ? "Operations" : "Operaciones"}
-        </button>
+    <div className="space-y-5">
+      <div className="border-border/60 border-b">
+        <div className="flex items-center gap-5 overflow-x-auto">
+          <button
+            aria-current={tab === "overview" ? "page" : undefined}
+            className={cn(
+              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              tab === "overview"
+                ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setTab("overview")}
+            type="button"
+          >
+            {isEn ? "Overview" : "Resumen"}
+          </button>
+          <button
+            aria-current={tab === "financials" ? "page" : undefined}
+            className={cn(
+              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              tab === "financials"
+                ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setTab("financials")}
+            type="button"
+          >
+            {isEn ? "Financials" : "Finanzas"}
+          </button>
+          <button
+            aria-current={tab === "operations" ? "page" : undefined}
+            className={cn(
+              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              tab === "operations"
+                ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setTab("operations")}
+            type="button"
+          >
+            {isEn ? "Operations" : "Operaciones"}
+          </button>
+        </div>
       </div>
 
-      <div className="min-h-[400px] outline-none">
+      <div className="min-h-[320px] outline-none">
         {tab === "overview" ? (
           <div className="fade-in animate-in space-y-5 duration-500">
             {overviewContent}
