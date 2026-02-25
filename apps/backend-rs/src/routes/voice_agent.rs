@@ -1,16 +1,13 @@
 use axum::{
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use crate::{
-    error::{AppError, AppResult},
-    state::AppState,
-};
+use crate::state::AppState;
 
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()

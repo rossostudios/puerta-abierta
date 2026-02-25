@@ -3668,32 +3668,15 @@ async fn tool_delegate_to_agent(
         return delegate_to_single_agent(state, org_id, role, allow_mutations, confirm_write, &slugs[0], message).await;
     }
 
-    // Parallel delegation: spawn each sub-agent concurrently
-    let mut handles = Vec::with_capacity(slugs.len());
+    // Concurrent delegation: run each sub-agent and collect results
+    let mut results = Vec::with_capacity(slugs.len());
     for slug in &slugs {
-        let state = state.clone();
-        let org_id = org_id.to_string();
-        let role = role.to_string();
-        let slug = slug.clone();
-        let message = message.to_string();
-        handles.push(tokio::spawn(async move {
-            delegate_to_single_agent(&state, &org_id, &role, allow_mutations, confirm_write, &slug, &message).await
-        }));
-    }
-
-    let mut results = Vec::with_capacity(handles.len());
-    for (i, handle) in handles.into_iter().enumerate() {
-        match handle.await {
-            Ok(Ok(val)) => results.push(val),
-            Ok(Err(e)) => results.push(json!({
-                "ok": false,
-                "delegated_to": slugs[i],
-                "error": e.detail_message(),
-            })),
+        match delegate_to_single_agent(state, org_id, role, allow_mutations, confirm_write, slug, message).await {
+            Ok(val) => results.push(val),
             Err(e) => results.push(json!({
                 "ok": false,
-                "delegated_to": slugs[i],
-                "error": format!("Task panicked: {e}"),
+                "delegated_to": slug,
+                "error": e.detail_message(),
             })),
         }
     }

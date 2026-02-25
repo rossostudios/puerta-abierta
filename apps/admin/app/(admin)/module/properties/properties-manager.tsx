@@ -154,10 +154,9 @@ export function PropertiesManager({
   const description = pageDict?.description || dict.description;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] w-full overflow-hidden bg-background">
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="thin-scrollbar flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-7xl space-y-8">
+    <div className="flex w-full bg-background">
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="mx-auto max-w-7xl space-y-6">
             <PropertiesPageHeader
               description={description}
               importLabel={isEn ? "Import" : "Importar"}
@@ -206,13 +205,12 @@ export function PropertiesManager({
               summary={summary}
               viewMode={viewMode}
             />
-          </div>
         </div>
       </div>
 
       <aside
         className={cn(
-          "z-10 shrink-0 border-border/30 border-l bg-muted/30 backdrop-blur-md transition-all duration-300 ease-in-out",
+          "shrink-0 border-border/30 border-l transition-all duration-300 ease-in-out",
           isSidebarOpen
             ? isWide
               ? "w-[360px]"
@@ -222,7 +220,7 @@ export function PropertiesManager({
       >
         <div
           className={cn(
-            "thin-scrollbar h-full overflow-y-auto py-8",
+            "sticky top-0 max-h-[calc(100dvh-8rem)] overflow-y-auto py-6",
             isWide ? "px-5" : "px-4"
           )}
         >

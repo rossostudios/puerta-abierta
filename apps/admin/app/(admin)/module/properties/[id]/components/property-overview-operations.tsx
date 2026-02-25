@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import {
   Calendar02Icon,
   Door01Icon,
@@ -7,13 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -39,7 +33,6 @@ export function PropertyOverviewOperations({
       icon: Door01Icon,
       label: isEn ? "Listings" : "Anuncios",
       value: overview.publishedListingCount,
-      description: isEn ? "Live in marketplace" : "Publicados",
       href: `/module/listings?property_id=${encodeURIComponent(recordId)}`,
     },
     {
@@ -47,7 +40,6 @@ export function PropertyOverviewOperations({
       icon: UserGroupIcon,
       label: isEn ? "Applications" : "Aplicaciones",
       value: overview.pipelineApplicationCount,
-      description: isEn ? "In qualification" : "En calificación",
       href: `/module/applications?property_id=${encodeURIComponent(recordId)}`,
     },
     {
@@ -55,7 +47,6 @@ export function PropertyOverviewOperations({
       icon: Calendar02Icon,
       label: isEn ? "Leases" : "Contratos",
       value: overview.activeLeaseCount,
-      description: isEn ? "Currently active" : "Activos",
       href: `/module/leases?property_id=${encodeURIComponent(recordId)}`,
     },
     {
@@ -63,185 +54,164 @@ export function PropertyOverviewOperations({
       icon: Invoice01Icon,
       label: isEn ? "Collections" : "Cobros",
       value: overview.openCollectionCount,
-      description: isEn ? "Require follow-up" : "Requieren seguimiento",
       href: `/module/collections?property_id=${encodeURIComponent(recordId)}`,
     },
   ] as const;
 
   return (
-    <section className="space-y-4">
-      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">
-            {isEn ? "Workflow lane" : "Flujo operativo"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "From listing to collection, track each step in one place."
-              : "Desde anuncio hasta cobro, controla cada etapa en un solo lugar."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {workflowSteps.map((step) => (
-            <Link
-              className="group rounded-3xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:-translate-y-1 hover:bg-card hover:shadow-[var(--shadow-floating)]"
-              href={step.href}
-              key={step.id}
-            >
-              <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border/40 bg-muted/30 transition-colors group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary">
-                <Icon icon={step.icon} size={18} />
-              </div>
-              <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
-                {step.label}
-              </p>
-              <p className="mt-1 font-bold text-2xl tabular-nums">
-                {step.value}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {step.description}
-              </p>
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
+    <section className="space-y-6 pt-2">
+      {/* ---- Workflow Stepper ---- */}
+      <div className="space-y-3">
+        <h3 className="text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+          {isEn ? "Workflow lane" : "Flujo operativo"}
+        </h3>
 
-      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px]">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle className="text-lg">
-              {isEn ? "Unit matrix" : "Matriz de unidades"}
-            </CardTitle>
-            <Link
-              className={cn(
-                buttonVariants({ size: "sm", variant: "outline" }),
-                "h-8 px-2.5"
+        <div className="flex flex-wrap items-center gap-2">
+          {workflowSteps.map((step, i) => (
+            <Fragment key={step.id}>
+              <Link
+                className="group flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors hover:bg-muted/50"
+                href={step.href}
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border/40 bg-muted/30 transition-colors group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary">
+                  <Icon icon={step.icon} size={16} />
+                </div>
+                <div>
+                  <p className="font-semibold text-[10px] text-muted-foreground uppercase tracking-widest">
+                    {step.label}
+                  </p>
+                  <p className="font-bold text-lg tabular-nums leading-tight">
+                    {step.value}
+                  </p>
+                </div>
+              </Link>
+              {i < workflowSteps.length - 1 && (
+                <span
+                  aria-hidden="true"
+                  className="hidden text-muted-foreground/40 sm:inline"
+                >
+                  →
+                </span>
               )}
-              href={`/module/units?property_id=${encodeURIComponent(recordId)}`}
-            >
-              {overview.unitCount > overview.unitCards.length
-                ? isEn
-                  ? `View all ${overview.unitCount} units`
-                  : `Ver las ${overview.unitCount} unidades`
-                : isEn
-                  ? "View all units"
-                  : "Ver unidades"}
-            </Link>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {overview.unitCards.length ? (
-            <>
-              <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                {overview.unitCards.map((unit) => {
-                  const unitHref =
-                    unit.unitId && isUuid(unit.unitId)
-                      ? `/module/units/${unit.unitId}`
-                      : `/module/units?property_id=${encodeURIComponent(recordId)}`;
-                  const statusToneClass =
-                    unit.statusTone === "occupied"
-                      ? "status-tone-success"
-                      : unit.statusTone === "maintenance"
-                        ? "status-tone-warning"
-                        : "status-tone-info";
+            </Fragment>
+          ))}
+        </div>
+      </div>
 
-                  return (
-                    <article
-                      className="flex h-full flex-col rounded-3xl border border-border/40 bg-background/50 p-4 transition-all duration-300 hover:border-border/80 hover:bg-card hover:shadow-[var(--shadow-soft)]"
-                      key={unit.id}
-                    >
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <Link
-                            className="font-semibold text-base hover:underline"
-                            href={unitHref}
-                          >
-                            {unit.label}
-                          </Link>
-                          <p className="truncate text-muted-foreground text-xs">
-                            {unit.subtitle}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "inline-flex shrink-0 rounded-full border px-2 py-0.5 font-medium text-[11px]",
-                            statusToneClass
-                          )}
-                        >
-                          {unit.statusLabel}
-                        </span>
-                      </div>
-                      <div className="grid gap-2 rounded-2xl border border-border/40 bg-muted/10 p-3 text-xs">
-                        <div>
-                          <p className="text-muted-foreground">
-                            {isEn ? "Tenant" : "Inquilino"}
-                          </p>
-                          <p className="truncate font-medium text-sm">
-                            {unit.tenantName}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-muted-foreground">
-                            {isEn ? "Monthly rent" : "Renta mensual"}
-                          </p>
-                          <p className="font-medium tabular-nums">
-                            {formatCurrency(unit.monthlyRentPyg, "PYG", locale)}
-                          </p>
-                        </div>
-                      </div>
+      {/* ---- Unit Matrix ---- */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
+            {isEn ? "Unit matrix" : "Matriz de unidades"}
+          </h3>
+          <Link
+            className={cn(
+              buttonVariants({ size: "sm", variant: "outline" }),
+              "h-7 px-2 text-xs"
+            )}
+            href={`/module/units?property_id=${encodeURIComponent(recordId)}`}
+          >
+            {overview.unitCount > overview.unitCards.length
+              ? isEn
+                ? `View all ${overview.unitCount} units`
+                : `Ver las ${overview.unitCount} unidades`
+              : isEn
+                ? "View all units"
+                : "Ver unidades"}
+          </Link>
+        </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <p className="text-muted-foreground text-xs">
-                          {unit.nextCollectionDue
-                            ? isEn
-                              ? `Next due ${unit.nextCollectionDue}`
-                              : `Próximo cobro ${unit.nextCollectionDue}`
-                            : isEn
-                              ? "No upcoming collection"
-                              : "Sin cobro próximo"}
-                        </p>
+        {overview.unitCards.length ? (
+          <>
+            <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {overview.unitCards.map((unit) => {
+                const unitHref =
+                  unit.unitId && isUuid(unit.unitId)
+                    ? `/module/units/${unit.unitId}`
+                    : `/module/units?property_id=${encodeURIComponent(recordId)}`;
+                const statusToneClass =
+                  unit.statusTone === "occupied"
+                    ? "status-tone-success"
+                    : unit.statusTone === "maintenance"
+                      ? "status-tone-warning"
+                      : "status-tone-info";
+
+                return (
+                  <article
+                    className="flex h-full flex-col rounded-xl border border-border/40 bg-background/50 p-3 transition-colors hover:bg-card"
+                    key={unit.id}
+                  >
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
                         <Link
-                          className={cn(
-                            buttonVariants({ size: "sm", variant: "outline" }),
-                            "h-7 px-2 text-xs"
-                          )}
+                          className="font-semibold text-sm hover:underline"
                           href={unitHref}
                         >
-                          {isEn ? "Open" : "Abrir"}
+                          {unit.label}
                         </Link>
+                        <p className="truncate text-muted-foreground text-xs">
+                          {unit.subtitle}
+                        </p>
                       </div>
-                      <p className="mt-2 inline-flex items-center gap-1 text-muted-foreground text-xs">
-                        <Icon icon={Task01Icon} size={13} />
-                        {unit.openTaskCount}{" "}
-                        {isEn ? "open tasks" : "tareas abiertas"}
+                      <span
+                        className={cn(
+                          "inline-flex shrink-0 rounded-full border px-2 py-0.5 font-medium text-[11px]",
+                          statusToneClass
+                        )}
+                      >
+                        {unit.statusLabel}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <p className="truncate font-medium">
+                        {unit.tenantName}
                       </p>
-                    </article>
-                  );
-                })}
-              </div>
-              {overview.unitCount > overview.unitCards.length ? (
-                <p className="text-center text-muted-foreground text-xs">
-                  {isEn
-                    ? `Showing ${overview.unitCards.length} of ${overview.unitCount} units`
-                    : `Mostrando ${overview.unitCards.length} de ${overview.unitCount} unidades`}
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <div className="rounded-3xl border border-border/40 border-dashed bg-muted/10 p-6 text-center">
-              <p className="font-medium text-sm">
-                {isEn
-                  ? "No units yet for this property."
-                  : "Esta propiedad aún no tiene unidades."}
-              </p>
-              <p className="mt-1 text-muted-foreground text-sm">
-                {isEn
-                  ? "Start by creating your first unit to unlock leasing, maintenance, and collections."
-                  : "Empieza creando la primera unidad para activar contratos, mantenimiento y cobros."}
-              </p>
+                      <p className="shrink-0 font-medium tabular-nums">
+                        {formatCurrency(unit.monthlyRentPyg, "PYG", locale)}
+                      </p>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <p className="inline-flex items-center gap-1 text-muted-foreground text-xs">
+                        <Icon icon={Task01Icon} size={12} />
+                        {unit.openTaskCount}{" "}
+                        {isEn ? "tasks" : "tareas"}
+                      </p>
+                      <Link
+                        className="text-primary text-xs hover:underline"
+                        href={unitHref}
+                      >
+                        {isEn ? "Open" : "Abrir"}
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            {overview.unitCount > overview.unitCards.length ? (
+              <p className="text-center text-muted-foreground text-xs">
+                {isEn
+                  ? `Showing ${overview.unitCards.length} of ${overview.unitCount} units`
+                  : `Mostrando ${overview.unitCards.length} de ${overview.unitCount} unidades`}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <div className="rounded-xl border border-border/40 border-dashed bg-muted/10 p-6 text-center">
+            <p className="font-medium text-sm">
+              {isEn
+                ? "No units yet for this property."
+                : "Esta propiedad aún no tiene unidades."}
+            </p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              {isEn
+                ? "Start by creating your first unit to unlock leasing, maintenance, and collections."
+                : "Empieza creando la primera unidad para activar contratos, mantenimiento y cobros."}
+            </p>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

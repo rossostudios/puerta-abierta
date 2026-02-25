@@ -1,9 +1,4 @@
-"use client";
-
-import { Bar, BarChart, YAxis } from "recharts";
-import { Card, CardContent } from "@/components/ui/card";
-import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
-import { formatCompactCurrency, formatCurrency } from "@/lib/format";
+import { formatCompactCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { PropertyOverview as PropertyOverviewData } from "../types";
 
@@ -22,15 +17,6 @@ function occupancyColor(rate: number | null) {
   return "text-[var(--status-danger-fg)]";
 }
 
-function occupancyBorderColor(rate: number | null) {
-  if (rate === null) return "border-border/60";
-  if (rate >= 80)
-    return "border-[var(--status-success-fg)]/30 ring-1 ring-[var(--status-success-fg)]/20";
-  if (rate >= 50)
-    return "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20";
-  return "border-[var(--status-danger-fg)]/30 ring-1 ring-[var(--status-danger-fg)]/20";
-}
-
 function collectionRateColor(rate: number | null) {
   if (rate === null) return "";
   if (rate >= 80) return "text-[var(--status-success-fg)]";
@@ -38,57 +24,14 @@ function collectionRateColor(rate: number | null) {
   return "text-[var(--status-danger-fg)]";
 }
 
-/* ---------- mini bar component ---------- */
+/* ---------- divider ---------- */
 
-type MiniBarProps = {
-  a: number;
-  b: number;
-  colorA: string;
-  colorB: string;
-};
-
-const EMPTY_CONFIG: ChartConfig = {
-  a: { label: "A", color: "var(--border)" },
-  b: { label: "B", color: "transparent" },
-};
-
-function MiniBar({ a, b, colorA, colorB }: MiniBarProps) {
-  const isEmpty = a === 0 && b === 0;
-
-  const config: ChartConfig = isEmpty
-    ? EMPTY_CONFIG
-    : {
-        a: { label: "A", color: colorA },
-        b: { label: "B", color: colorB },
-      };
-
-  const data = isEmpty ? [{ a: 1, b: 0 }] : [{ a, b }];
-
+function Divider() {
   return (
-    <ChartContainer className="h-10 w-full" config={config}>
-      <BarChart
-        data={data}
-        layout="vertical"
-        margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-        stackOffset="expand"
-      >
-        <YAxis dataKey="a" hide type="category" />
-        <Bar
-          dataKey="a"
-          fill="var(--color-a)"
-          isAnimationActive={false}
-          radius={[4, 0, 0, 4]}
-          stackId="stack"
-        />
-        <Bar
-          dataKey="b"
-          fill="var(--color-b)"
-          isAnimationActive={false}
-          radius={[0, 4, 4, 0]}
-          stackId="stack"
-        />
-      </BarChart>
-    </ChartContainer>
+    <span
+      aria-hidden="true"
+      className="hidden h-5 w-px bg-border/60 sm:block"
+    />
   );
 }
 
@@ -101,30 +44,8 @@ export function PropertyOverviewKpiCards({
 }: PropertyOverviewKpiCardsProps) {
   const oRate = overview.occupancyRate;
 
-  const occupiedUnits = overview.unitCount - overview.vacantUnitCount;
-  const projectedRemaining = Math.max(
-    overview.projectedRentPyg - overview.collectedThisMonthPyg,
-    0
-  );
-  const leaseCapacity = Math.max(
-    overview.unitCount - overview.activeLeaseCount,
-    0
-  );
-  const nonUrgentTasks = Math.max(
-    overview.openTaskCount - overview.urgentTaskCount,
-    0
-  );
-  const currentCollections = Math.max(
-    overview.openCollectionCount - overview.overdueCollectionCount,
-    0
-  );
-
   const taskColor =
     overview.openTaskCount > 0 ? "text-[var(--status-warning-fg)]" : "";
-  const taskBorder =
-    overview.openTaskCount > 0
-      ? "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20"
-      : "border-border/60";
 
   const collectionColor =
     overview.overdueCollectionCount > 0
@@ -132,172 +53,103 @@ export function PropertyOverviewKpiCards({
       : overview.openCollectionCount > 0
         ? "text-[var(--status-warning-fg)]"
         : "";
-  const collectionBorder =
-    overview.overdueCollectionCount > 0
-      ? "border-[var(--status-danger-fg)]/30 ring-1 ring-[var(--status-danger-fg)]/20"
-      : overview.openCollectionCount > 0
-        ? "border-[var(--status-warning-fg)]/30 ring-1 ring-[var(--status-warning-fg)]/20"
-        : "border-border/60";
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border/50 pb-4">
       {/* Occupancy */}
-      <Card
-        className={cn(
-          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[var(--shadow-floating)]",
-          occupancyBorderColor(oRate)
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+          {isEn ? "OCCUPANCY" : "OCUPACIÓN"}
+        </span>
+        <span
+          className={cn(
+            "font-bold text-xl tabular-nums",
+            occupancyColor(oRate)
+          )}
+        >
+          {oRate !== null ? `${oRate}%` : "-"}
+        </span>
+        {overview.vacantUnitCount > 0 && (
+          <span className="text-muted-foreground text-xs">
+            {overview.vacantUnitCount} {isEn ? "vacant" : "vacantes"}
+          </span>
         )}
-      >
-        <CardContent className="p-5">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-            {isEn ? "OCCUPANCY" : "OCUPACIÓN"}
-          </p>
-          <p
-            className={cn(
-              "mt-1 font-bold text-3xl tabular-nums",
-              occupancyColor(oRate)
-            )}
-          >
-            {oRate !== null ? `${oRate}%` : "-"}
-          </p>
-          <div className="mt-3">
-            <MiniBar
-              a={occupiedUnits}
-              b={overview.vacantUnitCount}
-              colorA="var(--status-success-fg)"
-              colorB="oklch(from var(--status-danger-fg) l c h / 0.3)"
-            />
-          </div>
-          {overview.vacantUnitCount > 0 ? (
-            <p className="mt-2 text-muted-foreground text-xs">
-              {overview.vacantUnitCount} {isEn ? "vacant" : "vacantes"} &middot;
-              ~{formatCompactCurrency(overview.vacancyCostPyg, "PYG", locale)}
-              {isEn ? "/mo lost" : "/mes perdido"}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+      </div>
+
+      <Divider />
 
       {/* Projected Rent */}
-      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-[2px] hover:border-border/80 hover:shadow-[var(--shadow-floating)]">
-        <CardContent className="p-5">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-            {isEn ? "PROJECTED RENT" : "RENTA PROYECTADA"}
-          </p>
-          <p className="mt-1 font-bold text-3xl tabular-nums">
-            {formatCurrency(overview.projectedRentPyg, "PYG", locale)}
-          </p>
-          <div className="mt-3">
-            <MiniBar
-              a={overview.collectedThisMonthPyg}
-              b={projectedRemaining}
-              colorA="var(--status-success-fg)"
-              colorB="var(--chart-3)"
-            />
-          </div>
-          {overview.collectionRate !== null ? (
-            <p
-              className={cn(
-                "mt-2 font-medium text-xs",
-                collectionRateColor(overview.collectionRate)
-              )}
-            >
-              {overview.collectionRate}% {isEn ? "collected" : "cobrado"}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Active Leases */}
-      <Card className="border-border/60 bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-[2px] hover:border-border/80 hover:shadow-[var(--shadow-floating)]">
-        <CardContent className="p-5">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-            {isEn ? "ACTIVE LEASES" : "CONTRATOS ACTIVOS"}
-          </p>
-          <p className="mt-1 font-bold text-3xl tabular-nums">
-            {overview.activeLeaseCount}
-          </p>
-          <div className="mt-3">
-            <MiniBar
-              a={overview.activeLeaseCount}
-              b={leaseCapacity}
-              colorA="var(--chart-1)"
-              colorB="var(--border)"
-            />
-          </div>
-          {overview.activeReservationCount > 0 ? (
-            <p className="mt-2 text-muted-foreground text-xs">
-              +{overview.activeReservationCount}{" "}
-              {isEn ? "reservations" : "reservas"}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Open Tasks */}
-      <Card
-        className={cn(
-          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[var(--shadow-floating)]",
-          taskBorder
-        )}
-      >
-        <CardContent className="p-5">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-            {isEn ? "OPEN TASKS" : "TAREAS ABIERTAS"}
-          </p>
-          <p className={cn("mt-1 font-bold text-3xl tabular-nums", taskColor)}>
-            {overview.openTaskCount}
-          </p>
-          <div className="mt-3">
-            <MiniBar
-              a={overview.urgentTaskCount}
-              b={nonUrgentTasks}
-              colorA="var(--status-danger-fg)"
-              colorB="var(--status-warning-fg)"
-            />
-          </div>
-          {overview.urgentTaskCount > 0 ? (
-            <p className="mt-2 font-medium text-[var(--status-danger-fg)] text-xs">
-              {overview.urgentTaskCount} {isEn ? "urgent" : "urgentes"}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      {/* Open Collections */}
-      <Card
-        className={cn(
-          "bg-card/95 backdrop-blur-[2px] transition-all duration-300 hover:-translate-y-[2px] hover:shadow-[var(--shadow-floating)]",
-          collectionBorder
-        )}
-      >
-        <CardContent className="p-5">
-          <p className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-            {isEn ? "OPEN COLLECTIONS" : "COBROS ABIERTOS"}
-          </p>
-          <p
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+          {isEn ? "RENT" : "RENTA"}
+        </span>
+        <span className="font-bold text-xl tabular-nums">
+          {formatCompactCurrency(overview.projectedRentPyg, "PYG", locale)}
+        </span>
+        {overview.collectionRate !== null && (
+          <span
             className={cn(
-              "mt-1 font-bold text-3xl tabular-nums",
-              collectionColor
+              "font-medium text-xs",
+              collectionRateColor(overview.collectionRate)
             )}
           >
-            {overview.openCollectionCount}
-          </p>
-          <div className="mt-3">
-            <MiniBar
-              a={overview.overdueCollectionCount}
-              b={currentCollections}
-              colorA="var(--status-danger-fg)"
-              colorB="var(--status-warning-fg)"
-            />
-          </div>
-          {overview.overdueCollectionCount > 0 ? (
-            <p className="mt-2 font-medium text-[var(--status-danger-fg)] text-xs">
-              {overview.overdueCollectionCount} {isEn ? "overdue" : "vencidos"}
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
+            {overview.collectionRate}% {isEn ? "collected" : "cobrado"}
+          </span>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Active Leases */}
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+          {isEn ? "LEASES" : "CONTRATOS"}
+        </span>
+        <span className="font-bold text-xl tabular-nums">
+          {overview.activeLeaseCount}
+        </span>
+        {overview.activeReservationCount > 0 && (
+          <span className="text-muted-foreground text-xs">
+            +{overview.activeReservationCount} {isEn ? "reservations" : "reservas"}
+          </span>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Open Tasks */}
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+          {isEn ? "TASKS" : "TAREAS"}
+        </span>
+        <span className={cn("font-bold text-xl tabular-nums", taskColor)}>
+          {overview.openTaskCount}
+        </span>
+        {overview.urgentTaskCount > 0 && (
+          <span className="font-medium text-[var(--status-danger-fg)] text-xs">
+            {overview.urgentTaskCount} {isEn ? "urgent" : "urgentes"}
+          </span>
+        )}
+      </div>
+
+      <Divider />
+
+      {/* Open Collections */}
+      <div className="flex items-baseline gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
+          {isEn ? "COLLECTIONS" : "COBROS"}
+        </span>
+        <span
+          className={cn("font-bold text-xl tabular-nums", collectionColor)}
+        >
+          {overview.openCollectionCount}
+        </span>
+        {overview.overdueCollectionCount > 0 && (
+          <span className="font-medium text-[var(--status-danger-fg)] text-xs">
+            {overview.overdueCollectionCount} {isEn ? "overdue" : "vencidos"}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

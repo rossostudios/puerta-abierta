@@ -884,7 +884,7 @@ async fn upload_knowledge_document(
             "file" => {
                 file_name = field.file_name().map(ToOwned::to_owned);
                 let bytes = field.bytes().await.map_err(|e| {
-                    AppError::Validation(format!("Failed to read file: {e}"))
+                    AppError::BadRequest(format!("Failed to read file: {e}"))
                 })?;
                 let fname = file_name.as_deref().unwrap_or("file.txt").to_lowercase();
                 // Extract text based on file type
@@ -905,12 +905,12 @@ async fn upload_knowledge_document(
     }
 
     let org_id = org_id.ok_or_else(|| {
-        AppError::Validation("organization_id is required".to_string())
+        AppError::BadRequest("organization_id is required".to_string())
     })?;
     assert_org_role(&state, &user_id, &org_id, DOC_EDIT_ROLES).await?;
 
     let content = file_content.filter(|c| !c.trim().is_empty()).ok_or_else(|| {
-        AppError::Validation("No content could be extracted from the file. Supported formats: PDF, DOCX, TXT, MD.".to_string())
+        AppError::BadRequest("No content could be extracted from the file. Supported formats: PDF, DOCX, TXT, MD.".to_string())
     })?;
 
     let doc_title = title

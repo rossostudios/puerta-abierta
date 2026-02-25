@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::{json, Value};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 const AIRBNB_API_BASE: &str = "https://api.airbnb.com/v3";
 const AIRBNB_AUTH_URL: &str = "https://www.airbnb.com/oauth2/auth";

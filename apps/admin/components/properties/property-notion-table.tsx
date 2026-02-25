@@ -105,6 +105,8 @@ type Props = {
   agentStatus?: "active" | "offline" | "loading";
 };
 
+const STICKY_ACTIONS = "sticky right-0 z-10 bg-background shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] dark:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]";
+
 /* ---------- component ---------- */
 
 export function PropertyNotionTable({
@@ -155,7 +157,6 @@ export function PropertyNotionTable({
   );
 
   /* --- responsive column visibility --- */
-  const isSm = useMediaQuery("(min-width: 640px)");
   const isMd = useMediaQuery("(min-width: 768px)");
   const isLg = useMediaQuery("(min-width: 1024px)");
   const isXl = useMediaQuery("(min-width: 1280px)");
@@ -163,29 +164,27 @@ export function PropertyNotionTable({
   const is2xl = useMediaQuery("(min-width: 1536px)");
 
   const columnVisibility = useMemo<VisibilityState>(() => {
-    // When portfolio sidebar is open, available content width is ~600px narrower
-    // than the viewport. Shift breakpoints up accordingly.
     if (isSidebarOpen) {
       return {
         code: false,
         city: false,
-        aiStatus: isXl,
-        occupancyRate: isXl,
+        aiStatus: false,
+        revenueMtdPyg: false,
         openTaskCount: isXl,
-        overdueCollectionCount: isXxl,
-        revenueMtdPyg: is2xl,
+        occupancyRate: isXxl,
+        overdueCollectionCount: is2xl,
       };
     }
     return {
-      code: isSm,
-      overdueCollectionCount: isSm,
-      openTaskCount: isSm,
-      aiStatus: isLg,
       occupancyRate: isMd,
-      city: isMd,
-      revenueMtdPyg: isLg,
+      openTaskCount: isMd,
+      overdueCollectionCount: isMd,
+      code: isLg,
+      aiStatus: isXl,
+      city: isXxl,
+      revenueMtdPyg: is2xl,
     };
-  }, [isSidebarOpen, isSm, isMd, isLg, isXl, isXxl, is2xl]);
+  }, [isSidebarOpen, isMd, isLg, isXl, isXxl, is2xl]);
 
   const columns = useMemo<ColumnDef<PropertyPortfolioRow>[]>(
     () => [
@@ -437,6 +436,7 @@ export function PropertyNotionTable({
         minSize: 48,
         maxSize: 48,
         enableResizing: false,
+        header: () => <ColHeader icon={MoreVerticalIcon} label="" />,
         cell: ({ row }) => {
           const property = row.original;
           return (
@@ -539,7 +539,10 @@ export function PropertyNotionTable({
             <TableRow key={hg.id}>
               {hg.headers.map((header) => (
                 <TableHead
-                  className="relative select-none whitespace-nowrap text-[11px] uppercase tracking-wider"
+                  className={cn(
+                    "relative select-none whitespace-nowrap text-[11px] uppercase tracking-wider",
+                    header.id === "actions" && STICKY_ACTIONS
+                  )}
                   grid
                   key={header.id}
                   style={{ width: header.getSize() }}
@@ -580,7 +583,10 @@ export function PropertyNotionTable({
             >
               {row.getVisibleCells().map((cell) => (
                 <TableCell
-                  className="py-1.5"
+                  className={cn(
+                    "py-1.5",
+                    cell.column.id === "actions" && STICKY_ACTIONS
+                  )}
                   grid
                   key={cell.id}
                   style={{ width: cell.column.getSize() }}
@@ -620,7 +626,7 @@ export function PropertyNotionTable({
             <TableCell className="tabular-nums" grid>
               {summary.totalOverdueCollections}
             </TableCell>
-            <TableCell grid />
+            <TableCell className={STICKY_ACTIONS} grid />
           </TableRow>
         </TableFooter>
       </Table>

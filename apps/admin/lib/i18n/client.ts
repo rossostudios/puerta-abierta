@@ -46,10 +46,8 @@ export function useActiveLocale(): Locale {
   );
 
   useEffect(() => {
-    if (fromContext) {
-      setLocale(fromContext);
-      return;
-    }
+    // Short-circuit: context handles updates via its own provider
+    if (fromContext) return;
 
     const onLocaleChange = (event: Event) => {
       const detail = (event as CustomEvent).detail;

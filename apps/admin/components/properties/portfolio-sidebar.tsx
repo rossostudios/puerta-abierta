@@ -2,14 +2,12 @@
 
 import {
   AlertCircleIcon,
-  ChartIcon,
   Home01Icon,
   InformationCircleIcon,
   Invoice03Icon,
   Task01Icon,
   Time02Icon,
 } from "@hugeicons/core-free-icons";
-import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import type {
   PropertyActivityItem,
@@ -59,6 +57,12 @@ function activityIcon(item: PropertyActivityItem) {
   return InformationCircleIcon;
 }
 
+function occupancyColor(rate: number): string {
+  if (rate >= 90) return "text-[var(--status-success-fg)]";
+  if (rate >= 70) return "text-[var(--status-warning-fg)]";
+  return "text-[var(--status-danger-fg)]";
+}
+
 export function PortfolioSidebar({
   totalValuePyg,
   occupancyRate,
@@ -73,131 +77,135 @@ export function PortfolioSidebar({
   formatLocale,
   orgId,
 }: PortfolioStatsProps) {
+  const hasAlerts = totalOverdueCollections > 0 || totalVacantUnits > 0;
+
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <h3 className="px-1 font-bold text-[11px] text-muted-foreground/70 uppercase tracking-widest">
+    <div className="space-y-6">
+      {/* Portfolio Value Header */}
+      <div className="space-y-1 px-1">
+        <h3 className="font-bold text-[11px] text-muted-foreground/70 uppercase tracking-widest">
           {isEn ? "Portfolio Summary" : "Resumen del Portafolio"}
         </h3>
-
-        <Card className="group relative overflow-hidden border-0 bg-casaora-gradient text-white shadow-casaora">
-          <div className="absolute top-0 right-0 p-4 opacity-5 transition-transform group-hover:translate-x-2 group-hover:-translate-y-2">
-            <Icon icon={ChartIcon} size={140} />
-          </div>
-          <CardContent className="relative z-10 space-y-4 p-5">
-            <div>
-              <div className="font-semibold text-[11px] text-white/70 uppercase tracking-wider">
-                {isEn ? "Total Assets" : "Activos Totales"}
-              </div>
-              <div className="mt-1 font-bold text-3xl text-white tracking-tight">
-                {formatCompactCurrency(totalValuePyg, "PYG", formatLocale)}
-              </div>
-            </div>
-            <div className="rounded-lg bg-white/10 px-3 py-2">
-              <div className="font-medium text-[10px] text-white/60 uppercase tracking-wider">
-                {isEn ? "Revenue MTD" : "Ingresos del Mes"}
-              </div>
-              <div className="mt-0.5 font-bold text-lg text-white/90">
-                {formatCompactCurrency(totalRevenueMtdPyg, "PYG", formatLocale)}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="transition-colors">
-            <CardContent className="space-y-1 p-3">
-              <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
-                {isEn ? "Occupancy" : "Ocupación"}
-              </div>
-              <div className="font-bold text-[var(--status-success-fg)] text-lg">
-                {Math.round(occupancyRate)}%
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="transition-colors">
-            <CardContent className="space-y-1 p-3">
-              <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
-                {isEn ? "Avg. Rent" : "Alquiler Prom."}
-              </div>
-              <div className="font-bold text-foreground text-lg">
-                {formatCompactCurrency(avgRentPyg, "PYG", formatLocale)}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="font-bold text-3xl tracking-tight text-foreground">
+          {formatCompactCurrency(totalValuePyg, "PYG", formatLocale)}
         </div>
-
-        {totalOverdueCollections > 0 ? (
-          <Card className="border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] shadow-sm">
-            <CardContent className="flex items-center gap-3 p-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--status-danger-fg)]/10">
-                <Icon
-                  className="text-[var(--status-danger-fg)]"
-                  icon={Invoice03Icon}
-                  size={18}
-                />
-              </div>
-              <div>
-                <div className="font-bold text-[10px] text-[var(--status-danger-fg)] uppercase tracking-wider">
-                  {isEn ? "Overdue Collections" : "Cobros Vencidos"}
-                </div>
-                <div className="font-bold text-[var(--status-danger-fg)] text-lg">
-                  {totalOverdueCollections}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {totalVacantUnits > 0 ? (
-          <Card>
-            <CardContent className="space-y-1 p-3">
-              <div className="font-bold text-[10px] text-muted-foreground/80 uppercase tracking-wider">
-                {isEn ? "Vacancy Cost" : "Costo de Vacancia"}
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold text-[var(--status-warning-fg)] text-lg">
-                  {totalVacantUnits} {isEn ? "units" : "unidades"}
-                </span>
-              </div>
-              <div className="text-muted-foreground text-xs">
-                ~{formatCompactCurrency(vacancyCostPyg, "PYG", formatLocale)}{" "}
-                {isEn ? "potential lost /mo" : "pérdida potencial /mes"}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
+        <div className="text-xs text-muted-foreground/70">
+          {isEn ? "Total asset value" : "Valor total de activos"}
+        </div>
       </div>
 
-      {notifications.length > 0 ? (
-        <div className="space-y-3">
-          <h3 className="px-1 font-bold text-[11px] text-red-500/80 uppercase tracking-widest">
-            {isEn ? "Action Required" : "Acción Requerida"}
-          </h3>
-          <div className="space-y-2">
-            {notifications.map((notification) => (
-              <div
-                className="flex gap-3 rounded-xl border border-red-100 bg-red-50/30 p-3 dark:border-red-900/20 dark:bg-red-950/20"
-                key={notification.id}
-              >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
-                  <Icon icon={AlertCircleIcon} size={16} />
-                </div>
-                <div className="space-y-0.5">
-                  <h4 className="font-semibold text-red-900 text-sm dark:text-red-200">
-                    {notification.title}
-                  </h4>
-                  <p className="text-red-700/80 text-xs leading-relaxed dark:text-red-400/80">
-                    {notification.detail}
-                  </p>
-                </div>
-              </div>
-            ))}
+      <div className="h-px bg-border/40" />
+
+      {/* Key Metrics Row */}
+      <div className="grid grid-cols-3 gap-3 px-1">
+        <div>
+          <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
+            {isEn ? "Revenue MTD" : "Ingresos Mes"}
+          </div>
+          <div className="mt-0.5 font-semibold text-sm text-foreground">
+            {formatCompactCurrency(totalRevenueMtdPyg, "PYG", formatLocale)}
           </div>
         </div>
-      ) : null}
+        <div>
+          <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
+            {isEn ? "Occupancy" : "Ocupación"}
+          </div>
+          <div className={cn("mt-0.5 font-semibold text-sm", occupancyColor(occupancyRate))}>
+            {Math.round(occupancyRate)}%
+          </div>
+        </div>
+        <div>
+          <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
+            {isEn ? "Avg. Rent" : "Alq. Prom."}
+          </div>
+          <div className="mt-0.5 font-semibold text-sm text-foreground">
+            {formatCompactCurrency(avgRentPyg, "PYG", formatLocale)}
+          </div>
+        </div>
+      </div>
 
-      <div className="space-y-4">
+      {hasAlerts && (
+        <>
+          <div className="h-px bg-border/40" />
+
+          {/* Attention Alerts */}
+          <div className="space-y-2 px-1">
+            <h3 className="font-bold text-[11px] text-muted-foreground/70 uppercase tracking-widest">
+              {isEn ? "Attention" : "Atención"}
+            </h3>
+
+            {totalOverdueCollections > 0 && (
+              <div className="flex items-center gap-2.5 rounded-lg status-tone-danger border p-2.5 transition-colors hover:brightness-95">
+                <Icon
+                  icon={Invoice03Icon}
+                  size={15}
+                />
+                <div className="min-w-0 flex-1 text-xs font-medium">
+                  {totalOverdueCollections}{" "}
+                  {isEn ? "overdue collections" : "cobros vencidos"}
+                </div>
+              </div>
+            )}
+
+            {totalVacantUnits > 0 && (
+              <div className="flex items-center gap-2.5 rounded-lg status-tone-warning border p-2.5 transition-colors hover:brightness-95">
+                <Icon
+                  icon={Home01Icon}
+                  size={15}
+                />
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-medium">
+                    {totalVacantUnits} {isEn ? "vacant units" : "unidades vacantes"}
+                  </span>
+                  <span className="ml-1.5 text-[10px] text-muted-foreground">
+                    ~{formatCompactCurrency(vacancyCostPyg, "PYG", formatLocale)}{" "}
+                    {isEn ? "/mo" : "/mes"}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Action Required Notifications */}
+      {notifications.length > 0 && (
+        <>
+          <div className="h-px bg-border/40" />
+
+          <div className="space-y-2 px-1">
+            <h3 className="font-bold text-[11px] text-[var(--status-danger-fg)]/80 uppercase tracking-widest">
+              {isEn ? "Action Required" : "Acción Requerida"}
+            </h3>
+            <div className="space-y-2">
+              {notifications.map((notification) => (
+                <div
+                  className={cn(
+                    "flex gap-2.5 rounded-lg border p-2.5 transition-colors hover:brightness-95",
+                    `status-tone-${notification.tone ?? "danger"}`
+                  )}
+                  key={notification.id}
+                >
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center">
+                    <Icon icon={AlertCircleIcon} size={14} />
+                  </div>
+                  <div className="min-w-0 space-y-0.5">
+                    <h4 className="font-semibold text-xs leading-tight">
+                      {notification.title}
+                    </h4>
+                    <p className="text-[11px] leading-snug opacity-80">
+                      {notification.detail}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Recent Activity */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="font-bold text-[11px] text-muted-foreground/70 uppercase tracking-widest">
             {isEn ? "Recent Activity" : "Actividad Reciente"}
@@ -209,7 +217,7 @@ export function PortfolioSidebar({
           />
         </div>
 
-        <div className="space-y-5 px-1">
+        <div className="space-y-3 px-1">
           {recentActivity.length === 0 ? (
             <div className="py-2 text-muted-foreground text-xs italic">
               {isEn
@@ -218,19 +226,19 @@ export function PortfolioSidebar({
             </div>
           ) : (
             recentActivity.map((item) => (
-              <div className="group flex gap-4" key={item.id}>
+              <div className="group flex gap-3" key={item.id}>
                 <div
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-105",
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-105",
                     item.tone === "info" && "status-tone-info border",
                     item.tone === "warning" && "status-tone-warning border",
                     item.tone === "danger" && "status-tone-danger border",
                     item.tone === "success" && "status-tone-success border"
                   )}
                 >
-                  <Icon icon={activityIcon(item)} size={16} />
+                  <Icon icon={activityIcon(item)} size={14} />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className="font-semibold text-foreground text-sm leading-tight">
                     {item.title}
                   </div>
@@ -246,8 +254,8 @@ export function PortfolioSidebar({
           )}
         </div>
 
-        {recentActivity.length > 0 ? (
-          <div className="px-1 pt-2">
+        {recentActivity.length > 0 && (
+          <div className="px-1 pt-1">
             <button
               className="font-bold text-[11px] text-primary transition-all hover:underline"
               type="button"
@@ -255,7 +263,7 @@ export function PortfolioSidebar({
               {isEn ? "View all activity" : "Ver toda la actividad"}
             </button>
           </div>
-        ) : null}
+        )}
       </div>
 
       {orgId && <AgentActivityFeed isEn={isEn} orgId={orgId} />}

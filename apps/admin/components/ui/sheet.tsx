@@ -20,7 +20,7 @@ export type SheetProps = {
   contentClassName?: string;
 };
 
-const ANIMATION_MS = 180;
+const ANIMATION_MS = 280;
 const SCROLL_LOCK_COUNT_ATTR = "data-pa-scroll-lock-count";
 const SCROLL_LOCK_PREV_OVERFLOW_ATTR = "data-pa-scroll-lock-prev-overflow";
 
@@ -140,12 +140,16 @@ export function Sheet({
   const panelSide =
     side === "right"
       ? {
-          wrapper: "right-3",
+          wrapper: "right-0",
+          radius: "rounded-l-[24px] rounded-r-none",
+          border: "border-l border-border/40",
           enter: "translate-x-full",
           exit: "translate-x-0",
         }
       : {
-          wrapper: "left-3",
+          wrapper: "left-0",
+          radius: "rounded-r-[24px] rounded-l-none",
+          border: "border-r border-border/40",
           enter: "-translate-x-full",
           exit: "translate-x-0",
         };
@@ -160,7 +164,7 @@ export function Sheet({
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[3px] transition-opacity",
+          "absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[3px] transition-opacity duration-200 ease-out will-change-[opacity]",
           open
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
@@ -173,15 +177,20 @@ export function Sheet({
         aria-labelledby={title ? titleId : undefined}
         aria-modal="true"
         className={cn(
-          "glass-float absolute top-3 bottom-3 flex w-[min(96vw,44rem)] max-w-[calc(100vw-24px)] flex-col rounded-[28px] transition-transform",
+          "glass-float absolute inset-y-0 flex w-[min(96vw,44rem)] max-w-full flex-col transition-transform will-change-transform",
           panelSide.wrapper,
+          panelSide.radius,
+          panelSide.border,
           open
             ? cn(panelSide.exit, "pointer-events-auto")
             : cn(panelSide.enter, "pointer-events-none"),
           contentClassName
         )}
         role="dialog"
-        style={{ transitionDuration: `${ANIMATION_MS}ms` }}
+        style={{
+          transitionDuration: `${ANIMATION_MS}ms`,
+          transitionTimingFunction: "cubic-bezier(0.32, 0.72, 0, 1)",
+        }}
       >
         <header className="flex items-start justify-between gap-4 border-border/70 border-b px-6 py-4">
           <div className="min-w-0">

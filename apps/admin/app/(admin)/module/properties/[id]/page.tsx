@@ -210,10 +210,7 @@ export default async function PropertyRecordPage({
           <PropertyOverview
             isEn={isEn}
             locale={locale}
-            orgId={activeOrgId}
             overview={data.overview}
-            propertyId={data.recordId}
-            propertyName={data.title}
             recordId={data.recordId}
           />
         ) : null}

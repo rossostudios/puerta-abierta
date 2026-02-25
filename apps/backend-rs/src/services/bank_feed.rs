@@ -1,5 +1,4 @@
-use serde_json::{json, Map, Value};
-use sqlx::Row;
+use serde_json::{json, Value};
 
 use crate::{
     error::{AppError, AppResult},

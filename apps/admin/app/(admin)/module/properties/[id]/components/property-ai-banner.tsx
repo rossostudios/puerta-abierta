@@ -21,6 +21,29 @@ type PropertyAiBannerProps = {
   isEn: boolean;
 };
 
+const QUICK_ACTIONS = [
+  {
+    labelEn: "Analyze occupancy",
+    labelEs: "Analizar ocupación",
+    agent: "guest-concierge",
+  },
+  {
+    labelEn: "Maintenance priorities",
+    labelEs: "Prioridades mantenimiento",
+    agent: "maintenance-coordinator",
+  },
+  {
+    labelEn: "Pricing strategy",
+    labelEs: "Estrategia precios",
+    agent: "dynamic-pricing",
+  },
+  {
+    labelEn: "Draft communication",
+    labelEs: "Redactar comunicación",
+    agent: "guest-concierge",
+  },
+];
+
 export function PropertyAiBanner({
   orgId,
   propertyId,
@@ -77,6 +100,25 @@ export function PropertyAiBanner({
               {totalActions} {isEn ? "actions" : "acciones"} &middot; {successRate}%{" "}
               {isEn ? "success" : "éxito"}
             </Badge>
+          </div>
+
+          {/* Divider */}
+          <span
+            aria-hidden="true"
+            className="hidden h-4 w-px bg-border/40 sm:block"
+          />
+
+          {/* Quick action chips */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {QUICK_ACTIONS.map((action) => (
+              <Link
+                className="rounded-full border border-border/30 bg-muted/20 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
+                href={`/module/agent-playground?property_id=${encodeURIComponent(propertyId)}&property_name=${encodeURIComponent(propertyName)}&agent=${action.agent}`}
+                key={action.labelEn}
+              >
+                {isEn ? action.labelEn : action.labelEs}
+              </Link>
+            ))}
           </div>
         </div>
 
