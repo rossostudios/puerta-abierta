@@ -52,6 +52,8 @@ function normalizeChat(payload: unknown): AgentChatSummary | null {
     agent_icon_key:
       typeof row.agent_icon_key === "string" ? row.agent_icon_key : undefined,
     title: String(row.title),
+    preferred_model:
+      typeof row.preferred_model === "string" ? row.preferred_model : null,
     is_archived: Boolean(row.is_archived),
     last_message_at: String(row.last_message_at ?? ""),
     created_at: String(row.created_at ?? ""),

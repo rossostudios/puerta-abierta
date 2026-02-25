@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText } from "ai";
+import { stepCountIs, streamText } from "ai";
 import { NextResponse } from "next/server";
 import {
   buildSystemPrompt,
@@ -163,17 +163,30 @@ async function handleSdkOrchestration(
     apiKey: process.env.OPENAI_API_KEY,
   });
 
-  // Use AI SDK 6 streamText
+  // Use AI SDK 6 streamText with maxSteps for multi-step tool use
   const result = streamText({
     model: openai(preferredModel),
     system: systemPrompt,
     messages: [...history, { role: "user", content: message }],
     tools: tools as Parameters<typeof streamText>[0]["tools"],
-    onFinish: async ({ text, toolCalls }) => {
-      // Persist the user message + assistant response to the Rust backend
+    stopWhen: stepCountIs(agentConfig.maxSteps),
+    onFinish: async ({ text, steps }) => {
+      // Persist the user message + assistant response to the Rust backend.
+      // NOTE: The backend may not support persist_only, in which case it
+      // tries to re-run the agent and fails.  We log the error so it can
+      // be debugged but don't break the stream.
       try {
-        // Save user message
-        await fetch(
+        // Build complete tool trace from all steps
+        const allToolCalls = (steps ?? []).flatMap(
+          (step) =>
+            step.toolCalls?.map((tc) => ({
+              tool: tc.toolName,
+              args: "args" in tc ? tc.args : {},
+              ok: true,
+            })) ?? []
+        );
+
+        const persistRes = await fetch(
           `${API_BASE_URL}/agent/chats/${encodeURIComponent(chatId)}/messages?org_id=${encodeURIComponent(orgId)}`,
           {
             method: "POST",
@@ -185,26 +198,26 @@ async function handleSdkOrchestration(
               message,
               allow_mutations: true,
               confirm_write: true,
-              // Special flag to only persist, not re-run the agent
               persist_only: true,
               assistant_content: text,
-              tool_trace:
-                toolCalls?.map((tc) => ({
-                  tool: tc.toolName,
-                  args: "args" in tc ? tc.args : {},
-                  ok: true,
-                })) ?? [],
+              tool_trace: allToolCalls,
               model_used: preferredModel,
             }),
           }
         );
-      } catch {
-        // Non-critical: message persistence failure shouldn't break the stream
+        if (!persistRes.ok) {
+          const body = await persistRes.text().catch(() => "");
+          console.warn(
+            `[SDK onFinish] Persistence returned ${persistRes.status}: ${body}`
+          );
+        }
+      } catch (err) {
+        console.warn("[SDK onFinish] Persistence error:", err);
       }
     },
   });
 
-  return result.toTextStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
 
 // ---------------------------------------------------------------------------

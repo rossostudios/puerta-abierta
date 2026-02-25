@@ -30,6 +30,53 @@ const DEFAULT_MUTATION_TOOLS = [
 ];
 
 /**
+ * Recursively sanitize a JSON Schema so it conforms to what the OpenAI
+ * Responses API expects.  Fixes common backend issues:
+ *   - array types missing "items" → defaults to { type: "object" }
+ *   - object types missing "properties" → defaults to {}
+ *   - null / undefined type → defaults to "string"
+ */
+function sanitizeSchema(
+  node: Record<string, unknown>
+): Record<string, unknown> {
+  const out = { ...node };
+
+  // Ensure every node has a type
+  if (typeof out.type !== "string" || out.type === "None") {
+    out.type = "string";
+  }
+
+  // Array must have items
+  if (out.type === "array" && !out.items) {
+    out.items = { type: "object" };
+  }
+
+  // Recurse into items
+  if (out.items && typeof out.items === "object" && !Array.isArray(out.items)) {
+    out.items = sanitizeSchema(out.items as Record<string, unknown>);
+  }
+
+  // Recurse into properties
+  if (out.type === "object" && !out.properties) {
+    out.properties = {};
+  }
+  if (out.properties && typeof out.properties === "object") {
+    const props = out.properties as Record<string, unknown>;
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(props)) {
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        cleaned[key] = sanitizeSchema(val as Record<string, unknown>);
+      } else {
+        cleaned[key] = val;
+      }
+    }
+    out.properties = cleaned;
+  }
+
+  return out;
+}
+
+/**
  * Build AI SDK 6 tools map from backend tool definitions.
  * Returns raw tool objects compatible with streamText({ tools }).
  */
@@ -55,14 +102,22 @@ export function buildToolsFromDefinitions(
       continue;
     }
 
-    const schema = def.parameters ?? { type: "object", properties: {} };
+    // Ensure schema is always a valid JSON Schema object type.
+    // Backend may return incomplete schemas; sanitize recursively so the
+    // OpenAI Responses API does not reject them.
+    const raw = def.parameters ?? {};
+    const schema = sanitizeSchema({
+      ...raw,
+      type: "object",
+      properties: (raw as Record<string, unknown>).properties ?? {},
+    });
 
     // Build tool object directly — tool() is an identity function in AI SDK 6
     // so we construct the object manually to avoid TypeScript generics issues
     // with jsonSchema's inferred never type.
     tools[def.name] = {
       description: def.description,
-      parameters: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
+      inputSchema: jsonSchema(schema as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>) => {
         const response = await executeToolOnBackend(token, {
           org_id: orgId,

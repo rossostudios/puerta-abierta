@@ -297,9 +297,11 @@ export function PlaygroundManager({
                 const delta =
                   typeof parsed.textDelta === "string"
                     ? parsed.textDelta
-                    : typeof parsed.text === "string"
-                      ? parsed.text
-                      : "";
+                    : typeof parsed.delta === "string"
+                      ? parsed.delta
+                      : typeof parsed.text === "string"
+                        ? parsed.text
+                        : "";
                 if (delta) {
                   assistantContent += delta;
                   setMessages((prev) => {
@@ -326,95 +328,101 @@ export function PlaygroundManager({
                 }
               }
 
-              // Tool events (casaora custom)
-              if (
+              // Tool events (casaora custom) — handle both
+              // array-wrapped format: { type: "data", data: [...] }
+              // and direct format: { type: "data-casaora-tool", data: {...} }
+              const eventItems: Array<{ type?: string; data?: unknown }> =
                 parsed.type === "data" &&
                 parsed.data &&
                 Array.isArray(parsed.data)
-              ) {
-                for (const item of parsed.data) {
-                  if (item.type === "data-casaora-tool" && item.data) {
-                    const d = item.data as {
-                      phase?: string;
-                      tool_name?: string;
-                      tool_call_id?: string;
-                      ok?: boolean;
-                      preview?: string;
-                      args?: Record<string, unknown>;
-                    };
-                    const toolCallId =
-                      typeof d.tool_call_id === "string"
-                        ? d.tool_call_id
-                        : `tool-${Date.now()}`;
-                    const toolName =
-                      typeof d.tool_name === "string" ? d.tool_name : "tool";
+                  ? (parsed.data as Array<{ type?: string; data?: unknown }>)
+                  : typeof parsed.type === "string" &&
+                      parsed.type.startsWith("data-casaora")
+                    ? [parsed as { type?: string; data?: unknown }]
+                    : [];
 
-                    setStreamToolEvents((prev) => [
+              for (const item of eventItems) {
+                if (item.type === "data-casaora-tool" && item.data) {
+                  const d = item.data as {
+                    phase?: string;
+                    tool_name?: string;
+                    tool_call_id?: string;
+                    ok?: boolean;
+                    preview?: string;
+                    args?: Record<string, unknown>;
+                  };
+                  const toolCallId =
+                    typeof d.tool_call_id === "string"
+                      ? d.tool_call_id
+                      : `tool-${Date.now()}`;
+                  const toolName =
+                    typeof d.tool_name === "string" ? d.tool_name : "tool";
+
+                  setStreamToolEvents((prev) => [
+                    ...prev,
+                    {
+                      phase: d.phase === "result" ? "result" : "call",
+                      tool_name: toolName,
+                      tool_call_id: toolCallId,
+                      ok: typeof d.ok === "boolean" ? d.ok : undefined,
+                      preview:
+                        typeof d.preview === "string" ? d.preview : undefined,
+                    },
+                  ]);
+
+                  if (d.phase === "call") {
+                    toolTimings.set(toolCallId, Date.now());
+                    setToolInspector((prev) => [
                       ...prev,
                       {
-                        phase: d.phase === "result" ? "result" : "call",
+                        id: toolCallId,
                         tool_name: toolName,
-                        tool_call_id: toolCallId,
-                        ok: typeof d.ok === "boolean" ? d.ok : undefined,
-                        preview:
-                          typeof d.preview === "string" ? d.preview : undefined,
+                        args: d.args ?? {},
+                        timestamp: Date.now(),
                       },
                     ]);
-
-                    if (d.phase === "call") {
-                      toolTimings.set(toolCallId, Date.now());
-                      setToolInspector((prev) => [
-                        ...prev,
-                        {
-                          id: toolCallId,
-                          tool_name: toolName,
-                          args: d.args ?? {},
-                          timestamp: Date.now(),
-                        },
-                      ]);
-                    } else if (d.phase === "result") {
-                      const startTime = toolTimings.get(toolCallId);
-                      const duration_ms = startTime
-                        ? Date.now() - startTime
-                        : undefined;
-                      setToolInspector((prev) =>
-                        prev.map((entry) =>
-                          entry.id === toolCallId
-                            ? {
-                                ...entry,
-                                result: d.preview ?? (d.ok !== false ? "ok" : "error"),
-                                ok: d.ok,
-                                duration_ms,
-                              }
-                            : entry
-                        )
-                      );
-                      toolTrace.push({
-                        tool: toolName,
-                        ok: d.ok,
-                        preview: d.preview,
-                      });
-                    }
+                  } else if (d.phase === "result") {
+                    const startTime = toolTimings.get(toolCallId);
+                    const duration_ms = startTime
+                      ? Date.now() - startTime
+                      : undefined;
+                    setToolInspector((prev) =>
+                      prev.map((entry) =>
+                        entry.id === toolCallId
+                          ? {
+                              ...entry,
+                              result: d.preview ?? (d.ok !== false ? "ok" : "error"),
+                              ok: d.ok,
+                              duration_ms,
+                            }
+                          : entry
+                      )
+                    );
+                    toolTrace.push({
+                      tool: toolName,
+                      ok: d.ok,
+                      preview: d.preview,
+                    });
                   }
+                }
 
-                  if (item.type === "data-casaora-meta" && item.data) {
-                    const meta = item.data as { model_used?: string };
-                    if (typeof meta.model_used === "string") {
-                      modelUsed = meta.model_used;
-                    }
+                if (item.type === "data-casaora-meta" && item.data) {
+                  const meta = item.data as { model_used?: string };
+                  if (typeof meta.model_used === "string") {
+                    modelUsed = meta.model_used;
                   }
+                }
 
-                  // Item 4: Accumulate thinking steps
-                  if (item.type === "data-casaora-status" && item.data) {
-                    const s = item.data as { message?: string };
-                    if (typeof s.message === "string" && s.message.trim()) {
-                      const stepMsg = s.message.trim();
-                      setStreamStatus(stepMsg);
-                      setThinkingSteps((prev) => {
-                        if (prev[prev.length - 1] === stepMsg) return prev;
-                        return [...prev, stepMsg];
-                      });
-                    }
+                // Accumulate thinking steps
+                if (item.type === "data-casaora-status" && item.data) {
+                  const s = item.data as { message?: string };
+                  if (typeof s.message === "string" && s.message.trim()) {
+                    const stepMsg = s.message.trim();
+                    setStreamStatus(stepMsg);
+                    setThinkingSteps((prev) => {
+                      if (prev[prev.length - 1] === stepMsg) return prev;
+                      return [...prev, stepMsg];
+                    });
                   }
                 }
               }
