@@ -436,7 +436,12 @@ export function ChatThread({
         await queryClient.invalidateQueries({
           queryKey: ["sidebar-chat-data", orgId],
         });
-        setLiveMessages([]);
+        // NOTE: Do NOT clear liveMessages here.  The server-side
+        // onFinish persistence may not have completed yet (or may have
+        // failed entirely if the backend does not support persist_only).
+        // Keeping live messages ensures the streamed assistant response
+        // remains visible.  Content-based dedup in displayMessages
+        // prevents duplicates once the server catches up.
         setStreamToolEvents([]);
         setStreamStatus(null);
         setStreamMetaByMessageId({});
@@ -616,9 +621,22 @@ export function ChatThread({
 
   const displayMessages = useMemo<DisplayMessage[]>(() => {
     const ids = new Set(serverDisplayMessages.map((i) => i.id));
+    // Content-based dedup: when persistence hasn't completed yet,
+    // server messages and live messages will have different IDs for
+    // the same user message.  Deduplicate by matching role + content.
+    const serverUserContents = new Set(
+      serverDisplayMessages
+        .filter((m) => m.role === "user")
+        .map((m) => m.content)
+    );
     return [
       ...serverDisplayMessages,
-      ...liveDisplayMessages.filter((i) => !ids.has(i.id)),
+      ...liveDisplayMessages.filter((i) => {
+        if (ids.has(i.id)) return false;
+        if (i.role === "user" && serverUserContents.has(i.content))
+          return false;
+        return true;
+      }),
     ];
   }, [liveDisplayMessages, serverDisplayMessages]);
 
