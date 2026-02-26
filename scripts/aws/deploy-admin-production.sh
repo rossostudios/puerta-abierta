@@ -2,7 +2,7 @@
 set -euo pipefail
 
 AWS_BIN="${AWS_BIN:-aws}"
-PROFILE="${AWS_PROFILE:-default}"
+PROFILE="${AWS_PROFILE:-}"
 REGION="${AWS_REGION:-us-east-1}"
 
 NAME_PREFIX="${NAME_PREFIX:-casaora-prod}"
@@ -29,12 +29,18 @@ SECRET_CLERK_PUBLISHABLE_NAME="${SECRET_CLERK_PUBLISHABLE_NAME:-${SECRET_PREFIX}
 SECRET_CLERK_SECRET_NAME="${SECRET_CLERK_SECRET_NAME:-${SECRET_PREFIX}/CLERK_SECRET_KEY}"
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+DOCKER_BUILDX="${DOCKER_BUILDX:-false}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/arm64}"
 default_git_sha="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 IMAGE_TAG="${IMAGE_TAG:-${default_git_sha}-$(date +%Y%m%d%H%M%S)}"
 DOCKER_CONFIG_ISOLATED="${DOCKER_CONFIG_ISOLATED:-true}"
 
 aws_cmd() {
-  "${AWS_BIN}" --profile "${PROFILE}" --region "${REGION}" "$@"
+  local -a args=("${AWS_BIN}" --region "${REGION}")
+  if [[ -n "${PROFILE}" ]]; then
+    args+=(--profile "${PROFILE}")
+  fi
+  "${args[@]}" "$@"
 }
 
 secret_arn() {
@@ -88,19 +94,34 @@ clerk_publishable_key="$(secret_string "${SECRET_CLERK_PUBLISHABLE_NAME}")"
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
 
-echo "==> Building admin image (ARM64 for Fargate) -> ${image_uri}"
-"${DOCKER_BIN}" build \
-  --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
-  --build-arg "NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}" \
-  --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}" \
-  --build-arg "NEXT_PUBLIC_CLERK_DOMAIN=${CLERK_DOMAIN}" \
-  --build-arg "NEXT_PUBLIC_CLERK_JS_URL=${CLERK_JS_URL}" \
-  -f apps/admin/Dockerfile \
-  -t "${image_uri}" \
-  .
+if [[ "${DOCKER_BUILDX}" == "true" ]]; then
+  echo "==> Building and pushing admin image via buildx (${DOCKER_PLATFORM}) -> ${image_uri}"
+  "${DOCKER_BIN}" buildx build \
+    --platform "${DOCKER_PLATFORM}" \
+    --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
+    --build-arg "NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}" \
+    --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}" \
+    --build-arg "NEXT_PUBLIC_CLERK_DOMAIN=${CLERK_DOMAIN}" \
+    --build-arg "NEXT_PUBLIC_CLERK_JS_URL=${CLERK_JS_URL}" \
+    -f apps/admin/Dockerfile \
+    -t "${image_uri}" \
+    --push \
+    .
+else
+  echo "==> Building admin image (ARM64 for Fargate) -> ${image_uri}"
+  "${DOCKER_BIN}" build \
+    --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
+    --build-arg "NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}" \
+    --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}" \
+    --build-arg "NEXT_PUBLIC_CLERK_DOMAIN=${CLERK_DOMAIN}" \
+    --build-arg "NEXT_PUBLIC_CLERK_JS_URL=${CLERK_JS_URL}" \
+    -f apps/admin/Dockerfile \
+    -t "${image_uri}" \
+    .
 
-echo "==> Pushing image"
-"${DOCKER_BIN}" push "${image_uri}"
+  echo "==> Pushing image"
+  "${DOCKER_BIN}" push "${image_uri}"
+fi
 
 echo "==> Resolving network and load balancer resources"
 vpc_id="$(aws_cmd ec2 describe-vpcs --filters "Name=tag:Name,Values=${VPC_NAME}" --query 'Vpcs[0].VpcId' --output text)"

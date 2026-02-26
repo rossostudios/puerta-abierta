@@ -11,6 +11,7 @@ on:
           - backend
           - admin
           - web
+          - all
       deploy_service:
         description: "Deploy ECS service after pushing image"
         required: true
@@ -21,10 +22,20 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: aws-ecs-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
+    environment: Production
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 180
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_PROFILE: ""
+      DOCKER_BUILDX: "true"
+      DOCKER_PLATFORM: "linux/arm64"
 
     steps:
       - uses: actions/checkout@v4
@@ -35,91 +46,51 @@ jobs:
           role-to-assume: ${{ secrets.AWS_GITHUB_OIDC_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+      - name: Set up QEMU (ARM64 builds)
+        uses: docker/setup-qemu-action@v3
 
-      - name: Resolve deploy config
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate inputs
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.app }}" == "backend" ]]; then
-            DOCKER_CONTEXT="apps/backend-rs"
-            DOCKERFILE_PATH="apps/backend-rs/Dockerfile"
-            CONTAINER_NAME="casaora-backend"
-            ECR_REPOSITORY="${{ vars.ECR_REPOSITORY_BACKEND }}"
-            ECS_SERVICE="${{ vars.ECS_SERVICE_BACKEND }}"
-            TASKDEF_PATH="infra/aws/ecs/taskdef.backend.json"
-            {
-              echo "DOCKER_BUILD_ARGS<<EOF"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
-          elif [[ "${{ inputs.app }}" == "admin" ]]; then
-            DOCKER_CONTEXT="."
-            DOCKERFILE_PATH="apps/admin/Dockerfile"
-            CONTAINER_NAME="casaora-admin"
-            ECR_REPOSITORY="${{ vars.ECR_REPOSITORY_ADMIN }}"
-            ECS_SERVICE="${{ vars.ECS_SERVICE_ADMIN }}"
-            TASKDEF_PATH="infra/aws/ecs/taskdef.admin.json"
-            {
-              echo "DOCKER_BUILD_ARGS<<EOF"
-              echo "NEXT_PUBLIC_API_BASE_URL=${{ vars.ADMIN_NEXT_PUBLIC_API_BASE_URL }}"
-              echo "NEXT_PUBLIC_SITE_URL=${{ vars.ADMIN_NEXT_PUBLIC_SITE_URL }}"
-              echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ vars.ADMIN_NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
-              echo "NEXT_PUBLIC_CLERK_DOMAIN=${{ vars.ADMIN_NEXT_PUBLIC_CLERK_DOMAIN }}"
-              echo "NEXT_PUBLIC_CLERK_JS_URL=${{ vars.ADMIN_NEXT_PUBLIC_CLERK_JS_URL }}"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
-          else
-            DOCKER_CONTEXT="."
-            DOCKERFILE_PATH="apps/web/Dockerfile"
-            CONTAINER_NAME="casaora-web"
-            ECR_REPOSITORY="${{ vars.ECR_REPOSITORY_WEB }}"
-            ECS_SERVICE="${{ vars.ECS_SERVICE_WEB }}"
-            TASKDEF_PATH="infra/aws/ecs/taskdef.web.json"
-            {
-              echo "DOCKER_BUILD_ARGS<<EOF"
-              echo "NEXT_PUBLIC_API_BASE_URL=${{ vars.WEB_NEXT_PUBLIC_API_BASE_URL }}"
-              echo "NEXT_PUBLIC_SITE_URL=${{ vars.WEB_NEXT_PUBLIC_SITE_URL }}"
-              echo "NEXT_PUBLIC_ADMIN_URL=${{ vars.WEB_NEXT_PUBLIC_ADMIN_URL }}"
-              echo "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ vars.WEB_NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
-              echo "NEXT_PUBLIC_CLERK_DOMAIN=${{ vars.WEB_NEXT_PUBLIC_CLERK_DOMAIN }}"
-              echo "NEXT_PUBLIC_CLERK_JS_URL=${{ vars.WEB_NEXT_PUBLIC_CLERK_JS_URL }}"
-              echo "EOF"
-            } >> "$GITHUB_ENV"
+          if [[ "${{ inputs.deploy_service }}" != "true" ]]; then
+            echo "deploy_service=false is not supported by the unified script-driven production workflow." >&2
+            echo "Use a local break-glass script path if you need image-only builds." >&2
+            exit 1
           fi
-          echo "DOCKER_CONTEXT=${DOCKER_CONTEXT}" >> "$GITHUB_ENV"
-          echo "DOCKERFILE_PATH=${DOCKERFILE_PATH}" >> "$GITHUB_ENV"
-          echo "CONTAINER_NAME=${CONTAINER_NAME}" >> "$GITHUB_ENV"
-          echo "ECR_REPOSITORY=${ECR_REPOSITORY}" >> "$GITHUB_ENV"
-          echo "ECS_SERVICE=${ECS_SERVICE}" >> "$GITHUB_ENV"
-          echo "TASKDEF_PATH=${TASKDEF_PATH}" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=${GITHUB_SHA}" >> "$GITHUB_ENV"
-          echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${ECR_REPOSITORY}:${GITHUB_SHA}" >> "$GITHUB_ENV"
 
-      - name: Build and push image
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ env.DOCKER_CONTEXT }}
-          file: ${{ env.DOCKERFILE_PATH }}
-          build-args: ${{ env.DOCKER_BUILD_ARGS }}
-          push: true
-          tags: ${{ env.IMAGE_URI }}
+      - name: Deploy selected app(s)
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Render ECS task definition
-        if: ${{ inputs.deploy_service }}
-        id: taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: ${{ env.TASKDEF_PATH }}
-          container-name: ${{ env.CONTAINER_NAME }}
-          image: ${{ env.IMAGE_URI }}
+          run_deploy() {
+            local app="$1"
+            local script_path=""
+            case "${app}" in
+              backend) script_path="./scripts/aws/deploy-backend-production.sh" ;;
+              admin) script_path="./scripts/aws/deploy-admin-production.sh" ;;
+              web) script_path="./scripts/aws/deploy-web-production.sh" ;;
+              *)
+                echo "Unsupported app: ${app}" >&2
+                exit 1
+                ;;
+            esac
 
-      - name: Deploy ECS service
-        if: ${{ inputs.deploy_service }}
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
-        with:
-          task-definition: ${{ steps.taskdef.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ vars.ECS_CLUSTER }}
-          wait-for-service-stability: true
+            echo "## Deploying ${app}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            "${script_path}"
+            echo "- Result: completed" >> "${GITHUB_STEP_SUMMARY}"
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+          }
+
+          if [[ "${{ inputs.app }}" == "all" ]]; then
+            for app in backend admin web; do
+              run_deploy "${app}"
+            done
+          else
+            run_deploy "${{ inputs.app }}"
+          fi

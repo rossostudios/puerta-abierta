@@ -2,7 +2,7 @@
 set -euo pipefail
 
 AWS_BIN="${AWS_BIN:-aws}"
-PROFILE="${AWS_PROFILE:-default}"
+PROFILE="${AWS_PROFILE:-}"
 REGION="${AWS_REGION:-us-east-1}"
 
 NAME_PREFIX="${NAME_PREFIX:-casaora-prod}"
@@ -24,12 +24,18 @@ SECRET_OPENAI_NAME="${SECRET_OPENAI_NAME:-${SECRET_PREFIX}/OPENAI_API_KEY}"
 SECRET_INTERNAL_API_KEY_NAME="${SECRET_INTERNAL_API_KEY_NAME:-${SECRET_PREFIX}/INTERNAL_API_KEY}"
 
 DOCKER_BIN="${DOCKER_BIN:-docker}"
+DOCKER_BUILDX="${DOCKER_BUILDX:-false}"
+DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/arm64}"
 default_git_sha="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 IMAGE_TAG="${IMAGE_TAG:-${default_git_sha}-$(date +%Y%m%d%H%M%S)}"
 DOCKER_CONFIG_ISOLATED="${DOCKER_CONFIG_ISOLATED:-true}"
 
 aws_cmd() {
-  "${AWS_BIN}" --profile "${PROFILE}" --region "${REGION}" "$@"
+  local -a args=("${AWS_BIN}" --region "${REGION}")
+  if [[ -n "${PROFILE}" ]]; then
+    args+=(--profile "${PROFILE}")
+  fi
+  "${args[@]}" "$@"
 }
 
 secret_arn() {
@@ -72,14 +78,24 @@ internal_api_key_secret_arn="$(secret_arn "${SECRET_INTERNAL_API_KEY_NAME}")"
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
 
-echo "==> Building backend image (ARM64 for Fargate) -> ${image_uri}"
-"${DOCKER_BIN}" build \
-  -f apps/backend-rs/Dockerfile \
-  -t "${image_uri}" \
-  apps/backend-rs
+if [[ "${DOCKER_BUILDX}" == "true" ]]; then
+  echo "==> Building and pushing backend image via buildx (${DOCKER_PLATFORM}) -> ${image_uri}"
+  "${DOCKER_BIN}" buildx build \
+    --platform "${DOCKER_PLATFORM}" \
+    -f apps/backend-rs/Dockerfile \
+    -t "${image_uri}" \
+    --push \
+    apps/backend-rs
+else
+  echo "==> Building backend image (ARM64 for Fargate) -> ${image_uri}"
+  "${DOCKER_BIN}" build \
+    -f apps/backend-rs/Dockerfile \
+    -t "${image_uri}" \
+    apps/backend-rs
 
-echo "==> Pushing image"
-"${DOCKER_BIN}" push "${image_uri}"
+  echo "==> Pushing image"
+  "${DOCKER_BIN}" push "${image_uri}"
+fi
 
 echo "==> Resolving network and load balancer resources"
 vpc_id="$(aws_cmd ec2 describe-vpcs --filters "Name=tag:Name,Values=${VPC_NAME}" --query 'Vpcs[0].VpcId' --output text)"
