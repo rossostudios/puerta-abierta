@@ -77,12 +77,12 @@ export function PropertiesManager({
       if (next === "map") {
         previousSidebarRef.current = isSidebarOpen;
         setUserSidebarPref(false);
-      } else {
+      } else if (viewMode === "map") {
         setUserSidebarPref(previousSidebarRef.current);
       }
       setViewMode(next);
     },
-    [isSidebarOpen]
+    [isSidebarOpen, viewMode]
   );
 
   useEffect(() => {

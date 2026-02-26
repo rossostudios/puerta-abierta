@@ -592,7 +592,19 @@ export function PropertyNotionTable({
                     checked={col.getIsVisible()}
                     onCheckedChange={(v) => col.toggleVisibility(!!v)}
                   />
-                  <span className="truncate">{humanizeKey(col.id)}</span>
+                  <span className="truncate">{{
+                    name: isEn ? "Property" : "Propiedad",
+                    code: isEn ? "Code" : "Código",
+                    city: isEn ? "City" : "Ciudad",
+                    unitCount: isEn ? "Units" : "Unidades",
+                    occupancyRate: isEn ? "Occupancy" : "Ocupación",
+                    status: isEn ? "Status" : "Estado",
+                    aiStatus: "AI",
+                    revenueMtdPyg: isEn ? "Revenue" : "Ingresos",
+                    openTaskCount: isEn ? "Tasks" : "Tareas",
+                    overdueCollectionCount: isEn ? "Overdue" : "Vencidos",
+                    actions: isEn ? "Actions" : "Acciones",
+                  }[col.id] ?? humanizeKey(col.id)}</span>
                 </label>
               ))}
           </PopoverContent>
