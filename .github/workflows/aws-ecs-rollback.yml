@@ -45,13 +45,15 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Roll back ECS service
+        env:
+          INPUT_TASK_DEFINITION: ${{ inputs.task_definition }}
         shell: bash
         run: |
           set -euo pipefail
 
           app="${{ inputs.app }}"
           cluster="${{ vars.ECS_CLUSTER }}"
-          explicit_taskdef="${{ inputs.task_definition }}"
+          explicit_taskdef="${INPUT_TASK_DEFINITION}"
           wait_for_stability="${{ inputs.wait_for_service_stability }}"
 
           case "${app}" in
