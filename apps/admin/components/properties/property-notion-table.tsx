@@ -12,6 +12,7 @@ import {
   Layers01Icon,
   MoreVerticalIcon,
   PencilEdit02Icon,
+  SlidersHorizontalIcon,
   SparklesIcon,
   Tag01Icon,
   Task01Icon,
@@ -19,19 +20,25 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
   type ColumnDef,
+  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type SortingState,
   useReactTable,
   type VisibilityState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { useCallback, useMemo, useOptimistic, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { updatePropertyInlineAction } from "@/app/(admin)/module/properties/actions";
 import { EditableCell } from "@/components/properties/editable-cell";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +49,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { Badge } from "@/components/ui/badge";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -56,7 +73,7 @@ import type {
   PropertyPortfolioRow,
   PropertyPortfolioSummary,
 } from "@/lib/features/properties/types";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, humanizeKey } from "@/lib/format";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -65,23 +82,28 @@ import { cn } from "@/lib/utils";
 function ColHeader({
   icon,
   label,
+  tooltip,
 }: {
   icon: typeof Building06Icon;
   label: string;
+  tooltip?: string;
 }) {
-  return (
+  const inner = (
     <span className="inline-flex items-center gap-1.5">
       <Icon className="text-muted-foreground/70" icon={icon} size={13} />
       <span>{label}</span>
     </span>
   );
-}
 
-const HEALTH_DOT: Record<string, string> = {
-  stable: "bg-[var(--status-success-fg)]",
-  watch: "bg-[var(--status-warning-fg)]",
-  critical: "bg-[var(--status-danger-fg)]",
-};
+  if (!tooltip) return inner;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{inner}</TooltipTrigger>
+      <TooltipContent side="bottom">{tooltip}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 const STATUS_OPTIONS = [
   { label: "Active", value: "active" },
@@ -156,6 +178,9 @@ export function PropertyNotionTable({
     [addOptimistic, isEn]
   );
 
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
   /* --- responsive column visibility --- */
   const isMd = useMediaQuery("(min-width: 768px)");
   const isLg = useMediaQuery("(min-width: 1024px)");
@@ -163,7 +188,7 @@ export function PropertyNotionTable({
   const isXxl = useMediaQuery("(min-width: 1440px)");
   const is2xl = useMediaQuery("(min-width: 1536px)");
 
-  const columnVisibility = useMemo<VisibilityState>(() => {
+  const responsiveDefaults = useMemo<VisibilityState>(() => {
     if (isSidebarOpen) {
       return {
         code: false,
@@ -186,6 +211,17 @@ export function PropertyNotionTable({
     };
   }, [isSidebarOpen, isMd, isLg, isXl, isXxl, is2xl]);
 
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(responsiveDefaults);
+
+  // Reset to responsive defaults when breakpoints or sidebar change
+  const prevDefaultsRef = useRef(responsiveDefaults);
+  useEffect(() => {
+    if (prevDefaultsRef.current !== responsiveDefaults) {
+      prevDefaultsRef.current = responsiveDefaults;
+      setColumnVisibility(responsiveDefaults);
+    }
+  }, [responsiveDefaults]);
+
   const columns = useMemo<ColumnDef<PropertyPortfolioRow>[]>(
     () => [
       {
@@ -194,6 +230,8 @@ export function PropertyNotionTable({
         minSize: 40,
         maxSize: 40,
         enableResizing: false,
+        enableHiding: false,
+        enableSorting: false,
         header: ({ table }) => (
           <Checkbox
             aria-label="Select all"
@@ -218,27 +256,21 @@ export function PropertyNotionTable({
           <ColHeader
             icon={Building06Icon}
             label={isEn ? "Property" : "Propiedad"}
+            tooltip={isEn ? "Property name and address" : "Nombre y dirección de la propiedad"}
           />
         ),
         cell: ({ row }) => {
           const data = row.original;
-          const dotClass = HEALTH_DOT[data.health] ?? "bg-muted-foreground";
           return (
             <EditableCell
               displayNode={
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)}
-                    title={data.health}
-                  />
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium text-foreground text-sm">
-                      {data.name}
-                    </span>
-                    <span className="truncate text-muted-foreground text-xs">
-                      {data.address}
-                    </span>
-                  </div>
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate font-medium text-foreground text-sm">
+                    {data.name}
+                  </span>
+                  <span className="truncate text-muted-foreground text-xs">
+                    {data.address}
+                  </span>
                 </div>
               }
               onCommit={(next) => commitEdit(data.id, "name", next)}
@@ -252,10 +284,10 @@ export function PropertyNotionTable({
         size: 100,
         minSize: 70,
         header: () => (
-          <ColHeader icon={Tag01Icon} label={isEn ? "Code" : "Código"} />
+          <ColHeader icon={Tag01Icon} label={isEn ? "Code" : "Código"} tooltip={isEn ? "Internal property code" : "Código interno de la propiedad"} />
         ),
         cell: ({ row }) => (
-          <span className="font-mono text-muted-foreground text-xs">
+          <span className="text-muted-foreground text-xs">
             {row.original.code}
           </span>
         ),
@@ -265,7 +297,7 @@ export function PropertyNotionTable({
         size: 130,
         minSize: 80,
         header: () => (
-          <ColHeader icon={City01Icon} label={isEn ? "City" : "Ciudad"} />
+          <ColHeader icon={City01Icon} label={isEn ? "City" : "Ciudad"} tooltip={isEn ? "City location" : "Ciudad de ubicación"} />
         ),
         cell: ({ row }) => {
           const data = row.original;
@@ -282,7 +314,7 @@ export function PropertyNotionTable({
         size: 80,
         minSize: 60,
         header: () => (
-          <ColHeader icon={Door01Icon} label={isEn ? "Units" : "Unidades"} />
+          <ColHeader icon={Door01Icon} label={isEn ? "Units" : "Unidades"} tooltip={isEn ? "Total rental units" : "Total de unidades de alquiler"} />
         ),
         cell: ({ row }) => (
           <span className="text-sm tabular-nums">{row.original.unitCount}</span>
@@ -296,6 +328,7 @@ export function PropertyNotionTable({
           <ColHeader
             icon={Layers01Icon}
             label={isEn ? "Occupancy" : "Ocupación"}
+            tooltip={isEn ? "Current occupancy rate" : "Tasa de ocupación actual"}
           />
         ),
         cell: ({ row }) => {
@@ -320,6 +353,7 @@ export function PropertyNotionTable({
           <ColHeader
             icon={CheckmarkCircle02Icon}
             label={isEn ? "Status" : "Estado"}
+            tooltip={isEn ? "Active or inactive" : "Activo o inactivo"}
           />
         ),
         cell: ({ row }) => {
@@ -340,7 +374,7 @@ export function PropertyNotionTable({
         size: 90,
         minSize: 70,
         header: () => (
-          <ColHeader icon={SparklesIcon} label="AI" />
+          <ColHeader icon={SparklesIcon} label="AI" tooltip={isEn ? "AI agent connection status" : "Estado de conexión del agente IA"} />
         ),
         cell: () => {
           if (agentStatus === "loading") {
@@ -374,6 +408,7 @@ export function PropertyNotionTable({
           <ColHeader
             icon={DollarCircleIcon}
             label={isEn ? "Revenue" : "Ingresos"}
+            tooltip={isEn ? "Month-to-date revenue" : "Ingresos del mes en curso"}
           />
         ),
         cell: ({ row }) => (
@@ -387,14 +422,14 @@ export function PropertyNotionTable({
         size: 80,
         minSize: 60,
         header: () => (
-          <ColHeader icon={Task01Icon} label={isEn ? "Tasks" : "Tareas"} />
+          <ColHeader icon={Task01Icon} label={isEn ? "Tasks" : "Tareas"} tooltip={isEn ? "Open maintenance tasks" : "Tareas de mantenimiento abiertas"} />
         ),
         cell: ({ row }) => {
           const count = row.original.openTaskCount;
           const urgent = row.original.urgentTaskCount;
           if (count === 0) {
             return (
-              <span className="text-muted-foreground text-sm">&mdash;</span>
+              <span className="text-muted-foreground text-sm tabular-nums">0</span>
             );
           }
           return (
@@ -414,13 +449,13 @@ export function PropertyNotionTable({
         size: 90,
         minSize: 60,
         header: () => (
-          <ColHeader icon={Alert02Icon} label={isEn ? "Overdue" : "Vencidos"} />
+          <ColHeader icon={Alert02Icon} label={isEn ? "Overdue" : "Vencidos"} tooltip={isEn ? "Overdue collection payments" : "Pagos de cobro vencidos"} />
         ),
         cell: ({ row }) => {
           const count = row.original.overdueCollectionCount;
           if (count === 0) {
             return (
-              <span className="text-muted-foreground text-sm">&mdash;</span>
+              <span className="text-muted-foreground text-sm tabular-nums">0</span>
             );
           }
           return (
@@ -436,10 +471,12 @@ export function PropertyNotionTable({
         minSize: 48,
         maxSize: 48,
         enableResizing: false,
+        enableHiding: false,
         header: () => <ColHeader icon={MoreVerticalIcon} label="" />,
         cell: ({ row }) => {
           const property = row.original;
           return (
+            <div className="flex items-center justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger
                 className={cn(
@@ -470,10 +507,7 @@ export function PropertyNotionTable({
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>
-                  <span className="flex items-center gap-1">
-                    <Icon icon={SparklesIcon} size={12} />
-                    {isEn ? "AI Agent" : "Agente IA"}
-                  </span>
+                  {isEn ? "AI Agent" : "Agente IA"}
                 </DropdownMenuLabel>
                 <DropdownMenuItem
                   onClick={() =>
@@ -512,6 +546,7 @@ export function PropertyNotionTable({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            </div>
           );
         },
       },
@@ -524,12 +559,61 @@ export function PropertyNotionTable({
     data: optimisticRows,
     columns,
     columnResizeMode: "onChange",
-    state: { columnVisibility },
+    state: { columnVisibility, sorting, columnFilters },
+    onColumnVisibilityChange: setColumnVisibility,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   return (
-    <div className="overflow-x-auto rounded-md border">
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <PopoverRoot>
+          <PopoverTrigger
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-9 gap-2 rounded-xl border-border/60 font-semibold text-muted-foreground hover:bg-muted"
+            )}
+          >
+            <Icon icon={SlidersHorizontalIcon} size={15} />
+            {isEn ? "Columns" : "Columnas"}
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[200px] p-2">
+            {table
+              .getAllLeafColumns()
+              .filter((col) => col.getCanHide())
+              .map((col) => (
+                <label
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+                  key={col.id}
+                >
+                  <Checkbox
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(v) => col.toggleVisibility(!!v)}
+                  />
+                  <span className="truncate">{{
+                    name: isEn ? "Property" : "Propiedad",
+                    code: isEn ? "Code" : "Código",
+                    city: isEn ? "City" : "Ciudad",
+                    unitCount: isEn ? "Units" : "Unidades",
+                    occupancyRate: isEn ? "Occupancy" : "Ocupación",
+                    status: isEn ? "Status" : "Estado",
+                    aiStatus: "AI",
+                    revenueMtdPyg: isEn ? "Revenue" : "Ingresos",
+                    openTaskCount: isEn ? "Tasks" : "Tareas",
+                    overdueCollectionCount: isEn ? "Overdue" : "Vencidos",
+                    actions: isEn ? "Actions" : "Acciones",
+                  }[col.id] ?? humanizeKey(col.id)}</span>
+                </label>
+              ))}
+          </PopoverContent>
+        </PopoverRoot>
+      </div>
+      <div className="overflow-x-auto rounded-md border">
       <Table
         className="w-full table-fixed"
         style={{ minWidth: table.getTotalSize() }}
@@ -541,7 +625,7 @@ export function PropertyNotionTable({
                 <TableHead
                   className={cn(
                     "relative select-none whitespace-nowrap text-[11px] uppercase tracking-wider",
-                    header.id === "actions" && STICKY_ACTIONS
+                    header.id === "actions" && cn(STICKY_ACTIONS, "px-0")
                   )}
                   grid
                   key={header.id}
@@ -585,7 +669,7 @@ export function PropertyNotionTable({
                 <TableCell
                   className={cn(
                     "py-1.5",
-                    cell.column.id === "actions" && STICKY_ACTIONS
+                    cell.column.id === "actions" && cn(STICKY_ACTIONS, "px-0")
                   )}
                   grid
                   key={cell.id}
@@ -600,36 +684,44 @@ export function PropertyNotionTable({
 
         <TableFooter>
           <TableRow className="hover:bg-transparent">
-            <TableCell grid style={{ width: 40 }} />
-            <TableCell
-              className="font-medium text-xs uppercase tracking-wider"
-              grid
-            >
-              {optimisticRows.length} {isEn ? "Properties" : "Propiedades"}
-            </TableCell>
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell className="tabular-nums" grid>
-              {summary.totalUnits}
-            </TableCell>
-            <TableCell className="tabular-nums" grid>
-              {summary.averageOccupancy}%
-            </TableCell>
-            <TableCell grid />
-            <TableCell grid />
-            <TableCell className="tabular-nums" grid>
-              {formatCurrency(summary.totalRevenueMtdPyg, "PYG", formatLocale)}
-            </TableCell>
-            <TableCell className="tabular-nums" grid>
-              {summary.totalOpenTasks}
-            </TableCell>
-            <TableCell className="tabular-nums" grid>
-              {summary.totalOverdueCollections}
-            </TableCell>
-            <TableCell className={STICKY_ACTIONS} grid />
+            {table.getVisibleLeafColumns().map((col) => {
+              const footerContent: Record<string, React.ReactNode> = {
+                name: (
+                  <span className="font-medium text-xs uppercase tracking-wider">
+                    {optimisticRows.length} {isEn ? "Properties" : "Propiedades"}
+                  </span>
+                ),
+                unitCount: summary.totalUnits,
+                occupancyRate: `${summary.averageOccupancy}%`,
+                revenueMtdPyg: formatCurrency(summary.totalRevenueMtdPyg, "PYG", formatLocale),
+                openTaskCount: summary.totalOpenTasks,
+                overdueCollectionCount: summary.totalOverdueCollections,
+              };
+              const content = footerContent[col.id];
+              return (
+                <TableCell
+                  className={cn(
+                    col.id === "actions" && STICKY_ACTIONS,
+                    content && col.id !== "name" && "tabular-nums"
+                  )}
+                  grid
+                  key={col.id}
+                  style={{ width: col.getSize() }}
+                >
+                  {content ?? null}
+                </TableCell>
+              );
+            })}
           </TableRow>
         </TableFooter>
       </Table>
+      </div>
+      <DataTablePagination
+        filteredRows={table.getFilteredRowModel().rows.length}
+        isEn={isEn}
+        table={table}
+        totalRows={table.getCoreRowModel().rows.length}
+      />
     </div>
   );
 }
