@@ -56,13 +56,15 @@ async function postWizard<T>(
   path: string,
   payload: Record<string, unknown>
 ): Promise<T> {
-  return authedFetch<T>(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  return authedFetch<T>(
+    path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+    { suppressErrorEvent: true }
+  );
 }
 
 export async function wizardCreateOrganization(payload: {

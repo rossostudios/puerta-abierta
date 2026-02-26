@@ -107,7 +107,8 @@ export async function getClientAccessToken(): Promise<string | null> {
  */
 export async function authedFetch<T>(
   path: string,
-  init?: RequestInit
+  init?: RequestInit,
+  options?: { suppressErrorEvent?: boolean }
 ): Promise<T> {
   const token = await getClientAccessToken();
 
@@ -124,7 +125,7 @@ export async function authedFetch<T>(
   if (!res.ok) {
     const parsed = await parseApiErrorResponse(res);
     const message = parsed.message ?? `API ${res.status}`;
-    if (res.status !== 401 && typeof window !== "undefined") {
+    if (!options?.suppressErrorEvent && res.status !== 401 && typeof window !== "undefined") {
       dispatchApiError({
         status: res.status,
         path,
