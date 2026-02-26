@@ -89,9 +89,11 @@ jobs:
             fi
 
             # GitHub may refuse deleting active deployments. Mark inactive first, then delete.
-            gh api -X POST "repos/${REPO}/deployments/${id}/statuses" --input - >/dev/null 2>&1 <<'JSON' || true
-            {"state":"inactive","auto_inactive":false,"description":"Pruned by deployments retention workflow"}
-            JSON
+            gh api -X POST "repos/${REPO}/deployments/${id}/statuses" \
+              -f state='inactive' \
+              -F auto_inactive=false \
+              -f description='Pruned by deployments retention workflow' \
+              >/dev/null 2>&1 || true
 
             if gh api -X DELETE "repos/${REPO}/deployments/${id}" >/dev/null 2>&1; then
               echo "DELETE $id  [$env_name]"
