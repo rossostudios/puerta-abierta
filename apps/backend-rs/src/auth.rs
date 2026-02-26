@@ -21,6 +21,8 @@ pub struct SupabaseUser {
 #[derive(Debug, Deserialize)]
 struct ClerkJwtClaims {
     sub: String,
+    #[serde(default)]
+    iss: Option<String>,
     email: Option<String>,
     #[serde(default)]
     given_name: Option<String>,
@@ -153,7 +155,6 @@ async fn validate_clerk_jwt_with_jwks(state: &AppState, token: &str) -> Option<S
         })?;
 
     let mut validation = Validation::new(Algorithm::RS256);
-    validation.set_issuer(&[issuer.as_str()]);
     if let Some(audience) = state.config.clerk_jwt_audience.as_deref() {
         validation.set_audience(&[audience.trim()]);
     } else {
@@ -169,7 +170,43 @@ async fn validate_clerk_jwt_with_jwks(state: &AppState, token: &str) -> Option<S
     };
 
     let claims = token_data.claims;
+    let token_issuer = claims
+        .iss
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.trim_end_matches('/').to_string());
+
+    if !is_allowed_clerk_issuer(token_issuer.as_deref(), &issuer) {
+        tracing::warn!(
+            configured_issuer = %issuer,
+            token_issuer = token_issuer.as_deref().unwrap_or("<missing>"),
+            "Clerk JWT issuer rejected"
+        );
+        return None;
+    }
     resolve_clerk_user(state, claims).await
+}
+
+fn is_allowed_clerk_issuer(token_issuer: Option<&str>, configured_issuer: &str) -> bool {
+    let Some(token_issuer) = token_issuer else {
+        return false;
+    };
+
+    let token_issuer = token_issuer.trim_end_matches('/');
+    let configured_issuer = configured_issuer.trim_end_matches('/');
+
+    if token_issuer.eq_ignore_ascii_case(configured_issuer) {
+        return true;
+    }
+
+    // Accept the underlying Clerk-hosted issuer during custom-domain cutovers.
+    // Clerk custom domains and `*.clerk.accounts.dev` issuers use the same signing keys.
+    if let Some(host) = token_issuer.strip_prefix("https://") {
+        return host.ends_with(".clerk.accounts.dev");
+    }
+
+    false
 }
 
 async fn find_jwk_for_kid_owned(

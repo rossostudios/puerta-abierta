@@ -160,8 +160,12 @@ let pendingServerTokenHelper: Promise<ServerTokenHelper> | null = null;
 
 async function loadServerTokenHelper() {
   if (pendingServerTokenHelper) return pendingServerTokenHelper;
-  pendingServerTokenHelper = import("@/lib/auth/server-access-token");
-  return pendingServerTokenHelper;
+  const promise = import("@/lib/auth/server-access-token");
+  pendingServerTokenHelper = promise;
+  promise.catch(() => {
+    pendingServerTokenHelper = null;
+  });
+  return promise;
 }
 
 async function getAccessToken(): Promise<string | null> {
