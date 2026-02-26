@@ -1,5 +1,3 @@
-import { getServerAccessToken } from "@/lib/auth/server-access-token";
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 const DEFAULT_API_TIMEOUT_MS = 15_000;
@@ -154,6 +152,18 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   return url.toString();
 }
 
+type ServerTokenHelper = {
+  getServerAccessToken: () => Promise<string | null>;
+};
+
+let pendingServerTokenHelper: Promise<ServerTokenHelper> | null = null;
+
+async function loadServerTokenHelper() {
+  if (pendingServerTokenHelper) return pendingServerTokenHelper;
+  pendingServerTokenHelper = import("@/lib/auth/server-access-token");
+  return pendingServerTokenHelper;
+}
+
 let pendingTokenRequest: Promise<string | null> | null = null;
 let cachedAccessToken: { token: string | null; expiresAt: number } | null =
   null;
@@ -169,6 +179,7 @@ function getAccessToken(): Promise<string | null> {
   if (pendingTokenRequest) return pendingTokenRequest;
   pendingTokenRequest = (async () => {
     try {
+      const { getServerAccessToken } = await loadServerTokenHelper();
       const token = await getServerAccessToken();
       const expiresAt = now + SERVER_TOKEN_SKEW_MS;
       cachedAccessToken = { token, expiresAt };

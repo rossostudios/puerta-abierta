@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { fetchList } from "@/lib/api";
+import { authedFetch } from "@/lib/api-client";
 import { useVisibilityPollingInterval } from "@/lib/hooks/use-visibility-polling";
 
 type UseNewBookingToastOptions = {
@@ -38,9 +38,15 @@ export function useNewBookingToast({
     queryKey: ["new-booking-toast-poll", orgId],
     enabled: enabled && !!orgId,
     queryFn: async () => {
-      const rows = await fetchList("/reservations", orgId, 25, {
+      const params = new URLSearchParams({
+        org_id: orgId,
+        limit: "25",
         source: "direct_booking",
       });
+      const payload = await authedFetch<{ data?: unknown[] }>(
+        `/reservations?${params.toString()}`
+      );
+      const rows = payload.data ?? [];
       return rows.filter(
         (row): row is Record<string, unknown> =>
           !!row && typeof row === "object"
