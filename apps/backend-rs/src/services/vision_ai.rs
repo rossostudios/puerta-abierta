@@ -7,9 +7,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Analyze inspection photos using OpenAI Vision API.
@@ -48,7 +49,9 @@ pub async fn tool_analyze_inspection_photos(
         .map(str::trim)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| {
-            AppError::ServiceUnavailable("OPENAI_API_KEY is required for vision analysis.".to_string())
+            AppError::ServiceUnavailable(
+                "OPENAI_API_KEY is required for vision analysis.".to_string(),
+            )
         })?;
 
     // Build vision API request with photo URLs
@@ -139,7 +142,10 @@ pub async fn tool_analyze_inspection_photos(
 
     // Extract structured room data and defects
     let rooms = analysis.get("rooms").cloned().unwrap_or_else(|| json!([]));
-    let urgent_issues = analysis.get("urgent_issues").cloned().unwrap_or_else(|| json!([]));
+    let urgent_issues = analysis
+        .get("urgent_issues")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
     let all_defects = rooms
         .as_array()
         .map(|rooms| {
@@ -185,7 +191,10 @@ pub async fn tool_analyze_inspection_photos(
     if inspection_type == "move_in" {
         if let Some(room_arr) = rooms.as_array() {
             for room in room_arr {
-                let room_name = room.get("room").and_then(Value::as_str).unwrap_or("unknown");
+                let room_name = room
+                    .get("room")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
                 let room_score = room.get("score").and_then(Value::as_i64).map(|s| s as i16);
                 sqlx::query(
                     "INSERT INTO condition_baselines (organization_id, unit_id, room_name, condition_score, inspection_id)
@@ -227,9 +236,18 @@ pub async fn tool_compare_inspections(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let current_report_id = args.get("current_report_id").and_then(Value::as_str).unwrap_or_default();
-    let baseline_report_id = args.get("baseline_report_id").and_then(Value::as_str).filter(|s| !s.is_empty());
-    let unit_id = args.get("unit_id").and_then(Value::as_str).unwrap_or_default();
+    let current_report_id = args
+        .get("current_report_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let baseline_report_id = args
+        .get("baseline_report_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     if current_report_id.is_empty() && unit_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "current_report_id or unit_id is required." }));
@@ -321,7 +339,10 @@ pub async fn tool_compare_inspections(
                 .collect();
 
             for room in curr_arr {
-                let room_name = room.get("room").and_then(Value::as_str).unwrap_or("unknown");
+                let room_name = room
+                    .get("room")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
                 let curr_room_score = room.get("score").and_then(Value::as_f64).unwrap_or(0.0);
                 let base_room = base_map.get(&room_name.to_lowercase());
                 let base_room_score = base_room
@@ -341,7 +362,11 @@ pub async fn tool_compare_inspections(
             }
         }
 
-        (bs, br, Value::Array(room_comparisons.into_iter().map(|v| v).collect()))
+        (
+            bs,
+            br,
+            Value::Array(room_comparisons.into_iter().map(|v| v).collect()),
+        )
     } else {
         (None, json!([]), json!("No baseline found for comparison."))
     };
@@ -389,8 +414,14 @@ pub async fn tool_create_defect_tickets(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let report_id = args.get("report_id").and_then(Value::as_str).unwrap_or_default();
-    let min_severity = args.get("min_severity").and_then(Value::as_str).unwrap_or("medium");
+    let report_id = args
+        .get("report_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let min_severity = args
+        .get("min_severity")
+        .and_then(Value::as_str)
+        .unwrap_or("medium");
 
     if report_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "report_id is required." }));
@@ -417,7 +448,9 @@ pub async fn tool_create_defect_tickets(
 
     let unit_id: String = report_row.try_get("unit_id").unwrap_or_default();
     let rooms: Value = report_row.try_get("rooms").unwrap_or_else(|_| json!([]));
-    let urgent_issues: Value = report_row.try_get("urgent_issues").unwrap_or_else(|_| json!([]));
+    let urgent_issues: Value = report_row
+        .try_get("urgent_issues")
+        .unwrap_or_else(|_| json!([]));
 
     let severity_rank = |s: &str| -> i32 {
         match s.to_lowercase().as_str() {
@@ -436,7 +469,9 @@ pub async fn tool_create_defect_tickets(
     if let Some(urgent_arr) = urgent_issues.as_array() {
         for issue in urgent_arr {
             let desc = issue.as_str().unwrap_or_default();
-            if desc.is_empty() { continue; }
+            if desc.is_empty() {
+                continue;
+            }
 
             let maint = sqlx::query(
                 "INSERT INTO maintenance_requests (organization_id, unit_id, title, description, status, ai_category, ai_urgency)
@@ -462,32 +497,57 @@ pub async fn tool_create_defect_tickets(
     // Create tickets from room defects
     if let Some(room_arr) = rooms.as_array() {
         for room in room_arr {
-            let room_name = room.get("room").and_then(Value::as_str).unwrap_or("unknown");
+            let room_name = room
+                .get("room")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
             let defects = room.get("defects").and_then(Value::as_array);
 
             if let Some(defect_list) = defects {
                 for defect in defect_list {
                     let defect_str = defect.as_str().unwrap_or_default();
-                    if defect_str.is_empty() { continue; }
+                    if defect_str.is_empty() {
+                        continue;
+                    }
 
                     // Estimate severity from defect text
                     let lower = defect_str.to_lowercase();
-                    let urgency = if lower.contains("water") || lower.contains("mold") || lower.contains("structural") || lower.contains("fire") {
+                    let urgency = if lower.contains("water")
+                        || lower.contains("mold")
+                        || lower.contains("structural")
+                        || lower.contains("fire")
+                    {
                         "high"
-                    } else if lower.contains("crack") || lower.contains("broken") || lower.contains("leak") {
+                    } else if lower.contains("crack")
+                        || lower.contains("broken")
+                        || lower.contains("leak")
+                    {
                         "medium"
                     } else {
                         "low"
                     };
 
-                    if severity_rank(urgency) < min_rank { continue; }
+                    if severity_rank(urgency) < min_rank {
+                        continue;
+                    }
 
                     // Classify category
-                    let category = if lower.contains("plumb") || lower.contains("water") || lower.contains("leak") || lower.contains("pipe") {
+                    let category = if lower.contains("plumb")
+                        || lower.contains("water")
+                        || lower.contains("leak")
+                        || lower.contains("pipe")
+                    {
                         "plumbing"
-                    } else if lower.contains("electri") || lower.contains("wire") || lower.contains("light") {
+                    } else if lower.contains("electri")
+                        || lower.contains("wire")
+                        || lower.contains("light")
+                    {
                         "electrical"
-                    } else if lower.contains("wall") || lower.contains("floor") || lower.contains("ceiling") || lower.contains("crack") {
+                    } else if lower.contains("wall")
+                        || lower.contains("floor")
+                        || lower.contains("ceiling")
+                        || lower.contains("crack")
+                    {
                         "structural"
                     } else {
                         "general"
@@ -541,7 +601,10 @@ pub async fn tool_verify_cleaning(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let unit_id = args.get("unit_id").and_then(Value::as_str).unwrap_or_default();
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let photo_urls = args
         .get("photo_urls")
         .and_then(Value::as_array)
@@ -559,7 +622,9 @@ pub async fn tool_verify_cleaning(
         .map(str::trim)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| {
-            AppError::ServiceUnavailable("OPENAI_API_KEY is required for cleaning verification.".to_string())
+            AppError::ServiceUnavailable(
+                "OPENAI_API_KEY is required for cleaning verification.".to_string(),
+            )
         })?;
 
     // Build vision API request for cleaning verification
@@ -637,8 +702,14 @@ pub async fn tool_verify_cleaning(
     let analysis: Value =
         serde_json::from_str(analysis_text).unwrap_or_else(|_| json!({ "error": "parse_failed" }));
 
-    let cleanliness_score = analysis.get("cleanliness_score").and_then(Value::as_f64).unwrap_or(0.0);
-    let passed = analysis.get("passed").and_then(Value::as_bool).unwrap_or(cleanliness_score >= 4.0);
+    let cleanliness_score = analysis
+        .get("cleanliness_score")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let passed = analysis
+        .get("passed")
+        .and_then(Value::as_bool)
+        .unwrap_or(cleanliness_score >= 4.0);
 
     // Store as a cleaning inspection report
     sqlx::query(

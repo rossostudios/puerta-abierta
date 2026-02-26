@@ -226,6 +226,7 @@ $$;
 CREATE TABLE app_users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email citext NOT NULL UNIQUE,
+  clerk_user_id text UNIQUE,
   full_name text NOT NULL,
   phone_e164 text,
   locale text NOT NULL DEFAULT 'es-PY',
@@ -1178,6 +1179,10 @@ CREATE TABLE agent_approvals (
   agent_slug text NOT NULL,
   tool_name text NOT NULL,
   tool_args jsonb NOT NULL DEFAULT '{}'::jsonb,
+  kind text NOT NULL DEFAULT 'mutation'
+    CHECK (kind IN ('guest_reply', 'mutation', 'financial', 'maintenance', 'leasing', 'notification', 'other')),
+  priority text NOT NULL DEFAULT 'medium'
+    CHECK (priority IN ('low', 'medium', 'high', 'critical')),
   status text NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'approved', 'rejected', 'executed', 'execution_failed')),
   requested_by uuid,

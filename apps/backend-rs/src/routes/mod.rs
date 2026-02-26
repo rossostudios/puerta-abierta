@@ -45,6 +45,7 @@ pub mod reports;
 pub mod reservations;
 pub mod reviews;
 pub mod sequences;
+pub mod storage;
 pub mod subscriptions;
 pub mod tasks;
 pub mod tenant;
@@ -59,6 +60,8 @@ async fn public_fx_rate(State(state): State<AppState>) -> Json<Value> {
 
 pub fn v1_router() -> Router<AppState> {
     Router::new()
+        .route("/live", get(health::live))
+        .route("/ready", get(health::ready))
         .route("/health", get(health::health))
         .route("/me", get(identity::me))
         .route("/public/fx/usd-pyg", get(public_fx_rate))
@@ -94,6 +97,7 @@ pub fn v1_router() -> Router<AppState> {
         .merge(documents::router())
         .merge(workflows::router())
         .merge(subscriptions::router())
+        .merge(storage::router())
         .merge(referrals::router())
         .merge(platform::router())
         .merge(sequences::router())

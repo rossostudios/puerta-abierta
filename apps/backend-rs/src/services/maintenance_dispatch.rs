@@ -8,9 +8,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -26,10 +27,22 @@ pub async fn tool_dispatch_to_vendor(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let request_id = args.get("request_id").and_then(Value::as_str).unwrap_or_default();
-    let vendor_id = args.get("vendor_id").and_then(Value::as_str).unwrap_or_default();
-    let description = args.get("description").and_then(Value::as_str).unwrap_or_default();
-    let priority = args.get("priority").and_then(Value::as_str).unwrap_or("medium");
+    let request_id = args
+        .get("request_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let vendor_id = args
+        .get("vendor_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let description = args
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let priority = args
+        .get("priority")
+        .and_then(Value::as_str)
+        .unwrap_or("medium");
     let estimated_cost = args.get("estimated_cost").and_then(Value::as_f64);
 
     if request_id.is_empty() || vendor_id.is_empty() {
@@ -56,8 +69,16 @@ pub async fn tool_dispatch_to_vendor(
     };
 
     let vendor_name: String = vrow.try_get("name").unwrap_or_default();
-    let max_jobs = vrow.try_get::<Option<i32>, _>("max_concurrent_jobs").ok().flatten().unwrap_or(5);
-    let active_jobs = vrow.try_get::<Option<i32>, _>("current_active_jobs").ok().flatten().unwrap_or(0);
+    let max_jobs = vrow
+        .try_get::<Option<i32>, _>("max_concurrent_jobs")
+        .ok()
+        .flatten()
+        .unwrap_or(5);
+    let active_jobs = vrow
+        .try_get::<Option<i32>, _>("current_active_jobs")
+        .ok()
+        .flatten()
+        .unwrap_or(0);
 
     if active_jobs >= max_jobs {
         return Ok(json!({
@@ -126,17 +147,29 @@ pub async fn tool_dispatch_to_vendor(
     .ok();
 
     // Notify vendor via WhatsApp
-    let phone: String = vrow.try_get::<Option<String>, _>("contact_phone").ok().flatten().unwrap_or_default();
+    let phone: String = vrow
+        .try_get::<Option<String>, _>("contact_phone")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     if !phone.is_empty() {
         let body = format!(
             "New work order #{}: {}\nPriority: {}\nPlease reply ACCEPT to confirm.",
-            &wo_id[..8.min(wo_id.len())], wo_desc, priority
+            &wo_id[..8.min(wo_id.len())],
+            wo_desc,
+            priority
         );
         let mut msg = Map::new();
-        msg.insert("organization_id".to_string(), Value::String(org_id.to_string()));
+        msg.insert(
+            "organization_id".to_string(),
+            Value::String(org_id.to_string()),
+        );
         msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
         msg.insert("recipient".to_string(), Value::String(phone.clone()));
-        msg.insert("direction".to_string(), Value::String("outbound".to_string()));
+        msg.insert(
+            "direction".to_string(),
+            Value::String("outbound".to_string()),
+        );
         msg.insert("status".to_string(), Value::String("queued".to_string()));
         let mut payload = Map::new();
         payload.insert("body".to_string(), Value::String(body));
@@ -165,10 +198,22 @@ pub async fn tool_verify_completion(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let work_order_id = args.get("work_order_id").and_then(Value::as_str).unwrap_or_default();
-    let verified = args.get("verified").and_then(Value::as_bool).unwrap_or(true);
-    let rating = args.get("rating").and_then(Value::as_i64).map(|r| r.clamp(1, 5) as i32);
-    let staff_notes = args.get("notes").and_then(Value::as_str).unwrap_or_default();
+    let work_order_id = args
+        .get("work_order_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let verified = args
+        .get("verified")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    let rating = args
+        .get("rating")
+        .and_then(Value::as_i64)
+        .map(|r| r.clamp(1, 5) as i32);
+    let staff_notes = args
+        .get("notes")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     if work_order_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "work_order_id is required." }));
@@ -195,11 +240,17 @@ pub async fn tool_verify_completion(
 
     let status: String = row.try_get("status").unwrap_or_default();
     if status != "completed" {
-        return Ok(json!({ "ok": false, "error": format!("Work order is '{}', must be 'completed' to verify.", status) }));
+        return Ok(
+            json!({ "ok": false, "error": format!("Work order is '{}', must be 'completed' to verify.", status) }),
+        );
     }
 
     let vendor_id: String = row.try_get("vendor_id").unwrap_or_default();
-    let maint_id: String = row.try_get::<Option<String>, _>("maintenance_request_id").ok().flatten().unwrap_or_default();
+    let maint_id: String = row
+        .try_get::<Option<String>, _>("maintenance_request_id")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     let new_status = if verified { "verified" } else { "rejected" };
 
@@ -277,7 +328,10 @@ pub async fn tool_get_vendor_performance(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let vendor_id = args.get("vendor_id").and_then(Value::as_str).filter(|s| !s.is_empty());
+    let vendor_id = args
+        .get("vendor_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
 
     let vendors = if let Some(vid) = vendor_id {
         sqlx::query(
@@ -612,13 +666,28 @@ pub async fn tool_auto_assign_maintenance(
 
     // S18: Configurable vendor scoring weights from guardrail config
     let weights_json = crate::services::ai_agent::get_guardrail_value_json(
-        pool, org_id, "vendor_scoring_weights",
+        pool,
+        org_id,
+        "vendor_scoring_weights",
         json!({"specialty": 0.40, "rating": 0.30, "availability": 0.20, "proximity": 0.10}),
-    ).await;
-    let w_specialty = weights_json.get("specialty").and_then(Value::as_f64).unwrap_or(0.40);
-    let w_rating = weights_json.get("rating").and_then(Value::as_f64).unwrap_or(0.30);
-    let w_availability = weights_json.get("availability").and_then(Value::as_f64).unwrap_or(0.20);
-    let w_proximity = weights_json.get("proximity").and_then(Value::as_f64).unwrap_or(0.10);
+    )
+    .await;
+    let w_specialty = weights_json
+        .get("specialty")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.40);
+    let w_rating = weights_json
+        .get("rating")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.30);
+    let w_availability = weights_json
+        .get("availability")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.20);
+    let w_proximity = weights_json
+        .get("proximity")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.10);
 
     // Score each vendor with configurable weights
     let mut scored: Vec<(String, String, f64)> = vendors
@@ -628,9 +697,7 @@ pub async fn tool_auto_assign_maintenance(
             let vname: String = v.try_get("name").unwrap_or_default();
 
             // Specialty match (40%): check if vendor specialties contain the category
-            let specialties_json: Option<Value> = v
-                .try_get::<Value, _>("specialties")
-                .ok();
+            let specialties_json: Option<Value> = v.try_get::<Value, _>("specialties").ok();
             let specialty_score = match &specialties_json {
                 Some(Value::Array(arr)) => {
                     if arr.iter().any(|s| {
@@ -651,8 +718,16 @@ pub async fn tool_auto_assign_maintenance(
             let rating_score = (rating - 1.0) / 4.0; // 1→0.0, 5→1.0
 
             // Availability (20%): ratio of free slots
-            let max_jobs = v.try_get::<Option<i32>, _>("max_concurrent_jobs").ok().flatten().unwrap_or(5) as f64;
-            let active = v.try_get::<Option<i32>, _>("current_active_jobs").ok().flatten().unwrap_or(0) as f64;
+            let max_jobs = v
+                .try_get::<Option<i32>, _>("max_concurrent_jobs")
+                .ok()
+                .flatten()
+                .unwrap_or(5) as f64;
+            let active = v
+                .try_get::<Option<i32>, _>("current_active_jobs")
+                .ok()
+                .flatten()
+                .unwrap_or(0) as f64;
             let availability_score = if max_jobs > 0.0 {
                 (max_jobs - active) / max_jobs
             } else {
@@ -668,7 +743,8 @@ pub async fn tool_auto_assign_maintenance(
                 .to_lowercase();
             let proximity_score = if service_area.is_empty() || property_city.is_empty() {
                 0.5 // Unknown = neutral
-            } else if service_area.contains(&property_city) || property_city.contains(&service_area) {
+            } else if service_area.contains(&property_city) || property_city.contains(&service_area)
+            {
                 1.0
             } else {
                 0.2
@@ -797,10 +873,7 @@ pub async fn tool_auto_assign_maintenance(
         "title".to_string(),
         Value::String(format!("[Maintenance] {title}")),
     );
-    task.insert(
-        "description".to_string(),
-        Value::String(description),
-    );
+    task.insert("description".to_string(), Value::String(description));
     task.insert("priority".to_string(), Value::String(urgency.clone()));
     task.insert("status".to_string(), Value::String("todo".to_string()));
     task.insert(
@@ -819,8 +892,7 @@ pub async fn tool_auto_assign_maintenance(
         task.insert("unit_id".to_string(), Value::String(uid));
     }
 
-    let created =
-        crate::repository::table_service::create_row(pool, "tasks", &task).await?;
+    let created = crate::repository::table_service::create_row(pool, "tasks", &task).await?;
     let task_id = created
         .as_object()
         .and_then(|o| o.get("id"))
@@ -853,10 +925,7 @@ pub async fn tool_auto_assign_maintenance(
 }
 
 /// Check SLA compliance for open maintenance requests.
-pub async fn tool_check_maintenance_sla(
-    state: &AppState,
-    org_id: &str,
-) -> AppResult<Value> {
+pub async fn tool_check_maintenance_sla(state: &AppState, org_id: &str) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
     let breached = sqlx::query(
@@ -1021,9 +1090,7 @@ pub async fn tool_request_vendor_quote(
         return Ok(json!({ "ok": false, "error": "Vendor not found." }));
     };
 
-    let vendor_name = vendor_row
-        .try_get::<String, _>("name")
-        .unwrap_or_default();
+    let vendor_name = vendor_row.try_get::<String, _>("name").unwrap_or_default();
     let contact = vendor_row
         .try_get::<Option<String>, _>("contact_phone")
         .ok()

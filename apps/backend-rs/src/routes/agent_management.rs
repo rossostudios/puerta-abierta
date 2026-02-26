@@ -192,13 +192,10 @@ async fn update_agent(
         q = q.bind(active);
     }
 
-    let result = q
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Database query failed");
-            AppError::Dependency("External service request failed.".to_string())
-        })?;
+    let result = q.fetch_optional(pool).await.map_err(|e| {
+        tracing::error!(error = %e, "Database query failed");
+        AppError::Dependency("External service request failed.".to_string())
+    })?;
 
     match result {
         Some(r) => Ok(Json(json!({
@@ -367,7 +364,8 @@ async fn dashboard_analytics(
     let mut approval_map: std::collections::HashMap<String, (i32, i32, i32)> =
         std::collections::HashMap::new();
     for r in &approval_rows {
-        let slug = r.try_get::<Option<String>, _>("agent_slug")
+        let slug = r
+            .try_get::<Option<String>, _>("agent_slug")
             .unwrap_or(None)
             .unwrap_or_default();
         let approved = r.try_get::<i32, _>("approved").unwrap_or(0);
@@ -381,7 +379,8 @@ async fn dashboard_analytics(
         .iter()
         .map(|r| {
             let slug = r.try_get::<String, _>("agent_slug").unwrap_or_default();
-            let (_, rejected, total_reviewed) = approval_map.get(&slug).copied().unwrap_or((0, 0, 0));
+            let (_, rejected, total_reviewed) =
+                approval_map.get(&slug).copied().unwrap_or((0, 0, 0));
             let override_pct = if total_reviewed > 0 {
                 (rejected as f64 / total_reviewed as f64) * 100.0
             } else {
@@ -470,7 +469,7 @@ async fn dashboard_analytics(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

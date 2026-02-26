@@ -1,10 +1,11 @@
 "use client";
 
+import { useAuth } from "@clerk/nextjs";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { CasaoraLogo } from "@/components/icons/casaora-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -245,39 +246,8 @@ function MarketplaceNavItem({ isActive }: { isActive: boolean }) {
 export function SiteHeader() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function checkAuth() {
-      try {
-        const { getSupabaseBrowserClient } = await import(
-          "@/lib/supabase/browser"
-        );
-        const supabase = getSupabaseBrowserClient();
-        const { data } = await supabase.auth.getSession();
-        if (mounted) setIsAuthenticated(!!data.session);
-
-        const { data: listener } = supabase.auth.onAuthStateChange(
-          (_event, session) => {
-            if (mounted) setIsAuthenticated(!!session);
-          }
-        );
-        return () => {
-          mounted = false;
-          listener.subscription.unsubscribe();
-        };
-      } catch {
-        // Supabase not configured — stay unauthenticated
-      }
-    }
-
-    checkAuth();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const { isLoaded, userId } = useAuth();
+  const isAuthenticated = Boolean(isLoaded && userId);
 
   if (pathname.startsWith("/studio")) return null;
 

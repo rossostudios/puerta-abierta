@@ -2,12 +2,7 @@ use serde_json::{json, Map, Value};
 use sqlx::PgPool;
 
 /// Record a usage event for billing/metering purposes.
-pub async fn record_usage_event(
-    pool: &PgPool,
-    org_id: &str,
-    event_type: &str,
-    quantity: i64,
-) {
+pub async fn record_usage_event(pool: &PgPool, org_id: &str, event_type: &str, quantity: i64) {
     let billing_period = chrono::Utc::now().format("%Y-%m").to_string();
 
     let result = sqlx::query(
@@ -78,9 +73,7 @@ pub async fn get_usage_over_time(pool: &PgPool, org_id: &str, months: i32) -> Va
 
     let mut periods: Map<String, Value> = Map::new();
     for (period, event_type, total) in &rows {
-        let period_map = periods
-            .entry(period.clone())
-            .or_insert_with(|| json!({}));
+        let period_map = periods.entry(period.clone()).or_insert_with(|| json!({}));
         if let Some(obj) = period_map.as_object_mut() {
             obj.insert(event_type.clone(), json!(total));
         }

@@ -1,0 +1,27 @@
+aws_region              = "us-east-1"
+aws_profile             = "default"
+name_prefix             = "casaora-prod"
+alb_certificate_arn     = "arn:aws:acm:us-east-1:341112583495:certificate/REPLACE_ME"
+admin_alb_certificate_arn = "arn:aws:acm:us-east-1:341112583495:certificate/REPLACE_ME"
+web_alb_certificate_arn = "arn:aws:acm:us-east-1:341112583495:certificate/REPLACE_ME"
+
+# Set to false only if you haven't added app.casaora.co routing yet.
+enable_admin_alb_rule = true
+admin_hostnames       = ["app.casaora.co"]
+
+# Set to true after provisioning the public web ECS service + ALB rule.
+enable_web_alb_rule = false
+web_hostnames       = ["casaora.co", "www.casaora.co"]
+
+# Set to true after creating/importing the S3 media bucket(s).
+enable_storage_buckets          = false
+public_media_bucket_name        = "casaora-prod-public-media-341112583495"
+create_private_documents_bucket = false
+private_documents_bucket_name   = "casaora-prod-private-documents-341112583495"
+
+# Set to true after provisioning/importing EventBridge scheduled ECS jobs.
+enable_scheduler_jobs = false
+# Leave true to actually run schedules; set false for codification-only.
+enable_scheduler_rules = true
+scheduler_api_base_url = "https://api.casaora.co"
+scheduler_internal_api_key_secret_name = "casaora/backend/INTERNAL_API_KEY"

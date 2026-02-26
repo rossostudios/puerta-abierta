@@ -6,19 +6,21 @@ MODE="${1:-full}"
 
 echo "==> Casaora quality gate (${MODE})"
 
-echo "==> Admin checks"
-(
-  cd "${ROOT_DIR}/apps/admin"
-  npm run brand:check
-  npm run deadcode:check
-  npm run lint
-  npm run typecheck
-  if [[ "${MODE}" == "full" ]]; then
-    npm run build
-  fi
-)
+if [[ "${MODE}" != "backend" ]]; then
+  echo "==> Admin checks"
+  (
+    cd "${ROOT_DIR}/apps/admin"
+    npm run brand:check
+    npm run deadcode:check
+    npm run lint
+    npm run typecheck
+    if [[ "${MODE}" == "full" ]]; then
+      npm run build
+    fi
+  )
+fi
 
-if [[ -d "${ROOT_DIR}/apps/web" ]]; then
+if [[ "${MODE}" != "backend" && -d "${ROOT_DIR}/apps/web" ]]; then
   echo "==> Web site checks"
   (
     cd "${ROOT_DIR}/apps/web"

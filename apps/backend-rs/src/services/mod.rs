@@ -1,8 +1,8 @@
 pub mod agent_chats;
 pub mod ai_agent;
+pub mod ai_guest_reply;
 #[allow(dead_code)]
 pub mod airbnb;
-pub mod ai_guest_reply;
 pub mod alerting;
 pub mod analytics;
 pub mod anomaly_detection;
@@ -22,9 +22,9 @@ pub mod ical;
 pub mod iot;
 pub mod lease_abstraction;
 pub mod lease_renewal;
-pub mod llm_client;
 pub mod lease_schedule;
 pub mod leasing_agent;
+pub mod llm_client;
 pub mod maintenance_dispatch;
 #[allow(dead_code)]
 pub mod mercado_pago;
@@ -41,6 +41,7 @@ pub mod reconciliation;
 pub mod scenario_simulation;
 pub mod scheduler;
 pub mod sequences;
+pub mod storage;
 pub mod tenant_screening;
 pub mod token_hash;
 pub mod vision_ai;

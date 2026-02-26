@@ -14,9 +14,10 @@ pub async fn handle_voice_interaction(
     caller_phone: &str,
     audio_url: Option<&str>,
 ) -> AppResult<Value> {
-    let pool = state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })?;
+    let pool = state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))?;
 
     // 1. Look up caller in guest/tenant records
     let caller_info: Option<(String, String)> = sqlx::query_as(
@@ -61,10 +62,7 @@ pub async fn handle_voice_interaction(
     msg.insert("status".to_string(), Value::String("received".to_string()));
     let mut payload = serde_json::Map::new();
     payload.insert("body".to_string(), Value::String(transcript.clone()));
-    payload.insert(
-        "guest_id".to_string(),
-        Value::String(guest_id.clone()),
-    );
+    payload.insert("guest_id".to_string(), Value::String(guest_id.clone()));
     payload.insert(
         "caller_name".to_string(),
         Value::String(caller_name.clone()),
@@ -158,15 +156,9 @@ fn classify_voice_intent(transcript: &str) -> &'static str {
         || lower.contains("alquiler")
     {
         "finance-agent"
-    } else if lower.contains("lease")
-        || lower.contains("contract")
-        || lower.contains("contrato")
-    {
+    } else if lower.contains("lease") || lower.contains("contract") || lower.contains("contrato") {
         "leasing-agent"
-    } else if lower.contains("guest")
-        || lower.contains("check-in")
-        || lower.contains("huésped")
-    {
+    } else if lower.contains("guest") || lower.contains("check-in") || lower.contains("huésped") {
         "guest-concierge"
     } else {
         "supervisor"
@@ -174,10 +166,7 @@ fn classify_voice_intent(transcript: &str) -> &'static str {
 }
 
 /// Generate TTS audio response using ElevenLabs.
-pub async fn generate_voice_response(
-    state: &AppState,
-    text: &str,
-) -> Result<Vec<u8>, String> {
+pub async fn generate_voice_response(state: &AppState, text: &str) -> Result<Vec<u8>, String> {
     let api_key = state
         .config
         .elevenlabs_api_key
@@ -191,9 +180,7 @@ pub async fn generate_voice_response(
         .as_deref()
         .unwrap_or("21m00Tcm4TlvDq8ikWAM"); // Default voice
 
-    let url = format!(
-        "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
-    );
+    let url = format!("https://api.elevenlabs.io/v1/text-to-speech/{voice_id}");
 
     let response = state
         .http_client
@@ -228,9 +215,10 @@ pub async fn generate_voice_response(
 // ───────────────────────────────────────────────────────────────────────
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Look up a caller in the guest/tenant database by phone number.
@@ -241,7 +229,10 @@ pub async fn tool_voice_lookup_caller(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let phone = args.get("phone").and_then(Value::as_str).unwrap_or_default();
+    let phone = args
+        .get("phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if phone.is_empty() {
         return Ok(json!({ "ok": false, "error": "phone is required." }));
     }
@@ -320,11 +311,26 @@ pub async fn tool_voice_create_maintenance_request(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let title = args.get("title").and_then(Value::as_str).unwrap_or("Voice maintenance request");
-    let description = args.get("description").and_then(Value::as_str).unwrap_or_default();
-    let caller_phone = args.get("caller_phone").and_then(Value::as_str).unwrap_or_default();
-    let unit_id = args.get("unit_id").and_then(Value::as_str).filter(|s| !s.is_empty());
-    let urgency = args.get("urgency").and_then(Value::as_str).unwrap_or("medium");
+    let title = args
+        .get("title")
+        .and_then(Value::as_str)
+        .unwrap_or("Voice maintenance request");
+    let description = args
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let caller_phone = args
+        .get("caller_phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let urgency = args
+        .get("urgency")
+        .and_then(Value::as_str)
+        .unwrap_or("medium");
 
     if description.is_empty() {
         return Ok(json!({ "ok": false, "error": "description is required." }));
@@ -368,8 +374,14 @@ pub async fn tool_voice_check_reservation(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let phone = args.get("phone").and_then(Value::as_str).unwrap_or_default();
-    let guest_name = args.get("guest_name").and_then(Value::as_str).unwrap_or_default();
+    let phone = args
+        .get("phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let guest_name = args
+        .get("guest_name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     if phone.is_empty() && guest_name.is_empty() {
         return Ok(json!({ "ok": false, "error": "phone or guest_name is required." }));
@@ -431,12 +443,27 @@ pub async fn tool_log_voice_interaction(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let caller_phone = args.get("caller_phone").and_then(Value::as_str).unwrap_or_default();
-    let summary = args.get("summary").and_then(Value::as_str).unwrap_or_default();
-    let duration = args.get("duration_seconds").and_then(Value::as_i64).unwrap_or(0) as i32;
+    let caller_phone = args
+        .get("caller_phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let summary = args
+        .get("summary")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let duration = args
+        .get("duration_seconds")
+        .and_then(Value::as_i64)
+        .unwrap_or(0) as i32;
     let language = args.get("language").and_then(Value::as_str).unwrap_or("es");
-    let actions = args.get("actions_taken").cloned().unwrap_or_else(|| json!([]));
-    let direction = args.get("direction").and_then(Value::as_str).unwrap_or("inbound");
+    let actions = args
+        .get("actions_taken")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let direction = args
+        .get("direction")
+        .and_then(Value::as_str)
+        .unwrap_or("inbound");
 
     let result = sqlx::query(
         "INSERT INTO voice_interactions

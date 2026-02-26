@@ -67,10 +67,7 @@ pub async fn embed_text(
         .collect();
 
     if vector.len() != 1536 {
-        return Err(format!(
-            "Expected 1536 dimensions, got {}",
-            vector.len()
-        ));
+        return Err(format!("Expected 1536 dimensions, got {}", vector.len()));
     }
 
     Ok(vector)

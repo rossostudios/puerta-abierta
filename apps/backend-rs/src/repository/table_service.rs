@@ -771,7 +771,7 @@ fn map_db_error(error: sqlx::Error) -> AppError {
     {
         return AppError::Conflict("Duplicate value violates a unique constraint.".to_string());
     }
-    AppError::Dependency("Database operation failed.".to_string())
+    AppError::from_database_error_message(&message, "Database operation failed.")
 }
 
 #[cfg(test)]

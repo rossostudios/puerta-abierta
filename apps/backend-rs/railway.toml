@@ -3,4 +3,4 @@ watchPatterns = ["apps/backend-rs/**"]
 
 [deploy]
 startCommand = "./bin/casaora-backend-rs"
-healthcheckPath = "/v1/health"
+healthcheckPath = "/v1/ready"

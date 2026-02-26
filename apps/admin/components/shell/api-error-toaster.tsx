@@ -11,9 +11,13 @@ import { onApiError } from "@/lib/api-client";
  */
 export function ApiErrorToaster() {
   useEffect(() => {
-    return onApiError(({ status, message }) => {
+    return onApiError(({ status, message, retryable }) => {
       if (status === 403) {
         toast.error("Access denied", { description: message });
+      } else if (retryable) {
+        toast.error("Backend temporarily unavailable", {
+          description: "Please retry in a moment. We are automatically backing off.",
+        });
       } else if (status >= 500) {
         toast.error("Server error", {
           description:

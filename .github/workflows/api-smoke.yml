@@ -1,0 +1,36 @@
+name: API Smoke Checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "API base URL including /v1"
+        required: true
+        type: string
+      run_authenticated_checks:
+        description: "Run /me and /properties checks using secrets"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run public smoke checks
+        if: ${{ !inputs.run_authenticated_checks }}
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+        run: ./scripts/api-smoke.sh
+
+      - name: Run authenticated smoke checks
+        if: ${{ inputs.run_authenticated_checks }}
+        env:
+          API_BASE_URL: ${{ inputs.api_base_url }}
+          SMOKE_BEARER_TOKEN: ${{ secrets.SMOKE_BEARER_TOKEN }}
+          SMOKE_ORG_ID: ${{ secrets.SMOKE_ORG_ID }}
+        run: ./scripts/api-smoke.sh

@@ -1,12 +1,3 @@
-use axum::{
-    extract::{Path, Query, State},
-    http::HeaderMap,
-    response::IntoResponse,
-    Json,
-};
-use chrono::{Datelike, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
-use chrono_tz::Tz;
-use serde_json::{json, Map, Value};
 use crate::{
     auth::require_user_id,
     error::{AppError, AppResult},
@@ -23,6 +14,15 @@ use crate::{
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
+use axum::{
+    extract::{Path, Query, State},
+    http::HeaderMap,
+    response::IntoResponse,
+    Json,
+};
+use chrono::{Datelike, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
+use chrono_tz::Tz;
+use serde_json::{json, Map, Value};
 
 const ACTIVE_BOOKING_STATUSES: &[&str] = &["pending", "confirmed", "checked_in"];
 const DEFAULT_ORG_TIMEZONE: &str = "America/Asuncion";
@@ -447,7 +447,7 @@ async fn trigger_ical_resync_for_unit(
            AND i.is_active = true
            AND i.ical_import_url IS NOT NULL
            AND i.ical_import_url != ''
-         LIMIT 10"
+         LIMIT 10",
     )
     .bind(unit_id)
     .fetch_all(pool)
@@ -459,7 +459,10 @@ async fn trigger_ical_resync_for_unit(
 
     for integration in &integrations {
         match crate::services::ical::sync_listing_ical_reservations(
-            pool, client, integration, "system",
+            pool,
+            client,
+            integration,
+            "system",
         )
         .await
         {
@@ -898,7 +901,7 @@ fn allowed_transition(current_status: &str, next_status: &str) -> bool {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

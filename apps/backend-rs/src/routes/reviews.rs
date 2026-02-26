@@ -50,9 +50,10 @@ struct UpdateReviewInput {
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 async fn list_reviews(
@@ -178,7 +179,13 @@ async fn update_review(
     Json(payload): Json<UpdateReviewInput>,
 ) -> AppResult<Json<Value>> {
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+    assert_org_role(
+        &state,
+        &user_id,
+        &payload.org_id,
+        &["owner_admin", "operator"],
+    )
+    .await?;
     let pool = db_pool(&state)?;
 
     let mut updates = Vec::new();
@@ -239,7 +246,13 @@ async fn publish_response(
     Json(payload): Json<UpdateReviewInput>,
 ) -> AppResult<Json<Value>> {
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+    assert_org_role(
+        &state,
+        &user_id,
+        &payload.org_id,
+        &["owner_admin", "operator"],
+    )
+    .await?;
     let pool = db_pool(&state)?;
 
     let result = sqlx::query(

@@ -37,9 +37,17 @@ pub async fn generate_ai_reply(
         Value::String(org_id.to_string()),
     );
 
-    let guests = list_rows(pool, "guests", Some(&guest_filters), 1, 0, "created_at", false)
-        .await
-        .ok()?;
+    let guests = list_rows(
+        pool,
+        "guests",
+        Some(&guest_filters),
+        1,
+        0,
+        "created_at",
+        false,
+    )
+    .await
+    .ok()?;
 
     let guest = guests.first()?;
     let guest_name = guest
@@ -61,9 +69,17 @@ pub async fn generate_ai_reply(
     );
     res_filters.insert("guest_id".to_string(), Value::String(guest_id.to_string()));
 
-    let reservations = list_rows(pool, "reservations", Some(&res_filters), 5, 0, "check_in_date", false)
-        .await
-        .unwrap_or_default();
+    let reservations = list_rows(
+        pool,
+        "reservations",
+        Some(&res_filters),
+        5,
+        0,
+        "check_in_date",
+        false,
+    )
+    .await
+    .unwrap_or_default();
 
     let active_reservation = reservations.iter().find(|r| {
         let status = r
@@ -92,31 +108,55 @@ pub async fn generate_ai_reply(
         // Enrich with unit details (amenities, WiFi, beds)
         if !unit_id.is_empty() {
             if let Ok(unit) = get_row(pool, "units", &unit_id, "id").await {
-                let bedrooms = unit.as_object().and_then(|o| o.get("bedrooms")).and_then(|v| v.as_i64()).unwrap_or(0);
-                let bathrooms = unit.as_object().and_then(|o| o.get("bathrooms")).and_then(|v| v.as_i64()).unwrap_or(0);
-                let max_guests = unit.as_object().and_then(|o| o.get("max_guests")).and_then(|v| v.as_i64()).unwrap_or(0);
+                let bedrooms = unit
+                    .as_object()
+                    .and_then(|o| o.get("bedrooms"))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let bathrooms = unit
+                    .as_object()
+                    .and_then(|o| o.get("bathrooms"))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
+                let max_guests = unit
+                    .as_object()
+                    .and_then(|o| o.get("max_guests"))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(0);
                 let wifi_name = val_str(&unit, "wifi_network_name");
                 let wifi_pass = val_str(&unit, "wifi_password");
                 let amenities = val_str(&unit, "amenities");
                 let unit_name = val_str(&unit, "name");
 
                 let mut parts = vec![format!("Unit: {unit_name}")];
-                if bedrooms > 0 { parts.push(format!("{bedrooms} bedroom(s)")); }
-                if bathrooms > 0 { parts.push(format!("{bathrooms} bathroom(s)")); }
-                if max_guests > 0 { parts.push(format!("max {max_guests} guests")); }
+                if bedrooms > 0 {
+                    parts.push(format!("{bedrooms} bedroom(s)"));
+                }
+                if bathrooms > 0 {
+                    parts.push(format!("{bathrooms} bathroom(s)"));
+                }
+                if max_guests > 0 {
+                    parts.push(format!("max {max_guests} guests"));
+                }
                 if !wifi_name.is_empty() {
                     parts.push(format!("WiFi: {wifi_name}"));
                     if !wifi_pass.is_empty() {
                         parts.push(format!("WiFi password: {wifi_pass}"));
                     }
                 }
-                if !amenities.is_empty() { parts.push(format!("Amenities: {amenities}")); }
+                if !amenities.is_empty() {
+                    parts.push(format!("Amenities: {amenities}"));
+                }
                 unit_context = parts.join(", ");
             }
         }
 
         // Enrich with property details (address, access instructions)
-        let prop_id = if !property_id.is_empty() { &property_id } else { &unit_id };
+        let prop_id = if !property_id.is_empty() {
+            &property_id
+        } else {
+            &unit_id
+        };
         if !prop_id.is_empty() {
             if let Ok(property) = get_row(pool, "properties", prop_id, "id").await {
                 let address = val_str(&property, "address");
@@ -124,7 +164,9 @@ pub async fn generate_ai_reply(
                 let property_name = val_str(&property, "name");
 
                 let mut parts = vec![format!("Property: {property_name}")];
-                if !address.is_empty() { parts.push(format!("Address: {address}")); }
+                if !address.is_empty() {
+                    parts.push(format!("Address: {address}"));
+                }
                 if !access_instructions.is_empty() {
                     parts.push(format!("Access instructions: {access_instructions}"));
                 }
@@ -136,17 +178,36 @@ pub async fn generate_ai_reply(
         if !unit_id.is_empty() {
             let mut listing_filters = Map::new();
             listing_filters.insert("unit_id".to_string(), Value::String(unit_id.clone()));
-            listing_filters.insert("organization_id".to_string(), Value::String(org_id.to_string()));
-            if let Ok(listings) = list_rows(pool, "listings", Some(&listing_filters), 1, 0, "created_at", false).await {
+            listing_filters.insert(
+                "organization_id".to_string(),
+                Value::String(org_id.to_string()),
+            );
+            if let Ok(listings) = list_rows(
+                pool,
+                "listings",
+                Some(&listing_filters),
+                1,
+                0,
+                "created_at",
+                false,
+            )
+            .await
+            {
                 if let Some(listing) = listings.first() {
                     let house_rules = val_str(listing, "house_rules");
                     let checkin_time = val_str(listing, "check_in_time");
                     let checkout_time = val_str(listing, "check_out_time");
 
                     let mut parts = Vec::new();
-                    if !checkin_time.is_empty() { parts.push(format!("Check-in time: {checkin_time}")); }
-                    if !checkout_time.is_empty() { parts.push(format!("Check-out time: {checkout_time}")); }
-                    if !house_rules.is_empty() { parts.push(format!("House rules: {house_rules}")); }
+                    if !checkin_time.is_empty() {
+                        parts.push(format!("Check-in time: {checkin_time}"));
+                    }
+                    if !checkout_time.is_empty() {
+                        parts.push(format!("Check-out time: {checkout_time}"));
+                    }
+                    if !house_rules.is_empty() {
+                        parts.push(format!("House rules: {house_rules}"));
+                    }
                     if !parts.is_empty() {
                         listing_context = parts.join(", ");
                     }
@@ -177,10 +238,7 @@ pub async fn generate_ai_reply(
     .flatten();
 
     let (agent_prompt, allowed_tools_json) = if let Some(ref agent) = agent {
-        (
-            agent.system_prompt.clone(),
-            agent.allowed_tools.clone(),
-        )
+        (agent.system_prompt.clone(), agent.allowed_tools.clone())
     } else {
         (default_concierge_prompt(), None)
     };
@@ -300,18 +358,9 @@ pub async fn queue_ai_reply(
                 "body": body,
             }),
         );
-        approval.insert(
-            "status".to_string(),
-            Value::String("pending".to_string()),
-        );
-        approval.insert(
-            "kind".to_string(),
-            Value::String("guest_reply".to_string()),
-        );
-        approval.insert(
-            "priority".to_string(),
-            Value::String("high".to_string()),
-        );
+        approval.insert("status".to_string(), Value::String("pending".to_string()));
+        approval.insert("kind".to_string(), Value::String("guest_reply".to_string()));
+        approval.insert("priority".to_string(), Value::String("high".to_string()));
         approval.insert(
             "reason".to_string(),
             Value::String(format!(
@@ -353,10 +402,7 @@ pub async fn queue_ai_reply(
     // Idempotency key to prevent duplicate auto-replies within the same minute
     let ts_minute = chrono::Utc::now().format("%Y%m%d%H%M").to_string();
     let idem_key = format!("ai_reply:{}:{}:{}", org_id, recipient, ts_minute);
-    msg.insert(
-        "idempotency_key".to_string(),
-        Value::String(idem_key),
-    );
+    msg.insert("idempotency_key".to_string(), Value::String(idem_key));
 
     let mut payload = Map::new();
     payload.insert("body".to_string(), Value::String(body.to_string()));
@@ -472,9 +518,7 @@ async fn compute_confidence(pool: &sqlx::PgPool, reply: &str, result: &Map<Strin
         "voy a consultar",
         "déjame averiguar",
     ];
-    let is_forwarding = forward_phrases
-        .iter()
-        .any(|phrase| lower.contains(phrase));
+    let is_forwarding = forward_phrases.iter().any(|phrase| lower.contains(phrase));
 
     let tool_trace = result
         .get("tool_trace")

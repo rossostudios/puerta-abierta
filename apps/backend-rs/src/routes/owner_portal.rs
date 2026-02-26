@@ -1,3 +1,10 @@
+use crate::{
+    error::{AppError, AppResult},
+    repository::table_service::{create_row, get_row, list_rows, update_row},
+    schemas::clamp_limit_in_range,
+    services::token_hash::{hash_token, hash_token_sha1},
+    state::AppState,
+};
 use axum::extract::Path;
 use axum::{
     extract::{Query, State},
@@ -8,13 +15,6 @@ use axum::{
 use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
-use crate::{
-    error::{AppError, AppResult},
-    repository::table_service::{create_row, get_row, list_rows, update_row},
-    schemas::clamp_limit_in_range,
-    services::token_hash::{hash_token, hash_token_sha1},
-    state::AppState,
-};
 
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
@@ -172,11 +172,23 @@ async fn verify_token(
     }
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "owner_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "owner_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "owner_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "owner_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry
@@ -641,12 +653,28 @@ async fn owner_property_performance(
     // Load properties
     let mut prop_filters = Map::new();
     prop_filters.insert("organization_id".to_string(), Value::String(org_id.clone()));
-    let properties = list_rows(pool, "properties", Some(&prop_filters), 500, 0, "name", true)
-        .await?;
+    let properties = list_rows(
+        pool,
+        "properties",
+        Some(&prop_filters),
+        500,
+        0,
+        "name",
+        true,
+    )
+    .await?;
 
     // Load units to count per property
-    let units = list_rows(pool, "units", Some(&prop_filters), 2000, 0, "created_at", false)
-        .await?;
+    let units = list_rows(
+        pool,
+        "units",
+        Some(&prop_filters),
+        2000,
+        0,
+        "created_at",
+        false,
+    )
+    .await?;
 
     // Load reservations for the period
     let reservations: Vec<Value> = sqlx::query_as::<_, (Value,)>(
@@ -753,11 +781,23 @@ async fn require_owner<'a>(
         .ok_or_else(|| AppError::Unauthorized("Missing x-owner-token header.".to_string()))?;
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "owner_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "owner_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "owner_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "owner_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry

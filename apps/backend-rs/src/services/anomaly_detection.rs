@@ -134,10 +134,8 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
                 .get("created_at")
                 .and_then(Value::as_str)
                 .and_then(|s| {
-                    chrono::DateTime::parse_from_rfc3339(
-                        s.trim().replace('Z', "+00:00").as_str(),
-                    )
-                    .ok()
+                    chrono::DateTime::parse_from_rfc3339(s.trim().replace('Z', "+00:00").as_str())
+                        .ok()
                 });
 
             let is_recent = created
@@ -145,7 +143,10 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
                 .is_some_and(|c| c.date_naive() >= six_months_ago);
 
             if is_recent {
-                category_amounts.entry(cat.clone()).or_default().push(amount);
+                category_amounts
+                    .entry(cat.clone())
+                    .or_default()
+                    .push(amount);
             }
 
             // Track last 30 days separately for spike detection
@@ -162,7 +163,8 @@ pub async fn run_anomaly_scan(state: &AppState, org_id: &str) -> AppResult<Vec<V
                 continue;
             }
             let mean = amounts.iter().sum::<f64>() / amounts.len() as f64;
-            let variance = amounts.iter().map(|a| (a - mean).powi(2)).sum::<f64>() / amounts.len() as f64;
+            let variance =
+                amounts.iter().map(|a| (a - mean).powi(2)).sum::<f64>() / amounts.len() as f64;
             let std_dev = variance.sqrt();
             let threshold = mean + 2.0 * std_dev;
 

@@ -1,10 +1,10 @@
 # Casaora
 
-Supabase-first platform for short-term rental operations in Paraguay, with:
+AWS + Cloudflare platform for short-term rental operations in Paraguay, with:
 - `Axum + SQLx` Rust backend (`apps/backend-rs`)
 - `Next.js` admin frontend (`apps/admin`)
 - `Next.js` public marketing/portal app (`apps/web`)
-- `Expo + React Native` mobile app scaffold (`apps/mobile`)
+- Mobile app intentionally deferred (will be rebuilt later)
 - PostgreSQL schema and RLS policies (`db/schema.sql`)
 - PRD and API contract (`docs/PRD.md`, `api/openapi.yaml`)
 
@@ -13,7 +13,6 @@ Supabase-first platform for short-term rental operations in Paraguay, with:
 - `apps/backend-rs`: Rust/Axum API server with all `/v1` routers
 - `apps/admin`: Next.js admin console wired to API modules
 - `apps/web`: Next.js public-facing web app
-- `apps/mobile`: Expo Router mobile app (iOS/Android)
 - `packages/shared-api`: shared API helpers + OpenAPI type exports
 - `db/schema.sql`: Multi-tenant Postgres schema compatible with Supabase and Neon
 - `api/openapi.yaml`: Endpoint contract
@@ -21,16 +20,16 @@ Supabase-first platform for short-term rental operations in Paraguay, with:
 - `docs/vercel-deploy.md`: Production/Vercel deployment checklist
 - `docs/codex-workflow.md`: Codex + MCP execution workflow
 
-## 1) Supabase Setup
+## 1) Database Setup
 
-1. Create a Supabase project.
+1. Create a PostgreSQL database (AWS RDS is the production target).
 2. Apply the schema:
    - Option A (manual): Open SQL Editor and run `db/schema.sql`.
    - Option B (script): Run `python3 scripts/supabase/execute_sql.py --project-ref <ref> --sql-file db/schema.sql`
      - Requires a Supabase Personal Access Token (PAT) via `SUPABASE_ACCESS_TOKEN`.
-3. Copy your project credentials:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_ROLE_KEY`
+3. Set your connection string:
+   - `DATABASE_URL` (preferred)
+   - `SUPABASE_DB_URL` (legacy alias, still supported)
 
 ## 2) Backend Setup (Rust/Axum)
 
@@ -39,9 +38,10 @@ cd /Users/christopher/Desktop/puerta-abierta/apps/backend-rs
 cp .env.example .env
 ```
 
-Update `.env` with your Supabase values and optional defaults:
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+Update `.env` with your database/auth values and optional defaults:
+- `DATABASE_URL`
+- `CLERK_JWKS_URL`
+- `CLERK_ISSUER_URL`
 - `DEFAULT_ORG_ID`
 - `DEFAULT_USER_ID`
 
@@ -74,26 +74,9 @@ npm run dev
 Admin app:
 - `http://localhost:3000`
 
-## 4) Mobile Setup (Expo)
+## 4) Mobile App
 
-```bash
-cd /Users/christopher/Desktop/puerta-abierta/apps/mobile
-cp .env.example .env.local
-npm install
-npm run ios
-# or npm run android
-```
-
-Set:
-- `EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/v1`
-- `EXPO_PUBLIC_DEFAULT_ORG_ID=<org_uuid>` (optional; otherwise first `/me` membership org is used)
-- `EXPO_PUBLIC_SUPABASE_URL=<your_supabase_url>`
-- `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your_publishable_key>`
-  - fallback supported: `EXPO_PUBLIC_SUPABASE_ANON_KEY=<legacy_anon_key>`
-
-Mobile app uses:
-- `@casaora/shared-api/client` for fetch helpers
-- `@casaora/shared-api/types` for shared API contracts
+The mobile app has been intentionally removed from this branch and will be rebuilt later.
 
 ## Current Module Coverage
 

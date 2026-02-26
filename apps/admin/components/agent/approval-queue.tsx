@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useVisibilityPollingInterval } from "@/lib/hooks/use-visibility-polling";
 import type { Locale } from "@/lib/i18n";
-import { useRealtimeSubscription } from "@/lib/supabase/use-realtime-subscription";
 import { cn } from "@/lib/utils";
 
 type Approval = {
@@ -55,6 +55,18 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
   const [batchBusy, setBatchBusy] = useState(false);
   const [expandedWhy, setExpandedWhy] = useState<Set<string>>(new Set());
   const [expandedArgs, setExpandedArgs] = useState<Set<string>>(new Set());
+  const deliveryStatusByIdRef = useRef<Map<string, string | null>>(new Map());
+  const deliveryStatusSeededRef = useRef(false);
+  const approvalPollInterval = useVisibilityPollingInterval({
+    enabled: !!orgId,
+    foregroundMs: 15_000,
+    backgroundMs: 60_000,
+  });
+
+  useEffect(() => {
+    deliveryStatusByIdRef.current = new Map();
+    deliveryStatusSeededRef.current = false;
+  }, [orgId]);
 
   const { data: approvals = [], isPending: loading } = useQuery({
     queryKey: ["agent-approvals", orgId],
@@ -67,60 +79,56 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
       const payload = (await response.json()) as { data?: Approval[] };
       return payload.data ?? [];
     },
-    refetchInterval: 30_000,
+    refetchInterval: approvalPollInterval,
+    refetchOnWindowFocus: true,
   });
 
-  // --- Realtime delivery status updates ---
-  const handleRealtimeUpdate = useCallback(
-    (payload: {
-      new: Record<string, unknown>;
-      old: Record<string, unknown>;
-    }) => {
-      const newRow = payload.new;
-      const id = typeof newRow.id === "string" ? newRow.id : null;
-      const deliveryStatus =
-        typeof newRow.delivery_status === "string"
-          ? newRow.delivery_status
-          : null;
-      if (!id || !deliveryStatus) return;
+  useEffect(() => {
+    if (!orgId) return;
 
-      queryClient.setQueryData(
-        ["agent-approvals", orgId],
-        (prev: Approval[] | undefined) =>
-          prev
-            ? prev.map((a) =>
-                a.id === id ? { ...a, delivery_status: deliveryStatus } : a
-              )
-            : []
+    const nextStatuses = new Map<string, string | null>();
+    for (const approval of approvals) {
+      nextStatuses.set(
+        approval.id,
+        typeof approval.delivery_status === "string"
+          ? approval.delivery_status
+          : null
       );
+    }
 
-      if (deliveryStatus === "delivered" || deliveryStatus === "sent") {
-        const recipient =
-          typeof newRow.tool_args === "object" &&
-          newRow.tool_args !== null &&
-          typeof (newRow.tool_args as Record<string, unknown>).recipient ===
-            "string"
-            ? (newRow.tool_args as Record<string, unknown>).recipient
-            : isEn
-              ? "guest"
-              : "huésped";
-        toast.success(
-          isEn
-            ? `Reply delivered to ${recipient}`
-            : `Respuesta entregada a ${recipient}`
-        );
-      }
-    },
-    [orgId, queryClient, isEn]
-  );
+    if (!deliveryStatusSeededRef.current) {
+      deliveryStatusByIdRef.current = nextStatuses;
+      deliveryStatusSeededRef.current = true;
+      return;
+    }
 
-  useRealtimeSubscription({
-    table: "agent_approvals",
-    event: "UPDATE",
-    filter: `organization_id=eq.${orgId}`,
-    enabled: !!orgId,
-    onUpdate: handleRealtimeUpdate,
-  });
+    for (const approval of approvals) {
+      const nextStatus =
+        typeof approval.delivery_status === "string"
+          ? approval.delivery_status
+          : null;
+      const prevStatus = deliveryStatusByIdRef.current.get(approval.id) ?? null;
+      if (nextStatus === prevStatus) continue;
+      if (nextStatus !== "delivered" && nextStatus !== "sent") continue;
+
+      const recipient =
+        typeof approval.tool_args === "object" &&
+        approval.tool_args !== null &&
+        typeof (approval.tool_args as Record<string, unknown>).recipient ===
+          "string"
+          ? (approval.tool_args as Record<string, unknown>).recipient
+          : isEn
+            ? "guest"
+            : "huésped";
+      toast.success(
+        isEn
+          ? `Reply delivered to ${recipient}`
+          : `Respuesta entregada a ${recipient}`
+      );
+    }
+
+    deliveryStatusByIdRef.current = nextStatuses;
+  }, [approvals, isEn, orgId]);
 
   const handleReview = async (
     id: string,
@@ -150,11 +158,14 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
             : isEn
               ? "guest"
               : "huésped";
-        toast.success(isEn ? "Agent saved you ~4 min" : "El agente te ahorro ~4 min", {
-          description: isEn
-            ? `Auto-drafted reply to ${recipient}`
-            : `Respuesta auto-redactada para ${recipient}`,
-        });
+        toast.success(
+          isEn ? "Agent saved you ~4 min" : "El agente te ahorro ~4 min",
+          {
+            description: isEn
+              ? `Auto-drafted reply to ${recipient}`
+              : `Respuesta auto-redactada para ${recipient}`,
+          }
+        );
       }
 
       queryClient.setQueryData(
@@ -255,7 +266,10 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
   if (approvals.length === 0) return null;
 
   return (
-    <Card className="border-amber-500/30 bg-amber-500/5" style={{ contain: "content" } as React.CSSProperties}>
+    <Card
+      className="border-amber-500/30 bg-amber-500/5"
+      style={{ contain: "content" } as React.CSSProperties}
+    >
       <CardHeader className="space-y-2">
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">

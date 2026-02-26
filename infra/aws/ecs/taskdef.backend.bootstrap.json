@@ -1,0 +1,44 @@
+{
+  "family": "casaora-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "executionRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "casaora-backend",
+      "image": "REPLACE_ME_IMAGE_URI",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "HOST", "value": "0.0.0.0" },
+        { "name": "PORT", "value": "8000" },
+        { "name": "ENVIRONMENT", "value": "production" },
+        { "name": "API_PREFIX", "value": "/v1" },
+        { "name": "DB_FAIL_FAST_ON_STARTUP", "value": "false" },
+        { "name": "TRUSTED_HOSTS", "value": "api.casaora.co,*.elb.amazonaws.com,localhost,127.0.0.1" },
+        { "name": "CORS_ORIGINS", "value": "https://app.casaora.co,https://casaora.co,http://localhost:3000" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/casaora-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

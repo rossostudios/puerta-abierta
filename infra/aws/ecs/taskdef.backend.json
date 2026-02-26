@@ -1,0 +1,86 @@
+{
+  "family": "casaora-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "executionRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "casaora-backend",
+      "image": "REPLACE_ME_IMAGE_URI",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "hostPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "HOST", "value": "0.0.0.0" },
+        { "name": "PORT", "value": "8000" },
+        { "name": "ENVIRONMENT", "value": "production" },
+        { "name": "API_PREFIX", "value": "/v1" },
+        { "name": "DB_FAIL_FAST_ON_STARTUP", "value": "true" },
+        { "name": "AI_AGENT_ENABLED", "value": "true" },
+        { "name": "NOTIFICATION_RULES_ENFORCED", "value": "true" },
+        { "name": "WORKFLOW_ENGINE_MODE", "value": "queue" },
+        { "name": "APP_PUBLIC_URL", "value": "https://app.casaora.co" },
+        {
+          "name": "CORS_ORIGINS",
+          "value": "https://app.casaora.co,https://casaora.co,https://www.casaora.co,http://localhost:3000,http://localhost:3001"
+        },
+        {
+          "name": "TRUSTED_HOSTS",
+          "value": "api.casaora.co,*.elb.amazonaws.com,localhost,127.0.0.1"
+        },
+        {
+          "name": "CLERK_ISSUER_URL",
+          "value": "https://clerk.casaora.co"
+        },
+        {
+          "name": "CLERK_JWKS_URL",
+          "value": "https://clerk.casaora.co/.well-known/jwks.json"
+        },
+        {
+          "name": "STORAGE_S3_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "STORAGE_S3_PUBLIC_BUCKET",
+          "value": "casaora-prod-public-media-341112583495"
+        },
+        {
+          "name": "STORAGE_S3_PUBLIC_BASE_URL",
+          "value": "https://casaora-prod-public-media-341112583495.s3.amazonaws.com"
+        },
+        {
+          "name": "STORAGE_PRESIGN_TTL_SECONDS",
+          "value": "900"
+        }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "REPLACE_ME_DATABASE_URL_SECRET_ARN" },
+        { "name": "OPENAI_API_KEY", "valueFrom": "REPLACE_ME_OPENAI_SECRET_ARN" },
+        {
+          "name": "INTERNAL_API_KEY",
+          "valueFrom": "REPLACE_ME_INTERNAL_API_KEY_SECRET_ARN"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/casaora-backend",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 import { GeistMono } from "geist/font/mono";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
@@ -128,22 +129,24 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      className={`${diatype.variable} ${GeistMono.variable} ${playfair.variable}`}
-      lang="en"
-      suppressHydrationWarning
-    >
-      <body className="font-sans antialiased" suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          disableTransitionOnChange
-          enableSystem
-        >
-          {children}
-          <Toaster closeButton position="top-right" richColors />
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        className={`${diatype.variable} ${GeistMono.variable} ${playfair.variable}`}
+        lang="en"
+        suppressHydrationWarning
+      >
+        <body className="font-sans antialiased" suppressHydrationWarning>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            disableTransitionOnChange
+            enableSystem
+          >
+            {children}
+            <Toaster closeButton position="top-right" richColors />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

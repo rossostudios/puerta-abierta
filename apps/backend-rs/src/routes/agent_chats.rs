@@ -126,10 +126,7 @@ pub fn router() -> axum::Router<AppState> {
             "/agent/chats/contextual-prompts",
             axum::routing::get(get_contextual_prompts),
         )
-        .route(
-            "/agent/memory",
-            axum::routing::get(list_agent_memory),
-        )
+        .route("/agent/memory", axum::routing::get(list_agent_memory))
         .route(
             "/agent/memory/{memory_id}",
             axum::routing::delete(delete_agent_memory),
@@ -1031,7 +1028,9 @@ async fn delete_agent_memory(
             AppError::Dependency("Failed to delete memory.".to_string())
         })?;
 
-    Ok(Json(serde_json::json!({ "ok": true, "id": path.memory_id })))
+    Ok(Json(
+        serde_json::json!({ "ok": true, "id": path.memory_id }),
+    ))
 }
 
 async fn list_pii_intercepts(

@@ -8,14 +8,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const WHITESPACE_REGEX = /\s+/;
-
-function safeFileName(name: string): string {
-  return name.replaceAll(/[^\w.-]+/g, "-");
-}
 
 function initials(value: string | null): string {
   if (!value) return "?";
@@ -64,24 +63,18 @@ export function AccountAvatarField({
       ? "Could not resolve uploaded image URL."
       : "No se pudo obtener la URL de la imagen.";
     try {
-      const supabase = getSupabaseBrowserClient();
-      const key = `profiles/${userId}/avatar/${crypto.randomUUID()}-${safeFileName(file.name)}`;
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(key, file, { upsert: false });
-      if (uploadError) {
-        toast.error(errorLabel, { description: uploadError.message });
-        setUploading(false);
-        return;
-      }
-
-      const { data } = supabase.storage.from("documents").getPublicUrl(key);
-      if (!data.publicUrl) {
+      const key = `profiles/${userId}/avatar/${crypto.randomUUID()}-${safeStorageFileName(file.name)}`;
+      const uploaded = await uploadPublicFileViaApi({
+        namespace: "documents",
+        key,
+        file,
+      });
+      if (!uploaded.publicUrl) {
         toast.error(errorLabel, { description: noUrlMsg });
         setUploading(false);
         return;
       }
-      setAvatarUrl(data.publicUrl);
+      setAvatarUrl(uploaded.publicUrl);
       let uploadedMsg: string;
       if (isEn) {
         uploadedMsg = "Avatar uploaded";

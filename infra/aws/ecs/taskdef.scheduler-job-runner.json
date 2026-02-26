@@ -1,0 +1,40 @@
+{
+  "family": "casaora-job-runner",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "executionRoleArn": "REPLACE_ME_EXECUTION_ROLE_ARN",
+  "taskRoleArn": "REPLACE_ME_TASK_ROLE_ARN",
+  "containerDefinitions": [
+    {
+      "name": "casaora-job-runner",
+      "image": "curlimages/curl:8.12.1",
+      "essential": true,
+      "entryPoint": ["sh", "-lc"],
+      "command": ["echo 'job runner ready'; sleep 1"],
+      "environment": [
+        { "name": "API_BASE_URL", "value": "REPLACE_ME_API_BASE_URL" }
+      ],
+      "secrets": [
+        {
+          "name": "INTERNAL_API_KEY",
+          "valueFrom": "REPLACE_ME_INTERNAL_API_KEY_SECRET_ARN"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/casaora-job-runner",
+          "awslogs-region": "REPLACE_ME_AWS_REGION",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
+

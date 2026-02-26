@@ -1,3 +1,4 @@
+use crate::services::token_hash::{hash_token, hash_token_sha1};
 use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
@@ -6,7 +7,6 @@ use axum::{
 };
 use chrono::Utc;
 use serde_json::{json, Map, Value};
-use crate::services::token_hash::{hash_token, hash_token_sha1};
 
 use crate::{
     error::{AppError, AppResult},
@@ -181,11 +181,23 @@ async fn verify_token(
     }
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "tenant_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "tenant_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "tenant_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "tenant_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry
@@ -846,11 +858,23 @@ async fn require_tenant<'a>(
         .ok_or_else(|| AppError::Unauthorized("Missing x-tenant-token header.".to_string()))?;
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "tenant_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "tenant_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "tenant_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "tenant_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry
@@ -877,7 +901,7 @@ async fn require_tenant<'a>(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

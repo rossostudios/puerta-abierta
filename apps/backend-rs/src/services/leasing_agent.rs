@@ -8,9 +8,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -81,10 +82,20 @@ pub async fn tool_match_applicant_to_units(
     for row in &units {
         let unit_id = row.try_get::<String, _>("unit_id").unwrap_or_default();
         let unit_name = row.try_get::<String, _>("unit_name").unwrap_or_default();
-        let bedrooms = row.try_get::<Option<i32>, _>("bedrooms").ok().flatten().unwrap_or(0);
+        let bedrooms = row
+            .try_get::<Option<i32>, _>("bedrooms")
+            .ok()
+            .flatten()
+            .unwrap_or(0);
         let base_price = row.try_get::<f64, _>("base_price").unwrap_or(0.0);
-        let sqm = row.try_get::<Option<f64>, _>("square_meters").ok().flatten().unwrap_or(0.0);
-        let property_name = row.try_get::<String, _>("property_name").unwrap_or_default();
+        let sqm = row
+            .try_get::<Option<f64>, _>("square_meters")
+            .ok()
+            .flatten()
+            .unwrap_or(0.0);
+        let property_name = row
+            .try_get::<String, _>("property_name")
+            .unwrap_or_default();
         let amenities_val = row
             .try_get::<Option<Value>, _>("amenities")
             .ok()
@@ -134,7 +145,8 @@ pub async fn tool_match_applicant_to_units(
         let location_score = 0.5;
 
         // Weighted overall score
-        let overall = budget_score * 0.40 + size_score * 0.25 + amenity_score * 0.20 + location_score * 0.15;
+        let overall =
+            budget_score * 0.40 + size_score * 0.25 + amenity_score * 0.20 + location_score * 0.15;
 
         matches.push(json!({
             "unit_id": unit_id,
@@ -153,18 +165,33 @@ pub async fn tool_match_applicant_to_units(
 
     // Sort by overall score descending and assign ranks
     matches.sort_by(|a, b| {
-        let sa = a.get("overall_score").and_then(Value::as_f64).unwrap_or(0.0);
-        let sb = b.get("overall_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let sa = a
+            .get("overall_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        let sb = b
+            .get("overall_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
         sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // Persist top matches to property_matching_scores
     for (rank, m) in matches.iter().take(10).enumerate() {
         let uid = m.get("unit_id").and_then(Value::as_str).unwrap_or_default();
-        let overall = m.get("overall_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let overall = m
+            .get("overall_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
         let budget = m.get("budget_score").and_then(Value::as_f64).unwrap_or(0.0);
-        let location = m.get("location_score").and_then(Value::as_f64).unwrap_or(0.0);
-        let amenity = m.get("amenity_score").and_then(Value::as_f64).unwrap_or(0.0);
+        let location = m
+            .get("location_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        let amenity = m
+            .get("amenity_score")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
         let size = m.get("size_score").and_then(Value::as_f64).unwrap_or(0.0);
 
         let _ = sqlx::query(
@@ -238,19 +265,47 @@ pub async fn tool_auto_qualify_lead(
         return Ok(json!({ "ok": false, "error": "Application not found." }));
     };
 
-    let name = row.try_get::<Option<String>, _>("applicant_name").ok().flatten().unwrap_or_default();
-    let income = row.try_get::<Option<f64>, _>("monthly_income").ok().flatten().unwrap_or(0.0);
-    let desired_rent = row.try_get::<Option<f64>, _>("desired_rent").ok().flatten().unwrap_or(0.0);
-    let employment = row.try_get::<Option<String>, _>("employment_status").ok().flatten().unwrap_or_default();
-    let has_guarantor = row.try_get::<Option<bool>, _>("has_guarantor").ok().flatten().unwrap_or(false);
-    let docs_val = row.try_get::<Option<Value>, _>("documents_submitted").ok().flatten().unwrap_or(json!([]));
+    let name = row
+        .try_get::<Option<String>, _>("applicant_name")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let income = row
+        .try_get::<Option<f64>, _>("monthly_income")
+        .ok()
+        .flatten()
+        .unwrap_or(0.0);
+    let desired_rent = row
+        .try_get::<Option<f64>, _>("desired_rent")
+        .ok()
+        .flatten()
+        .unwrap_or(0.0);
+    let employment = row
+        .try_get::<Option<String>, _>("employment_status")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let has_guarantor = row
+        .try_get::<Option<bool>, _>("has_guarantor")
+        .ok()
+        .flatten()
+        .unwrap_or(false);
+    let docs_val = row
+        .try_get::<Option<Value>, _>("documents_submitted")
+        .ok()
+        .flatten()
+        .unwrap_or(json!([]));
 
     // Scoring factors
     let mut factors = Vec::new();
     let mut total_score: f64 = 0.0;
 
     // 1. Income-to-rent ratio (40% weight)
-    let income_ratio = if desired_rent > 0.0 { income / desired_rent } else { 0.0 };
+    let income_ratio = if desired_rent > 0.0 {
+        income / desired_rent
+    } else {
+        0.0
+    };
     let income_score = if income_ratio >= 3.0 {
         1.0
     } else if income_ratio >= 2.5 {
@@ -275,7 +330,12 @@ pub async fn tool_auto_qualify_lead(
     let required_docs = ["cedula", "income_proof", "employment_letter"];
     let submitted: Vec<String> = docs_val
         .as_array()
-        .map(|a| a.iter().filter_map(Value::as_str).map(|s| s.to_lowercase()).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(|s| s.to_lowercase())
+                .collect()
+        })
         .unwrap_or_default();
     let docs_present = required_docs
         .iter()
@@ -326,7 +386,10 @@ pub async fn tool_auto_qualify_lead(
     // Qualification decision
     let lead_score = (total_score * 100.0).round();
     let (qualification, recommendation) = if lead_score >= 75.0 {
-        ("qualified", "Strong candidate. Recommend proceeding to tour scheduling.")
+        (
+            "qualified",
+            "Strong candidate. Recommend proceeding to tour scheduling.",
+        )
     } else if lead_score >= 50.0 {
         ("conditional", "Conditionally qualified. Missing documents or marginal income ratio. Request additional documentation.")
     } else {
@@ -408,17 +471,35 @@ pub async fn tool_send_tour_reminder(
         return Ok(json!({ "ok": false, "error": "Reminder already sent for this tour." }));
     }
 
-    let contact_name: String = row.try_get::<Option<String>, _>("contact_name").ok().flatten().unwrap_or_default();
-    let contact_phone: String = row.try_get::<Option<String>, _>("contact_phone").ok().flatten().unwrap_or_default();
-    let unit_name: String = row.try_get::<Option<String>, _>("unit_name").ok().flatten().unwrap_or_default();
-    let property_name: String = row.try_get::<Option<String>, _>("property_name").ok().flatten().unwrap_or_default();
+    let contact_name: String = row
+        .try_get::<Option<String>, _>("contact_name")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let contact_phone: String = row
+        .try_get::<Option<String>, _>("contact_phone")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let unit_name: String = row
+        .try_get::<Option<String>, _>("unit_name")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    let property_name: String = row
+        .try_get::<Option<String>, _>("property_name")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     let scheduled_at: String = row
         .try_get::<chrono::DateTime<chrono::Utc>, _>("scheduled_at")
         .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_default();
 
     if contact_phone.is_empty() {
-        return Ok(json!({ "ok": false, "error": "No contact phone number on file for this tour." }));
+        return Ok(
+            json!({ "ok": false, "error": "No contact phone number on file for this tour." }),
+        );
     }
 
     let body = format!(
@@ -431,10 +512,19 @@ pub async fn tool_send_tour_reminder(
 
     // Queue WhatsApp reminder
     let mut msg = Map::new();
-    msg.insert("organization_id".to_string(), Value::String(org_id.to_string()));
+    msg.insert(
+        "organization_id".to_string(),
+        Value::String(org_id.to_string()),
+    );
     msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
-    msg.insert("recipient".to_string(), Value::String(contact_phone.clone()));
-    msg.insert("direction".to_string(), Value::String("outbound".to_string()));
+    msg.insert(
+        "recipient".to_string(),
+        Value::String(contact_phone.clone()),
+    );
+    msg.insert(
+        "direction".to_string(),
+        Value::String("outbound".to_string()),
+    );
     msg.insert("status".to_string(), Value::String("queued".to_string()));
     let mut payload = Map::new();
     payload.insert("body".to_string(), Value::String(body));
@@ -444,13 +534,11 @@ pub async fn tool_send_tour_reminder(
     let _ = create_row(pool, "message_logs", &msg).await;
 
     // Mark reminder as sent
-    sqlx::query(
-        "UPDATE tour_schedules SET reminder_sent_at = now() WHERE id = $1::uuid",
-    )
-    .bind(tour_id)
-    .execute(pool)
-    .await
-    .ok();
+    sqlx::query("UPDATE tour_schedules SET reminder_sent_at = now() WHERE id = $1::uuid")
+        .bind(tour_id)
+        .execute(pool)
+        .await
+        .ok();
 
     Ok(json!({
         "ok": true,
@@ -561,7 +649,10 @@ pub async fn tool_advance_application_stage(
         "application_id".to_string(),
         Value::String(app_id.to_string()),
     );
-    ctx.insert("new_stage".to_string(), Value::String(new_stage.to_string()));
+    ctx.insert(
+        "new_stage".to_string(),
+        Value::String(new_stage.to_string()),
+    );
     crate::services::workflows::fire_trigger(
         pool,
         org_id,
@@ -632,19 +723,27 @@ pub async fn tool_schedule_property_viewing(
     }
 
     // Also write to tour_schedules table
-    let property_id: Option<(String,)> = sqlx::query_as(
-        "SELECT property_id::text FROM units WHERE id = $1::uuid",
-    )
-    .bind(unit_id)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
+    let property_id: Option<(String,)> =
+        sqlx::query_as("SELECT property_id::text FROM units WHERE id = $1::uuid")
+            .bind(unit_id)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten();
 
     let prop_id = property_id.map(|(id,)| id).unwrap_or_default();
-    let contact_name = args.get("contact_name").and_then(Value::as_str).unwrap_or_default();
-    let contact_phone_val = args.get("contact_phone").and_then(Value::as_str).unwrap_or_default();
-    let contact_email = args.get("contact_email").and_then(Value::as_str).unwrap_or_default();
+    let contact_name = args
+        .get("contact_name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let contact_phone_val = args
+        .get("contact_phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let contact_email = args
+        .get("contact_email")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     let _ = sqlx::query(
         "INSERT INTO tour_schedules
@@ -709,14 +808,8 @@ pub async fn tool_schedule_property_viewing(
                 "organization_id".to_string(),
                 Value::String(org_id.to_string()),
             );
-            msg.insert(
-                "channel".to_string(),
-                Value::String("whatsapp".to_string()),
-            );
-            msg.insert(
-                "recipient".to_string(),
-                Value::String(phone.to_string()),
-            );
+            msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
+            msg.insert("recipient".to_string(), Value::String(phone.to_string()));
             msg.insert(
                 "direction".to_string(),
                 Value::String("outbound".to_string()),
@@ -907,10 +1000,7 @@ pub async fn tool_send_application_update(
         Value::String(org_id.to_string()),
     );
     msg.insert("channel".to_string(), Value::String(channel.to_string()));
-    msg.insert(
-        "recipient".to_string(),
-        Value::String(recipient.clone()),
-    );
+    msg.insert("recipient".to_string(), Value::String(recipient.clone()));
     msg.insert(
         "direction".to_string(),
         Value::String("outbound".to_string()),

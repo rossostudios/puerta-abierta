@@ -232,7 +232,7 @@ async fn delete_document(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -452,10 +452,7 @@ async fn list_knowledge_documents(
         .await
         .unwrap_or(false);
 
-        let mut doc = row
-            .as_object()
-            .cloned()
-            .unwrap_or_default();
+        let mut doc = row.as_object().cloned().unwrap_or_default();
         doc.insert("chunk_count".to_string(), json!(chunk_count));
         doc.insert("has_embeddings".to_string(), json!(has_embeddings));
         enriched.push(Value::Object(doc));
@@ -883,9 +880,10 @@ async fn upload_knowledge_document(
             }
             "file" => {
                 file_name = field.file_name().map(ToOwned::to_owned);
-                let bytes = field.bytes().await.map_err(|e| {
-                    AppError::BadRequest(format!("Failed to read file: {e}"))
-                })?;
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|e| AppError::BadRequest(format!("Failed to read file: {e}")))?;
                 let fname = file_name.as_deref().unwrap_or("file.txt").to_lowercase();
                 // Extract text based on file type
                 if fname.ends_with(".txt") || fname.ends_with(".md") {
@@ -904,9 +902,8 @@ async fn upload_knowledge_document(
         }
     }
 
-    let org_id = org_id.ok_or_else(|| {
-        AppError::BadRequest("organization_id is required".to_string())
-    })?;
+    let org_id =
+        org_id.ok_or_else(|| AppError::BadRequest("organization_id is required".to_string()))?;
     assert_org_role(&state, &user_id, &org_id, DOC_EDIT_ROLES).await?;
 
     let content = file_content.filter(|c| !c.trim().is_empty()).ok_or_else(|| {
@@ -1091,7 +1088,11 @@ async fn search_test_knowledge(
 
     let embedding_str = format!(
         "[{}]",
-        embedding.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+        embedding
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(",")
     );
 
     let limit = payload.limit.min(50).max(1);

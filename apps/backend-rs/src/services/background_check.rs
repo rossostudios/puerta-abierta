@@ -68,9 +68,10 @@ pub async fn check_informconf(
     }
 
     // Store result as an integration event
-    let pool = state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })?;
+    let pool = state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))?;
 
     sqlx::query(
         "INSERT INTO integration_events (

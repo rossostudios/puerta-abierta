@@ -12,9 +12,10 @@ pub async fn import_csv_transactions(
     org_id: &str,
     csv_content: &str,
 ) -> AppResult<Value> {
-    let pool = state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })?;
+    let pool = state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))?;
 
     let mut imported = 0_u32;
     let mut skipped = 0_u32;
@@ -36,7 +37,11 @@ pub async fn import_csv_transactions(
         let amount: f64 = match fields[2].replace(&['$', '₲', ',', ' '][..], "").parse() {
             Ok(a) => a,
             Err(_) => {
-                errors.push(format!("Line {}: invalid amount '{}'", line_num + 1, fields[2]));
+                errors.push(format!(
+                    "Line {}: invalid amount '{}'",
+                    line_num + 1,
+                    fields[2]
+                ));
                 continue;
             }
         };
@@ -140,9 +145,10 @@ pub async fn fetch_belvo_transactions(
     }
 
     // Store transactions
-    let pool = state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })?;
+    let pool = state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))?;
 
     let transactions = body.as_array().cloned().unwrap_or_default();
     let mut imported = 0_u32;

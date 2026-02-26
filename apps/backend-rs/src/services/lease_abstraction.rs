@@ -7,9 +7,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Extract key terms from a lease document using LLM structured extraction.
@@ -65,7 +66,9 @@ pub async fn tool_abstract_lease_document(
         .as_deref()
         .filter(|s| !s.is_empty())
         .ok_or_else(|| {
-            AppError::ServiceUnavailable("OPENAI_API_KEY is required for lease abstraction.".to_string())
+            AppError::ServiceUnavailable(
+                "OPENAI_API_KEY is required for lease abstraction.".to_string(),
+            )
         })?;
 
     let base_url = state.config.openai_api_base_url.trim_end_matches('/');
@@ -162,9 +165,18 @@ pub async fn tool_abstract_lease_document(
         serde_json::from_str(extracted_text).unwrap_or_else(|_| json!({"error": "parse_failed"}));
 
     // Derive clauses, deadlines, confidence_scores from extracted data
-    let clauses = extracted.get("clauses").cloned().unwrap_or_else(|| json!([]));
-    let deadlines = extracted.get("deadlines").cloned().unwrap_or_else(|| json!([]));
-    let confidence_scores = extracted.get("confidence_scores").cloned().unwrap_or_else(|| json!({}));
+    let clauses = extracted
+        .get("clauses")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let deadlines = extracted
+        .get("deadlines")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let confidence_scores = extracted
+        .get("confidence_scores")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
     let field_count = extracted.as_object().map(|o| o.len() as i32).unwrap_or(0);
 
     // Compute average confidence
@@ -214,8 +226,13 @@ pub async fn tool_abstract_lease_document(
         for dl in dl_arr {
             let dl_type = dl.get("type").and_then(Value::as_str).unwrap_or("custom");
             let dl_date = dl.get("date").and_then(Value::as_str).unwrap_or_default();
-            let dl_desc = dl.get("description").and_then(Value::as_str).unwrap_or_default();
-            if dl_date.is_empty() { continue; }
+            let dl_desc = dl
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if dl_date.is_empty() {
+                continue;
+            }
             let _ = sqlx::query(
                 "INSERT INTO deadline_alerts
                     (organization_id, lease_id, abstraction_id, deadline_type, deadline_date, description)
@@ -298,9 +315,7 @@ pub async fn tool_check_lease_compliance(
         .ok()
         .flatten()
         .unwrap_or_default();
-    let status = row
-        .try_get::<String, _>("lease_status")
-        .unwrap_or_default();
+    let status = row.try_get::<String, _>("lease_status").unwrap_or_default();
     let monthly_rent = row.try_get::<f64, _>("monthly_rent").unwrap_or(0.0);
     let deposit = row.try_get::<f64, _>("security_deposit").unwrap_or(0.0);
 
@@ -349,17 +364,27 @@ pub async fn tool_check_lease_compliance(
         let severity = rule.try_get::<String, _>("severity").unwrap_or_default();
         let name = rule.try_get::<String, _>("name").unwrap_or_default();
         let description = rule.try_get::<String, _>("description").unwrap_or_default();
-        let legal_ref = rule.try_get::<Option<String>, _>("legal_reference").ok().flatten();
+        let legal_ref = rule
+            .try_get::<Option<String>, _>("legal_reference")
+            .ok()
+            .flatten();
 
         let violated = match category.as_str() {
             "deposit" => deposit > monthly_rent * 1.1 && monthly_rent > 0.0,
             "tax" => {
-                let has_iva = extracted.get("iva_included").and_then(Value::as_bool).unwrap_or(false)
+                let has_iva = extracted
+                    .get("iva_included")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
                     || clause_mentions(&clauses, &["iva", "impuesto", "tax"]);
                 !has_iva
             }
             "financial" => {
-                let has_ruc = extracted.get("landlord_ruc").and_then(Value::as_str).filter(|s| !s.is_empty()).is_some()
+                let has_ruc = extracted
+                    .get("landlord_ruc")
+                    .and_then(Value::as_str)
+                    .filter(|s| !s.is_empty())
+                    .is_some()
                     || clause_mentions(&clauses, &["ruc"]);
                 !has_ruc
             }
@@ -376,15 +401,26 @@ pub async fn tool_check_lease_compliance(
                     ) {
                         let months = (e - s).num_days() as f64 / 30.44;
                         months < 24.0
-                    } else { false }
-                } else { false }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
             }
             "termination" => {
-                let has_notice = extracted.get("notice_period_days").and_then(Value::as_i64).unwrap_or(0) >= 60
+                let has_notice = extracted
+                    .get("notice_period_days")
+                    .and_then(Value::as_i64)
+                    .unwrap_or(0)
+                    >= 60
                     || clause_mentions(&clauses, &["notice", "preaviso", "notificación"]);
                 !has_notice
             }
-            "maintenance" => !clause_mentions(&clauses, &["maintenance", "mantenimiento", "repair", "reparación"]),
+            "maintenance" => !clause_mentions(
+                &clauses,
+                &["maintenance", "mantenimiento", "repair", "reparación"],
+            ),
             "general" => !clause_mentions(&clauses, &["inventory", "inventario", "checklist"]),
             _ => false,
         };
@@ -413,29 +449,49 @@ pub async fn tool_check_lease_compliance(
             if days_remaining < 0 {
                 issues.push("Lease has expired and needs renewal or termination.".to_string());
             } else if days_remaining < 30 {
-                warnings.push(format!("Lease expires in {days_remaining} days. Initiate renewal process."));
+                warnings.push(format!(
+                    "Lease expires in {days_remaining} days. Initiate renewal process."
+                ));
             } else if days_remaining < 60 {
-                warnings.push(format!("Lease expires in {days_remaining} days. Consider sending renewal offer."));
+                warnings.push(format!(
+                    "Lease expires in {days_remaining} days. Consider sending renewal offer."
+                ));
             }
         }
     }
-    if tenant.is_empty() { issues.push("Tenant name is missing from lease record.".to_string()); }
-    if starts_on.is_empty() { issues.push("Lease start date is not set.".to_string()); }
-    if ends_on.is_empty() { warnings.push("Lease has no end date. Consider setting a definite term.".to_string()); }
-    if monthly_rent <= 0.0 { issues.push("Monthly rent is not set or is zero.".to_string()); }
+    if tenant.is_empty() {
+        issues.push("Tenant name is missing from lease record.".to_string());
+    }
+    if starts_on.is_empty() {
+        issues.push("Lease start date is not set.".to_string());
+    }
+    if ends_on.is_empty() {
+        warnings.push("Lease has no end date. Consider setting a definite term.".to_string());
+    }
+    if monthly_rent <= 0.0 {
+        issues.push("Monthly rent is not set or is zero.".to_string());
+    }
     if status == "active" && !ends_on.is_empty() {
         if let Ok(end_date) = chrono::NaiveDate::parse_from_str(&ends_on, "%Y-%m-%d") {
             if end_date < chrono::Utc::now().date_naive() {
-                issues.push("Lease is marked as active but has already expired. Update status.".to_string());
+                issues.push(
+                    "Lease is marked as active but has already expired. Update status.".to_string(),
+                );
             }
         }
     }
 
-    let critical_count = flags.iter().filter(|f| f.get("severity").and_then(Value::as_str) == Some("critical")).count();
+    let critical_count = flags
+        .iter()
+        .filter(|f| f.get("severity").and_then(Value::as_str) == Some("critical"))
+        .count();
     let compliance_score = if issues.is_empty() && flags.is_empty() && warnings.is_empty() {
         100
     } else {
-        let penalty = issues.len() * 15 + critical_count * 20 + (flags.len() - critical_count) * 5 + warnings.len() * 2;
+        let penalty = issues.len() * 15
+            + critical_count * 20
+            + (flags.len() - critical_count) * 5
+            + warnings.len() * 2;
         (100_usize).saturating_sub(penalty).max(0)
     };
 
@@ -471,8 +527,16 @@ pub async fn tool_check_lease_compliance(
 fn clause_mentions(clauses: &Value, keywords: &[&str]) -> bool {
     if let Some(arr) = clauses.as_array() {
         for clause in arr {
-            let text = clause.get("text").and_then(Value::as_str).unwrap_or_default().to_lowercase();
-            let title = clause.get("title").and_then(Value::as_str).unwrap_or_default().to_lowercase();
+            let text = clause
+                .get("text")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_lowercase();
+            let title = clause
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_lowercase();
             for kw in keywords {
                 if text.contains(kw) || title.contains(kw) {
                     return true;
@@ -531,12 +595,7 @@ pub async fn tool_check_document_expiry(
 
     let expired_count = documents
         .iter()
-        .filter(|d| {
-            d.get("days_remaining")
-                .and_then(Value::as_i64)
-                .unwrap_or(0)
-                < 0
-        })
+        .filter(|d| d.get("days_remaining").and_then(Value::as_i64).unwrap_or(0) < 0)
         .count();
 
     Ok(json!({
@@ -560,7 +619,10 @@ pub async fn tool_check_paraguayan_compliance(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let lease_id = args.get("lease_id").and_then(Value::as_str).unwrap_or_default();
+    let lease_id = args
+        .get("lease_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if lease_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "lease_id is required." }));
     }
@@ -587,8 +649,12 @@ pub async fn tool_check_paraguayan_compliance(
     };
 
     let abs_id = abs_row.try_get::<String, _>("id").unwrap_or_default();
-    let extracted = abs_row.try_get::<Value, _>("extracted_terms").unwrap_or_else(|_| json!({}));
-    let clauses = abs_row.try_get::<Value, _>("clauses").unwrap_or_else(|_| json!([]));
+    let extracted = abs_row
+        .try_get::<Value, _>("extracted_terms")
+        .unwrap_or_else(|_| json!({}));
+    let clauses = abs_row
+        .try_get::<Value, _>("clauses")
+        .unwrap_or_else(|_| json!([]));
 
     // Fetch only Paraguayan law rules
     let rules = sqlx::query(
@@ -610,24 +676,49 @@ pub async fn tool_check_paraguayan_compliance(
         let severity = rule.try_get::<String, _>("severity").unwrap_or_default();
         let name = rule.try_get::<String, _>("name").unwrap_or_default();
         let description = rule.try_get::<String, _>("description").unwrap_or_default();
-        let legal_ref = rule.try_get::<Option<String>, _>("legal_reference").ok().flatten();
+        let legal_ref = rule
+            .try_get::<Option<String>, _>("legal_reference")
+            .ok()
+            .flatten();
 
-        let rent = extracted.get("monthly_rent").and_then(Value::as_f64).unwrap_or(0.0);
-        let deposit_val = extracted.get("security_deposit").and_then(Value::as_f64).unwrap_or(0.0);
+        let rent = extracted
+            .get("monthly_rent")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
+        let deposit_val = extracted
+            .get("security_deposit")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0);
 
         let violated = match category.as_str() {
             "deposit" => deposit_val > rent * 1.1 && rent > 0.0,
             "tax" => {
-                !extracted.get("iva_included").and_then(Value::as_bool).unwrap_or(false)
+                !extracted
+                    .get("iva_included")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false)
                     && !clause_mentions(&clauses, &["iva", "impuesto al valor agregado"])
             }
-            "financial" => extracted.get("landlord_ruc").and_then(Value::as_str).filter(|s| !s.is_empty()).is_none(),
-            "guarantor" => extracted.get("guarantor").is_none() && !clause_mentions(&clauses, &["fiador", "garante"]),
-            "duration" => {
-                extracted.get("duration_months").and_then(Value::as_f64).map(|m| m < 24.0).unwrap_or(false)
+            "financial" => extracted
+                .get("landlord_ruc")
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .is_none(),
+            "guarantor" => {
+                extracted.get("guarantor").is_none()
+                    && !clause_mentions(&clauses, &["fiador", "garante"])
             }
+            "duration" => extracted
+                .get("duration_months")
+                .and_then(Value::as_f64)
+                .map(|m| m < 24.0)
+                .unwrap_or(false),
             "termination" => {
-                extracted.get("notice_period_days").and_then(Value::as_i64).map(|d| d < 60).unwrap_or(true)
+                extracted
+                    .get("notice_period_days")
+                    .and_then(Value::as_i64)
+                    .map(|d| d < 60)
+                    .unwrap_or(true)
                     && !clause_mentions(&clauses, &["preaviso", "60 días", "sesenta días"])
             }
             _ => false,
@@ -678,7 +769,10 @@ pub async fn tool_track_lease_deadlines(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let lease_id = args.get("lease_id").and_then(Value::as_str).unwrap_or_default();
+    let lease_id = args
+        .get("lease_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if lease_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "lease_id is required." }));
     }
@@ -699,7 +793,11 @@ pub async fn tool_track_lease_deadlines(
         return Ok(json!({ "ok": false, "error": "Lease not found." }));
     };
 
-    let ends_on = row.try_get::<Option<String>, _>("ends_on").ok().flatten().unwrap_or_default();
+    let ends_on = row
+        .try_get::<Option<String>, _>("ends_on")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     let mut created_count = 0u32;
 
@@ -719,7 +817,9 @@ pub async fn tool_track_lease_deadlines(
         .await
         .ok()
         .flatten();
-        if result.is_some() { created_count += 1; }
+        if result.is_some() {
+            created_count += 1;
+        }
 
         // Renewal notice deadline (60 days before expiry)
         if let Ok(end_date) = chrono::NaiveDate::parse_from_str(&ends_on, "%Y-%m-%d") {
@@ -738,7 +838,9 @@ pub async fn tool_track_lease_deadlines(
             .await
             .ok()
             .flatten();
-            if result.is_some() { created_count += 1; }
+            if result.is_some() {
+                created_count += 1;
+            }
         }
     }
 
@@ -761,8 +863,13 @@ pub async fn tool_track_lease_deadlines(
                 for dl in arr {
                     let dl_type = dl.get("type").and_then(Value::as_str).unwrap_or("custom");
                     let dl_date = dl.get("date").and_then(Value::as_str).unwrap_or_default();
-                    let dl_desc = dl.get("description").and_then(Value::as_str).unwrap_or("Lease deadline");
-                    if dl_date.is_empty() { continue; }
+                    let dl_desc = dl
+                        .get("description")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Lease deadline");
+                    if dl_date.is_empty() {
+                        continue;
+                    }
                     let result = sqlx::query(
                         "INSERT INTO deadline_alerts
                             (organization_id, lease_id, deadline_type, deadline_date, description)
@@ -779,7 +886,9 @@ pub async fn tool_track_lease_deadlines(
                     .await
                     .ok()
                     .flatten();
-                    if result.is_some() { created_count += 1; }
+                    if result.is_some() {
+                        created_count += 1;
+                    }
                 }
             }
         }
@@ -799,20 +908,24 @@ pub async fn tool_track_lease_deadlines(
     .await
     .unwrap_or_default();
 
-    let alert_list: Vec<Value> = alerts.iter().map(|r| {
-        json!({
-            "alert_id": r.try_get::<String, _>("id").unwrap_or_default(),
-            "type": r.try_get::<String, _>("deadline_type").unwrap_or_default(),
-            "date": r.try_get::<Option<String>, _>("deadline_date").ok().flatten(),
-            "description": r.try_get::<String, _>("description").unwrap_or_default(),
-            "status": r.try_get::<String, _>("status").unwrap_or_default(),
-            "days_remaining": r.try_get::<i32, _>("days_remaining").unwrap_or(0),
+    let alert_list: Vec<Value> = alerts
+        .iter()
+        .map(|r| {
+            json!({
+                "alert_id": r.try_get::<String, _>("id").unwrap_or_default(),
+                "type": r.try_get::<String, _>("deadline_type").unwrap_or_default(),
+                "date": r.try_get::<Option<String>, _>("deadline_date").ok().flatten(),
+                "description": r.try_get::<String, _>("description").unwrap_or_default(),
+                "status": r.try_get::<String, _>("status").unwrap_or_default(),
+                "days_remaining": r.try_get::<i32, _>("days_remaining").unwrap_or(0),
+            })
         })
-    }).collect();
+        .collect();
 
-    let overdue = alert_list.iter().filter(|a| {
-        a.get("days_remaining").and_then(Value::as_i64).unwrap_or(0) < 0
-    }).count();
+    let overdue = alert_list
+        .iter()
+        .filter(|a| a.get("days_remaining").and_then(Value::as_i64).unwrap_or(0) < 0)
+        .count();
 
     Ok(json!({
         "ok": true,
@@ -832,7 +945,10 @@ pub async fn tool_auto_populate_lease_charges(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let lease_id = args.get("lease_id").and_then(Value::as_str).unwrap_or_default();
+    let lease_id = args
+        .get("lease_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if lease_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "lease_id is required." }));
     }
@@ -857,13 +973,33 @@ pub async fn tool_auto_populate_lease_charges(
         }));
     };
 
-    let terms = abs_row.try_get::<Value, _>("extracted_terms").unwrap_or_else(|_| json!({}));
-    let monthly_rent = terms.get("monthly_rent").and_then(Value::as_f64).unwrap_or(0.0);
-    let currency = terms.get("currency").and_then(Value::as_str).unwrap_or("PYG");
-    let deposit = terms.get("security_deposit").and_then(Value::as_f64).unwrap_or(0.0);
-    let common_expenses = terms.get("common_expenses").and_then(Value::as_f64).unwrap_or(0.0);
-    let iva_pct = terms.get("iva_percentage").and_then(Value::as_f64).unwrap_or(10.0);
-    let iva_included = terms.get("iva_included").and_then(Value::as_bool).unwrap_or(false);
+    let terms = abs_row
+        .try_get::<Value, _>("extracted_terms")
+        .unwrap_or_else(|_| json!({}));
+    let monthly_rent = terms
+        .get("monthly_rent")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let currency = terms
+        .get("currency")
+        .and_then(Value::as_str)
+        .unwrap_or("PYG");
+    let deposit = terms
+        .get("security_deposit")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let common_expenses = terms
+        .get("common_expenses")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let iva_pct = terms
+        .get("iva_percentage")
+        .and_then(Value::as_f64)
+        .unwrap_or(10.0);
+    let iva_included = terms
+        .get("iva_included")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
 
     let mut charges_created = Vec::new();
 
@@ -885,7 +1021,8 @@ pub async fn tool_auto_populate_lease_charges(
         .ok()
         .flatten();
         if result.is_some() {
-            charges_created.push(json!({"type": "rent", "amount": monthly_rent, "currency": currency}));
+            charges_created
+                .push(json!({"type": "rent", "amount": monthly_rent, "currency": currency}));
         }
     }
 
@@ -907,7 +1044,8 @@ pub async fn tool_auto_populate_lease_charges(
         .ok()
         .flatten();
         if result.is_some() {
-            charges_created.push(json!({"type": "deposit", "amount": deposit, "currency": currency}));
+            charges_created
+                .push(json!({"type": "deposit", "amount": deposit, "currency": currency}));
         }
     }
 
@@ -931,7 +1069,9 @@ pub async fn tool_auto_populate_lease_charges(
         .ok()
         .flatten();
         if result.is_some() {
-            charges_created.push(json!({"type": "tax", "label": format!("IVA ({iva_pct}%)"), "amount": iva_amount}));
+            charges_created.push(
+                json!({"type": "tax", "label": format!("IVA ({iva_pct}%)"), "amount": iva_amount}),
+            );
         }
     }
 

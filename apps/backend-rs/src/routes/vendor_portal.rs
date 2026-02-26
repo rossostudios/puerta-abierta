@@ -85,9 +85,7 @@ async fn request_access(
     let pool = db_pool(&state)?;
     let name = payload.vendor_name.trim();
     if name.is_empty() {
-        return Err(AppError::BadRequest(
-            "vendor_name is required.".to_string(),
-        ));
+        return Err(AppError::BadRequest("vendor_name is required.".to_string()));
     }
 
     // Verify org exists
@@ -121,18 +119,13 @@ async fn request_access(
 
     // Queue WhatsApp notification if phone provided
     if let Some(ref phone) = payload.vendor_phone {
-        let msg_body = format!(
-            "Hola {name}, tiene trabajos asignados. Acceda aquí: {magic_link}"
-        );
+        let msg_body = format!("Hola {name}, tiene trabajos asignados. Acceda aquí: {magic_link}");
         let mut msg_record = Map::new();
         msg_record.insert(
             "organization_id".to_string(),
             Value::String(payload.organization_id.clone()),
         );
-        msg_record.insert(
-            "channel".to_string(),
-            Value::String("whatsapp".to_string()),
-        );
+        msg_record.insert("channel".to_string(), Value::String("whatsapp".to_string()));
         msg_record.insert(
             "direction".to_string(),
             Value::String("outbound".to_string()),
@@ -226,9 +219,7 @@ async fn require_vendor<'a>(
         .and_then(|v| v.to_str().ok())
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| {
-            AppError::Unauthorized("Missing x-vendor-token header.".to_string())
-        })?;
+        .ok_or_else(|| AppError::Unauthorized("Missing x-vendor-token header.".to_string()))?;
 
     let token_record = match get_row(
         pool,
@@ -271,21 +262,12 @@ async fn require_vendor<'a>(
 }
 
 /// List maintenance tasks assigned as vendor jobs.
-async fn list_jobs(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> AppResult<Json<Value>> {
+async fn list_jobs(State(state): State<AppState>, headers: HeaderMap) -> AppResult<Json<Value>> {
     let (pool, org_id, _vendor_name) = require_vendor(&state, &headers).await?;
 
     let mut filters = Map::new();
-    filters.insert(
-        "organization_id".to_string(),
-        Value::String(org_id.clone()),
-    );
-    filters.insert(
-        "type".to_string(),
-        Value::String("maintenance".to_string()),
-    );
+    filters.insert("organization_id".to_string(), Value::String(org_id.clone()));
+    filters.insert("type".to_string(), Value::String("maintenance".to_string()));
 
     let rows = list_rows(pool, "tasks", Some(&filters), 100, 0, "due_at", true).await?;
 
@@ -353,12 +335,17 @@ async fn get_job(
 
     // Load checklist items
     let mut item_filters = Map::new();
-    item_filters.insert(
-        "task_id".to_string(),
-        Value::String(path.task_id.clone()),
-    );
-    let items =
-        list_rows(pool, "task_items", Some(&item_filters), 200, 0, "sort_order", true).await?;
+    item_filters.insert("task_id".to_string(), Value::String(path.task_id.clone()));
+    let items = list_rows(
+        pool,
+        "task_items",
+        Some(&item_filters),
+        200,
+        0,
+        "sort_order",
+        true,
+    )
+    .await?;
 
     Ok(Json(json!({
         "id": val_str(&task, "id"),

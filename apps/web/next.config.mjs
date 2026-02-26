@@ -17,16 +17,15 @@ const nextConfig = {
       },
       {
         protocol: "https",
-        hostname: "**.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-      {
-        protocol: "https",
         hostname: "i.pravatar.cc",
       },
       {
         protocol: "https",
         hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "img.clerk.com",
       },
     ],
   },
@@ -57,11 +56,12 @@ const nextConfig = {
             key: "Content-Security-Policy-Report-Only",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://clerk.casaora.co",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co https://cdn.sanity.io https://i.pravatar.cc https://images.unsplash.com",
+              "img-src 'self' data: blob: https://cdn.sanity.io https://i.pravatar.cc https://images.unsplash.com https://img.clerk.com https://clerk.casaora.co https://accounts.casaora.co",
               "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://cdn.sanity.io",
+              "connect-src 'self' https://api.casaora.co https://api.mapbox.com https://events.mapbox.com https://cdn.sanity.io https://clerk.casaora.co https://accounts.casaora.co",
+              "frame-src 'self' https://clerk.casaora.co https://accounts.casaora.co",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

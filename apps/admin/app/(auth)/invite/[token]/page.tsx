@@ -4,6 +4,7 @@ import {
   Mail01Icon,
   Ticket01Icon,
 } from "@hugeicons/core-free-icons";
+import { currentUser } from "@clerk/nextjs/server";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -22,7 +23,6 @@ import { postJson } from "@/lib/api";
 import { shouldUseSecureCookie } from "@/lib/cookies";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { ORG_COOKIE_NAME } from "@/lib/org";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 type InvitePageProps = {
@@ -63,9 +63,7 @@ export default async function InviteAcceptPage({
 
   let userEmail: string | null = null;
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getUser();
-    userEmail = data.user?.email ?? null;
+    userEmail = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
   } catch {
     userEmail = null;
   }

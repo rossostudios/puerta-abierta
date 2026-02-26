@@ -1,0 +1,6 @@
+bucket         = "casaora-prod-terraform-state-ACCOUNT_ID"
+key            = "casaora/prod/foundation.tfstate"
+region         = "us-east-1"
+profile        = "default"
+dynamodb_table = "casaora-prod-terraform-locks"
+encrypt        = true

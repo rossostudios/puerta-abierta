@@ -150,15 +150,13 @@ async fn list_notification_rules(
     Query(query): Query<NotificationRulesQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
     let pool = db_pool(&state)?;
 
     let mut filters = Map::new();
-    filters.insert(
-        "organization_id".to_string(),
-        Value::String(query.org_id.clone()),
-    );
+    filters.insert("organization_id".to_string(), Value::String(org_id));
     if let Some(is_active) = query.is_active {
         filters.insert(
             "is_active".to_string(),
@@ -185,8 +183,9 @@ async fn notification_rules_metadata(
     Query(query): Query<NotificationRulesMetadataQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
 
     Ok(Json(json!({
         "channels": NOTIFICATION_CHANNELS,
@@ -696,7 +695,7 @@ fn dispatch_recipient(channel: &str, payload: &Map<String, Value>) -> String {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

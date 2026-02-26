@@ -71,7 +71,9 @@ pub async fn create_mp_qr_payment(
 ) -> Result<Value, String> {
     // Use dynamic QR — creates an order that can be scanned
     let response = http_client
-        .post(format!("{MP_API_BASE}/instore/orders/qr/seller/collectors/me/pos/main/qrs"))
+        .post(format!(
+            "{MP_API_BASE}/instore/orders/qr/seller/collectors/me/pos/main/qrs"
+        ))
         .bearer_auth(access_token)
         .json(&json!({
             "external_reference": reference_code,
@@ -152,10 +154,7 @@ pub async fn get_mp_payment(
 }
 
 /// Fetch the Mercado Pago access token for an organization from the integrations table.
-pub async fn get_org_mp_access_token(
-    pool: &sqlx::PgPool,
-    org_id: &str,
-) -> Result<String, String> {
+pub async fn get_org_mp_access_token(pool: &sqlx::PgPool, org_id: &str) -> Result<String, String> {
     let row: Option<(Option<String>,)> = sqlx::query_as(
         "SELECT mercado_pago_access_token FROM integrations
          WHERE organization_id = $1::uuid AND mercado_pago_access_token IS NOT NULL

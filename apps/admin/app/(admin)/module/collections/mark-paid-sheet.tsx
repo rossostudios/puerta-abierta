@@ -13,7 +13,10 @@ import { Sheet } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import type { Locale } from "@/lib/i18n";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 function useReceiptUpload(orgId: string) {
   const locale = useActiveLocale();
@@ -31,26 +34,22 @@ function useReceiptUpload(orgId: string) {
       ? "Receipt upload failed"
       : "Fallo la subida del comprobante";
     try {
-      const supabase = getSupabaseBrowserClient();
-      const safeName = file.name.replaceAll(/[^\w.-]+/g, "-");
+      const safeName = safeStorageFileName(file.name);
       const key = `${orgId}/collections/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("receipts")
-        .upload(key, file, { upsert: false });
-      if (uploadError) {
-        toast.error(errorLabel, { description: uploadError.message });
-        setUploading(false);
-        return;
-      }
-      const { data } = supabase.storage.from("receipts").getPublicUrl(key);
-      if (!data.publicUrl) {
+      const uploaded = await uploadPublicFileViaApi({
+        namespace: "receipts",
+        key,
+        file,
+        orgId,
+      });
+      if (!uploaded.publicUrl) {
         toast.error(errorLabel, {
           description: "Could not resolve public URL.",
         });
         setUploading(false);
         return;
       }
-      onSuccess(data.publicUrl);
+      onSuccess(uploaded.publicUrl);
       let uploadedMsg: string;
       if (isEn) {
         uploadedMsg = "Receipt uploaded";

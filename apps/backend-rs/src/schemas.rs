@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use uuid::Uuid;
 use validator::Validate;
 
 use crate::error::AppError;
@@ -362,14 +363,14 @@ pub struct ReservationGuestPath {
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct ListOrganizationsQuery {
-    pub org_id: Option<String>,
+    pub org_id: Option<Uuid>,
     #[serde(default = "default_limit_100")]
     pub limit: i64,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct PropertiesQuery {
-    pub org_id: String,
+    pub org_id: Uuid,
     pub status: Option<String>,
     pub property_type: Option<String>,
     pub neighborhood: Option<String>,
@@ -379,7 +380,7 @@ pub struct PropertiesQuery {
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct UnitsQuery {
-    pub org_id: String,
+    pub org_id: Uuid,
     pub property_id: Option<String>,
     pub unit_type: Option<String>,
     pub condition_status: Option<String>,
@@ -1472,7 +1473,7 @@ pub struct UpdateNotificationRuleInput {
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct NotificationRulesQuery {
-    pub org_id: String,
+    pub org_id: Uuid,
     pub is_active: Option<bool>,
     #[serde(default = "default_limit_200")]
     pub limit: i64,
@@ -1485,12 +1486,12 @@ pub struct NotificationRulePath {
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct NotificationRulesMetadataQuery {
-    pub org_id: String,
+    pub org_id: Uuid,
 }
 
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct NotificationsQuery {
-    pub org_id: String,
+    pub org_id: Uuid,
     pub status: Option<String>,
     pub category: Option<String>,
     pub cursor: Option<String>,

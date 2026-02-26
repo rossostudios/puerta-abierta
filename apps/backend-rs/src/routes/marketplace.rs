@@ -669,7 +669,7 @@ async fn list_public_listing_rows(
 
     let rows = builder.build().fetch_all(pool).await.map_err(|err| {
         tracing::error!(db_error = %err, "Failed listing query");
-        AppError::Dependency("Database operation failed.".to_string())
+        AppError::from_database_error(&err, "Database operation failed.")
     })?;
 
     Ok(rows
@@ -699,7 +699,7 @@ async fn get_public_listing(
         .await
         .map_err(|err| {
             tracing::error!(db_error = %err, "Failed listing query");
-            AppError::Dependency("Database operation failed.".to_string())
+            AppError::from_database_error(&err, "Database operation failed.")
         })?;
 
     let rows = match db_row {
@@ -1319,7 +1319,7 @@ async fn delete_saved_search(
         .await
         .map_err(|error| {
             tracing::error!(error = %error, "Database query failed");
-            AppError::Dependency("External service request failed.".to_string())
+            AppError::from_database_error(&error, "External service request failed.")
         })?;
 
     Ok(Json(json!({ "ok": true })))
@@ -1396,7 +1396,7 @@ async fn replace_fee_lines(
         .await
         .map_err(|error| {
             tracing::error!(error = %error, "Database query failed");
-            AppError::Dependency("External service request failed.".to_string())
+            AppError::from_database_error(&error, "External service request failed.")
         })?;
 
     let normalized = normalize_fee_lines(lines);
@@ -2139,7 +2139,7 @@ fn ensure_marketplace_public_enabled(state: &AppState) -> AppResult<()> {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

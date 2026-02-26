@@ -1,6 +1,7 @@
 .DS_Store
 .env
 .env.local
+.env.mcp.local
 
 node_modules
 .next
@@ -50,3 +51,10 @@ apps/admin/e2e/.auth/
 apps/admin/playwright-report/
 apps/admin/test-results/
 apps/admin/blob-report/
+# Terraform local state (AWS migration codification)
+infra/terraform/**/.terraform/
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/terraform.tfvars
+infra/terraform/**/backend.hcl
+infra/terraform/**/*.tfbackend

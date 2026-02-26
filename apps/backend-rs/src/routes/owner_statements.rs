@@ -974,7 +974,7 @@ fn fallback_str(value: Option<&Value>, default: &str) -> String {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -990,13 +990,13 @@ pub async fn auto_generate_monthly_statements(
     let today = chrono::Utc::now().date_naive();
 
     // Compute previous month period
-    let first_of_this_month = NaiveDate::from_ymd_opt(today.year(), today.month(), 1)
-        .unwrap_or(today);
+    let first_of_this_month =
+        NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
     let period_end = first_of_this_month
         .pred_opt()
         .unwrap_or(first_of_this_month);
-    let period_start = NaiveDate::from_ymd_opt(period_end.year(), period_end.month(), 1)
-        .unwrap_or(period_end);
+    let period_start =
+        NaiveDate::from_ymd_opt(period_end.year(), period_end.month(), 1).unwrap_or(period_end);
 
     let period_start_str = period_start.to_string();
     let period_end_str = period_end.to_string();
@@ -1112,10 +1112,7 @@ pub async fn auto_generate_monthly_statements(
                 created_count += 1;
                 let statement_id = value_str(&created, "id");
                 let mut ctx = Map::new();
-                ctx.insert(
-                    "statement_id".to_string(),
-                    Value::String(statement_id),
-                );
+                ctx.insert("statement_id".to_string(), Value::String(statement_id));
                 ctx.insert(
                     "property_id".to_string(),
                     Value::String(property_id.clone()),

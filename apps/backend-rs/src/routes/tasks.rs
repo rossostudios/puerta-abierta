@@ -584,8 +584,7 @@ async fn flag_sla_breach(
             let org_id = value_string(obj.get("organization_id")).unwrap_or_default();
             if !org_id.is_empty() {
                 let context = build_task_workflow_context(&task_id, &updated);
-                fire_trigger(pool, &org_id, "task_overdue_24h", &context, engine_mode)
-                    .await;
+                fire_trigger(pool, &org_id, "task_overdue_24h", &context, engine_mode).await;
             }
             return updated;
         }
@@ -657,7 +656,7 @@ fn value_as_i64(value: &Value) -> Option<i64> {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

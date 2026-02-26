@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import { errorMessage } from "@/lib/errors";
 import { MODULE_BY_SLUG } from "@/lib/modules";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildRelatedLinks } from "./related-links";
 import { recordTitle, sortKeys } from "./utils";
 
@@ -51,9 +51,7 @@ export async function loadRecordDetailData({
   let is404 = false;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token ?? null;
+    const token = await getServerAccessToken();
 
     const response = await fetch(url, {
       cache: "no-store",

@@ -475,7 +475,9 @@ pub async fn sync_all_outbound_rates(state: &crate::state::AppState) {
             })
             .collect();
 
-        if let Err(e) = push_availability(&state.http_client, token, listing_id, &availability).await {
+        if let Err(e) =
+            push_availability(&state.http_client, token, listing_id, &availability).await
+        {
             tracing::warn!(listing_id, error = %e, "Outbound OTA availability push failed");
             continue;
         }
@@ -484,7 +486,10 @@ pub async fn sync_all_outbound_rates(state: &crate::state::AppState) {
     }
 
     if synced > 0 {
-        tracing::info!(synced, "Scheduler: outbound OTA rate/availability sync completed");
+        tracing::info!(
+            synced,
+            "Scheduler: outbound OTA rate/availability sync completed"
+        );
     }
 }
 

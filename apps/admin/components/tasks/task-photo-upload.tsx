@@ -8,7 +8,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 type TaskPhotoUploadProps = {
   taskId: string;
@@ -36,20 +39,15 @@ export function TaskPhotoUpload({
     const fallbackErrMsg = isEn ? "Upload failed" : "Error al subir";
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const safeName = file.name.replaceAll(/[^\w.-]+/g, "-");
+      const safeName = safeStorageFileName(file.name);
       const key = `${orgId}/task-photos/${taskId}/${itemId}/${crypto.randomUUID()}-${safeName}`;
-      const { error } = await supabase.storage
-        .from("receipts")
-        .upload(key, file, { upsert: false });
-      if (error) {
-        toast.error(error.message);
-        setUploading(false);
-        return;
-      }
-
-      const { data } = supabase.storage.from("receipts").getPublicUrl(key);
-      const newUrls = [...urls, data.publicUrl];
+      const uploaded = await uploadPublicFileViaApi({
+        namespace: "receipts",
+        key,
+        file,
+        orgId,
+      });
+      const newUrls = [...urls, uploaded.publicUrl];
 
       await patchItem(newUrls);
       setUrls(newUrls);

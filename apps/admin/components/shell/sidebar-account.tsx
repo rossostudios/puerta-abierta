@@ -9,11 +9,12 @@ import {
   Settings03Icon,
   UserCircle02Icon,
 } from "@hugeicons/core-free-icons";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 import { LanguageSelector } from "@/components/preferences/language-selector";
@@ -26,7 +27,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { Locale } from "@/lib/i18n";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
 
 type PlanSummary = {
@@ -36,12 +36,6 @@ type PlanSummary = {
   unavailable?: boolean;
 };
 const WHITESPACE_REGEX = /\s+/;
-
-function metadataString(source: unknown, key: string): string {
-  if (!source || typeof source !== "object") return "";
-  const value = (source as Record<string, unknown>)[key];
-  return typeof value === "string" ? value.trim() : "";
-}
 
 function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -89,69 +83,10 @@ export function SidebarAccount({
   orgId: string | null;
 }) {
   const router = useRouter();
-  const [account, setAccount] = useState<{
-    avatarUrl: string | null;
-    email: string | null;
-    fullName: string | null;
-    loading: boolean;
-  }>({
-    avatarUrl: null,
-    email: null,
-    fullName: null,
-    loading: true,
-  });
+  const { signOut } = useClerk();
+  const { user, isLoaded } = useUser();
   const [open, setOpen] = useState(false);
   const isEn = locale === "en-US";
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    let mounted = true;
-
-    function extractAccount(
-      metadata: unknown,
-      email: string | null | undefined
-    ) {
-      const fullName =
-        metadataString(metadata, "full_name") ||
-        metadataString(metadata, "name");
-      return {
-        avatarUrl: metadataString(metadata, "avatar_url") || null,
-        email: email ?? null,
-        fullName: fullName || null,
-      };
-    }
-
-    supabase.auth
-      .getUser()
-      .then(({ data }) => {
-        if (!mounted) return;
-        setAccount({
-          ...extractAccount(data.user?.user_metadata, data.user?.email),
-          loading: false,
-        });
-      })
-      .catch(() => {
-        if (!mounted) return;
-        setAccount({
-          avatarUrl: null,
-          email: null,
-          fullName: null,
-          loading: false,
-        });
-      });
-
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAccount((prev) => ({
-        ...extractAccount(session?.user?.user_metadata, session?.user?.email),
-        loading: prev.loading,
-      }));
-    });
-
-    return () => {
-      mounted = false;
-      data.subscription.unsubscribe();
-    };
-  }, []);
 
   const {
     data: planSummary = null,
@@ -194,12 +129,7 @@ export function SidebarAccount({
   const onSignOut = async () => {
     const errTitle = isEn ? "Could not sign out" : "No se pudo cerrar sesión";
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast.error(errTitle, { description: error.message });
-        return;
-      }
+      await signOut();
       router.replace("/login");
       router.refresh();
     } catch (err) {
@@ -209,6 +139,13 @@ export function SidebarAccount({
       }
       toast.error(errTitle, { description: desc });
     }
+  };
+
+  const account = {
+    avatarUrl: user?.imageUrl ?? null,
+    email: user?.primaryEmailAddress?.emailAddress ?? null,
+    fullName: user?.fullName ?? user?.username ?? null,
+    loading: !isLoaded,
   };
 
   const displayName = account.loading

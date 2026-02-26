@@ -9,7 +9,7 @@ use serde_json::{json, Map, Value};
 use sqlx::{Postgres, QueryBuilder, Row};
 
 use crate::{
-    auth::require_supabase_user,
+    auth::require_authenticated_user,
     error::{AppError, AppResult},
     repository::table_service::{
         create_row, create_row_tx, delete_row, get_row, list_rows, update_row,
@@ -70,12 +70,13 @@ async fn list_organizations(
     Query(query): Query<ListOrganizationsQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
 
-    if let Some(org_id) = query.org_id.as_deref() {
-        assert_org_member(&state, &user.id, org_id).await?;
-        let row = get_db_row(&state, "organizations", org_id).await?;
+    if let Some(org_id) = query.org_id.as_ref() {
+        let org_id = org_id.to_string();
+        assert_org_member(&state, &user.id, &org_id).await?;
+        let row = get_db_row(&state, "organizations", &org_id).await?;
         return Ok(Json(json!({ "data": [row] })));
     }
 
@@ -92,7 +93,7 @@ async fn create_organization(
     Json(payload): Json<CreateOrganizationInput>,
 ) -> AppResult<impl IntoResponse> {
     validate_input(&payload)?;
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     let pool = db_pool(&state)?;
 
@@ -146,7 +147,7 @@ async fn get_organization(
     Path(path): Path<OrgPath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_member(&state, &user.id, &path.org_id).await?;
     let row = get_db_row(&state, "organizations", &path.org_id).await?;
@@ -159,7 +160,7 @@ async fn update_organization(
     headers: HeaderMap,
     Json(payload): Json<UpdateOrganizationInput>,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -188,7 +189,7 @@ async fn delete_organization(
     Path(path): Path<OrgPath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     let pool = db_pool(&state)?;
 
@@ -221,7 +222,7 @@ async fn list_invites(
     Path(path): Path<OrgPath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
 
@@ -251,7 +252,7 @@ async fn create_invite(
     Json(payload): Json<CreateOrganizationInviteInput>,
 ) -> AppResult<impl IntoResponse> {
     validate_input(&payload)?;
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -322,7 +323,7 @@ async fn revoke_invite(
     Path(path): Path<OrgInvitePath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -367,7 +368,7 @@ async fn accept_invite(
     headers: HeaderMap,
     Json(payload): Json<AcceptOrganizationInviteInput>,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     let pool = db_pool(&state)?;
 
@@ -472,7 +473,7 @@ async fn list_members(
     Path(path): Path<OrgPath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_member(&state, &user.id, &path.org_id).await?;
     let pool = db_pool(&state)?;
@@ -500,7 +501,7 @@ async fn add_member(
     headers: HeaderMap,
     Json(payload): Json<CreateOrganizationMemberInput>,
 ) -> AppResult<impl IntoResponse> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -549,7 +550,7 @@ async fn update_member(
     headers: HeaderMap,
     Json(payload): Json<UpdateOrganizationMemberInput>,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -622,7 +623,7 @@ async fn delete_member(
     Path(path): Path<OrgMemberPath>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let _app_user = ensure_app_user(&state, &user).await?;
     assert_org_role(&state, &user.id, &path.org_id, &["owner_admin"]).await?;
     let pool = db_pool(&state)?;
@@ -695,7 +696,7 @@ async fn get_db_row(state: &AppState, table: &str, row_id: &str) -> AppResult<Va
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

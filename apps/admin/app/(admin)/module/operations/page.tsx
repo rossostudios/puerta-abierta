@@ -12,10 +12,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { getServerCurrentAppUserId } from "@/lib/auth/server-app-user";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 import { DispatchDashboard } from "../maintenance/dispatch-dashboard";
@@ -86,14 +86,7 @@ export default async function OperationsHubPage({ searchParams }: PageProps) {
   }
 
   if (tab === "tasks") {
-    let sessionUserId: string | null = null;
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { data } = await supabase.auth.getSession();
-      sessionUserId = data.session?.user?.id ?? null;
-    } catch {
-      sessionUserId = null;
-    }
+    const sessionUserId = await getServerCurrentAppUserId();
 
     let tasks: Record<string, unknown>[] = [];
     let units: Record<string, unknown>[] = [];

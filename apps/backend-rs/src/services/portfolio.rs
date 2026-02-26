@@ -7,16 +7,14 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Get cross-property portfolio KPIs.
-pub async fn tool_get_portfolio_kpis(
-    state: &AppState,
-    org_id: &str,
-) -> AppResult<Value> {
+pub async fn tool_get_portfolio_kpis(state: &AppState, org_id: &str) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
     // Total units and properties
@@ -215,7 +213,11 @@ pub async fn tool_get_portfolio_trends(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let months = args.get("months").and_then(Value::as_i64).unwrap_or(12).clamp(1, 24) as i32;
+    let months = args
+        .get("months")
+        .and_then(Value::as_i64)
+        .unwrap_or(12)
+        .clamp(1, 24) as i32;
 
     let snapshots = sqlx::query(
         "SELECT snapshot_date::text, total_units, occupied_units,
@@ -232,25 +234,32 @@ pub async fn tool_get_portfolio_trends(
     .await
     .unwrap_or_default();
 
-    let trend_points: Vec<Value> = snapshots.iter().map(|r| {
-        json!({
-            "date": r.try_get::<String, _>("snapshot_date").unwrap_or_default(),
-            "total_units": r.try_get::<i32, _>("total_units").unwrap_or(0),
-            "occupied_units": r.try_get::<i32, _>("occupied_units").unwrap_or(0),
-            "revenue": r.try_get::<f64, _>("revenue").unwrap_or(0.0),
-            "expenses": r.try_get::<f64, _>("expenses").unwrap_or(0.0),
-            "noi": r.try_get::<f64, _>("noi").unwrap_or(0.0),
-            "occupancy": r.try_get::<f64, _>("occupancy").unwrap_or(0.0),
-            "revpar": r.try_get::<f64, _>("revpar").unwrap_or(0.0),
+    let trend_points: Vec<Value> = snapshots
+        .iter()
+        .map(|r| {
+            json!({
+                "date": r.try_get::<String, _>("snapshot_date").unwrap_or_default(),
+                "total_units": r.try_get::<i32, _>("total_units").unwrap_or(0),
+                "occupied_units": r.try_get::<i32, _>("occupied_units").unwrap_or(0),
+                "revenue": r.try_get::<f64, _>("revenue").unwrap_or(0.0),
+                "expenses": r.try_get::<f64, _>("expenses").unwrap_or(0.0),
+                "noi": r.try_get::<f64, _>("noi").unwrap_or(0.0),
+                "occupancy": r.try_get::<f64, _>("occupancy").unwrap_or(0.0),
+                "revpar": r.try_get::<f64, _>("revpar").unwrap_or(0.0),
+            })
         })
-    }).collect();
+        .collect();
 
     // Calculate month-over-month growth
     let mom_growth = if trend_points.len() >= 2 {
         let last = &trend_points[trend_points.len() - 1];
         let prev = &trend_points[trend_points.len() - 2];
         let rev_last = last.get("revenue").and_then(Value::as_f64).unwrap_or(0.0);
-        let rev_prev = prev.get("revenue").and_then(Value::as_f64).unwrap_or(1.0).max(1.0);
+        let rev_prev = prev
+            .get("revenue")
+            .and_then(Value::as_f64)
+            .unwrap_or(1.0)
+            .max(1.0);
         ((rev_last - rev_prev) / rev_prev * 100.0 * 100.0).round() / 100.0
     } else {
         0.0
@@ -273,8 +282,15 @@ pub async fn tool_get_property_heatmap(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let metric = args.get("metric").and_then(Value::as_str).unwrap_or("revenue");
-    let period_days = args.get("period_days").and_then(Value::as_i64).unwrap_or(30).clamp(7, 365) as i32;
+    let metric = args
+        .get("metric")
+        .and_then(Value::as_str)
+        .unwrap_or("revenue");
+    let period_days = args
+        .get("period_days")
+        .and_then(Value::as_i64)
+        .unwrap_or(30)
+        .clamp(7, 365) as i32;
 
     let rows = sqlx::query(
         "SELECT
@@ -315,9 +331,15 @@ pub async fn tool_get_property_heatmap(
         let available_nights = units * period_days;
         let occupancy = if available_nights > 0 {
             room_nights as f64 / available_nights as f64 * 100.0
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         let noi = revenue - expenses;
-        let rev_per_unit = if units > 0 { revenue / units as f64 } else { 0.0 };
+        let rev_per_unit = if units > 0 {
+            revenue / units as f64
+        } else {
+            0.0
+        };
 
         revenues.push(revenue);
 
@@ -336,15 +358,24 @@ pub async fn tool_get_property_heatmap(
     }
 
     // Identify outliers (> 1.5x or < 0.5x average)
-    let avg_rev = if revenues.is_empty() { 0.0 } else { revenues.iter().sum::<f64>() / revenues.len() as f64 };
-    let outliers: Vec<Value> = properties.iter()
+    let avg_rev = if revenues.is_empty() {
+        0.0
+    } else {
+        revenues.iter().sum::<f64>() / revenues.len() as f64
+    };
+    let outliers: Vec<Value> = properties
+        .iter()
         .filter(|p| {
             let rev = p.get("revenue").and_then(Value::as_f64).unwrap_or(0.0);
             avg_rev > 0.0 && (rev > avg_rev * 1.5 || rev < avg_rev * 0.5)
         })
         .map(|p| {
             let rev = p.get("revenue").and_then(Value::as_f64).unwrap_or(0.0);
-            let direction = if rev > avg_rev { "above_average" } else { "below_average" };
+            let direction = if rev > avg_rev {
+                "above_average"
+            } else {
+                "below_average"
+            };
             json!({
                 "property_name": p.get("property_name"),
                 "revenue": rev,
@@ -373,7 +404,10 @@ pub async fn tool_generate_performance_digest(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let digest_type = args.get("digest_type").and_then(Value::as_str).unwrap_or("weekly");
+    let digest_type = args
+        .get("digest_type")
+        .and_then(Value::as_str)
+        .unwrap_or("weekly");
     let period_days = if digest_type == "monthly" { 30 } else { 7 };
 
     // Get current period KPIs
@@ -393,9 +427,18 @@ pub async fn tool_generate_performance_digest(
     .await
     .ok();
 
-    let revenue = current.as_ref().and_then(|r| r.try_get::<f64, _>("revenue").ok()).unwrap_or(0.0);
-    let reservations = current.as_ref().and_then(|r| r.try_get::<i32, _>("reservations").ok()).unwrap_or(0);
-    let room_nights = current.as_ref().and_then(|r| r.try_get::<i32, _>("room_nights").ok()).unwrap_or(0);
+    let revenue = current
+        .as_ref()
+        .and_then(|r| r.try_get::<f64, _>("revenue").ok())
+        .unwrap_or(0.0);
+    let reservations = current
+        .as_ref()
+        .and_then(|r| r.try_get::<i32, _>("reservations").ok())
+        .unwrap_or(0);
+    let room_nights = current
+        .as_ref()
+        .and_then(|r| r.try_get::<i32, _>("room_nights").ok())
+        .unwrap_or(0);
 
     let expenses: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount), 0)::float8 FROM expenses
@@ -425,10 +468,15 @@ pub async fn tool_generate_performance_digest(
     .await
     .ok();
 
-    let prev_revenue = prev.as_ref().and_then(|r| r.try_get::<f64, _>("revenue").ok()).unwrap_or(0.0);
+    let prev_revenue = prev
+        .as_ref()
+        .and_then(|r| r.try_get::<f64, _>("revenue").ok())
+        .unwrap_or(0.0);
     let revenue_change = if prev_revenue > 0.0 {
         ((revenue - prev_revenue) / prev_revenue * 100.0 * 100.0).round() / 100.0
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
     // Maintenance stats
     let maint_open: i64 = sqlx::query_scalar(
@@ -491,13 +539,12 @@ pub async fn tool_generate_performance_digest(
 
 /// Capture a nightly portfolio snapshot for historical tracking.
 pub async fn capture_portfolio_snapshot(pool: &sqlx::PgPool, org_id: &str) {
-    let total_units: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*)::bigint FROM units WHERE organization_id = $1::uuid",
-    )
-    .bind(org_id)
-    .fetch_one(pool)
-    .await
-    .unwrap_or(0);
+    let total_units: i64 =
+        sqlx::query_scalar("SELECT COUNT(*)::bigint FROM units WHERE organization_id = $1::uuid")
+            .bind(org_id)
+            .fetch_one(pool)
+            .await
+            .unwrap_or(0);
 
     let occupied: i64 = sqlx::query_scalar(
         "SELECT COUNT(DISTINCT unit_id)::bigint FROM reservations

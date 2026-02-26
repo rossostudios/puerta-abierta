@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.8", features = ["macros", "multipart"] }
+aws-config = "=1.8.13"
+aws-sdk-s3 = "=1.118.0"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 chrono-tz = "0.10"
 dotenvy = "0.15"

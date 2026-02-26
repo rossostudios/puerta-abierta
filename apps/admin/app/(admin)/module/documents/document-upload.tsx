@@ -3,7 +3,10 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 type DocumentUploadProps = {
   orgId: string;
@@ -32,19 +35,15 @@ export function DocumentUpload({
       setUploading(true);
       const errorLabel = isEn ? "Upload failed" : "Fallo la subida";
       try {
-        const supabase = getSupabaseBrowserClient();
-        const safeName = file.name.replaceAll(/[^\w.-]+/g, "-");
+        const safeName = safeStorageFileName(file.name);
         const key = `${orgId}/documents/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}-${safeName}`;
-        const { error: uploadError } = await supabase.storage
-          .from("documents")
-          .upload(key, file, { upsert: false });
-        if (uploadError) {
-          toast.error(errorLabel, { description: uploadError.message });
-          setUploading(false);
-          return;
-        }
-        const { data } = supabase.storage.from("documents").getPublicUrl(key);
-        if (!data.publicUrl) {
+        const uploaded = await uploadPublicFileViaApi({
+          namespace: "documents",
+          key,
+          file,
+          orgId,
+        });
+        if (!uploaded.publicUrl) {
           toast.error(errorLabel, {
             description: "Could not resolve public URL.",
           });
@@ -58,7 +57,7 @@ export function DocumentUpload({
           mimeType = "application/octet-stream";
         }
         onUploaded({
-          url: data.publicUrl,
+          url: uploaded.publicUrl,
           name: file.name,
           mimeType,
           size: file.size,

@@ -7,9 +7,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -19,10 +20,10 @@ fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
 
 fn seasonal_coefficient(month: u32) -> f64 {
     match month {
-        12 | 1 | 2 => 1.15,  // High season: summer / pool
-        6 | 7 | 8 => 1.10,   // Moderate high: Chaco / winter tourism
-        3 | 11 => 1.05,      // Shoulder
-        _ => 0.95,            // Low season
+        12 | 1 | 2 => 1.15, // High season: summer / pool
+        6 | 7 | 8 => 1.10,  // Moderate high: Chaco / winter tourism
+        3 | 11 => 1.05,     // Shoulder
+        _ => 0.95,          // Low season
     }
 }
 
@@ -132,19 +133,35 @@ pub async fn tool_generate_pricing_recommendations(
         .unwrap_or(f64::MAX);
     let last_minute_days = rule_set
         .as_ref()
-        .and_then(|r| r.try_get::<Option<i32>, _>("last_minute_days").ok().flatten())
+        .and_then(|r| {
+            r.try_get::<Option<i32>, _>("last_minute_days")
+                .ok()
+                .flatten()
+        })
         .unwrap_or(3);
     let last_minute_discount = rule_set
         .as_ref()
-        .and_then(|r| r.try_get::<Option<f64>, _>("last_minute_discount_pct").ok().flatten())
+        .and_then(|r| {
+            r.try_get::<Option<f64>, _>("last_minute_discount_pct")
+                .ok()
+                .flatten()
+        })
         .unwrap_or(0.0);
     let long_stay_threshold = rule_set
         .as_ref()
-        .and_then(|r| r.try_get::<Option<i32>, _>("long_stay_threshold_days").ok().flatten())
+        .and_then(|r| {
+            r.try_get::<Option<i32>, _>("long_stay_threshold_days")
+                .ok()
+                .flatten()
+        })
         .unwrap_or(7);
     let long_stay_discount = rule_set
         .as_ref()
-        .and_then(|r| r.try_get::<Option<f64>, _>("long_stay_discount_pct").ok().flatten())
+        .and_then(|r| {
+            r.try_get::<Option<f64>, _>("long_stay_discount_pct")
+                .ok()
+                .flatten()
+        })
         .unwrap_or(0.0);
 
     // Current month for seasonal factor
@@ -267,16 +284,30 @@ pub async fn tool_generate_pricing_recommendations(
 
         let mut reasons = Vec::new();
         if demand_adj.abs() > 0.001 {
-            reasons.push(format!("Occupancy {:.0}% → demand {}", occupancy * 100.0, if demand_adj > 0.0 { "boost" } else { "reduction" }));
+            reasons.push(format!(
+                "Occupancy {:.0}% → demand {}",
+                occupancy * 100.0,
+                if demand_adj > 0.0 {
+                    "boost"
+                } else {
+                    "reduction"
+                }
+            ));
         }
         if seasonal_adj.abs() > 0.001 {
             reasons.push(format!("Seasonal factor {:.0}%", seasonal_adj * 100.0));
         }
         if competitor_adj.abs() > 0.001 {
-            reasons.push(format!("Competitor positioning vs market avg ${:.0}", market_avg));
+            reasons.push(format!(
+                "Competitor positioning vs market avg ${:.0}",
+                market_avg
+            ));
         }
         if last_minute_adj.abs() > 0.001 {
-            reasons.push(format!("Last-minute discount {:.0}%", last_minute_adj * 100.0));
+            reasons.push(format!(
+                "Last-minute discount {:.0}%",
+                last_minute_adj * 100.0
+            ));
         }
         let reason = reasons.join(". ");
 
@@ -390,9 +421,7 @@ pub async fn tool_apply_pricing_recommendation(
     let template_id = row
         .try_get::<String, _>("pricing_template_id")
         .unwrap_or_default();
-    let new_price = row
-        .try_get::<f64, _>("recommended_price")
-        .unwrap_or(0.0);
+    let new_price = row.try_get::<f64, _>("recommended_price").unwrap_or(0.0);
 
     // Update pricing template
     sqlx::query(
@@ -484,7 +513,9 @@ pub async fn tool_fetch_market_data(
     })?;
 
     let snap_id = row.try_get::<String, _>("id").unwrap_or_default();
-    let snap_date = row.try_get::<String, _>("snapshot_date").unwrap_or_default();
+    let snap_date = row
+        .try_get::<String, _>("snapshot_date")
+        .unwrap_or_default();
 
     // Also return recent market summary
     let summary = sqlx::query(
@@ -552,7 +583,9 @@ pub async fn tool_simulate_rate_impact(
         .clamp(7, 180) as i32;
 
     if unit_id.is_empty() || proposed_rate <= 0.0 {
-        return Ok(json!({ "ok": false, "error": "unit_id and proposed_rate (> 0) are required." }));
+        return Ok(
+            json!({ "ok": false, "error": "unit_id and proposed_rate (> 0) are required." }),
+        );
     }
 
     // Get current rate and historical occupancy for this unit
@@ -604,7 +637,13 @@ pub async fn tool_simulate_rate_impact(
             e
         } else {
             // Fallback to guardrail config with -0.8 default
-            crate::services::ai_agent::get_guardrail_value_f64(pool, org_id, "price_elasticity", -0.8).await
+            crate::services::ai_agent::get_guardrail_value_f64(
+                pool,
+                org_id,
+                "price_elasticity",
+                -0.8,
+            )
+            .await
         }
     };
     let rate_change_pct = if current_rate > 0.0 {
@@ -665,12 +704,11 @@ pub async fn run_daily_pricing_recommendations(state: &AppState) {
         None => return,
     };
 
-    let org_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true LIMIT 100",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let org_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true LIMIT 100")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     let mut total = 0u32;
     for (org_id,) in &org_ids {
@@ -706,10 +744,7 @@ pub async fn run_daily_pricing_recommendations(state: &AppState) {
 }
 
 /// Auto-approve pricing recommendations where the change delta is less than 10%.
-async fn auto_approve_small_pricing_changes(
-    pool: &sqlx::PgPool,
-    org_id: &str,
-) -> AppResult<u32> {
+async fn auto_approve_small_pricing_changes(pool: &sqlx::PgPool, org_id: &str) -> AppResult<u32> {
     let rows = sqlx::query_as::<_, (String, String, f64, f64)>(
         "SELECT pr.id::text, pr.pricing_template_id::text,
                 pr.recommended_price::float8, pt.base_price::float8

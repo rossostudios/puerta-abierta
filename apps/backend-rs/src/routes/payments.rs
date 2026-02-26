@@ -306,7 +306,7 @@ pub struct CollectionIdPath {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -421,12 +421,16 @@ async fn stripe_webhook(
 ) -> AppResult<impl IntoResponse> {
     let pool = db_pool(&state)?;
 
-    let body_str = String::from_utf8(body.to_vec()).map_err(|_| {
-        AppError::BadRequest("Invalid webhook body encoding.".to_string())
-    })?;
+    let body_str = String::from_utf8(body.to_vec())
+        .map_err(|_| AppError::BadRequest("Invalid webhook body encoding.".to_string()))?;
 
     // Verify Stripe signature if webhook secret is configured
-    if let Some(secret) = state.config.stripe_webhook_secret.as_deref().filter(|s| !s.is_empty()) {
+    if let Some(secret) = state
+        .config
+        .stripe_webhook_secret
+        .as_deref()
+        .filter(|s| !s.is_empty())
+    {
         let sig_header = headers
             .get("stripe-signature")
             .and_then(|v| v.to_str().ok())
@@ -440,9 +444,8 @@ async fn stripe_webhook(
         }
     }
 
-    let payload: Value = serde_json::from_str(&body_str).map_err(|_| {
-        AppError::BadRequest("Invalid webhook JSON.".to_string())
-    })?;
+    let payload: Value = serde_json::from_str(&body_str)
+        .map_err(|_| AppError::BadRequest("Invalid webhook JSON.".to_string()))?;
 
     let event_type = payload
         .get("type")
@@ -539,10 +542,9 @@ async fn create_mercado_pago_checkout(
     let org_id = value_str(&record, "organization_id");
 
     // Get org's Mercado Pago access token
-    let access_token =
-        crate::services::mercado_pago::get_org_mp_access_token(pool, &org_id)
-            .await
-            .map_err(AppError::Dependency)?;
+    let access_token = crate::services::mercado_pago::get_org_mp_access_token(pool, &org_id)
+        .await
+        .map_err(AppError::Dependency)?;
 
     let org_name = if !org_id.is_empty() {
         get_row(pool, "organizations", &org_id, "id")
@@ -569,7 +571,11 @@ async fn create_mercado_pago_checkout(
         state.config.app_public_url, reference_code
     );
 
-    let mp_currency = if currency.is_empty() { "PYG" } else { &currency };
+    let mp_currency = if currency.is_empty() {
+        "PYG"
+    } else {
+        &currency
+    };
 
     let result = crate::services::mercado_pago::create_mp_checkout(
         &state.http_client,
@@ -606,10 +612,7 @@ async fn mercado_pago_webhook(
     }
 
     // Get payment ID from the notification
-    let payment_id_str = if let Some(id) = payload
-        .get("data")
-        .and_then(|d| d.get("id"))
-    {
+    let payment_id_str = if let Some(id) = payload.get("data").and_then(|d| d.get("id")) {
         if let Some(s) = id.as_str() {
             s.to_string()
         } else if let Some(n) = id.as_i64() {
@@ -665,13 +668,8 @@ async fn mercado_pago_webhook(
         }
 
         // Find the payment instruction by reference code
-        if let Ok(instruction) = get_row(
-            pool,
-            "payment_instructions",
-            external_ref,
-            "reference_code",
-        )
-        .await
+        if let Ok(instruction) =
+            get_row(pool, "payment_instructions", external_ref, "reference_code").await
         {
             let mp_amount = payment_info
                 .get("transaction_amount")

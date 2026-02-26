@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useActiveLocale } from "@/lib/i18n/client";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { uploadPublicFileViaApi } from "@/lib/storage/public-upload";
 
 const MAX_LOGO_BYTES = 5 * 1024 * 1024;
 
@@ -74,24 +74,19 @@ export function OrgSettingsForm({ org }: { org: OrgRecord }) {
       ? "Could not resolve uploaded image URL."
       : "No se pudo obtener la URL de la imagen.";
     try {
-      const supabase = getSupabaseBrowserClient();
       const key = `orgs/${org.id}/branding/logo/${crypto.randomUUID()}-${safeFileName(file.name)}`;
-      const { error: uploadError } = await supabase.storage
-        .from("documents")
-        .upload(key, file, { upsert: false });
-      if (uploadError) {
-        toast.error(errorLabel, { description: uploadError.message });
-        setUploadingLogo(false);
-        return;
-      }
-
-      const { data } = supabase.storage.from("documents").getPublicUrl(key);
-      if (!data.publicUrl) {
+      const uploaded = await uploadPublicFileViaApi({
+        namespace: "documents",
+        key,
+        file,
+        orgId: org.id,
+      });
+      if (!uploaded.publicUrl) {
         toast.error(errorLabel, { description: noUrlMsg });
         setUploadingLogo(false);
         return;
       }
-      setLogoUrl(data.publicUrl);
+      setLogoUrl(uploaded.publicUrl);
       let uploadedMsg: string;
       if (isEn) {
         uploadedMsg = "Logo uploaded";

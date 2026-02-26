@@ -1,6 +1,17 @@
 use axum::{extract::Request, middleware::Next, response::Response};
 use uuid::Uuid;
 
+#[derive(Debug, Clone)]
+pub struct CurrentRequestId(pub String);
+
+tokio::task_local! {
+    static REQUEST_ID_TASK_LOCAL: CurrentRequestId;
+}
+
+pub fn current_request_id() -> Option<String> {
+    REQUEST_ID_TASK_LOCAL.try_with(|value| value.0.clone()).ok()
+}
+
 /// Middleware that generates a unique request ID and attaches it to the
 /// current tracing span. Also sets an `x-request-id` response header.
 pub async fn inject_request_id(request: Request, next: Next) -> Response {
@@ -25,7 +36,11 @@ pub async fn inject_request_id(request: Request, next: Next) -> Response {
     let mut response = {
         drop(_guard);
         let _entered = span.enter();
-        next.run(request).await
+        REQUEST_ID_TASK_LOCAL
+            .scope(CurrentRequestId(request_id.clone()), async {
+                next.run(request).await
+            })
+            .await
     };
 
     response.headers_mut().insert(

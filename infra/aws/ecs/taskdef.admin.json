@@ -1,0 +1,48 @@
+{
+  "family": "casaora-admin",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::341112583495:role/casaora-admin-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::341112583495:role/casaora-admin-task-role",
+  "containerDefinitions": [
+    {
+      "name": "casaora-admin",
+      "image": "REPLACE_ME_IMAGE_URI",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "3000" },
+        { "name": "HOSTNAME", "value": "0.0.0.0" },
+        { "name": "NEXT_PUBLIC_API_BASE_URL", "value": "https://api.example.com/v1" },
+        { "name": "NEXT_PUBLIC_SITE_URL", "value": "https://app.example.com" },
+        { "name": "NEXT_PUBLIC_CLERK_DOMAIN", "value": "clerk.example.com" },
+        { "name": "NEXT_PUBLIC_CLERK_JS_URL", "value": "https://clerk.example.com/npm/@clerk/clerk-js@5/dist/clerk.browser.js" }
+      ],
+      "secrets": [
+        { "name": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "valueFrom": "REPLACE_ME_CLERK_PUBLISHABLE_SECRET_ARN" },
+        { "name": "CLERK_SECRET_KEY", "valueFrom": "REPLACE_ME_CLERK_SECRET_ARN" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/casaora-admin",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

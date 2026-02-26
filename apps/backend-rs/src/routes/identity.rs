@@ -2,7 +2,7 @@ use axum::{extract::State, http::HeaderMap, Json};
 use serde_json::{json, Map, Value};
 
 use crate::{
-    auth::require_supabase_user,
+    auth::require_authenticated_user,
     error::{AppError, AppResult},
     repository::table_service::list_rows,
     state::AppState,
@@ -10,11 +10,11 @@ use crate::{
 };
 
 pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> AppResult<Json<Value>> {
-    let user = require_supabase_user(&state, &headers).await?;
+    let user = require_authenticated_user(&state, &headers).await?;
     let app_user = ensure_app_user(&state, &user).await?;
     let Some(pool) = state.db_pool.as_ref() else {
         return Err(AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         ));
     };
 

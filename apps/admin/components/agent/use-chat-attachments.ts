@@ -3,7 +3,10 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 export type ChatAttachment = {
   id: string;
@@ -33,8 +36,7 @@ export function useChatAttachments(orgId: string, isEn: boolean) {
 
   const uploadFile = useCallback(
     async (attachment: ChatAttachment) => {
-      const supabase = getSupabaseBrowserClient();
-      const safeName = attachment.file.name.replaceAll(/[^\w.-]+/g, "-");
+      const safeName = safeStorageFileName(attachment.file.name);
       const key = `${orgId}/chat-attachments/${crypto.randomUUID()}-${safeName}`;
 
       setAttachments((prev) =>
@@ -44,14 +46,13 @@ export function useChatAttachments(orgId: string, isEn: boolean) {
       );
 
       try {
-        const { error: uploadError } = await supabase.storage
-          .from("listings")
-          .upload(key, attachment.file, { upsert: false });
-
-        if (uploadError) throw new Error(uploadError.message);
-
-        const { data } = supabase.storage.from("listings").getPublicUrl(key);
-        const publicUrl = data.publicUrl;
+        const uploaded = await uploadPublicFileViaApi({
+          namespace: "listings",
+          key,
+          file: attachment.file,
+          orgId,
+        });
+        const publicUrl = uploaded.publicUrl;
         if (!publicUrl) throw new Error("Could not resolve public URL.");
 
         setAttachments((prev) =>

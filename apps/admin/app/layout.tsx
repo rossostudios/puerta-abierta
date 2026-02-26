@@ -1,5 +1,6 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistPixelSquare } from "geist/font/pixel";
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Playfair_Display } from "next/font/google";
 import localFont from "next/font/local";
@@ -39,6 +40,7 @@ const playfair = Playfair_Display({
 });
 
 import { AppHotkeysProvider } from "@/components/providers/hotkeys-provider";
+import { ClerkTokenBridgeProvider } from "@/components/providers/clerk-token-bridge-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ApiErrorToaster } from "@/components/shell/api-error-toaster";
 import { Toaster } from "@/components/ui/sonner";
@@ -118,27 +120,31 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getActiveLocale();
   return (
-    <html
-      className={`${diatype.variable} ${GeistMono.variable} ${GeistPixelSquare.variable} ${playfair.variable}`}
-      lang={locale}
-      suppressHydrationWarning
-    >
-      <body
-        className="font-sans antialiased"
-        data-base-ui-root
+    <ClerkProvider>
+      <html
+        className={`${diatype.variable} ${GeistMono.variable} ${GeistPixelSquare.variable} ${playfair.variable}`}
+        lang={locale}
         suppressHydrationWarning
       >
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
-        <LocaleProvider initialLocale={locale}>
-          <QueryProvider>
-            <AppHotkeysProvider>{children}</AppHotkeysProvider>
-          </QueryProvider>
-        </LocaleProvider>
-        <Toaster />
-        <ApiErrorToaster />
-      </body>
-    </html>
+        <body
+          className="font-sans antialiased"
+          data-base-ui-root
+          suppressHydrationWarning
+        >
+          <Script id="theme-init" strategy="beforeInteractive">
+            {THEME_INIT_SCRIPT}
+          </Script>
+          <LocaleProvider initialLocale={locale}>
+            <ClerkTokenBridgeProvider>
+              <QueryProvider>
+                <AppHotkeysProvider>{children}</AppHotkeysProvider>
+              </QueryProvider>
+            </ClerkTokenBridgeProvider>
+          </LocaleProvider>
+          <Toaster />
+          <ApiErrorToaster />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

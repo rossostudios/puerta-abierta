@@ -185,7 +185,10 @@ mod tests {
     #[test]
     fn parse_every_2_hours() {
         let schedule = CronSchedule::parse("0 */2 * * *").unwrap();
-        assert_eq!(schedule.hours, vec![0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]);
+        assert_eq!(
+            schedule.hours,
+            vec![0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+        );
     }
 
     #[test]

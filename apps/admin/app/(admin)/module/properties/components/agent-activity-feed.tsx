@@ -1,13 +1,12 @@
 "use client";
 
 import { SparklesIcon } from "@hugeicons/core-free-icons";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Icon } from "@/components/ui/icon";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { useRealtimeSubscription } from "@/lib/supabase/use-realtime-subscription";
+import { useVisibilityPollingInterval } from "@/lib/hooks/use-visibility-polling";
 import { cn } from "@/lib/utils";
 
 type Approval = {
@@ -35,7 +34,11 @@ function relativeTime(timestamp: string, isEn: boolean): string {
 }
 
 export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
-  const queryClient = useQueryClient();
+  const pollInterval = useVisibilityPollingInterval({
+    enabled: !!orgId,
+    foregroundMs: 15_000,
+    backgroundMs: 60_000,
+  });
 
   const { data: approvals = [] } = useQuery<Approval[]>({
     queryKey: ["agent-activity-feed", orgId],
@@ -51,48 +54,8 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
     staleTime: 30_000,
     enabled: !!orgId,
     retry: false,
-  });
-
-  const handleRealtimeInsert = useCallback(
-    (payload: { new: Record<string, unknown> }) => {
-      const newRow = payload.new;
-      const approval: Approval = {
-        id: String(newRow.id ?? ""),
-        agent_slug: String(newRow.agent_slug ?? ""),
-        tool_name: String(newRow.tool_name ?? ""),
-        status: String(newRow.status ?? "pending"),
-        created_at: String(newRow.created_at ?? new Date().toISOString()),
-      };
-      queryClient.setQueryData(
-        ["agent-activity-feed", orgId],
-        (prev: Approval[] | undefined) => [approval, ...(prev ?? [])].slice(0, 5)
-      );
-    },
-    [orgId, queryClient]
-  );
-
-  const handleRealtimeUpdate = useCallback(
-    (payload: { new: Record<string, unknown> }) => {
-      const newRow = payload.new;
-      const id = String(newRow.id ?? "");
-      const status = String(newRow.status ?? "");
-      if (!id || !status) return;
-      queryClient.setQueryData(
-        ["agent-activity-feed", orgId],
-        (prev: Approval[] | undefined) =>
-          prev ? prev.map((a) => (a.id === id ? { ...a, status } : a)) : []
-      );
-    },
-    [orgId, queryClient]
-  );
-
-  useRealtimeSubscription({
-    table: "agent_approvals",
-    event: "*",
-    filter: `organization_id=eq.${orgId}`,
-    enabled: !!orgId,
-    onInsert: handleRealtimeInsert,
-    onUpdate: handleRealtimeUpdate,
+    refetchInterval: pollInterval,
+    refetchOnWindowFocus: true,
   });
 
   if (approvals.length === 0) return null;

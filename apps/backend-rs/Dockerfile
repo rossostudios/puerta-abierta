@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1.7
+
+FROM rust:1.91-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY src ./src
+
+RUN cargo build --release --locked
+
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV HOST=0.0.0.0 \
+    PORT=8000 \
+    RUST_LOG=info
+
+WORKDIR /srv
+
+COPY --from=builder /app/target/release/casaora-backend-rs /usr/local/bin/casaora-backend-rs
+
+EXPOSE 8000
+
+CMD ["casaora-backend-rs"]

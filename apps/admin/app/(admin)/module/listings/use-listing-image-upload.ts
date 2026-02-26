@@ -4,7 +4,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useActiveLocale } from "@/lib/i18n/client";
-import { getSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  safeStorageFileName,
+  uploadPublicFileViaApi,
+} from "@/lib/storage/public-upload";
 
 export function useListingImageUpload(orgId: string) {
   const locale = useActiveLocale();
@@ -20,20 +23,15 @@ export function useListingImageUpload(orgId: string) {
 
     setUploading(true);
     try {
-      const supabase = getSupabaseBrowserClient();
-      const safeName = file.name.replaceAll(/[^\w.-]+/g, "-");
+      const safeName = safeStorageFileName(file.name);
       const key = `${orgId}/listings/${crypto.randomUUID()}-${safeName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("listings")
-        .upload(key, file, { upsert: false });
-
-      if (uploadError) {
-        throw new Error(uploadError.message);
-      }
-
-      const { data } = supabase.storage.from("listings").getPublicUrl(key);
-      const publicUrl = data.publicUrl;
+      const uploaded = await uploadPublicFileViaApi({
+        namespace: "listings",
+        key,
+        file,
+        orgId,
+      });
+      const publicUrl = uploaded.publicUrl;
       if (!publicUrl)
         throw new Error("Could not resolve a public URL for the upload.");
 

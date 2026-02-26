@@ -1290,8 +1290,8 @@ async fn execute_invoke_agent(
         .unwrap_or_default();
 
     // Append context to the message
-    let context_json = serde_json::to_string_pretty(&Value::Object(context.clone()))
-        .unwrap_or_default();
+    let context_json =
+        serde_json::to_string_pretty(&Value::Object(context.clone())).unwrap_or_default();
     let full_message = format!("{message}\n\nContext:\n```json\n{context_json}\n```");
 
     // Emit a notification so the agent invocation is visible in the inbox
@@ -1315,14 +1315,8 @@ async fn execute_invoke_agent(
                     Value::String(agent_slug.to_string()),
                 );
                 p.insert("message".to_string(), Value::String(message.clone()));
-                p.insert(
-                    "system_prompt".to_string(),
-                    Value::String(system_prompt),
-                );
-                p.insert(
-                    "allowed_tools".to_string(),
-                    json!(allowed_tools),
-                );
+                p.insert("system_prompt".to_string(), Value::String(system_prompt));
+                p.insert("allowed_tools".to_string(), json!(allowed_tools));
                 p.insert("context".to_string(), Value::Object(context.clone()));
                 p
             },

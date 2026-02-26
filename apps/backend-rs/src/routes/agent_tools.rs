@@ -94,11 +94,19 @@ async fn get_tool_definitions(
                 .unwrap_or_else(|| serde_json::json!({"type": "object", "properties": {}}));
 
             // Determine if this tool requires approval (mutations)
-            let needs_approval = matches!(name, "create_row" | "update_row" | "delete_row"
-                | "send_message" | "apply_pricing_recommendation"
-                | "advance_application_stage" | "escalate_maintenance"
-                | "auto_assign_maintenance" | "select_vendor"
-                | "abstract_lease_document");
+            let needs_approval = matches!(
+                name,
+                "create_row"
+                    | "update_row"
+                    | "delete_row"
+                    | "send_message"
+                    | "apply_pricing_recommendation"
+                    | "advance_application_stage"
+                    | "escalate_maintenance"
+                    | "auto_assign_maintenance"
+                    | "select_vendor"
+                    | "abstract_lease_document"
+            );
 
             Some(serde_json::json!({
                 "name": name,

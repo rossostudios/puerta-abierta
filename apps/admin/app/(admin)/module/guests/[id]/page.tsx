@@ -23,11 +23,11 @@ import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableCard } from "@/components/ui/table-card";
 import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 import { GuestProfileActions } from "../guest-profile-actions";
@@ -122,9 +122,7 @@ async function fetchGuest(options: {
 }): Promise<GuestRecord> {
   const { id, isEn } = options;
 
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token ?? null;
+  const token = await getServerAccessToken();
 
   const response = await fetch(
     `${getApiBaseUrl()}/guests/${encodeURIComponent(id)}`,

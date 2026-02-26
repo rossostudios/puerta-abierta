@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from "@/lib/api";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import type { Locale } from "@/lib/i18n";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   asString,
   getFirstValue,
@@ -26,9 +26,7 @@ export async function loadPropertyDetailData(params: {
 
   let accessToken: string | null = null;
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getSession();
-    accessToken = data.session?.access_token ?? null;
+    accessToken = await getServerAccessToken();
   } catch {
     accessToken = null;
   }

@@ -7,9 +7,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Generate a time-limited access code for a unit/reservation.
@@ -20,13 +21,35 @@ pub async fn tool_generate_access_code(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let unit_id = args.get("unit_id").and_then(Value::as_str).unwrap_or_default();
-    let reservation_id = args.get("reservation_id").and_then(Value::as_str).filter(|s| !s.is_empty());
-    let lease_id = args.get("lease_id").and_then(Value::as_str).filter(|s| !s.is_empty());
-    let guest_name = args.get("guest_name").and_then(Value::as_str).unwrap_or_default();
-    let guest_phone = args.get("guest_phone").and_then(Value::as_str).unwrap_or_default();
-    let valid_hours = args.get("valid_hours").and_then(Value::as_i64).unwrap_or(72).clamp(1, 8760);
-    let code_type = args.get("code_type").and_then(Value::as_str).unwrap_or("temporary");
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let reservation_id = args
+        .get("reservation_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let lease_id = args
+        .get("lease_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let guest_name = args
+        .get("guest_name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let guest_phone = args
+        .get("guest_phone")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let valid_hours = args
+        .get("valid_hours")
+        .and_then(Value::as_i64)
+        .unwrap_or(72)
+        .clamp(1, 8760);
+    let code_type = args
+        .get("code_type")
+        .and_then(Value::as_str)
+        .unwrap_or("temporary");
 
     if unit_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "unit_id is required." }));
@@ -79,8 +102,14 @@ pub async fn tool_send_access_code(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let code_id = args.get("code_id").and_then(Value::as_str).unwrap_or_default();
-    let send_via = args.get("send_via").and_then(Value::as_str).unwrap_or("whatsapp");
+    let code_id = args
+        .get("code_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let send_via = args
+        .get("send_via")
+        .and_then(Value::as_str)
+        .unwrap_or("whatsapp");
 
     if code_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "code_id is required." }));
@@ -105,7 +134,11 @@ pub async fn tool_send_access_code(
 
     let code = row.try_get::<String, _>("code").unwrap_or_default();
     let guest_phone = row.try_get::<String, _>("guest_phone").unwrap_or_default();
-    let valid_until = row.try_get::<Option<String>, _>("valid_until").ok().flatten().unwrap_or_default();
+    let valid_until = row
+        .try_get::<Option<String>, _>("valid_until")
+        .ok()
+        .flatten()
+        .unwrap_or_default();
 
     // Mark as sent
     let _ = sqlx::query(
@@ -125,14 +158,23 @@ pub async fn tool_send_access_code(
             code, valid_until
         );
         let mut msg = serde_json::Map::new();
-        msg.insert("organization_id".to_string(), Value::String(org_id.to_string()));
+        msg.insert(
+            "organization_id".to_string(),
+            Value::String(org_id.to_string()),
+        );
         msg.insert("channel".to_string(), Value::String(send_via.to_string()));
         msg.insert("recipient".to_string(), Value::String(guest_phone.clone()));
-        msg.insert("direction".to_string(), Value::String("outbound".to_string()));
+        msg.insert(
+            "direction".to_string(),
+            Value::String("outbound".to_string()),
+        );
         msg.insert("status".to_string(), Value::String("queued".to_string()));
         let mut payload = serde_json::Map::new();
         payload.insert("body".to_string(), Value::String(body));
-        payload.insert("template".to_string(), Value::String("access_code".to_string()));
+        payload.insert(
+            "template".to_string(),
+            Value::String("access_code".to_string()),
+        );
         msg.insert("payload".to_string(), Value::Object(payload));
         let _ = crate::repository::table_service::create_row(pool, "message_logs", &msg).await;
     }
@@ -154,8 +196,14 @@ pub async fn tool_revoke_access_code(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let code_id = args.get("code_id").and_then(Value::as_str).unwrap_or_default();
-    let unit_id = args.get("unit_id").and_then(Value::as_str).filter(|s| !s.is_empty());
+    let code_id = args
+        .get("code_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
 
     if code_id.is_empty() && unit_id.is_none() {
         return Ok(json!({ "ok": false, "error": "code_id or unit_id is required." }));
@@ -202,11 +250,23 @@ pub async fn tool_process_sensor_event(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let device_id = args.get("device_id").and_then(Value::as_str).unwrap_or_default();
-    let event_type = args.get("event_type").and_then(Value::as_str).unwrap_or("reading");
+    let device_id = args
+        .get("device_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let event_type = args
+        .get("event_type")
+        .and_then(Value::as_str)
+        .unwrap_or("reading");
     let value = args.get("value").and_then(Value::as_f64);
-    let unit_of_measure = args.get("unit_of_measure").and_then(Value::as_str).unwrap_or_default();
-    let description = args.get("description").and_then(Value::as_str).unwrap_or_default();
+    let unit_of_measure = args
+        .get("unit_of_measure")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let description = args
+        .get("description")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     if device_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "device_id is required." }));
@@ -215,9 +275,9 @@ pub async fn tool_process_sensor_event(
     // Determine severity based on thresholds
     let severity = if let Some(val) = value {
         match unit_of_measure {
-            "%" if val > 80.0 => "warning",   // humidity > 80%
-            "°C" if val > 35.0 => "warning",  // temperature > 35°C
-            "°C" if val < 5.0 => "critical",  // freezing
+            "%" if val > 80.0 => "warning",  // humidity > 80%
+            "°C" if val > 35.0 => "warning", // temperature > 35°C
+            "°C" if val < 5.0 => "critical", // freezing
             _ if event_type == "alert" => "warning",
             _ => "info",
         }
@@ -248,12 +308,10 @@ pub async fn tool_process_sensor_event(
     })?;
 
     // Update device last_seen_at
-    let _ = sqlx::query(
-        "UPDATE iot_devices SET last_seen_at = now() WHERE id = $1::uuid",
-    )
-    .bind(device_id)
-    .execute(pool)
-    .await;
+    let _ = sqlx::query("UPDATE iot_devices SET last_seen_at = now() WHERE id = $1::uuid")
+        .bind(device_id)
+        .execute(pool)
+        .await;
 
     // If critical/warning, auto-create maintenance ticket for water leak or smoke
     let mut ticket_created = false;
@@ -307,8 +365,14 @@ pub async fn tool_get_device_status(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let device_type = args.get("device_type").and_then(Value::as_str).filter(|s| !s.is_empty());
-    let unit_id = args.get("unit_id").and_then(Value::as_str).filter(|s| !s.is_empty());
+    let device_type = args
+        .get("device_type")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
+    let unit_id = args
+        .get("unit_id")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty());
 
     let devices = sqlx::query(
         "SELECT d.id::text, d.device_type, d.device_name, d.status, d.battery_level,
@@ -329,26 +393,41 @@ pub async fn tool_get_device_status(
     .await
     .unwrap_or_default();
 
-    let device_list: Vec<Value> = devices.iter().map(|d| {
-        json!({
-            "device_id": d.try_get::<String, _>("id").unwrap_or_default(),
-            "device_type": d.try_get::<String, _>("device_type").unwrap_or_default(),
-            "device_name": d.try_get::<String, _>("device_name").unwrap_or_default(),
-            "status": d.try_get::<String, _>("status").unwrap_or_default(),
-            "battery_level": d.try_get::<Option<i32>, _>("battery_level").ok().flatten(),
-            "last_seen_at": d.try_get::<Option<String>, _>("last_seen_at").ok().flatten(),
-            "unit_id": d.try_get::<Option<String>, _>("unit_id").ok().flatten(),
-            "unit_name": d.try_get::<Option<String>, _>("unit_name").ok().flatten(),
-            "manufacturer": d.try_get::<Option<String>, _>("manufacturer").ok().flatten(),
-            "model": d.try_get::<Option<String>, _>("model").ok().flatten(),
+    let device_list: Vec<Value> = devices
+        .iter()
+        .map(|d| {
+            json!({
+                "device_id": d.try_get::<String, _>("id").unwrap_or_default(),
+                "device_type": d.try_get::<String, _>("device_type").unwrap_or_default(),
+                "device_name": d.try_get::<String, _>("device_name").unwrap_or_default(),
+                "status": d.try_get::<String, _>("status").unwrap_or_default(),
+                "battery_level": d.try_get::<Option<i32>, _>("battery_level").ok().flatten(),
+                "last_seen_at": d.try_get::<Option<String>, _>("last_seen_at").ok().flatten(),
+                "unit_id": d.try_get::<Option<String>, _>("unit_id").ok().flatten(),
+                "unit_name": d.try_get::<Option<String>, _>("unit_name").ok().flatten(),
+                "manufacturer": d.try_get::<Option<String>, _>("manufacturer").ok().flatten(),
+                "model": d.try_get::<Option<String>, _>("model").ok().flatten(),
+            })
         })
-    }).collect();
+        .collect();
 
-    let online = device_list.iter().filter(|d| d.get("status").and_then(Value::as_str) == Some("online")).count();
-    let offline = device_list.iter().filter(|d| d.get("status").and_then(Value::as_str) == Some("offline")).count();
-    let low_battery = device_list.iter().filter(|d| {
-        d.get("battery_level").and_then(Value::as_i64).map(|b| b < 20).unwrap_or(false)
-    }).count();
+    let online = device_list
+        .iter()
+        .filter(|d| d.get("status").and_then(Value::as_str) == Some("online"))
+        .count();
+    let offline = device_list
+        .iter()
+        .filter(|d| d.get("status").and_then(Value::as_str) == Some("offline"))
+        .count();
+    let low_battery = device_list
+        .iter()
+        .filter(|d| {
+            d.get("battery_level")
+                .and_then(Value::as_i64)
+                .map(|b| b < 20)
+                .unwrap_or(false)
+        })
+        .count();
 
     Ok(json!({
         "ok": true,

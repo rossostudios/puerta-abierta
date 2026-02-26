@@ -31,10 +31,7 @@ pub fn router() -> axum::Router<AppState> {
             "/public/subscription-plans",
             axum::routing::get(list_public_plans),
         )
-        .route(
-            "/billing/usage",
-            axum::routing::get(get_usage_summary),
-        )
+        .route("/billing/usage", axum::routing::get(get_usage_summary))
         .route(
             "/billing/usage-history",
             axum::routing::get(get_usage_history),
@@ -434,14 +431,24 @@ async fn get_plan_comparison(
         "organization_id".to_string(),
         Value::String(query.org_id.clone()),
     );
-    let subs = list_rows(pool, "org_subscriptions", Some(&org_filter), 1, 0, "created_at", false)
-        .await
-        .unwrap_or_default();
+    let subs = list_rows(
+        pool,
+        "org_subscriptions",
+        Some(&org_filter),
+        1,
+        0,
+        "created_at",
+        false,
+    )
+    .await
+    .unwrap_or_default();
 
     let current_plan = if let Some(sub) = subs.into_iter().next() {
         let plan_id = val_str(&sub, "plan_id");
         if !plan_id.is_empty() {
-            get_row(pool, "subscription_plans", &plan_id, "id").await.ok()
+            get_row(pool, "subscription_plans", &plan_id, "id")
+                .await
+                .ok()
         } else {
             None
         }
@@ -467,7 +474,7 @@ async fn get_plan_comparison(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

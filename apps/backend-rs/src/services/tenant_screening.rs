@@ -8,9 +8,10 @@ use crate::{
 };
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
-    state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency("Database is not configured.".to_string())
-    })
+    state
+        .db_pool
+        .as_ref()
+        .ok_or_else(|| AppError::Dependency("Database is not configured.".to_string()))
 }
 
 /// Score a rental application using rule-based screening criteria.
@@ -190,16 +191,14 @@ pub async fn tool_score_application(
     }));
 
     // 5. Application completeness (max 10 points)
-    let completeness_score = if monthly_income > 0.0
-        && !employment_status.is_empty()
-        && references_count > 0
-    {
-        10.0
-    } else if monthly_income > 0.0 || !employment_status.is_empty() {
-        6.0
-    } else {
-        3.0
-    };
+    let completeness_score =
+        if monthly_income > 0.0 && !employment_status.is_empty() && references_count > 0 {
+            10.0
+        } else if monthly_income > 0.0 || !employment_status.is_empty() {
+            6.0
+        } else {
+            3.0
+        };
     total_score += completeness_score;
     max_possible += 10.0;
     breakdown.push(json!({
@@ -451,12 +450,17 @@ pub async fn tool_forecast_demand(
     })?;
 
     // Build monthly occupancy map from last 12 months
-    let mut month_occupancy: std::collections::HashMap<u32, (f64, f64, u32)> = std::collections::HashMap::new(); // month -> (total_nights, total_revenue, count)
+    let mut month_occupancy: std::collections::HashMap<u32, (f64, f64, u32)> =
+        std::collections::HashMap::new(); // month -> (total_nights, total_revenue, count)
     let today = chrono::Utc::now().date_naive();
 
     for row in &reservations {
-        let ci = row.try_get::<String, _>("check_in_date").unwrap_or_default();
-        let co = row.try_get::<String, _>("check_out_date").unwrap_or_default();
+        let ci = row
+            .try_get::<String, _>("check_in_date")
+            .unwrap_or_default();
+        let co = row
+            .try_get::<String, _>("check_out_date")
+            .unwrap_or_default();
         let amount = row.try_get::<f64, _>("total_amount").unwrap_or(0.0);
 
         if let (Ok(ci_date), Ok(co_date)) = (
@@ -521,7 +525,13 @@ pub async fn tool_forecast_demand(
             "low"
         };
 
-        let confidence = if booking_count >= 3 { 0.7 } else if booking_count >= 1 { 0.4 } else { 0.2 };
+        let confidence = if booking_count >= 3 {
+            0.7
+        } else if booking_count >= 1 {
+            0.4
+        } else {
+            0.2
+        };
 
         // Store forecast
         sqlx::query(

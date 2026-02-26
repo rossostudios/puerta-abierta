@@ -580,7 +580,7 @@ async fn resolve_recipients(
 
 fn map_sqlx_error(error: sqlx::Error) -> AppError {
     tracing::error!(db_error = %error, "Database query failed");
-    AppError::Dependency("Database operation failed.".to_string())
+    AppError::from_database_error(&error, "Database operation failed.")
 }
 
 fn value_str(row: &Value, key: &str) -> String {

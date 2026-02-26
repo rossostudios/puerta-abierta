@@ -1,0 +1,16 @@
+.git
+.github
+.next
+.vercel
+.DS_Store
+
+**/node_modules
+**/.next
+**/target
+**/playwright-report
+**/test-results
+**/*.log
+
+**/.env
+**/.env.local
+**/.env.*.local

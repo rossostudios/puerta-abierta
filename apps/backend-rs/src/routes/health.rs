@@ -1,39 +1,45 @@
-use axum::extract::State;
-use axum::Json;
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use chrono::Utc;
 use serde_json::{json, Value};
-use std::time::Duration;
 
 use crate::state::AppState;
 
-pub async fn health(State(state): State<AppState>) -> Json<Value> {
-    let db_ok = if let Some(pool) = &state.db_pool {
-        // Wrap in a short timeout so the healthcheck always responds quickly,
-        // even if the first DB connection hangs (e.g. DNS, SSL, TCP).
-        match tokio::time::timeout(
-            Duration::from_secs(3),
-            sqlx::query("SELECT 1").fetch_one(pool),
-        )
-        .await
-        {
-            Ok(Ok(_)) => true,
-            Ok(Err(e)) => {
-                tracing::error!(error = %e, "Health check DB query failed");
-                false
-            }
-            Err(_) => {
-                tracing::error!("Health check DB query timed out (3s)");
-                false
-            }
-        }
+pub async fn live() -> Json<Value> {
+    Json(json!({
+        "status": "ok",
+        "now": Utc::now().to_rfc3339(),
+    }))
+}
+
+pub async fn ready(State(state): State<AppState>) -> impl IntoResponse {
+    readiness_response(&state).await
+}
+
+// Backward-compatible alias. Same payload as /ready so callers can inspect db/schema state.
+pub async fn health(State(state): State<AppState>) -> impl IntoResponse {
+    readiness_response(&state).await
+}
+
+async fn readiness_response(state: &AppState) -> (StatusCode, Json<Value>) {
+    let report = state.api_readiness_report().await;
+    let status = if report.ready {
+        StatusCode::OK
     } else {
-        true // no DB configured — skip check
+        StatusCode::SERVICE_UNAVAILABLE
     };
 
-    let status = if db_ok { "ok" } else { "degraded" };
-    Json(json!({
-        "status": status,
-        "now": Utc::now().to_rfc3339(),
-        "db": db_ok
-    }))
+    (
+        status,
+        Json(json!({
+            "status": report.status,
+            "ready": report.ready,
+            "db": report.db,
+            "schema": report.schema,
+            "code": report.code,
+            "detail": report.detail,
+            "retryable": report.retryable,
+            "missing_columns": report.missing_columns,
+            "now": Utc::now().to_rfc3339(),
+        })),
+    )
 }

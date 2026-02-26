@@ -6,13 +6,12 @@ use crate::state::AppState;
 /// S23: Compute pricing features for all units in an org.
 pub async fn compute_pricing_features(pool: &sqlx::PgPool, org_id: &str) {
     // Extract per-unit features: occupancy at various price points, seasonal patterns
-    let units: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM units WHERE organization_id = $1::uuid LIMIT 500",
-    )
-    .bind(org_id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let units: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM units WHERE organization_id = $1::uuid LIMIT 500")
+            .bind(org_id)
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     for (unit_id,) in &units {
         let features = sqlx::query(
@@ -169,12 +168,19 @@ pub async fn train_elasticity_model(pool: &sqlx::PgPool, org_id: &str) -> Option
     .unwrap_or(1);
 
     let r_squared = {
-        let ss_res: f64 = rows.iter().map(|(x, y)| {
-            let predicted = mean_occ + slope * (x - mean_price);
-            (y - predicted).powi(2)
-        }).sum();
+        let ss_res: f64 = rows
+            .iter()
+            .map(|(x, y)| {
+                let predicted = mean_occ + slope * (x - mean_price);
+                (y - predicted).powi(2)
+            })
+            .sum();
         let ss_tot: f64 = rows.iter().map(|(_, y)| (y - mean_occ).powi(2)).sum();
-        if ss_tot > 1e-10 { 1.0 - ss_res / ss_tot } else { 0.0 }
+        if ss_tot > 1e-10 {
+            1.0 - ss_res / ss_tot
+        } else {
+            0.0
+        }
     };
 
     sqlx::query(
@@ -214,8 +220,7 @@ pub async fn get_active_elasticity(pool: &sqlx::PgPool, org_id: &str) -> Option<
     .ok()
     .flatten();
 
-    params
-        .and_then(|p| p.get("elasticity").and_then(Value::as_f64))
+    params.and_then(|p| p.get("elasticity").and_then(Value::as_f64))
 }
 
 /// S23: Record a prediction outcome for the feedback loop.
@@ -248,12 +253,11 @@ pub async fn compute_all_features(state: &AppState) {
         None => return,
     };
 
-    let org_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true LIMIT 100",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let org_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true LIMIT 100")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     let mut computed = 0u32;
     for (org_id,) in &org_ids {
@@ -265,6 +269,9 @@ pub async fn compute_all_features(state: &AppState) {
     }
 
     if computed > 0 {
-        tracing::info!(orgs = computed, "ML pipeline: features computed and models trained");
+        tracing::info!(
+            orgs = computed,
+            "ML pipeline: features computed and models trained"
+        );
     }
 }

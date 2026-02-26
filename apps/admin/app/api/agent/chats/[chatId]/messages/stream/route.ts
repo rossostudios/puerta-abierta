@@ -7,7 +7,7 @@ import {
   fetchToolDefinitions,
   getAgentConfig,
 } from "@/lib/agents";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
@@ -565,10 +565,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       { status: 400 }
     );
   }
-
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token ?? null;
+  const token = await getServerAccessToken();
 
   if (!token) {
     return NextResponse.json(

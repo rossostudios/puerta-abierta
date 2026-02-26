@@ -1,12 +1,12 @@
-use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
-use chrono::Utc;
-use serde_json::{json, Map, Value};
 use crate::{
     error::{AppError, AppResult},
     repository::table_service::{create_row, get_row, list_rows, update_row},
     services::token_hash::{hash_token, hash_token_sha1},
     state::AppState,
 };
+use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
+use chrono::Utc;
+use serde_json::{json, Map, Value};
 
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
@@ -224,11 +224,23 @@ async fn verify_token(
     }
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "guest_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "guest_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "guest_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "guest_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry
@@ -463,11 +475,11 @@ async fn guest_request_service(
         .unwrap_or("medium");
 
     let mut task = Map::new();
+    task.insert("organization_id".to_string(), Value::String(org_id.clone()));
     task.insert(
-        "organization_id".to_string(),
-        Value::String(org_id.clone()),
+        "type".to_string(),
+        Value::String("guest_request".to_string()),
     );
-    task.insert("type".to_string(), Value::String("guest_request".to_string()));
     task.insert(
         "title".to_string(),
         Value::String(format!("[Guest Request] {}: {}", guest_name, payload.title)),
@@ -477,10 +489,7 @@ async fn guest_request_service(
     }
     task.insert("priority".to_string(), Value::String(priority.to_string()));
     task.insert("status".to_string(), Value::String("todo".to_string()));
-    task.insert(
-        "reservation_id".to_string(),
-        Value::String(reservation_id),
-    );
+    task.insert("reservation_id".to_string(), Value::String(reservation_id));
     if !property_id.is_empty() {
         task.insert("property_id".to_string(), Value::String(property_id));
     }
@@ -596,11 +605,23 @@ async fn require_guest<'a>(
         .ok_or_else(|| AppError::Unauthorized("Missing x-guest-token header.".to_string()))?;
 
     // Try SHA-256 first, fall back to legacy SHA-1 for pre-migration tokens
-    let token_record = match get_row(pool, "guest_access_tokens", &hash_token(raw_token), "token_hash").await {
+    let token_record = match get_row(
+        pool,
+        "guest_access_tokens",
+        &hash_token(raw_token),
+        "token_hash",
+    )
+    .await
+    {
         Ok(record) => record,
-        Err(_) => get_row(pool, "guest_access_tokens", &hash_token_sha1(raw_token), "token_hash")
-            .await
-            .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
+        Err(_) => get_row(
+            pool,
+            "guest_access_tokens",
+            &hash_token_sha1(raw_token),
+            "token_hash",
+        )
+        .await
+        .map_err(|_| AppError::Unauthorized("Invalid or expired token.".to_string()))?,
     };
 
     // Check expiry
@@ -629,7 +650,7 @@ async fn require_guest<'a>(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

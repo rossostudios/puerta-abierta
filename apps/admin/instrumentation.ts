@@ -1,13 +1,7 @@
-import { captureRequestError } from "@sentry/nextjs";
-
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./sentry.server.config");
-  }
-
-  if (process.env.NEXT_RUNTIME === "edge") {
-    await import("./sentry.edge.config");
-  }
+  // Sentry instrumentation is disabled for the ECS migration baseline.
 }
 
-export const onRequestError = captureRequestError;
+export async function onRequestError(...args: unknown[]) {
+  void args;
+}

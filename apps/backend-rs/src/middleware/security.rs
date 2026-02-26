@@ -25,9 +25,13 @@ pub async fn enforce_trusted_hosts(
     next: Next,
 ) -> Response {
     let health_path = format!("{}/health", state.config.api_prefix);
+    let live_path = format!("{}/live", state.config.api_prefix);
+    let ready_path = format!("{}/ready", state.config.api_prefix);
     let path = request.uri().path().to_string();
 
     if path != health_path
+        && path != live_path
+        && path != ready_path
         && !state.config.trusted_hosts.is_empty()
         && !host_allowed(
             request

@@ -62,15 +62,13 @@ async fn list_properties(
     Query(query): Query<PropertiesQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
     let pool = db_pool(&state)?;
 
     let mut filters = Map::new();
-    filters.insert(
-        "organization_id".to_string(),
-        Value::String(query.org_id.clone()),
-    );
+    filters.insert("organization_id".to_string(), Value::String(org_id));
     if let Some(status) = query
         .status
         .as_deref()
@@ -268,15 +266,13 @@ async fn list_units(
     Query(query): Query<UnitsQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
     let pool = db_pool(&state)?;
 
     let mut filters = Map::new();
-    filters.insert(
-        "organization_id".to_string(),
-        Value::String(query.org_id.clone()),
-    );
+    filters.insert("organization_id".to_string(), Value::String(org_id.clone()));
     if let Some(property_id) = query
         .property_id
         .as_deref()
@@ -323,7 +319,7 @@ async fn list_units(
         false,
     )
     .await?;
-    let enriched = enrich_units(pool, rows, &query.org_id).await?;
+    let enriched = enrich_units(pool, rows, &org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -664,7 +660,7 @@ fn json_map(entries: &[(&str, Value)]) -> Map<String, Value> {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

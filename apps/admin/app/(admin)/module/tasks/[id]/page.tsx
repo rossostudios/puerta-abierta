@@ -21,6 +21,8 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getApiBaseUrl } from "@/lib/api";
+import { getServerCurrentAppUserId } from "@/lib/auth/server-app-user";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import {
   asBoolean,
@@ -34,7 +36,6 @@ import {
 } from "@/lib/features/tasks/helpers";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 import {
@@ -224,10 +225,8 @@ export default async function TaskDetailPage({
   let sessionUserId: string | null = null;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token ?? null;
-    sessionUserId = data.session?.user?.id ?? null;
+    const token = await getServerAccessToken();
+    sessionUserId = await getServerCurrentAppUserId();
 
     const baseUrl = getApiBaseUrl();
     const taskUrl = `${baseUrl}/tasks/${encodeURIComponent(id)}`;

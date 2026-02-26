@@ -1,3 +1,5 @@
+import { currentUser } from "@clerk/nextjs/server";
+
 import {
   fetchList,
   fetchMe,
@@ -5,7 +7,6 @@ import {
   fetchOwnerSummary,
   type OperationsSummary,
 } from "@/lib/api";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function safeList(
   path: string,
@@ -49,10 +50,7 @@ export async function safeMe(): Promise<Record<string, unknown>> {
 
 export async function safeAuthUser(): Promise<Record<string, unknown>> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await currentUser();
     return user ? (user as unknown as Record<string, unknown>) : {};
   } catch {
     return {};

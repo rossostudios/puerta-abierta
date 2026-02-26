@@ -9,7 +9,7 @@ use url::Url;
 use crate::{config::AppConfig, error::AppError};
 
 pub fn create_pool(config: &AppConfig) -> Result<Option<PgPool>, AppError> {
-    let Some(database_url) = config.supabase_db_url.as_ref() else {
+    let Some(database_url) = config.database_url.as_ref() else {
         return Ok(None);
     };
 
@@ -24,7 +24,7 @@ pub fn create_pool(config: &AppConfig) -> Result<Option<PgPool>, AppError> {
     let mut port = url.port().unwrap_or(5432);
     let mut database = url.path().trim_start_matches('/').to_string();
 
-    // Default to Require for Supabase/pooler connections.
+    // Default to Require for managed Postgres / pooler connections.
     let mut ssl_mode = PgSslMode::Require;
     let mut statement_cache_capacity: Option<usize> = None;
     let mut application_name: Option<String> = None;
@@ -123,4 +123,18 @@ pub fn create_pool(config: &AppConfig) -> Result<Option<PgPool>, AppError> {
         .connect_lazy_with(connect_options);
 
     Ok(Some(pool))
+}
+
+pub async fn probe_pool(pool: &PgPool, timeout: Duration) -> Result<(), AppError> {
+    match tokio::time::timeout(timeout, sqlx::query("SELECT 1").fetch_one(pool)).await {
+        Ok(Ok(_)) => Ok(()),
+        Ok(Err(error)) => Err(AppError::from_database_error(
+            &error,
+            "Database connectivity check failed.",
+        )),
+        Err(_) => Err(AppError::from_database_error_message(
+            "database connectivity check timed out",
+            "Database connectivity check timed out.",
+        )),
+    }
 }

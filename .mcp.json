@@ -37,6 +37,26 @@
         "CASAORA_API_TOKEN": "",
         "CASAORA_ORG_ID": ""
       }
+    },
+    "clerk": {
+      "command": "bash",
+      "args": [
+        "./scripts/mcp/run-clerk-mcp.sh"
+      ]
+    },
+    "aws": {
+      "command": "uvx",
+      "args": [
+        "--managed-python",
+        "--python",
+        "3.12",
+        "awslabs.aws-api-mcp-server@latest"
+      ],
+      "env": {
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "us-east-1",
+        "READ_OPERATIONS_ONLY": "true"
+      }
     }
   }
 }

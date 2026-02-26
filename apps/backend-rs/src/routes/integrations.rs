@@ -601,7 +601,7 @@ async fn get_audit_log(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -644,10 +644,17 @@ async fn airbnb_auth_url(
     Json(payload): Json<AirbnbAuthUrlInput>,
 ) -> AppResult<Json<Value>> {
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+    assert_org_role(
+        &state,
+        &user_id,
+        &payload.org_id,
+        &["owner_admin", "operator"],
+    )
+    .await?;
 
-    let config = crate::services::airbnb::AirbnbConfig::from_env()
-        .ok_or_else(|| AppError::Dependency("Airbnb API credentials not configured.".to_string()))?;
+    let config = crate::services::airbnb::AirbnbConfig::from_env().ok_or_else(|| {
+        AppError::Dependency("Airbnb API credentials not configured.".to_string())
+    })?;
 
     let state_param = format!("{}:{}", payload.org_id, payload.integration_id);
     let auth_url = config.auth_url(&state_param);
@@ -661,11 +668,18 @@ async fn airbnb_callback(
     Json(payload): Json<AirbnbCallbackInput>,
 ) -> AppResult<Json<Value>> {
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_role(&state, &user_id, &payload.org_id, &["owner_admin", "operator"]).await?;
+    assert_org_role(
+        &state,
+        &user_id,
+        &payload.org_id,
+        &["owner_admin", "operator"],
+    )
+    .await?;
     let pool = db_pool(&state)?;
 
-    let config = crate::services::airbnb::AirbnbConfig::from_env()
-        .ok_or_else(|| AppError::Dependency("Airbnb API credentials not configured.".to_string()))?;
+    let config = crate::services::airbnb::AirbnbConfig::from_env().ok_or_else(|| {
+        AppError::Dependency("Airbnb API credentials not configured.".to_string())
+    })?;
 
     let token_response =
         crate::services::airbnb::exchange_code(&state.http_client, &config, &payload.code)

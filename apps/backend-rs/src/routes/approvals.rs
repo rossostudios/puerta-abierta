@@ -121,7 +121,7 @@ async fn list_approvals(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to list approvals");
-        AppError::Dependency("Failed to list approvals.".to_string())
+        AppError::from_database_error(&error, "Failed to list approvals.")
     })?;
 
     let data: Vec<Value> = rows
@@ -178,7 +178,9 @@ async fn batch_review_approvals(
             .flatten();
 
             let Some(row) = row else {
-                results.push(json!({ "id": id, "ok": false, "error": "Not found or already reviewed." }));
+                results.push(
+                    json!({ "id": id, "ok": false, "error": "Not found or already reviewed." }),
+                );
                 continue;
             };
 
@@ -214,7 +216,11 @@ async fn batch_review_approvals(
                 .and_then(|o| o.get("ok"))
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
-            let final_status = if exec_ok { "executed" } else { "execution_failed" };
+            let final_status = if exec_ok {
+                "executed"
+            } else {
+                "execution_failed"
+            };
 
             let _ = sqlx::query(
                 "UPDATE agent_approvals SET status = $1, execution_result = $2, executed_at = now()
@@ -248,7 +254,9 @@ async fn batch_review_approvals(
             if updated.is_some() {
                 results.push(json!({ "id": id, "ok": true, "status": "rejected" }));
             } else {
-                results.push(json!({ "id": id, "ok": false, "error": "Not found or already reviewed." }));
+                results.push(
+                    json!({ "id": id, "ok": false, "error": "Not found or already reviewed." }),
+                );
             }
         }
     }
@@ -293,7 +301,7 @@ async fn approve_approval(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to approve");
-        AppError::Dependency("Failed to approve.".to_string())
+        AppError::from_database_error(&error, "Failed to approve.")
     })?;
 
     let approval = row
@@ -367,7 +375,7 @@ async fn approve_approval(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to finalize approval execution");
-        AppError::Dependency("Failed to finalize approval execution.".to_string())
+        AppError::from_database_error(&error, "Failed to finalize approval execution.")
     })?
     .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::Internal("Approval finalization failed.".to_string()))?;
@@ -419,7 +427,7 @@ async fn reject_approval(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to reject");
-        AppError::Dependency("Failed to reject.".to_string())
+        AppError::from_database_error(&error, "Failed to reject.")
     })?;
 
     let approval = row
@@ -460,7 +468,7 @@ async fn list_approval_policies(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to list approval policies");
-        AppError::Dependency("Failed to list approval policies.".to_string())
+        AppError::from_database_error(&error, "Failed to list approval policies.")
     })?;
 
     let mut policies = rows
@@ -540,7 +548,7 @@ async fn update_approval_policy(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to read approval policy");
-        AppError::Dependency("Failed to read approval policy.".to_string())
+        AppError::from_database_error(&error, "Failed to read approval policy.")
     })?;
 
     let current_mode = existing
@@ -593,7 +601,7 @@ async fn update_approval_policy(
     .await
     .map_err(|error| {
         tracing::error!(error = %error, "Failed to update approval policy");
-        AppError::Dependency("Failed to update approval policy.".to_string())
+        AppError::from_database_error(&error, "Failed to update approval policy.")
     })?;
 
     let policy = row
@@ -628,7 +636,7 @@ fn assert_approver_role(membership: &Value) -> AppResult<()> {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

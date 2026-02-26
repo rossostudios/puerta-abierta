@@ -7,16 +7,14 @@ export function CasaoraLogo({
   className?: string;
   size?: number;
 }) {
-  const fontSize = Math.round(size * 0.56);
-
   return (
     <span
       aria-label="Casaora"
       className={cn(
-        "inline-flex select-none items-center font-black tracking-tighter",
+        "inline-flex select-none items-center font-medium tracking-tight",
         className
       )}
-      style={{ fontSize: `${fontSize}px`, lineHeight: 1 }}
+      style={{ fontSize: `${size}px`, lineHeight: 1, fontFamily: "var(--font-diatype)" }}
     >
       casaora
     </span>

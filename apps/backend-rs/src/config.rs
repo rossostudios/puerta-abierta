@@ -58,10 +58,18 @@ pub struct AppConfig {
     pub openai_model: Option<String>,
     pub ai_agent_max_tool_steps: u32,
     pub ai_agent_timeout_seconds: u64,
-    pub supabase_url: Option<String>,
-    pub supabase_service_role_key: Option<String>,
-    pub supabase_jwks_url: Option<String>,
-    pub supabase_db_url: Option<String>,
+    pub clerk_jwks_url: Option<String>,
+    pub clerk_issuer_url: Option<String>,
+    pub clerk_jwt_audience: Option<String>,
+    pub storage_s3_region: Option<String>,
+    pub storage_s3_public_bucket: Option<String>,
+    pub storage_s3_private_bucket: Option<String>,
+    pub storage_s3_public_base_url: Option<String>,
+    pub storage_s3_endpoint_url: Option<String>,
+    pub storage_s3_force_path_style: bool,
+    pub storage_presign_ttl_seconds: u64,
+    pub database_url: Option<String>,
+    pub db_fail_fast_on_startup: bool,
     pub db_pool_max_connections: u32,
     pub db_pool_min_connections: u32,
     pub db_pool_acquire_timeout_seconds: u64,
@@ -103,9 +111,12 @@ pub struct AppConfig {
 
 impl AppConfig {
     pub fn from_env() -> Self {
+        let environment = env_or("ENVIRONMENT", "development");
+        let db_fail_fast_default = environment.trim().eq_ignore_ascii_case("production");
+
         Self {
             app_name: env_or("APP_NAME", "Casaora API"),
-            environment: env_or("ENVIRONMENT", "development"),
+            environment,
             api_prefix: normalize_prefix(&env_or("API_PREFIX", "/v1")),
             host: env_or("HOST", "0.0.0.0"),
             port: env_parse_or("PORT", 8000),
@@ -130,10 +141,24 @@ impl AppConfig {
             openai_model: env_opt("OPENAI_MODEL"),
             ai_agent_max_tool_steps: env_parse_or("AI_AGENT_MAX_TOOL_STEPS", 6),
             ai_agent_timeout_seconds: env_parse_or("AI_AGENT_TIMEOUT_SECONDS", 45),
-            supabase_url: env_opt("SUPABASE_URL"),
-            supabase_service_role_key: env_opt("SUPABASE_SERVICE_ROLE_KEY"),
-            supabase_jwks_url: env_opt("SUPABASE_JWKS_URL"),
-            supabase_db_url: env_opt("SUPABASE_DB_URL").or_else(|| env_opt("DATABASE_URL")),
+            clerk_jwks_url: env_opt("CLERK_JWKS_URL"),
+            clerk_issuer_url: env_opt("CLERK_ISSUER_URL").or_else(|| {
+                env_opt("NEXT_PUBLIC_CLERK_FRONTEND_API_URL")
+                    .or_else(|| env_opt("CLERK_FRONTEND_API_URL"))
+            }),
+            clerk_jwt_audience: env_opt("CLERK_JWT_AUDIENCE"),
+            storage_s3_region: env_opt("STORAGE_S3_REGION").or_else(|| env_opt("AWS_REGION")),
+            storage_s3_public_bucket: env_opt("STORAGE_S3_PUBLIC_BUCKET"),
+            storage_s3_private_bucket: env_opt("STORAGE_S3_PRIVATE_BUCKET"),
+            storage_s3_public_base_url: env_opt("STORAGE_S3_PUBLIC_BASE_URL"),
+            storage_s3_endpoint_url: env_opt("STORAGE_S3_ENDPOINT_URL"),
+            storage_s3_force_path_style: env_parse_bool_or("STORAGE_S3_FORCE_PATH_STYLE", false),
+            storage_presign_ttl_seconds: env_parse_or("STORAGE_PRESIGN_TTL_SECONDS", 900),
+            database_url: env_opt("DATABASE_URL").or_else(|| env_opt("SUPABASE_DB_URL")),
+            db_fail_fast_on_startup: env_parse_bool_or(
+                "DB_FAIL_FAST_ON_STARTUP",
+                db_fail_fast_default,
+            ),
             db_pool_max_connections: env_parse_or("DB_POOL_MAX_CONNECTIONS", 5),
             db_pool_min_connections: env_parse_or("DB_POOL_MIN_CONNECTIONS", 1),
             db_pool_acquire_timeout_seconds: env_parse_or("DB_POOL_ACQUIRE_TIMEOUT_SECONDS", 5),
@@ -257,6 +282,17 @@ impl AppConfig {
 
     pub fn workflow_queue_enabled(&self) -> bool {
         self.workflow_engine_mode == WorkflowEngineMode::Queue
+    }
+
+    pub fn db_fail_fast_on_startup_runtime(&self) -> bool {
+        self.db_fail_fast_on_startup
+    }
+
+    pub fn storage_public_enabled(&self) -> bool {
+        self.storage_s3_public_bucket
+            .as_deref()
+            .map(str::trim)
+            .is_some_and(|value| !value.is_empty())
     }
 }
 

@@ -6,6 +6,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
+use uuid::Uuid;
 
 use crate::{
     auth::require_user_id,
@@ -23,7 +24,7 @@ use crate::{
 
 #[derive(Debug, Clone, Deserialize)]
 struct UnreadCountQuery {
-    org_id: String,
+    org_id: Uuid,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -50,10 +51,7 @@ pub fn router() -> axum::Router<AppState> {
             "/internal/notifications-retention",
             axum::routing::post(run_notifications_retention),
         )
-        .route(
-            "/push-tokens",
-            axum::routing::post(register_push_token),
-        )
+        .route("/push-tokens", axum::routing::post(register_push_token))
         .route(
             "/push-tokens/deactivate",
             axum::routing::post(deactivate_push_token_handler),
@@ -65,13 +63,14 @@ async fn list_notifications(
     Query(query): Query<NotificationsQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
 
     let pool = db_pool(&state)?;
     let result = list_for_user(
         pool,
-        &query.org_id,
+        &org_id,
         &user_id,
         query.status.as_deref(),
         query.category.as_deref(),
@@ -91,11 +90,12 @@ async fn get_unread_count(
     Query(query): Query<UnreadCountQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
 
     let pool = db_pool(&state)?;
-    let total = unread_count(pool, &query.org_id, &user_id).await?;
+    let total = unread_count(pool, &org_id, &user_id).await?;
 
     Ok(Json(json!({ "unread": total })))
 }
@@ -106,11 +106,12 @@ async fn mark_notification_read(
     Query(query): Query<UnreadCountQuery>,
     headers: HeaderMap,
 ) -> AppResult<Json<Value>> {
+    let org_id = query.org_id.to_string();
     let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
+    assert_org_member(&state, &user_id, &org_id).await?;
 
     let pool = db_pool(&state)?;
-    let updated = mark_read(pool, &query.org_id, &user_id, &path.notification_id).await?;
+    let updated = mark_read(pool, &org_id, &user_id, &path.notification_id).await?;
 
     let Some(updated) = updated else {
         return Err(AppError::NotFound("Notification not found.".to_string()));
@@ -222,7 +223,7 @@ async fn deactivate_push_token_handler(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }

@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AWS_BIN="${AWS_BIN:-aws}"
+PROFILE="${AWS_PROFILE:-default}"
+REGION="${AWS_REGION:-us-east-1}"
+
+NAME_PREFIX="${NAME_PREFIX:-casaora-prod}"
+CLUSTER_NAME="${ECS_CLUSTER_NAME:-casaora-prod}"
+SERVICE_NAME="${ECS_SERVICE_NAME:-casaora-backend}"
+REPOSITORY_NAME="${ECR_REPOSITORY_NAME:-casaora-backend}"
+TASKDEF_TEMPLATE="${TASKDEF_TEMPLATE:-infra/aws/ecs/taskdef.backend.bootstrap.json}"
+CONTAINER_NAME="${CONTAINER_NAME:-casaora-backend}"
+TARGET_GROUP_NAME="${TARGET_GROUP_NAME:-casaora-prod-backend-live-tg}"
+VPC_NAME="${VPC_NAME:-${NAME_PREFIX}-vpc}"
+ECS_SG_NAME="${ECS_SG_NAME:-${NAME_PREFIX}-ecs-sg}"
+ALB_NAME="${ALB_NAME:-${NAME_PREFIX}-alb}"
+
+DOCKER_BIN="${DOCKER_BIN:-docker}"
+IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)}"
+DOCKER_CONFIG_ISOLATED="${DOCKER_CONFIG_ISOLATED:-true}"
+
+aws_cmd() {
+  "${AWS_BIN}" --profile "${PROFILE}" --region "${REGION}" "$@"
+}
+
+if ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
+  echo "docker is required for bootstrap deploy" >&2
+  exit 1
+fi
+
+cleanup() {
+  [[ -n "${tmp_taskdef:-}" && -f "${tmp_taskdef}" ]] && rm -f "${tmp_taskdef}"
+  if [[ "${DOCKER_CONFIG_ISOLATED}" == "true" && -n "${temp_docker_config:-}" && -d "${temp_docker_config}" ]]; then
+    rm -rf "${temp_docker_config}"
+  fi
+}
+trap cleanup EXIT
+
+if [[ "${DOCKER_CONFIG_ISOLATED}" == "true" && -z "${DOCKER_CONFIG:-}" ]]; then
+  temp_docker_config="$(mktemp -d)"
+  export DOCKER_CONFIG="${temp_docker_config}"
+fi
+
+# Colima stores the Docker socket in the user's home directory. If we're using an
+# isolated DOCKER_CONFIG (for portable credentials), the saved docker context may
+# not be visible, so point directly at the Colima socket when available.
+if [[ -z "${DOCKER_HOST:-}" && -S "${HOME}/.colima/default/docker.sock" ]]; then
+  export DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
+fi
+
+account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
+repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
+image_uri="${repo_uri}:${IMAGE_TAG}"
+
+echo "==> Logging into ECR"
+aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
+
+echo "==> Building backend image (ARM64 for Fargate) -> ${image_uri}"
+"${DOCKER_BIN}" build \
+  -f apps/backend-rs/Dockerfile \
+  -t "${image_uri}" \
+  apps/backend-rs
+
+echo "==> Pushing image"
+"${DOCKER_BIN}" push "${image_uri}"
+
+echo "==> Resolving network and load balancer resources"
+vpc_id="$(aws_cmd ec2 describe-vpcs --filters "Name=tag:Name,Values=${VPC_NAME}" --query 'Vpcs[0].VpcId' --output text)"
+ecs_sg_id="$(aws_cmd ec2 describe-security-groups --filters "Name=vpc-id,Values=${vpc_id}" "Name=group-name,Values=${ECS_SG_NAME}" --query 'SecurityGroups[0].GroupId' --output text)"
+subnets_json="$(aws_cmd ec2 describe-subnets \
+  --filters "Name=vpc-id,Values=${vpc_id}" "Name=tag:Name,Values=${NAME_PREFIX}-public-*" \
+  --query 'Subnets[].{id:SubnetId,az:AvailabilityZone}' --output json | jq 'sort_by(.az) | .[:2]')"
+subnet_a="$(echo "${subnets_json}" | jq -r '.[0].id')"
+subnet_b="$(echo "${subnets_json}" | jq -r '.[1].id')"
+
+target_group_arn="$(aws_cmd elbv2 describe-target-groups --names "${TARGET_GROUP_NAME}" --query 'TargetGroups[0].TargetGroupArn' --output text)"
+alb_dns_name="$(aws_cmd elbv2 describe-load-balancers --names "${ALB_NAME}" --query 'LoadBalancers[0].DNSName' --output text)"
+
+echo "==> Registering task definition"
+tmp_taskdef="$(mktemp)"
+jq --arg image_uri "${image_uri}" \
+  '.containerDefinitions[0].image = $image_uri' \
+  "${TASKDEF_TEMPLATE}" > "${tmp_taskdef}"
+
+taskdef_arn="$(aws_cmd ecs register-task-definition \
+  --cli-input-json "file://${tmp_taskdef}" \
+  --query 'taskDefinition.taskDefinitionArn' --output text)"
+
+echo "Task definition: ${taskdef_arn}"
+
+service_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" \
+  --query 'services[0].serviceArn' --output text 2>/dev/null || true)"
+
+if [[ -z "${service_arn}" || "${service_arn}" == "None" ]]; then
+  echo "==> Creating ECS service ${SERVICE_NAME}"
+  aws_cmd ecs create-service \
+    --cluster "${CLUSTER_NAME}" \
+    --service-name "${SERVICE_NAME}" \
+    --task-definition "${taskdef_arn}" \
+    --desired-count 1 \
+    --launch-type FARGATE \
+    --platform-version LATEST \
+    --health-check-grace-period-seconds 60 \
+    --deployment-configuration "deploymentCircuitBreaker={enable=true,rollback=true},maximumPercent=200,minimumHealthyPercent=50" \
+    --network-configuration "awsvpcConfiguration={subnets=[${subnet_a},${subnet_b}],securityGroups=[${ecs_sg_id}],assignPublicIp=ENABLED}" \
+    --load-balancers "targetGroupArn=${target_group_arn},containerName=${CONTAINER_NAME},containerPort=8000" \
+    --enable-execute-command \
+    >/dev/null
+  service_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].serviceArn' --output text)"
+else
+  echo "==> Updating ECS service ${SERVICE_NAME}"
+  aws_cmd ecs update-service \
+    --cluster "${CLUSTER_NAME}" \
+    --service "${SERVICE_NAME}" \
+    --task-definition "${taskdef_arn}" \
+    --force-new-deployment >/dev/null
+fi
+
+echo "==> Waiting for ECS service stability"
+aws_cmd ecs wait services-stable --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}"
+
+echo "==> Smoke tests via ALB DNS (HTTP)"
+live_status="$(curl -sS -o /tmp/casaora_alb_live.json -w '%{http_code}' "http://${alb_dns_name}/v1/live")"
+ready_status="$(curl -sS -o /tmp/casaora_alb_ready.json -w '%{http_code}' "http://${alb_dns_name}/v1/ready")"
+
+echo "/v1/live -> ${live_status}"
+echo "/v1/ready -> ${ready_status} (expected 503 until DB/auth secrets are configured)"
+
+echo "==> Backend bootstrap deploy summary"
+jq -n \
+  --arg cluster "${CLUSTER_NAME}" \
+  --arg service "${SERVICE_NAME}" \
+  --arg task_definition_arn "${taskdef_arn}" \
+  --arg image_uri "${image_uri}" \
+  --arg alb_dns_name "${alb_dns_name}" \
+  --arg live_status "${live_status}" \
+  --arg ready_status "${ready_status}" \
+  --arg live_body "$(cat /tmp/casaora_alb_live.json)" \
+  --arg ready_body "$(cat /tmp/casaora_alb_ready.json)" \
+  '{
+    cluster: $cluster,
+    service: $service,
+    task_definition_arn: $task_definition_arn,
+    image_uri: $image_uri,
+    alb_dns_name: $alb_dns_name,
+    smoke: {
+      live: { status: ($live_status | tonumber), body: ($live_body | fromjson?) },
+      ready: { status: ($ready_status | tonumber), body: ($ready_body | fromjson?) }
+    },
+    note: "Bootstrap deploy uses /v1/live target group health checks and no DB secrets yet. Configure secrets + switch listener/target group to /v1/ready next."
+  }'

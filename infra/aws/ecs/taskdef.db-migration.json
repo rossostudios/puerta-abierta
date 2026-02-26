@@ -1,0 +1,43 @@
+{
+  "family": "casaora-db-migration",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "executionRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-execution-role",
+  "taskRoleArn": "arn:aws:iam::341112583495:role/casaora-backend-task-role",
+  "containerDefinitions": [
+    {
+      "name": "pg-migrator",
+      "image": "postgres:17-alpine",
+      "essential": true,
+      "command": [
+        "sh",
+        "-lc",
+        "set -euo pipefail; export SRC_DB=\"$SOURCE_DATABASE_URL\"; export DST_DB=\"$TARGET_DATABASE_URL\"; echo \"preparing target auth stubs and extensions\"; psql \"$DST_DB\" -v ON_ERROR_STOP=1 <<'SQL'\nDO $$\nBEGIN\n  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'casaora_migrator') THEN\n    CREATE ROLE casaora_migrator;\n  END IF;\nEND\n$$;\nDROP EXTENSION IF EXISTS vector CASCADE;\nDROP EXTENSION IF EXISTS pg_trgm CASCADE;\nDROP EXTENSION IF EXISTS btree_gist CASCADE;\nDROP EXTENSION IF EXISTS citext CASCADE;\nDROP EXTENSION IF EXISTS \"uuid-ossp\" CASCADE;\nDROP EXTENSION IF EXISTS pgcrypto CASCADE;\nCREATE SCHEMA IF NOT EXISTS extensions;\nCREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\" WITH SCHEMA extensions;\nCREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;\nCREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;\nCREATE SCHEMA IF NOT EXISTS auth;\nCREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;\nCREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE AS $$ SELECT NULL::text $$;\nCREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb LANGUAGE sql STABLE AS $$ SELECT '{}'::jsonb $$;\nSQL\necho \"dumping supabase public schema+data\"; pg_dump \"$SRC_DB\" --enable-row-security --no-owner --no-acl --format=custom --compress=0 --schema=public --file=/tmp/public.dump; echo \"filtering restore toc to keep existing public schema\"; pg_restore -l /tmp/public.dump > /tmp/public.toc; grep -Ev ' (SCHEMA|COMMENT - SCHEMA|ACL - SCHEMA) - public( |$)' /tmp/public.toc > /tmp/public.filtered.toc || cp /tmp/public.toc /tmp/public.filtered.toc; echo \"restoring into rds\"; pg_restore --dbname=\"$DST_DB\" --no-owner --no-acl --clean --if-exists --exit-on-error --use-list=/tmp/public.filtered.toc /tmp/public.dump; echo \"disabling RLS on target public tables\"; psql \"$DST_DB\" -v ON_ERROR_STOP=1 <<'SQL'\nDO $$\nDECLARE r record;\nBEGIN\n  FOR r IN\n    SELECT n.nspname AS schema_name, c.relname AS table_name\n    FROM pg_class c\n    JOIN pg_namespace n ON n.oid = c.relnamespace\n    WHERE n.nspname = 'public'\n      AND c.relkind = 'r'\n      AND c.relrowsecurity = true\n  LOOP\n    EXECUTE format('ALTER TABLE %I.%I DISABLE ROW LEVEL SECURITY', r.schema_name, r.table_name);\n  END LOOP;\nEND\n$$;\nSQL\necho \"vacuum analyze\"; psql \"$DST_DB\" -v ON_ERROR_STOP=1 -c 'ANALYZE;'"
+      ],
+      "secrets": [
+        {
+          "name": "SOURCE_DATABASE_URL",
+          "valueFrom": "REPLACE_ME_SOURCE_DATABASE_URL_SECRET_ARN"
+        },
+        {
+          "name": "TARGET_DATABASE_URL",
+          "valueFrom": "REPLACE_ME_TARGET_DATABASE_URL_SECRET_ARN"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/casaora-db-migration",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}

@@ -3,9 +3,9 @@ use serde_json::{json, Map, Value};
 use sqlx::{PgPool, Row};
 
 use crate::{
+    config::WorkflowEngineMode,
     repository::table_service::{create_row, get_row, update_row},
     services::workflows::fire_trigger,
-    config::WorkflowEngineMode,
 };
 
 /// Result of reconciling a payment against a collection record.
@@ -49,7 +49,14 @@ pub async fn reconcile_payment(
     // Mark the payment instruction as paid
     let mut pi_patch = Map::new();
     pi_patch.insert("status".to_string(), Value::String("paid".to_string()));
-    let _ = update_row(pool, "payment_instructions", &instruction_id, &pi_patch, "id").await;
+    let _ = update_row(
+        pool,
+        "payment_instructions",
+        &instruction_id,
+        &pi_patch,
+        "id",
+    )
+    .await;
 
     if collection_id.is_empty() {
         return ReconciliationResult {
@@ -78,13 +85,19 @@ pub async fn reconcile_payment(
     let expected_amount = collection
         .as_object()
         .and_then(|o| o.get("amount"))
-        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        .and_then(|v| {
+            v.as_f64()
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        })
         .unwrap_or(0.0);
 
     let prior_paid = collection
         .as_object()
         .and_then(|o| o.get("amount_paid"))
-        .and_then(|v| v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok())))
+        .and_then(|v| {
+            v.as_f64()
+                .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+        })
         .unwrap_or(0.0);
 
     let currency = val_str(&collection, "currency");
@@ -108,10 +121,7 @@ pub async fn reconcile_payment(
     // Update the collection record
     let mut cr_patch = Map::new();
     cr_patch.insert("status".to_string(), Value::String(new_status.to_string()));
-    cr_patch.insert(
-        "amount_paid".to_string(),
-        json!(total_paid).into(),
-    );
+    cr_patch.insert("amount_paid".to_string(), json!(total_paid).into());
     cr_patch.insert(
         "payment_method".to_string(),
         Value::String(payment_method.to_string()),
@@ -131,9 +141,18 @@ pub async fn reconcile_payment(
     // Fire workflow trigger
     if !org_id.is_empty() {
         let mut wf_ctx = Map::new();
-        wf_ctx.insert("collection_id".to_string(), Value::String(collection_id.clone()));
-        wf_ctx.insert("payment_method".to_string(), Value::String(payment_method.to_string()));
-        wf_ctx.insert("reference_code".to_string(), Value::String(reference_code.clone()));
+        wf_ctx.insert(
+            "collection_id".to_string(),
+            Value::String(collection_id.clone()),
+        );
+        wf_ctx.insert(
+            "payment_method".to_string(),
+            Value::String(payment_method.to_string()),
+        );
+        wf_ctx.insert(
+            "reference_code".to_string(),
+            Value::String(reference_code.clone()),
+        );
         wf_ctx.insert("amount".to_string(), json!(payment_amount));
         wf_ctx.insert("total_paid".to_string(), json!(total_paid));
         wf_ctx.insert("expected".to_string(), json!(expected_amount));
@@ -196,11 +215,7 @@ pub async fn reconcile_payment(
 }
 
 /// Queue a WhatsApp payment receipt notification.
-pub async fn queue_payment_receipt(
-    pool: &PgPool,
-    instruction: &Value,
-    payment_amount: f64,
-) {
+pub async fn queue_payment_receipt(pool: &PgPool, instruction: &Value, payment_amount: f64) {
     let tenant_phone = val_str(instruction, "tenant_phone_e164");
     let org_id = val_str(instruction, "organization_id");
     let reference_code = val_str(instruction, "reference_code");
@@ -225,7 +240,10 @@ pub async fn queue_payment_receipt(
     msg.insert("channel".to_string(), Value::String("whatsapp".to_string()));
     msg.insert("recipient".to_string(), Value::String(tenant_phone));
     msg.insert("status".to_string(), Value::String("queued".to_string()));
-    msg.insert("direction".to_string(), Value::String("outbound".to_string()));
+    msg.insert(
+        "direction".to_string(),
+        Value::String("outbound".to_string()),
+    );
     let mut pl = Map::new();
     pl.insert("body".to_string(), Value::String(body));
     msg.insert("payload".to_string(), Value::Object(pl));
@@ -239,10 +257,9 @@ pub async fn tool_auto_reconcile_all(
     org_id: &str,
     args: &Map<String, Value>,
 ) -> Result<Value, crate::error::AppError> {
-    let pool = state
-        .db_pool
-        .as_ref()
-        .ok_or_else(|| crate::error::AppError::Dependency("Database not configured.".to_string()))?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        crate::error::AppError::Dependency("Database not configured.".to_string())
+    })?;
 
     let period_month = args
         .get("period_month")
@@ -281,7 +298,9 @@ pub async fn tool_auto_reconcile_all(
     let mut already_matched = 0_u32;
 
     for row in &rows {
-        let collection_id = row.try_get::<String, _>("collection_id").unwrap_or_default();
+        let collection_id = row
+            .try_get::<String, _>("collection_id")
+            .unwrap_or_default();
         let expected = row.try_get::<f64, _>("expected").unwrap_or(0.0);
         let already_paid = row.try_get::<f64, _>("already_paid").unwrap_or(0.0);
 
@@ -322,13 +341,15 @@ pub async fn tool_import_bank_transactions(
     org_id: &str,
     args: &Map<String, Value>,
 ) -> Result<Value, crate::error::AppError> {
-    let pool = state
-        .db_pool
-        .as_ref()
-        .ok_or_else(|| crate::error::AppError::Dependency("Database not configured.".to_string()))?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        crate::error::AppError::Dependency("Database not configured.".to_string())
+    })?;
 
     let transactions = args.get("transactions").and_then(Value::as_array);
-    let bank_name = args.get("bank_name").and_then(Value::as_str).unwrap_or_default();
+    let bank_name = args
+        .get("bank_name")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     let Some(txns) = transactions else {
         return Ok(json!({ "ok": false, "error": "transactions array is required." }));
@@ -338,13 +359,27 @@ pub async fn tool_import_bank_transactions(
     let mut skipped = 0u32;
 
     for txn in txns {
-        let date = txn.get("date").or_else(|| txn.get("transaction_date")).and_then(Value::as_str).unwrap_or_default();
-        let description = txn.get("description").or_else(|| txn.get("desc")).and_then(Value::as_str).unwrap_or_default();
+        let date = txn
+            .get("date")
+            .or_else(|| txn.get("transaction_date"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let description = txn
+            .get("description")
+            .or_else(|| txn.get("desc"))
+            .and_then(Value::as_str)
+            .unwrap_or_default();
         let amount = txn.get("amount").and_then(Value::as_f64).unwrap_or(0.0);
-        let reference = txn.get("reference").or_else(|| txn.get("ref")).and_then(Value::as_str);
+        let reference = txn
+            .get("reference")
+            .or_else(|| txn.get("ref"))
+            .and_then(Value::as_str);
         let currency = txn.get("currency").and_then(Value::as_str).unwrap_or("PYG");
         let external_id = txn.get("external_id").and_then(Value::as_str);
-        let counterparty = txn.get("counterparty_name").or_else(|| txn.get("counterparty")).and_then(Value::as_str);
+        let counterparty = txn
+            .get("counterparty_name")
+            .or_else(|| txn.get("counterparty"))
+            .and_then(Value::as_str);
 
         if date.is_empty() || amount.abs() < 0.001 {
             skipped += 1;
@@ -413,12 +448,14 @@ pub async fn tool_auto_reconcile_batch(
     org_id: &str,
     args: &Map<String, Value>,
 ) -> Result<Value, crate::error::AppError> {
-    let pool = state
-        .db_pool
-        .as_ref()
-        .ok_or_else(|| crate::error::AppError::Dependency("Database not configured.".to_string()))?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        crate::error::AppError::Dependency("Database not configured.".to_string())
+    })?;
 
-    let period_month = args.get("period_month").and_then(Value::as_str).unwrap_or_default();
+    let period_month = args
+        .get("period_month")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     // Create reconciliation run
     let run = sqlx::query(
@@ -481,16 +518,28 @@ pub async fn tool_auto_reconcile_batch(
     // Pass 1: Exact reference match
     for txn in &txns {
         let txn_id: String = txn.try_get("id").unwrap_or_default();
-        let txn_ref: String = txn.try_get::<Option<String>, _>("reference").ok().flatten().unwrap_or_default();
+        let txn_ref: String = txn
+            .try_get::<Option<String>, _>("reference")
+            .ok()
+            .flatten()
+            .unwrap_or_default();
         let txn_amount: f64 = txn.try_get("amount").unwrap_or(0.0);
 
-        if txn_ref.is_empty() || matched_txn_ids.contains(&txn_id) { continue; }
+        if txn_ref.is_empty() || matched_txn_ids.contains(&txn_id) {
+            continue;
+        }
 
         for col in &collections {
-            let col_ref: String = col.try_get::<Option<String>, _>("reference_code").ok().flatten().unwrap_or_default();
+            let col_ref: String = col
+                .try_get::<Option<String>, _>("reference_code")
+                .ok()
+                .flatten()
+                .unwrap_or_default();
             let col_id: String = col.try_get("collection_id").unwrap_or_default();
 
-            if col_ref.is_empty() || col_ref != txn_ref { continue; }
+            if col_ref.is_empty() || col_ref != txn_ref {
+                continue;
+            }
 
             // Match found
             sqlx::query(
@@ -512,7 +561,10 @@ pub async fn tool_auto_reconcile_batch(
             let mut patch = Map::new();
             patch.insert("status".to_string(), Value::String("paid".to_string()));
             patch.insert("amount_paid".to_string(), json!(txn_amount));
-            patch.insert("paid_at".to_string(), Value::String(Utc::now().to_rfc3339()));
+            patch.insert(
+                "paid_at".to_string(),
+                Value::String(Utc::now().to_rfc3339()),
+            );
             let _ = update_row(pool, "collection_records", &col_id, &patch, "id").await;
 
             matched_count += 1;
@@ -525,7 +577,9 @@ pub async fn tool_auto_reconcile_batch(
     // Pass 2: Amount + date range (±3 days, exact amount within 0.01)
     for txn in &txns {
         let txn_id: String = txn.try_get("id").unwrap_or_default();
-        if matched_txn_ids.contains(&txn_id) { continue; }
+        if matched_txn_ids.contains(&txn_id) {
+            continue;
+        }
 
         let txn_amount: f64 = txn.try_get("amount").unwrap_or(0.0);
         let txn_date: String = txn.try_get("transaction_date").unwrap_or_default();
@@ -536,7 +590,9 @@ pub async fn tool_auto_reconcile_batch(
             let col_date: String = col.try_get("due_date").unwrap_or_default();
 
             // Amount must match within 0.01
-            if (txn_amount - col_amount).abs() > 0.01 { continue; }
+            if (txn_amount - col_amount).abs() > 0.01 {
+                continue;
+            }
 
             // Date within ±3 days
             let date_ok = if let (Ok(td), Ok(cd)) = (
@@ -547,7 +603,9 @@ pub async fn tool_auto_reconcile_batch(
             } else {
                 false
             };
-            if !date_ok { continue; }
+            if !date_ok {
+                continue;
+            }
 
             sqlx::query(
                 "UPDATE bank_transactions
@@ -567,7 +625,10 @@ pub async fn tool_auto_reconcile_batch(
             let mut patch = Map::new();
             patch.insert("status".to_string(), Value::String("paid".to_string()));
             patch.insert("amount_paid".to_string(), json!(txn_amount));
-            patch.insert("paid_at".to_string(), Value::String(Utc::now().to_rfc3339()));
+            patch.insert(
+                "paid_at".to_string(),
+                Value::String(Utc::now().to_rfc3339()),
+            );
             let _ = update_row(pool, "collection_records", &col_id, &patch, "id").await;
 
             matched_count += 1;
@@ -580,28 +641,49 @@ pub async fn tool_auto_reconcile_batch(
     // Pass 3: Fuzzy match (5% tolerance + tenant name in description)
     for txn in &txns {
         let txn_id: String = txn.try_get("id").unwrap_or_default();
-        if matched_txn_ids.contains(&txn_id) { continue; }
+        if matched_txn_ids.contains(&txn_id) {
+            continue;
+        }
 
         let txn_amount: f64 = txn.try_get("amount").unwrap_or(0.0);
-        let txn_desc: String = txn.try_get::<Option<String>, _>("description").ok().flatten().unwrap_or_default().to_lowercase();
-        let txn_counterparty: String = txn.try_get::<Option<String>, _>("counterparty_name").ok().flatten().unwrap_or_default().to_lowercase();
+        let txn_desc: String = txn
+            .try_get::<Option<String>, _>("description")
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+            .to_lowercase();
+        let txn_counterparty: String = txn
+            .try_get::<Option<String>, _>("counterparty_name")
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+            .to_lowercase();
 
         for col in &collections {
             let col_id: String = col.try_get("collection_id").unwrap_or_default();
             let col_amount: f64 = col.try_get("amount").unwrap_or(0.0);
-            let tenant_name: String = col.try_get::<String, _>("tenant_name").unwrap_or_default().to_lowercase();
+            let tenant_name: String = col
+                .try_get::<String, _>("tenant_name")
+                .unwrap_or_default()
+                .to_lowercase();
 
             // Amount within 5%
             let tolerance = col_amount * 0.05;
-            if (txn_amount - col_amount).abs() > tolerance { continue; }
+            if (txn_amount - col_amount).abs() > tolerance {
+                continue;
+            }
 
             // Tenant name must appear in description or counterparty
-            if tenant_name.is_empty() { continue; }
+            if tenant_name.is_empty() {
+                continue;
+            }
             let name_parts: Vec<&str> = tenant_name.split_whitespace().collect();
             let name_match = name_parts.iter().any(|part| {
                 part.len() >= 3 && (txn_desc.contains(part) || txn_counterparty.contains(part))
             });
-            if !name_match { continue; }
+            if !name_match {
+                continue;
+            }
 
             sqlx::query(
                 "UPDATE bank_transactions
@@ -621,7 +703,10 @@ pub async fn tool_auto_reconcile_batch(
             let mut patch = Map::new();
             patch.insert("status".to_string(), Value::String("paid".to_string()));
             patch.insert("amount_paid".to_string(), json!(txn_amount));
-            patch.insert("paid_at".to_string(), Value::String(Utc::now().to_rfc3339()));
+            patch.insert(
+                "paid_at".to_string(),
+                Value::String(Utc::now().to_rfc3339()),
+            );
             let _ = update_row(pool, "collection_records", &col_id, &patch, "id").await;
 
             matched_count += 1;
@@ -637,7 +722,11 @@ pub async fn tool_auto_reconcile_batch(
 
     // Update reconciliation run stats
     let total = txns.len() as i32;
-    let match_rate = if total > 0 { matched_count as f64 / total as f64 } else { 0.0 };
+    let match_rate = if total > 0 {
+        matched_count as f64 / total as f64
+    } else {
+        0.0
+    };
 
     sqlx::query(
         "UPDATE reconciliation_runs
@@ -676,12 +765,14 @@ pub async fn tool_handle_split_payment(
     org_id: &str,
     args: &Map<String, Value>,
 ) -> Result<Value, crate::error::AppError> {
-    let pool = state
-        .db_pool
-        .as_ref()
-        .ok_or_else(|| crate::error::AppError::Dependency("Database not configured.".to_string()))?;
+    let pool = state.db_pool.as_ref().ok_or_else(|| {
+        crate::error::AppError::Dependency("Database not configured.".to_string())
+    })?;
 
-    let collection_id = args.get("collection_id").and_then(Value::as_str).unwrap_or_default();
+    let collection_id = args
+        .get("collection_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let transaction_ids = args.get("transaction_ids").and_then(Value::as_array);
 
     if collection_id.is_empty() {
@@ -718,7 +809,9 @@ pub async fn tool_handle_split_payment(
 
     for txn_id_val in txn_ids {
         let txn_id = txn_id_val.as_str().unwrap_or_default();
-        if txn_id.is_empty() { continue; }
+        if txn_id.is_empty() {
+            continue;
+        }
 
         let txn = sqlx::query(
             "SELECT amount::float8 FROM bank_transactions
@@ -765,7 +858,10 @@ pub async fn tool_handle_split_payment(
     patch.insert("amount_paid".to_string(), json!(total_split));
     patch.insert("status".to_string(), Value::String(new_status.to_string()));
     if new_status == "paid" {
-        patch.insert("paid_at".to_string(), Value::String(Utc::now().to_rfc3339()));
+        patch.insert(
+            "paid_at".to_string(),
+            Value::String(Utc::now().to_rfc3339()),
+        );
     }
     let _ = update_row(pool, "collection_records", collection_id, &patch, "id").await;
 
@@ -782,14 +878,15 @@ pub async fn tool_handle_split_payment(
 
 /// Run daily reconciliation for all active orgs.
 pub async fn run_daily_reconciliation(state: &crate::state::AppState) {
-    let Some(pool) = state.db_pool.as_ref() else { return };
+    let Some(pool) = state.db_pool.as_ref() else {
+        return;
+    };
 
-    let orgs: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let orgs: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     for (org_id,) in &orgs {
         let mut args = Map::new();

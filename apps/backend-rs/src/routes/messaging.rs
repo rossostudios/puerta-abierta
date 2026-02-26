@@ -246,7 +246,7 @@ async fn send_message(
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -522,12 +522,19 @@ async fn whatsapp_webhook(
                                     tokio::spawn(async move {
                                         if let Some((reply, confidence)) =
                                             crate::services::ai_guest_reply::generate_ai_reply(
-                                                &agent_state, &oid, &phone, &body,
+                                                &agent_state,
+                                                &oid,
+                                                &phone,
+                                                &body,
                                             )
                                             .await
                                         {
                                             crate::services::ai_guest_reply::queue_ai_reply(
-                                                &agent_pool, &oid, &phone, &reply, confidence,
+                                                &agent_pool,
+                                                &oid,
+                                                &phone,
+                                                &reply,
+                                                confidence,
                                             )
                                             .await;
                                         }

@@ -22,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useGlobalHotkeys } from "@/lib/hotkeys/use-global-hotkeys";
 import { useNavigationHotkeys } from "@/lib/hotkeys/use-navigation-hotkeys";
 import type { Locale } from "@/lib/i18n";
+import { onApiError } from "@/lib/api-client";
 import { TabProvider } from "@/lib/tabs/tab-context";
 import { cn } from "@/lib/utils";
 
@@ -172,7 +173,12 @@ function AdminShellV2({
   );
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [backendDegraded, setBackendDegraded] = useState<{
+    message: string;
+    requestId?: string;
+  } | null>(null);
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const degradedClearTimerRef = useRef<number | null>(null);
   const { overlays } = useShellHotkeys(locale);
 
   useEffect(() => {
@@ -187,6 +193,35 @@ function AdminShellV2({
     return () => {
       desktopMedia.removeEventListener("change", sync);
       tabletMedia.removeEventListener("change", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    return onApiError(({ status, message, retryable, requestId }) => {
+      const isTransient =
+        retryable === true || status === 502 || status === 503 || status === 504;
+      if (!isTransient) return;
+
+      setBackendDegraded({
+        message,
+        requestId,
+      });
+
+      if (degradedClearTimerRef.current !== null) {
+        window.clearTimeout(degradedClearTimerRef.current);
+      }
+      degradedClearTimerRef.current = window.setTimeout(() => {
+        setBackendDegraded(null);
+        degradedClearTimerRef.current = null;
+      }, 30_000);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (degradedClearTimerRef.current !== null) {
+        window.clearTimeout(degradedClearTimerRef.current);
+      }
     };
   }, []);
 
@@ -276,6 +311,23 @@ function AdminShellV2({
               onNavToggle={onNavToggle}
               showNavToggle={showNavToggle}
             />
+            {backendDegraded ? (
+              <div className="mx-auto mt-3 w-full max-w-screen-2xl px-3 sm:px-4 lg:px-5 xl:px-7">
+                <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2 text-amber-900 text-sm shadow-sm">
+                  <div className="font-medium">
+                    Backend degraded: retryable API failures detected
+                  </div>
+                  <div className="mt-0.5 truncate text-amber-800/90 text-xs">
+                    {backendDegraded.message}
+                  </div>
+                  {backendDegraded.requestId ? (
+                    <div className="mt-0.5 font-mono text-[11px] text-amber-800/80">
+                      request_id: {backendDegraded.requestId}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
             <div className="mx-auto w-full max-w-screen-2xl p-3 sm:p-4 lg:p-5 xl:p-7">
               {children}
             </div>

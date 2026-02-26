@@ -9,7 +9,10 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     let text = format!("{} {}", vendor, description).to_lowercase();
 
     // Cleaning
-    if contains_any(&text, &["limpieza", "cleaning", "lavandería", "laundry", "maid"]) {
+    if contains_any(
+        &text,
+        &["limpieza", "cleaning", "lavandería", "laundry", "maid"],
+    ) {
         return Some("cleaning");
     }
 
@@ -40,9 +43,21 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     if contains_any(
         &text,
         &[
-            "tigo", "claro", "personal", "ande", "essap", "copaco",
-            "internet", "wifi", "electricity", "electricidad",
-            "water", "agua", "gas", "telecom", "utilities",
+            "tigo",
+            "claro",
+            "personal",
+            "ande",
+            "essap",
+            "copaco",
+            "internet",
+            "wifi",
+            "electricity",
+            "electricidad",
+            "water",
+            "agua",
+            "gas",
+            "telecom",
+            "utilities",
         ],
     ) {
         return Some("utilities");
@@ -52,9 +67,18 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     if contains_any(
         &text,
         &[
-            "supermercado", "supermarket", "stock", "amenities",
-            "insumos", "supplies", "papel", "jabón", "jabon",
-            "shampoo", "toalla", "towel",
+            "supermercado",
+            "supermarket",
+            "stock",
+            "amenities",
+            "insumos",
+            "supplies",
+            "papel",
+            "jabón",
+            "jabon",
+            "shampoo",
+            "toalla",
+            "towel",
         ],
     ) {
         return Some("supplies");
@@ -69,8 +93,14 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     if contains_any(
         &text,
         &[
-            "abogado", "lawyer", "legal", "notario", "notary",
-            "contador", "accountant", "contable",
+            "abogado",
+            "lawyer",
+            "legal",
+            "notario",
+            "notary",
+            "contador",
+            "accountant",
+            "contable",
         ],
     ) {
         return Some("professional_services");
@@ -80,15 +110,24 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     if contains_any(
         &text,
         &[
-            "publicidad", "advertising", "marketing", "anuncio",
-            "airbnb", "booking.com", "facebook ads", "google ads",
+            "publicidad",
+            "advertising",
+            "marketing",
+            "anuncio",
+            "airbnb",
+            "booking.com",
+            "facebook ads",
+            "google ads",
         ],
     ) {
         return Some("marketing");
     }
 
     // Commission / platform fees
-    if contains_any(&text, &["comisión", "comision", "commission", "fee", "tarifa"]) {
+    if contains_any(
+        &text,
+        &["comisión", "comision", "commission", "fee", "tarifa"],
+    ) {
         return Some("commission");
     }
 
@@ -96,9 +135,20 @@ pub fn auto_categorize(vendor: &str, description: &str, amount: f64) -> Option<&
     if contains_any(
         &text,
         &[
-            "mueble", "furniture", "electrodoméstico", "electrodomestico",
-            "appliance", "colchón", "colchon", "mattress",
-            "sofá", "sofa", "mesa", "table", "silla", "chair",
+            "mueble",
+            "furniture",
+            "electrodoméstico",
+            "electrodomestico",
+            "appliance",
+            "colchón",
+            "colchon",
+            "mattress",
+            "sofá",
+            "sofa",
+            "mesa",
+            "table",
+            "silla",
+            "chair",
         ],
     ) {
         return Some("furniture_equipment");

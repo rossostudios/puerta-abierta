@@ -73,19 +73,30 @@ pub struct ReasoningStep {
 
 const MUTATION_ROLES: &[&str] = &["owner_admin", "operator", "accountant"];
 const MUTATION_TOOLS: &[&str] = &[
-    "create_row", "update_row", "delete_row",
-    "send_message", "create_maintenance_task",
-    "auto_assign_maintenance", "escalate_maintenance",
-    "dispatch_to_vendor", "verify_completion",
-    "request_vendor_quote", "select_vendor",
-    "apply_pricing_recommendation", "score_application",
-    "classify_and_delegate", "auto_populate_lease_charges",
+    "create_row",
+    "update_row",
+    "delete_row",
+    "send_message",
+    "create_maintenance_task",
+    "auto_assign_maintenance",
+    "escalate_maintenance",
+    "dispatch_to_vendor",
+    "verify_completion",
+    "request_vendor_quote",
+    "select_vendor",
+    "apply_pricing_recommendation",
+    "score_application",
+    "classify_and_delegate",
+    "auto_populate_lease_charges",
     "create_defect_tickets",
-    "import_bank_transactions", "auto_reconcile_batch",
+    "import_bank_transactions",
+    "auto_reconcile_batch",
     "handle_split_payment",
     "voice_create_maintenance_request",
-    "generate_access_code", "send_access_code",
-    "revoke_access_code", "process_sensor_event",
+    "generate_access_code",
+    "send_access_code",
+    "revoke_access_code",
+    "process_sensor_event",
     "execute_playbook",
 ];
 const AI_AGENT_DISABLED_MESSAGE: &str =
@@ -376,7 +387,11 @@ pub async fn run_ai_agent_chat(
     let tool_definitions = tool_definitions(params.allowed_tools);
 
     let max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
-    let effective_max = if planning_mode { max_steps.max(12) } else { max_steps };
+    let effective_max = if planning_mode {
+        max_steps.max(12)
+    } else {
+        max_steps
+    };
     for _ in 0..effective_max {
         let chat_resp = call_openai_chat_completion_tracked(
             state,
@@ -530,13 +545,8 @@ pub async fn run_ai_agent_chat(
         break;
     }
 
-    let final_resp = call_openai_chat_completion_tracked(
-        state,
-        &messages,
-        None,
-        params.preferred_model,
-    )
-    .await?;
+    let final_resp =
+        call_openai_chat_completion_tracked(state, &messages, None, params.preferred_model).await?;
     if !final_resp.model_used.trim().is_empty() {
         model_used = final_resp.model_used.clone();
     }
@@ -704,7 +714,11 @@ pub async fn run_ai_agent_chat_streaming(
         .await;
 
     let max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
-    let effective_max = if planning_mode { max_steps.max(12) } else { max_steps };
+    let effective_max = if planning_mode {
+        max_steps.max(12)
+    } else {
+        max_steps
+    };
     for _ in 0..effective_max {
         let chat_resp = call_openai_chat_completion_tracked(
             state,
@@ -900,13 +914,8 @@ pub async fn run_ai_agent_chat_streaming(
         break;
     }
 
-    let final_resp = call_openai_chat_completion_tracked(
-        state,
-        &messages,
-        None,
-        params.preferred_model,
-    )
-    .await?;
+    let final_resp =
+        call_openai_chat_completion_tracked(state, &messages, None, params.preferred_model).await?;
     if !final_resp.model_used.trim().is_empty() {
         model_used = final_resp.model_used.clone();
     }
@@ -1218,8 +1227,14 @@ fn spawn_memory_extraction(
 
         for fact in facts.iter().take(5) {
             let key = fact.get("key").and_then(Value::as_str).unwrap_or_default();
-            let value = fact.get("value").and_then(Value::as_str).unwrap_or_default();
-            let tier = fact.get("tier").and_then(Value::as_str).unwrap_or("episodic");
+            let value = fact
+                .get("value")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let tier = fact
+                .get("tier")
+                .and_then(Value::as_str)
+                .unwrap_or("episodic");
 
             if key.is_empty() || value.is_empty() {
                 continue;
@@ -2801,8 +2816,12 @@ pub async fn execute_tool(
             .unwrap_or_default()
             .to_ascii_lowercase();
         const BLOCKED_KEYWORDS: &[&str] = &[
-            "password", "credit card", "ssn", "social security",
-            "bank account number", "wire transfer instructions",
+            "password",
+            "credit card",
+            "ssn",
+            "social security",
+            "bank account number",
+            "wire transfer instructions",
         ];
         for kw in BLOCKED_KEYWORDS {
             if body.contains(kw) {
@@ -2905,21 +2924,13 @@ pub async fn execute_tool(
         "create_maintenance_task" => {
             tool_create_maintenance_task(state, context.org_id, args).await
         }
-        "get_revenue_analytics" => {
-            tool_get_revenue_analytics(state, context.org_id, args).await
-        }
-        "get_seasonal_demand" => {
-            tool_get_seasonal_demand(state, context.org_id, args).await
-        }
+        "get_revenue_analytics" => tool_get_revenue_analytics(state, context.org_id, args).await,
+        "get_seasonal_demand" => tool_get_seasonal_demand(state, context.org_id, args).await,
         "generate_owner_statement" => {
             tool_generate_owner_statement(state, context.org_id, args).await
         }
-        "reconcile_collections" => {
-            tool_reconcile_collections(state, context.org_id, args).await
-        }
-        "categorize_expense" => {
-            tool_categorize_expense(state, context.org_id, args).await
-        }
+        "reconcile_collections" => tool_reconcile_collections(state, context.org_id, args).await,
+        "categorize_expense" => tool_categorize_expense(state, context.org_id, args).await,
         "classify_and_delegate" => {
             tool_classify_and_delegate(
                 state,
@@ -2935,9 +2946,7 @@ pub async fn execute_tool(
         "recall_memory" => {
             tool_recall_memory(state, context.org_id, context.agent_slug, args).await
         }
-        "store_memory" => {
-            tool_store_memory(state, context.org_id, context.agent_slug, args).await
-        }
+        "store_memory" => tool_store_memory(state, context.org_id, context.agent_slug, args).await,
         // Phase 1: Planning & Decomposition
         "check_escalation_thresholds" => {
             tool_check_escalation_thresholds(state, context.org_id, context.agent_slug, args).await
@@ -2946,121 +2955,233 @@ pub async fn execute_tool(
         "summarize_conversation" => tool_summarize_conversation(args),
         // Phase 2: Leasing & Revenue
         "advance_application_stage" => {
-            crate::services::leasing_agent::tool_advance_application_stage(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_advance_application_stage(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "schedule_property_viewing" => {
-            crate::services::leasing_agent::tool_schedule_property_viewing(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_schedule_property_viewing(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "generate_lease_offer" => {
-            crate::services::leasing_agent::tool_generate_lease_offer(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_generate_lease_offer(state, context.org_id, args)
+                .await
         }
         "send_application_update" => {
-            crate::services::leasing_agent::tool_send_application_update(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_send_application_update(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "match_applicant_to_units" => {
-            crate::services::leasing_agent::tool_match_applicant_to_units(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_match_applicant_to_units(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "auto_qualify_lead" => {
-            crate::services::leasing_agent::tool_auto_qualify_lead(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_auto_qualify_lead(state, context.org_id, args)
+                .await
         }
         "send_tour_reminder" => {
-            crate::services::leasing_agent::tool_send_tour_reminder(state, context.org_id, args).await
+            crate::services::leasing_agent::tool_send_tour_reminder(state, context.org_id, args)
+                .await
         }
         "generate_pricing_recommendations" => {
-            crate::services::dynamic_pricing::tool_generate_pricing_recommendations(state, context.org_id, args).await
+            crate::services::dynamic_pricing::tool_generate_pricing_recommendations(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "apply_pricing_recommendation" => {
-            crate::services::dynamic_pricing::tool_apply_pricing_recommendation(state, context.org_id, args).await
+            crate::services::dynamic_pricing::tool_apply_pricing_recommendation(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "fetch_market_data" => {
-            crate::services::dynamic_pricing::tool_fetch_market_data(state, context.org_id, args).await
+            crate::services::dynamic_pricing::tool_fetch_market_data(state, context.org_id, args)
+                .await
         }
         "simulate_rate_impact" => {
-            crate::services::dynamic_pricing::tool_simulate_rate_impact(state, context.org_id, args).await
+            crate::services::dynamic_pricing::tool_simulate_rate_impact(state, context.org_id, args)
+                .await
         }
         "score_application" => {
-            crate::services::tenant_screening::tool_score_application(state, context.org_id, args).await
+            crate::services::tenant_screening::tool_score_application(state, context.org_id, args)
+                .await
         }
         // Phase 3: Maintenance
         "classify_maintenance_request" => {
-            crate::services::maintenance_dispatch::tool_classify_maintenance_request(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_classify_maintenance_request(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "auto_assign_maintenance" => {
-            crate::services::maintenance_dispatch::tool_auto_assign_maintenance(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_auto_assign_maintenance(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "check_maintenance_sla" => {
-            crate::services::maintenance_dispatch::tool_check_maintenance_sla(state, context.org_id).await
+            crate::services::maintenance_dispatch::tool_check_maintenance_sla(state, context.org_id)
+                .await
         }
         "escalate_maintenance" => {
-            crate::services::maintenance_dispatch::tool_escalate_maintenance(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_escalate_maintenance(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "request_vendor_quote" => {
-            crate::services::maintenance_dispatch::tool_request_vendor_quote(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_request_vendor_quote(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "select_vendor" => {
-            crate::services::maintenance_dispatch::tool_select_vendor(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_select_vendor(state, context.org_id, args)
+                .await
         }
         "dispatch_to_vendor" => {
-            crate::services::maintenance_dispatch::tool_dispatch_to_vendor(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_dispatch_to_vendor(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "verify_completion" => {
-            crate::services::maintenance_dispatch::tool_verify_completion(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_verify_completion(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "get_vendor_performance" => {
-            crate::services::maintenance_dispatch::tool_get_vendor_performance(state, context.org_id, args).await
+            crate::services::maintenance_dispatch::tool_get_vendor_performance(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "analyze_inspection_photos" => {
-            crate::services::vision_ai::tool_analyze_inspection_photos(state, context.org_id, args).await
+            crate::services::vision_ai::tool_analyze_inspection_photos(state, context.org_id, args)
+                .await
         }
         "compare_inspections" => {
             crate::services::vision_ai::tool_compare_inspections(state, context.org_id, args).await
         }
         "create_defect_tickets" => {
-            crate::services::vision_ai::tool_create_defect_tickets(state, context.org_id, args).await
+            crate::services::vision_ai::tool_create_defect_tickets(state, context.org_id, args)
+                .await
         }
         "verify_cleaning" => {
             crate::services::vision_ai::tool_verify_cleaning(state, context.org_id, args).await
         }
         // Phase 4: Financial & Compliance
         "auto_reconcile_all" => {
-            crate::services::reconciliation::tool_auto_reconcile_all(state, context.org_id, args).await
+            crate::services::reconciliation::tool_auto_reconcile_all(state, context.org_id, args)
+                .await
         }
         "import_bank_transactions" => {
-            crate::services::reconciliation::tool_import_bank_transactions(state, context.org_id, args).await
+            crate::services::reconciliation::tool_import_bank_transactions(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "auto_reconcile_batch" => {
-            crate::services::reconciliation::tool_auto_reconcile_batch(state, context.org_id, args).await
+            crate::services::reconciliation::tool_auto_reconcile_batch(state, context.org_id, args)
+                .await
         }
         "handle_split_payment" => {
-            crate::services::reconciliation::tool_handle_split_payment(state, context.org_id, args).await
+            crate::services::reconciliation::tool_handle_split_payment(state, context.org_id, args)
+                .await
         }
         "abstract_lease_document" => {
-            crate::services::lease_abstraction::tool_abstract_lease_document(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_abstract_lease_document(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "check_lease_compliance" => {
-            crate::services::lease_abstraction::tool_check_lease_compliance(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_check_lease_compliance(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "check_document_expiry" => {
-            crate::services::lease_abstraction::tool_check_document_expiry(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_check_document_expiry(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "check_paraguayan_compliance" => {
-            crate::services::lease_abstraction::tool_check_paraguayan_compliance(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_check_paraguayan_compliance(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "track_lease_deadlines" => {
-            crate::services::lease_abstraction::tool_track_lease_deadlines(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_track_lease_deadlines(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "auto_populate_lease_charges" => {
-            crate::services::lease_abstraction::tool_auto_populate_lease_charges(state, context.org_id, args).await
+            crate::services::lease_abstraction::tool_auto_populate_lease_charges(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
-        "get_regulatory_guidance" => {
-            tool_search_knowledge(state, context.org_id, args).await
-        }
+        "get_regulatory_guidance" => tool_search_knowledge(state, context.org_id, args).await,
         // Phase 5: Portfolio Intelligence
         "get_portfolio_kpis" => {
             crate::services::portfolio::tool_get_portfolio_kpis(state, context.org_id).await
         }
         "get_property_comparison" => {
-            crate::services::portfolio::tool_get_property_comparison(state, context.org_id, args).await
+            crate::services::portfolio::tool_get_property_comparison(state, context.org_id, args)
+                .await
         }
         "simulate_investment_scenario" => {
             crate::services::scenario_simulation::tool_simulate_investment_scenario(args)
@@ -3072,7 +3193,12 @@ pub async fn execute_tool(
             crate::services::portfolio::tool_get_property_heatmap(state, context.org_id, args).await
         }
         "generate_performance_digest" => {
-            crate::services::portfolio::tool_generate_performance_digest(state, context.org_id, args).await
+            crate::services::portfolio::tool_generate_performance_digest(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "simulate_renovation_roi" => {
             crate::services::scenario_simulation::tool_simulate_renovation_roi(args)
@@ -3082,16 +3208,24 @@ pub async fn execute_tool(
         }
         // Sprint 7: Voice Agent
         "voice_lookup_caller" => {
-            crate::services::voice_agent::tool_voice_lookup_caller(state, context.org_id, args).await
+            crate::services::voice_agent::tool_voice_lookup_caller(state, context.org_id, args)
+                .await
         }
         "voice_create_maintenance_request" => {
-            crate::services::voice_agent::tool_voice_create_maintenance_request(state, context.org_id, args).await
+            crate::services::voice_agent::tool_voice_create_maintenance_request(
+                state,
+                context.org_id,
+                args,
+            )
+            .await
         }
         "voice_check_reservation" => {
-            crate::services::voice_agent::tool_voice_check_reservation(state, context.org_id, args).await
+            crate::services::voice_agent::tool_voice_check_reservation(state, context.org_id, args)
+                .await
         }
         "log_voice_interaction" => {
-            crate::services::voice_agent::tool_log_voice_interaction(state, context.org_id, args).await
+            crate::services::voice_agent::tool_log_voice_interaction(state, context.org_id, args)
+                .await
         }
         // Sprint 10: IoT
         "generate_access_code" => {
@@ -3111,20 +3245,28 @@ pub async fn execute_tool(
         }
         // Sprint 11: Predictive Intelligence
         "get_risk_radar" => {
-            crate::services::tenant_screening::tool_get_risk_radar(state, context.org_id, args).await
+            crate::services::tenant_screening::tool_get_risk_radar(state, context.org_id, args)
+                .await
         }
         "forecast_demand" => {
-            crate::services::tenant_screening::tool_forecast_demand(state, context.org_id, args).await
+            crate::services::tenant_screening::tool_forecast_demand(state, context.org_id, args)
+                .await
         }
         // Sprint 12: Autonomous Operations
         "evaluate_agent_response" => {
             tool_evaluate_agent_response(state, context.org_id, args).await
         }
-        "get_agent_health" => {
-            tool_get_agent_health(state, context.org_id, args).await
-        }
+        "get_agent_health" => tool_get_agent_health(state, context.org_id, args).await,
         "execute_playbook" => {
-            tool_execute_playbook(state, context.org_id, context.role, context.allow_mutations, context.confirm_write, args).await
+            tool_execute_playbook(
+                state,
+                context.org_id,
+                context.role,
+                context.allow_mutations,
+                context.confirm_write,
+                args,
+            )
+            .await
         }
         _ => Ok(json!({
             "ok": false,
@@ -3654,7 +3796,11 @@ async fn tool_delegate_to_agent(
             .filter_map(|v| v.as_str().map(|s| s.trim().to_string()))
             .filter(|s| !s.is_empty())
             .collect()
-    } else if let Some(single) = args.get("agent_slug").and_then(Value::as_str).map(str::trim) {
+    } else if let Some(single) = args
+        .get("agent_slug")
+        .and_then(Value::as_str)
+        .map(str::trim)
+    {
         if single.is_empty() {
             return Ok(json!({ "ok": false, "error": "agent_slug or agent_slugs is required." }));
         }
@@ -3665,13 +3811,32 @@ async fn tool_delegate_to_agent(
 
     if slugs.len() == 1 {
         // Single delegation — existing sequential path
-        return delegate_to_single_agent(state, org_id, role, allow_mutations, confirm_write, &slugs[0], message).await;
+        return delegate_to_single_agent(
+            state,
+            org_id,
+            role,
+            allow_mutations,
+            confirm_write,
+            &slugs[0],
+            message,
+        )
+        .await;
     }
 
     // Concurrent delegation: run each sub-agent and collect results
     let mut results = Vec::with_capacity(slugs.len());
     for slug in &slugs {
-        match delegate_to_single_agent(state, org_id, role, allow_mutations, confirm_write, slug, message).await {
+        match delegate_to_single_agent(
+            state,
+            org_id,
+            role,
+            allow_mutations,
+            confirm_write,
+            slug,
+            message,
+        )
+        .await
+        {
             Ok(val) => results.push(val),
             Err(e) => results.push(json!({
                 "ok": false,
@@ -3763,22 +3928,133 @@ async fn delegate_to_single_agent(
 /// Intent-to-agent mapping for automatic delegation.
 const INTENT_RULES: &[(&[&str], &str, &str)] = &[
     // (keywords, agent_slug, description)
-    (&["guest", "huésped", "check-in", "check-out", "reservation", "reserva", "booking", "hospedaje", "wifi", "amenities"],
-     "guest-concierge", "Guest questions and hospitality"),
-    (&["maintenance", "mantenimiento", "repair", "reparación", "plumbing", "plomería", "electrical", "eléctrico", "broken", "roto", "leak", "fuga"],
-     "maintenance-triage", "Maintenance and repair issues"),
-    (&["lease", "contrato", "rent", "alquiler", "tenant", "inquilino", "renewal", "renovación", "eviction", "desalojo", "deposit", "depósito"],
-     "leasing-advisor", "Leasing and tenant matters"),
-    (&["payment", "pago", "collection", "cobranza", "invoice", "factura", "revenue", "ingreso", "expense", "gasto", "statement", "estado de cuenta", "financial", "financiero"],
-     "finance-controller", "Financial operations and reporting"),
-    (&["price", "pricing", "precio", "rate", "tarifa", "occupancy", "ocupación", "demand", "demanda", "revenue management"],
-     "pricing-optimizer", "Pricing and revenue optimization"),
-    (&["clean", "limpieza", "housekeeping", "turnover", "turnos", "inspection", "inspección"],
-     "operations-coordinator", "Operations and housekeeping"),
-    (&["owner", "propietario", "landlord", "dueño", "statement", "payout", "liquidación"],
-     "owner-liaison", "Property owner communications"),
-    (&["compliance", "cumplimiento", "legal", "regulation", "regulación", "license", "licencia"],
-     "compliance-monitor", "Compliance and regulatory matters"),
+    (
+        &[
+            "guest",
+            "huésped",
+            "check-in",
+            "check-out",
+            "reservation",
+            "reserva",
+            "booking",
+            "hospedaje",
+            "wifi",
+            "amenities",
+        ],
+        "guest-concierge",
+        "Guest questions and hospitality",
+    ),
+    (
+        &[
+            "maintenance",
+            "mantenimiento",
+            "repair",
+            "reparación",
+            "plumbing",
+            "plomería",
+            "electrical",
+            "eléctrico",
+            "broken",
+            "roto",
+            "leak",
+            "fuga",
+        ],
+        "maintenance-triage",
+        "Maintenance and repair issues",
+    ),
+    (
+        &[
+            "lease",
+            "contrato",
+            "rent",
+            "alquiler",
+            "tenant",
+            "inquilino",
+            "renewal",
+            "renovación",
+            "eviction",
+            "desalojo",
+            "deposit",
+            "depósito",
+        ],
+        "leasing-advisor",
+        "Leasing and tenant matters",
+    ),
+    (
+        &[
+            "payment",
+            "pago",
+            "collection",
+            "cobranza",
+            "invoice",
+            "factura",
+            "revenue",
+            "ingreso",
+            "expense",
+            "gasto",
+            "statement",
+            "estado de cuenta",
+            "financial",
+            "financiero",
+        ],
+        "finance-controller",
+        "Financial operations and reporting",
+    ),
+    (
+        &[
+            "price",
+            "pricing",
+            "precio",
+            "rate",
+            "tarifa",
+            "occupancy",
+            "ocupación",
+            "demand",
+            "demanda",
+            "revenue management",
+        ],
+        "pricing-optimizer",
+        "Pricing and revenue optimization",
+    ),
+    (
+        &[
+            "clean",
+            "limpieza",
+            "housekeeping",
+            "turnover",
+            "turnos",
+            "inspection",
+            "inspección",
+        ],
+        "operations-coordinator",
+        "Operations and housekeeping",
+    ),
+    (
+        &[
+            "owner",
+            "propietario",
+            "landlord",
+            "dueño",
+            "statement",
+            "payout",
+            "liquidación",
+        ],
+        "owner-liaison",
+        "Property owner communications",
+    ),
+    (
+        &[
+            "compliance",
+            "cumplimiento",
+            "legal",
+            "regulation",
+            "regulación",
+            "license",
+            "licencia",
+        ],
+        "compliance-monitor",
+        "Compliance and regulatory matters",
+    ),
 ];
 
 async fn tool_classify_and_delegate(
@@ -3838,11 +4114,14 @@ async fn tool_classify_and_delegate(
            AND agent_slug = $2
            AND memory_key = $3
            AND (expires_at IS NULL OR expires_at > now())
-         LIMIT 1"
+         LIMIT 1",
     )
     .bind(org_id)
     .bind(caller_slug)
-    .bind(format!("delegation_pattern:{}", &search_text[..search_text.len().min(50)]))
+    .bind(format!(
+        "delegation_pattern:{}",
+        &search_text[..search_text.len().min(50)]
+    ))
     .fetch_optional(pool)
     .await
     .ok()
@@ -3850,7 +4129,7 @@ async fn tool_classify_and_delegate(
 
     if let Some(learned_slug) = learned.as_deref().filter(|s| !s.is_empty()) {
         let exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM ai_agents WHERE slug = $1 AND is_active = true)"
+            "SELECT EXISTS(SELECT 1 FROM ai_agents WHERE slug = $1 AND is_active = true)",
         )
         .bind(learned_slug)
         .fetch_one(pool)
@@ -3889,11 +4168,24 @@ async fn tool_classify_and_delegate(
         let mut combined_responses = Vec::new();
         for (agent_slug, desc) in &agents_to_delegate {
             let mut del_args = Map::new();
-            del_args.insert("agent_slug".to_string(), Value::String(agent_slug.to_string()));
-            del_args.insert("message".to_string(), Value::String(user_message.to_string()));
+            del_args.insert(
+                "agent_slug".to_string(),
+                Value::String(agent_slug.to_string()),
+            );
+            del_args.insert(
+                "message".to_string(),
+                Value::String(user_message.to_string()),
+            );
             match tool_delegate_to_agent(
-                state, org_id, role, allow_mutations, confirm_write, &del_args,
-            ).await {
+                state,
+                org_id,
+                role,
+                allow_mutations,
+                confirm_write,
+                &del_args,
+            )
+            .await
+            {
                 Ok(v) => combined_responses.push(json!({
                     "agent": agent_slug, "domain": desc, "ok": true, "response": v
                 })),
@@ -3911,12 +4203,24 @@ async fn tool_classify_and_delegate(
     } else {
         // Single-agent delegation
         let mut delegate_args = Map::new();
-        delegate_args.insert("agent_slug".to_string(), Value::String(best_slug.to_string()));
-        delegate_args.insert("message".to_string(), Value::String(user_message.to_string()));
+        delegate_args.insert(
+            "agent_slug".to_string(),
+            Value::String(best_slug.to_string()),
+        );
+        delegate_args.insert(
+            "message".to_string(),
+            Value::String(user_message.to_string()),
+        );
 
         let single_result = tool_delegate_to_agent(
-            state, org_id, role, allow_mutations, confirm_write, &delegate_args,
-        ).await;
+            state,
+            org_id,
+            role,
+            allow_mutations,
+            confirm_write,
+            &delegate_args,
+        )
+        .await;
 
         // Fallback: if primary agent fails, try guest-concierge
         match single_result {
@@ -3924,9 +4228,23 @@ async fn tool_classify_and_delegate(
             Err(e) if best_slug != "guest-concierge" => {
                 tracing::warn!(agent = best_slug, error = %e, "Delegation failed, falling back to guest-concierge");
                 let mut fallback_args = Map::new();
-                fallback_args.insert("agent_slug".to_string(), Value::String("guest-concierge".to_string()));
-                fallback_args.insert("message".to_string(), Value::String(user_message.to_string()));
-                tool_delegate_to_agent(state, org_id, role, allow_mutations, confirm_write, &fallback_args).await?
+                fallback_args.insert(
+                    "agent_slug".to_string(),
+                    Value::String("guest-concierge".to_string()),
+                );
+                fallback_args.insert(
+                    "message".to_string(),
+                    Value::String(user_message.to_string()),
+                );
+                tool_delegate_to_agent(
+                    state,
+                    org_id,
+                    role,
+                    allow_mutations,
+                    confirm_write,
+                    &fallback_args,
+                )
+                .await?
             }
             Err(e) => return Err(e),
         }
@@ -3960,8 +4278,14 @@ async fn tool_classify_and_delegate(
 
     // Enrich the result with classification info
     let mut enriched = result.as_object().cloned().unwrap_or_default();
-    enriched.insert("classified_as".to_string(), Value::String(best_desc.to_string()));
-    enriched.insert("classified_agent".to_string(), Value::String(best_slug.to_string()));
+    enriched.insert(
+        "classified_as".to_string(),
+        Value::String(best_desc.to_string()),
+    );
+    enriched.insert(
+        "classified_agent".to_string(),
+        Value::String(best_slug.to_string()),
+    );
     enriched.insert("classification_score".to_string(), json!(best_score));
 
     Ok(Value::Object(enriched))
@@ -3975,14 +4299,38 @@ async fn tool_evaluate_agent_response(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let agent_slug = args.get("agent_slug").and_then(Value::as_str).unwrap_or_default();
-    let chat_id = args.get("chat_id").and_then(Value::as_str).unwrap_or_default();
-    let accuracy = args.get("accuracy_score").and_then(Value::as_f64).unwrap_or(0.0).clamp(0.0, 1.0);
-    let helpfulness = args.get("helpfulness_score").and_then(Value::as_f64).unwrap_or(0.0).clamp(0.0, 1.0);
-    let safety = args.get("safety_score").and_then(Value::as_f64).unwrap_or(1.0).clamp(0.0, 1.0);
+    let agent_slug = args
+        .get("agent_slug")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let chat_id = args
+        .get("chat_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let accuracy = args
+        .get("accuracy_score")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0);
+    let helpfulness = args
+        .get("helpfulness_score")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0)
+        .clamp(0.0, 1.0);
+    let safety = args
+        .get("safety_score")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.0)
+        .clamp(0.0, 1.0);
     let latency_ms = args.get("latency_ms").and_then(Value::as_i64).unwrap_or(0) as i32;
-    let cost = args.get("cost_estimate").and_then(Value::as_f64).unwrap_or(0.0);
-    let model_used = args.get("model_used").and_then(Value::as_str).unwrap_or("unknown");
+    let cost = args
+        .get("cost_estimate")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let model_used = args
+        .get("model_used")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
 
     if agent_slug.is_empty() {
         return Ok(json!({ "ok": false, "error": "agent_slug is required." }));
@@ -4038,7 +4386,11 @@ async fn tool_get_agent_health(
     args: &Map<String, Value>,
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
-    let days = args.get("days").and_then(Value::as_i64).unwrap_or(30).clamp(1, 90) as i32;
+    let days = args
+        .get("days")
+        .and_then(Value::as_i64)
+        .unwrap_or(30)
+        .clamp(1, 90) as i32;
 
     // Get per-agent health summary
     let rows = sqlx::query(
@@ -4136,7 +4488,10 @@ async fn tool_execute_playbook(
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
 
-    let playbook_id = args.get("playbook_id").and_then(Value::as_str).unwrap_or_default();
+    let playbook_id = args
+        .get("playbook_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if playbook_id.is_empty() {
         return Ok(json!({ "ok": false, "error": "playbook_id is required." }));
     }
@@ -4166,7 +4521,9 @@ async fn tool_execute_playbook(
     }
 
     let name = pb.try_get::<String, _>("name").unwrap_or_default();
-    let agent_slug = pb.try_get::<String, _>("agent_slug").unwrap_or_else(|_| "guest-concierge".to_string());
+    let agent_slug = pb
+        .try_get::<String, _>("agent_slug")
+        .unwrap_or_else(|_| "guest-concierge".to_string());
     let steps: Value = pb.try_get("steps").unwrap_or(json!([]));
 
     let step_arr = steps.as_array().cloned().unwrap_or_default();
@@ -4174,7 +4531,10 @@ async fn tool_execute_playbook(
     let start = std::time::Instant::now();
 
     for (i, step) in step_arr.iter().enumerate() {
-        let step_type = step.get("type").and_then(Value::as_str).unwrap_or("message");
+        let step_type = step
+            .get("type")
+            .and_then(Value::as_str)
+            .unwrap_or("message");
         let step_content = step.get("content").and_then(Value::as_str).unwrap_or("");
 
         match step_type {
@@ -4182,8 +4542,20 @@ async fn tool_execute_playbook(
                 // Delegate the step message to the playbook's agent
                 let mut del_args = Map::new();
                 del_args.insert("agent_slug".to_string(), Value::String(agent_slug.clone()));
-                del_args.insert("message".to_string(), Value::String(step_content.to_string()));
-                match tool_delegate_to_agent(state, org_id, role, allow_mutations, confirm_write, &del_args).await {
+                del_args.insert(
+                    "message".to_string(),
+                    Value::String(step_content.to_string()),
+                );
+                match tool_delegate_to_agent(
+                    state,
+                    org_id,
+                    role,
+                    allow_mutations,
+                    confirm_write,
+                    &del_args,
+                )
+                .await
+                {
                     Ok(result) => {
                         results.push(json!({ "step": i + 1, "type": step_type, "ok": true, "result": result }));
                     }
@@ -4194,15 +4566,31 @@ async fn tool_execute_playbook(
             }
             "tool" => {
                 // Tool steps are delegated as messages to the agent which has tool access
-                let tool_name_str = step.get("tool_name").and_then(Value::as_str).unwrap_or("unknown");
-                let tool_args_desc = step.get("args")
+                let tool_name_str = step
+                    .get("tool_name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown");
+                let tool_args_desc = step
+                    .get("args")
                     .map(|a| a.to_string())
                     .unwrap_or_else(|| "{}".to_string());
-                let tool_message = format!("Execute tool '{}' with args: {}", tool_name_str, tool_args_desc);
+                let tool_message = format!(
+                    "Execute tool '{}' with args: {}",
+                    tool_name_str, tool_args_desc
+                );
                 let mut del_args = Map::new();
                 del_args.insert("agent_slug".to_string(), Value::String(agent_slug.clone()));
                 del_args.insert("message".to_string(), Value::String(tool_message));
-                match tool_delegate_to_agent(state, org_id, role, allow_mutations, confirm_write, &del_args).await {
+                match tool_delegate_to_agent(
+                    state,
+                    org_id,
+                    role,
+                    allow_mutations,
+                    confirm_write,
+                    &del_args,
+                )
+                .await
+                {
                     Ok(result) => {
                         results.push(json!({ "step": i + 1, "type": "tool", "tool": tool_name_str, "ok": true, "result": result }));
                     }
@@ -4233,7 +4621,10 @@ async fn tool_execute_playbook(
     .await
     .ok();
 
-    let success_count = results.iter().filter(|r| r.get("ok").and_then(Value::as_bool).unwrap_or(false)).count();
+    let success_count = results
+        .iter()
+        .filter(|r| r.get("ok").and_then(Value::as_bool).unwrap_or(false))
+        .count();
 
     Ok(json!({
         "ok": true,
@@ -4292,7 +4683,10 @@ pub async fn collect_daily_agent_health(state: &AppState) {
     .await;
 
     match result {
-        Ok(r) => tracing::info!(rows = r.rows_affected(), "Daily agent health metrics collected"),
+        Ok(r) => tracing::info!(
+            rows = r.rows_affected(),
+            "Daily agent health metrics collected"
+        ),
         Err(e) => tracing::warn!(error = %e, "Failed to collect agent health metrics"),
     }
 }
@@ -4620,12 +5014,8 @@ async fn tool_search_knowledge(
     let pool = db_pool(state)?;
 
     // Try vector similarity search first, fall back to ILIKE if embedding fails
-    let embedding_result = crate::services::embeddings::embed_query(
-        &state.http_client,
-        &state.config,
-        query,
-    )
-    .await;
+    let embedding_result =
+        crate::services::embeddings::embed_query(&state.http_client, &state.config, query).await;
 
     if let Ok(query_embedding) = embedding_result {
         // --- Hybrid RAG: Vector + FTS with RRF fusion ---
@@ -4851,10 +5241,7 @@ async fn tool_send_message(
     payload.insert("body".to_string(), Value::String(body.to_string()));
     payload.insert("ai_generated".to_string(), Value::Bool(true));
     if let Some(guest_id) = args.get("guest_id").and_then(Value::as_str) {
-        payload.insert(
-            "guest_id".to_string(),
-            Value::String(guest_id.to_string()),
-        );
+        payload.insert("guest_id".to_string(), Value::String(guest_id.to_string()));
     }
     msg.insert("payload".to_string(), Value::Object(payload));
 
@@ -4967,7 +5354,10 @@ async fn tool_create_maintenance_task(
     );
     task.insert("priority".to_string(), Value::String(priority.to_string()));
     task.insert("status".to_string(), Value::String("todo".to_string()));
-    task.insert("category".to_string(), Value::String("maintenance".to_string()));
+    task.insert(
+        "category".to_string(),
+        Value::String("maintenance".to_string()),
+    );
 
     if let Some(assigned) = args.get("assigned_to_user_id").and_then(Value::as_str) {
         task.insert(
@@ -5001,10 +5391,7 @@ async fn tool_create_maintenance_task(
                     "organization_id".to_string(),
                     Value::String(org_id.to_string()),
                 );
-                ci.insert(
-                    "task_id".to_string(),
-                    Value::String(task_id.to_string()),
-                );
+                ci.insert("task_id".to_string(), Value::String(task_id.to_string()));
                 ci.insert("title".to_string(), Value::String(text.to_string()));
                 ci.insert("sort_order".to_string(), json!(index as i32));
                 ci.insert("is_done".to_string(), Value::Bool(false));
@@ -5239,7 +5626,9 @@ async fn tool_generate_owner_statement(
         .unwrap_or_default();
 
     if period_start.is_empty() || period_end.is_empty() {
-        return Ok(json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }));
+        return Ok(
+            json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }),
+        );
     }
 
     let unit_id = args.get("unit_id").and_then(Value::as_str);
@@ -5437,7 +5826,9 @@ async fn tool_reconcile_collections(
         .unwrap_or_default();
 
     if period_start.is_empty() || period_end.is_empty() {
-        return Ok(json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }));
+        return Ok(
+            json!({ "ok": false, "error": "period_start and period_end (YYYY-MM-DD) are required." }),
+        );
     }
 
     // Reservation-based expected vs collected
@@ -5656,12 +6047,9 @@ async fn tool_recall_memory(
         .await
     } else if !query_text.is_empty() {
         // Hybrid memory recall: Vector + FTS with RRF fusion
-        let embedding_result = crate::services::embeddings::embed_query(
-            &state.http_client,
-            &state.config,
-            query_text,
-        )
-        .await;
+        let embedding_result =
+            crate::services::embeddings::embed_query(&state.http_client, &state.config, query_text)
+                .await;
 
         if let Ok(query_embedding) = embedding_result {
             let fetch_n = 20_i32;
@@ -5898,10 +6286,7 @@ async fn tool_store_memory(
         .and_then(Value::as_str)
         .unwrap_or("general");
     let entity_id = args.get("entity_id").and_then(Value::as_str);
-    let shared = args
-        .get("shared")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
+    let shared = args.get("shared").and_then(Value::as_bool).unwrap_or(false);
 
     // Memory tier determines TTL and classification
     let memory_tier = args
@@ -6000,10 +6385,7 @@ async fn tool_check_escalation_thresholds(
         .get("threshold_type")
         .and_then(Value::as_str)
         .unwrap_or("dollar_amount");
-    let value = args
-        .get("value")
-        .and_then(Value::as_f64)
-        .unwrap_or(0.0);
+    let value = args.get("value").and_then(Value::as_f64).unwrap_or(0.0);
     let context_desc = args
         .get("context")
         .and_then(Value::as_str)
@@ -6279,8 +6661,13 @@ fn table_config(table: &str) -> AppResult<TableConfig> {
             can_update: true,
             can_delete: false,
         },
-        "audit_logs" | "agent_approvals" | "agent_approval_policies" | "anomaly_alerts"
-        | "agent_memory" | "agent_schedules" | "portfolio_snapshots" => TableConfig {
+        "audit_logs"
+        | "agent_approvals"
+        | "agent_approval_policies"
+        | "anomaly_alerts"
+        | "agent_memory"
+        | "agent_schedules"
+        | "portfolio_snapshots" => TableConfig {
             org_column: "organization_id",
             can_create: false,
             can_update: false,
@@ -6298,8 +6685,12 @@ fn table_config(table: &str) -> AppResult<TableConfig> {
             can_update: false,
             can_delete: false,
         },
-        "maintenance_requests" | "inspection_reports" | "lease_abstractions"
-        | "maintenance_sla_config" | "vendor_roster" | "pricing_recommendations" => TableConfig {
+        "maintenance_requests"
+        | "inspection_reports"
+        | "lease_abstractions"
+        | "maintenance_sla_config"
+        | "vendor_roster"
+        | "pricing_recommendations" => TableConfig {
             org_column: "organization_id",
             can_create: true,
             can_update: true,
@@ -6567,7 +6958,7 @@ fn tool_error_detail(state: &AppState, error: &AppError) -> String {
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
         AppError::Dependency(
-            "Supabase database is not configured. Set SUPABASE_DB_URL or DATABASE_URL.".to_string(),
+            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
         )
     })
 }
@@ -6606,7 +6997,7 @@ mod tests {
             db_pool: None,
             http_client,
             llm_client,
-            jwks_cache: None,
+            clerk_jwks_cache: None,
             org_membership_cache: OrgMembershipCache::new(30, 1000),
             public_listings_cache: PublicListingsCache::new(15, 500),
             report_response_cache: ReportResponseCache::new(20, 500),

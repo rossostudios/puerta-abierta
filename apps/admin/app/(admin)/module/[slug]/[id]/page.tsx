@@ -22,6 +22,8 @@ import {
 import { CopyButton } from "@/components/ui/copy-button";
 import { Icon } from "@/components/ui/icon";
 import { errorMessage } from "@/lib/errors";
+import { getServerCurrentAppUserId } from "@/lib/auth/server-app-user";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import {
   loadPropertyRelationSnapshot,
   toStatementLineItems,
@@ -51,7 +53,6 @@ import {
   MODULE_BY_SLUG,
 } from "@/lib/modules";
 import { getActiveOrgId } from "@/lib/org";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 export default async function ModuleRecordPage({ params }: RecordPageProps) {
@@ -150,10 +151,8 @@ export default async function ModuleRecordPage({ params }: RecordPageProps) {
   let sessionUserId: string | null = null;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.auth.getSession();
-    accessToken = data.session?.access_token ?? null;
-    sessionUserId = data.session?.user?.id ?? null;
+    accessToken = await getServerAccessToken();
+    sessionUserId = await getServerCurrentAppUserId();
   } catch (_err) {
     // Session is optional
   }

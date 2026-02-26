@@ -23,8 +23,7 @@ pub async fn run_background_scheduler(state: AppState) {
     let workflow_interval =
         Duration::from_secs(state.config.workflow_poll_interval_seconds.max(30));
     let ical_interval = Duration::from_secs(state.config.ical_sync_interval_minutes.max(5) * 60);
-    let message_interval =
-        Duration::from_secs(state.config.message_poll_interval_seconds.max(30));
+    let message_interval = Duration::from_secs(state.config.message_poll_interval_seconds.max(30));
 
     let mut last_workflow_run = tokio::time::Instant::now();
     let mut last_ical_run = tokio::time::Instant::now();
@@ -44,8 +43,7 @@ pub async fn run_background_scheduler(state: AppState) {
             last_workflow_run = now_instant;
             let pool = pool.clone();
             tokio::spawn(async move {
-                let summary =
-                    crate::services::workflows::process_workflow_jobs(&pool, 100).await;
+                let summary = crate::services::workflows::process_workflow_jobs(&pool, 100).await;
                 if summary.picked > 0 {
                     tracing::info!(
                         picked = summary.picked,
@@ -65,10 +63,7 @@ pub async fn run_background_scheduler(state: AppState) {
             tokio::spawn(async move {
                 let result =
                     crate::services::ical::sync_all_ical_integrations(&pool, &client).await;
-                let synced = result
-                    .get("synced")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
+                let synced = result.get("synced").and_then(|v| v.as_u64()).unwrap_or(0);
                 if synced > 0 {
                     tracing::info!(synced, "Scheduler: iCal sync completed");
                 }
@@ -102,12 +97,10 @@ pub async fn run_background_scheduler(state: AppState) {
                     .as_secs() as i64
                     / 3600;
                 let cutoff = current_hour - 24;
-                let result = sqlx::query(
-                    "DELETE FROM agent_rate_limits WHERE hour_bucket < $1",
-                )
-                .bind(cutoff)
-                .execute(&pool)
-                .await;
+                let result = sqlx::query("DELETE FROM agent_rate_limits WHERE hour_bucket < $1")
+                    .bind(cutoff)
+                    .execute(&pool)
+                    .await;
                 if let Ok(r) = result {
                     if r.rows_affected() > 0 {
                         tracing::info!(
@@ -322,11 +315,10 @@ pub async fn run_background_scheduler(state: AppState) {
 
 /// Delete expired agent memories.
 async fn run_memory_cleanup(pool: &sqlx::PgPool) {
-    let result = sqlx::query(
-        "DELETE FROM agent_memory WHERE expires_at IS NOT NULL AND expires_at < now()",
-    )
-    .execute(pool)
-    .await;
+    let result =
+        sqlx::query("DELETE FROM agent_memory WHERE expires_at IS NOT NULL AND expires_at < now()")
+            .execute(pool)
+            .await;
 
     match result {
         Ok(r) => {
@@ -388,12 +380,10 @@ async fn run_cron_agent_playbooks(state: &AppState) {
         }
 
         // Update last_run_at
-        let _ = sqlx::query(
-            "UPDATE agent_playbooks SET last_run_at = now() WHERE id = $1::uuid",
-        )
-        .bind(playbook_id)
-        .execute(pool)
-        .await;
+        let _ = sqlx::query("UPDATE agent_playbooks SET last_run_at = now() WHERE id = $1::uuid")
+            .bind(playbook_id)
+            .execute(pool)
+            .await;
     }
 
     if ran > 0 {
@@ -408,19 +398,22 @@ async fn run_weekly_demand_forecast(state: &AppState) {
         None => return,
     };
 
-    let org_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true LIMIT 100",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let org_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true LIMIT 100")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     let mut generated = 0u32;
     for (org_id,) in &org_ids {
         let args = serde_json::Map::new();
         match crate::services::tenant_screening::tool_forecast_demand(state, org_id, &args).await {
             Ok(result) => {
-                if result.get("ok").and_then(serde_json::Value::as_bool).unwrap_or(false) {
+                if result
+                    .get("ok")
+                    .and_then(serde_json::Value::as_bool)
+                    .unwrap_or(false)
+                {
                     generated += 1;
                 }
             }
@@ -431,15 +424,15 @@ async fn run_weekly_demand_forecast(state: &AppState) {
     }
 
     if generated > 0 {
-        tracing::info!(orgs = generated, "Scheduler: weekly demand forecasts completed");
+        tracing::info!(
+            orgs = generated,
+            "Scheduler: weekly demand forecasts completed"
+        );
     }
 }
 
 /// Scan for tasks whose SLA has been breached but not yet flagged.
-async fn run_sla_breach_scan(
-    pool: &sqlx::PgPool,
-    engine_mode: crate::config::WorkflowEngineMode,
-) {
+async fn run_sla_breach_scan(pool: &sqlx::PgPool, engine_mode: crate::config::WorkflowEngineMode) {
     let rows = sqlx::query_as::<_, (String, String, String)>(
         "SELECT id::text, organization_id::text, title
          FROM tasks
@@ -471,7 +464,13 @@ async fn run_sla_breach_scan(
                 serde_json::Value::String(task_id.clone()),
             );
             if let Some(obj) = updated.as_object() {
-                for key in ["property_id", "unit_id", "assigned_user_id", "priority", "title"] {
+                for key in [
+                    "property_id",
+                    "unit_id",
+                    "assigned_user_id",
+                    "priority",
+                    "title",
+                ] {
                     if let Some(v) = obj.get(key) {
                         if !v.is_null() {
                             ctx.insert(key.to_string(), v.clone());
@@ -502,12 +501,11 @@ async fn run_anomaly_scan_all_orgs(state: &AppState) {
         None => return,
     };
 
-    let org_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true LIMIT 100",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let org_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true LIMIT 100")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     let mut scanned = 0u32;
     for (org_id,) in &org_ids {
@@ -619,19 +617,21 @@ async fn run_scheduled_agent_playbooks(state: &AppState) {
 
 /// Capture nightly portfolio snapshots for all active organizations.
 async fn run_portfolio_snapshots(pool: &sqlx::PgPool) {
-    let org_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT id::text FROM organizations WHERE is_active = true LIMIT 100",
-    )
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default();
+    let org_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id::text FROM organizations WHERE is_active = true LIMIT 100")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
 
     for (org_id,) in &org_ids {
         crate::services::portfolio::capture_portfolio_snapshot(pool, org_id).await;
     }
 
     if !org_ids.is_empty() {
-        tracing::info!(orgs = org_ids.len(), "Scheduler: portfolio snapshots captured");
+        tracing::info!(
+            orgs = org_ids.len(),
+            "Scheduler: portfolio snapshots captured"
+        );
     }
 }
 
@@ -653,7 +653,10 @@ async fn run_maintenance_sla_scan(pool: &sqlx::PgPool) {
     .unwrap_or_default();
 
     if !breached.is_empty() {
-        tracing::info!(count = breached.len(), "Scheduler: maintenance SLA breaches flagged");
+        tracing::info!(
+            count = breached.len(),
+            "Scheduler: maintenance SLA breaches flagged"
+        );
     }
 }
 

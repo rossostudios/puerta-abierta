@@ -4,14 +4,32 @@ use crate::error::AppResult;
 
 /// Simulate a renovation ROI scenario.
 pub fn tool_simulate_renovation_roi(args: &Map<String, Value>) -> AppResult<Value> {
-    let renovation_cost = args.get("renovation_cost").and_then(Value::as_f64).unwrap_or(0.0);
-    let current_monthly_rent = args.get("current_monthly_rent").and_then(Value::as_f64).unwrap_or(0.0);
-    let projected_monthly_rent = args.get("projected_monthly_rent").and_then(Value::as_f64).unwrap_or(0.0);
-    let vacancy_months = args.get("vacancy_months_during_renovation").and_then(Value::as_f64).unwrap_or(1.0);
-    let projection_years = args.get("projection_years").and_then(Value::as_i64).unwrap_or(5).clamp(1, 20) as usize;
+    let renovation_cost = args
+        .get("renovation_cost")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let current_monthly_rent = args
+        .get("current_monthly_rent")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let projected_monthly_rent = args
+        .get("projected_monthly_rent")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let vacancy_months = args
+        .get("vacancy_months_during_renovation")
+        .and_then(Value::as_f64)
+        .unwrap_or(1.0);
+    let projection_years = args
+        .get("projection_years")
+        .and_then(Value::as_i64)
+        .unwrap_or(5)
+        .clamp(1, 20) as usize;
 
     if renovation_cost <= 0.0 || current_monthly_rent <= 0.0 {
-        return Ok(json!({ "ok": false, "error": "renovation_cost and current_monthly_rent must be positive." }));
+        return Ok(
+            json!({ "ok": false, "error": "renovation_cost and current_monthly_rent must be positive." }),
+        );
     }
 
     let monthly_increase = projected_monthly_rent - current_monthly_rent;
@@ -20,7 +38,9 @@ pub fn tool_simulate_renovation_roi(args: &Map<String, Value>) -> AppResult<Valu
 
     let payback_months = if monthly_increase > 0.0 {
         (total_cost / monthly_increase).ceil() as i64
-    } else { 0 };
+    } else {
+        0
+    };
 
     let mut yearly: Vec<Value> = Vec::new();
     let mut cumulative_gain = -total_cost;
@@ -35,8 +55,14 @@ pub fn tool_simulate_renovation_roi(args: &Map<String, Value>) -> AppResult<Valu
     }
 
     let roi_pct = if total_cost > 0.0 {
-        ((monthly_increase * 12.0 * projection_years as f64 - total_cost) / total_cost * 100.0 * 100.0).round() / 100.0
-    } else { 0.0 };
+        ((monthly_increase * 12.0 * projection_years as f64 - total_cost) / total_cost
+            * 100.0
+            * 100.0)
+            .round()
+            / 100.0
+    } else {
+        0.0
+    };
 
     Ok(json!({
         "ok": true,
@@ -53,18 +79,41 @@ pub fn tool_simulate_renovation_roi(args: &Map<String, Value>) -> AppResult<Valu
 
 /// Simulate a market downturn stress test.
 pub fn tool_simulate_stress_test(args: &Map<String, Value>) -> AppResult<Value> {
-    let base_revenue = args.get("base_monthly_revenue").and_then(Value::as_f64).unwrap_or(0.0);
-    let base_expenses = args.get("base_monthly_expenses").and_then(Value::as_f64).unwrap_or(0.0);
-    let occupancy_drop_pct = args.get("occupancy_drop_pct").and_then(Value::as_f64).unwrap_or(20.0).clamp(0.0, 100.0);
-    let rate_drop_pct = args.get("rate_drop_pct").and_then(Value::as_f64).unwrap_or(10.0).clamp(0.0, 100.0);
-    let expense_increase_pct = args.get("expense_increase_pct").and_then(Value::as_f64).unwrap_or(5.0).clamp(0.0, 100.0);
-    let months = args.get("duration_months").and_then(Value::as_i64).unwrap_or(6).clamp(1, 24) as usize;
+    let base_revenue = args
+        .get("base_monthly_revenue")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let base_expenses = args
+        .get("base_monthly_expenses")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0);
+    let occupancy_drop_pct = args
+        .get("occupancy_drop_pct")
+        .and_then(Value::as_f64)
+        .unwrap_or(20.0)
+        .clamp(0.0, 100.0);
+    let rate_drop_pct = args
+        .get("rate_drop_pct")
+        .and_then(Value::as_f64)
+        .unwrap_or(10.0)
+        .clamp(0.0, 100.0);
+    let expense_increase_pct = args
+        .get("expense_increase_pct")
+        .and_then(Value::as_f64)
+        .unwrap_or(5.0)
+        .clamp(0.0, 100.0);
+    let months = args
+        .get("duration_months")
+        .and_then(Value::as_i64)
+        .unwrap_or(6)
+        .clamp(1, 24) as usize;
 
     if base_revenue <= 0.0 {
         return Ok(json!({ "ok": false, "error": "base_monthly_revenue must be positive." }));
     }
 
-    let stress_revenue = base_revenue * (1.0 - occupancy_drop_pct / 100.0) * (1.0 - rate_drop_pct / 100.0);
+    let stress_revenue =
+        base_revenue * (1.0 - occupancy_drop_pct / 100.0) * (1.0 - rate_drop_pct / 100.0);
     let stress_expenses = base_expenses * (1.0 + expense_increase_pct / 100.0);
     let stress_noi = stress_revenue - stress_expenses;
     let normal_noi = base_revenue - base_expenses;
@@ -84,7 +133,8 @@ pub fn tool_simulate_stress_test(args: &Map<String, Value>) -> AppResult<Value> 
         }));
     }
 
-    let revenue_impact_pct = ((base_revenue - stress_revenue) / base_revenue * 100.0 * 100.0).round() / 100.0;
+    let revenue_impact_pct =
+        ((base_revenue - stress_revenue) / base_revenue * 100.0 * 100.0).round() / 100.0;
     let cash_reserve_needed = cumulative_loss.max(0.0);
 
     Ok(json!({

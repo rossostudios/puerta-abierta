@@ -41,7 +41,7 @@ export function ReservationsManager({
   const isEn = locale === "en-US";
   const router = useRouter();
 
-  useNewBookingToast({ enabled: true, isEn });
+  useNewBookingToast({ orgId, enabled: true, isEn });
 
   const [open, setOpen] = useState(false);
   const [selectedRows, setSelectedRows] = useState<DataTableRow[]>([]);

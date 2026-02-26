@@ -37,13 +37,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::from_env();
     let state = AppState::build(config)?;
 
+    if state.config.db_fail_fast_on_startup_runtime() && state.db_pool.is_some() {
+        if let Err(error) = state.db_startup_probe().await {
+            tracing::error!(
+                code = error.error_code(),
+                retryable = error.retryable(),
+                detail = %error.detail_message(),
+                "Startup DB probe failed; refusing to serve traffic"
+            );
+            return Err(Box::new(std::io::Error::other(format!(
+                "startup db probe failed: {}",
+                error.detail_message()
+            ))) as Box<dyn std::error::Error>);
+        }
+    }
+
     if state.config.auth_dev_overrides_enabled() {
         tracing::warn!("DEV AUTH OVERRIDES ARE ENABLED — do not use in production");
     }
 
-    if state.jwks_cache.is_none() {
+    if state.clerk_jwks_cache.is_none() {
         tracing::warn!(
-            "SUPABASE_JWKS_URL is not set — falling back to HTTP auth (slower, uses service key)"
+            "No Clerk JWKS auth provider configured (CLERK_JWKS_URL); token auth will reject bearer tokens"
         );
     }
 

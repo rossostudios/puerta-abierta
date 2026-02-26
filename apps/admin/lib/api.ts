@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getServerAccessToken } from "@/lib/auth/server-access-token";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
@@ -164,17 +164,13 @@ function getAccessToken(): Promise<string | null> {
     return Promise.resolve(cachedAccessToken.token);
   }
 
-  // Dedup concurrent token requests so only one Supabase client/session
-  // check runs at a time; others await its result.
+  // Dedup concurrent token requests so only one auth session lookup runs at a
+  // time; others await its result.
   if (pendingTokenRequest) return pendingTokenRequest;
   pendingTokenRequest = (async () => {
     try {
-      const supabase = await createSupabaseServerClient();
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token ?? null;
-      const expiresAt = data.session?.expires_at
-        ? Math.max(0, data.session.expires_at * 1000 - SERVER_TOKEN_SKEW_MS)
-        : now + SERVER_TOKEN_SKEW_MS;
+      const token = await getServerAccessToken();
+      const expiresAt = now + SERVER_TOKEN_SKEW_MS;
       cachedAccessToken = { token, expiresAt };
       return token;
     } catch {
@@ -189,6 +185,7 @@ function getAccessToken(): Promise<string | null> {
 
 const TRANSIENT_STATUS_CODES = new Set([502, 503, 504]);
 const RETRY_DELAY_MS = 1000;
+const RETRY_JITTER_MS = 400;
 const PUBLIC_CACHE_REVALIDATE_SECONDS = 120;
 const FX_CACHE_REVALIDATE_SECONDS = 900;
 const SERVER_TOKEN_SKEW_MS = 30_000;
@@ -245,11 +242,12 @@ async function requestJson<T>(
 
   // Retry once on transient errors for safe (GET) requests
   if (method === "GET" && TRANSIENT_STATUS_CODES.has(response.status)) {
-    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    await sleepWithJitter(RETRY_DELAY_MS, RETRY_JITTER_MS);
     response = await doFetch(path, url, init, options);
   }
 
   if (!response.ok) {
+    const requestId = response.headers.get("x-request-id") ?? "";
     let detailsText = "";
     try {
       detailsText = await response.text();
@@ -258,12 +256,17 @@ async function requestJson<T>(
     }
 
     let detailMessage = detailsText;
+    let errorCode = "";
+    let retryableFlag = false;
     if (detailsText) {
       try {
         const parsed = JSON.parse(detailsText) as {
           detail?: unknown;
           error?: unknown;
           message?: unknown;
+          code?: unknown;
+          retryable?: unknown;
+          request_id?: unknown;
         };
         const detail =
           parsed?.detail ?? parsed?.error ?? parsed?.message ?? detailsText;
@@ -271,18 +274,38 @@ async function requestJson<T>(
         if (typeof detail === "string") {
           detailMessage = detail;
         }
+        if (typeof parsed.code === "string") {
+          errorCode = parsed.code;
+        }
+        if (typeof parsed.retryable === "boolean") {
+          retryableFlag = parsed.retryable;
+        }
+        if (!requestId && typeof parsed.request_id === "string") {
+          detailMessage = `${detailMessage} (request: ${parsed.request_id})`;
+        }
       } catch {
         // Keep the raw response text when it isn't JSON.
       }
     }
 
+    if (requestId) {
+      detailMessage = `${detailMessage} (request: ${requestId})`;
+    }
+
     const suffix = detailMessage ? `: ${detailMessage.slice(0, 240)}` : "";
+    const codeSuffix = errorCode ? ` [${errorCode}]` : "";
+    const retryableSuffix = retryableFlag ? " [retryable]" : "";
     throw new Error(
-      `API request failed (${response.status}) for ${path}${suffix}`
+      `API request failed (${response.status}) for ${path}${codeSuffix}${retryableSuffix}${suffix}`
     );
   }
 
   return (await response.json()) as T;
+}
+
+function sleepWithJitter(baseMs: number, jitterMs: number): Promise<void> {
+  const jitter = Math.floor(Math.random() * Math.max(0, jitterMs));
+  return new Promise((resolve) => setTimeout(resolve, baseMs + jitter));
 }
 
 export function fetchJson<T>(
