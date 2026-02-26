@@ -230,6 +230,8 @@ export function PropertyNotionTable({
         minSize: 40,
         maxSize: 40,
         enableResizing: false,
+        enableHiding: false,
+        enableSorting: false,
         header: ({ table }) => (
           <Checkbox
             aria-label="Select all"
@@ -469,6 +471,7 @@ export function PropertyNotionTable({
         minSize: 48,
         maxSize: 48,
         enableResizing: false,
+        enableHiding: false,
         header: () => <ColHeader icon={MoreVerticalIcon} label="" />,
         cell: ({ row }) => {
           const property = row.original;
