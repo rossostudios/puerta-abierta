@@ -9,18 +9,18 @@ web_alb_certificate_arn = "arn:aws:acm:us-east-1:341112583495:certificate/REPLAC
 enable_admin_alb_rule = true
 admin_hostnames       = ["app.casaora.co"]
 
-# Set to true after provisioning the public web ECS service + ALB rule.
-enable_web_alb_rule = false
+# Production baseline (public web is live on AWS ECS + ALB).
+enable_web_alb_rule = true
 web_hostnames       = ["casaora.co", "www.casaora.co"]
 
-# Set to true after creating/importing the S3 media bucket(s).
-enable_storage_buckets          = false
+# Production baseline (public media bucket is managed/imported).
+enable_storage_buckets          = true
 public_media_bucket_name        = "casaora-prod-public-media-341112583495"
 create_private_documents_bucket = false
 private_documents_bucket_name   = "casaora-prod-private-documents-341112583495"
 
-# Set to true after provisioning/importing EventBridge scheduled ECS jobs.
-enable_scheduler_jobs = false
+# Production baseline (Railway schedulers replaced by EventBridge + ECS RunTask).
+enable_scheduler_jobs = true
 # Leave true to actually run schedules; set false for codification-only.
 enable_scheduler_rules = true
 scheduler_api_base_url = "https://api.casaora.co"

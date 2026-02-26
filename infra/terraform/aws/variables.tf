@@ -132,7 +132,7 @@ variable "web_alb_certificate_arn" {
 variable "enable_web_alb_rule" {
   type        = bool
   description = "Enable ALB host rule + target group for the public web frontend"
-  default     = false
+  default     = true
 }
 
 variable "web_hostnames" {
@@ -149,7 +149,7 @@ variable "web_rule_priority" {
 variable "enable_storage_buckets" {
   type        = bool
   description = "Manage S3 storage buckets for media/documents"
-  default     = false
+  default     = true
 }
 
 variable "public_media_bucket_name" {
@@ -173,7 +173,7 @@ variable "create_private_documents_bucket" {
 variable "enable_scheduler_jobs" {
   type        = bool
   description = "Manage EventBridge -> ECS scheduled jobs for internal processors"
-  default     = false
+  default     = true
 }
 
 variable "enable_scheduler_rules" {
