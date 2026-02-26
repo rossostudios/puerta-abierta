@@ -104,7 +104,9 @@ pub async fn require_authenticated_user(
 ) -> Result<SupabaseUser, AppError> {
     current_authenticated_user(state, headers)
         .await
-        .ok_or_else(|| AppError::Unauthorized("Unauthorized: missing or invalid access token.".to_string()))
+        .ok_or_else(|| {
+            AppError::Unauthorized("Unauthorized: missing or invalid access token.".to_string())
+        })
 }
 
 pub async fn require_supabase_user(

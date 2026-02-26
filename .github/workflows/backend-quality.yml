@@ -18,5 +18,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Ensure rustfmt/clippy on pinned backend toolchain
+        working-directory: apps/backend-rs
+        run: rustup component add rustfmt clippy
+
       - name: Run backend quality checks
         run: ./scripts/quality-gate.sh backend
