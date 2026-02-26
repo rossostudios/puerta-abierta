@@ -51,5 +51,19 @@
     "tailwindcss": "4.2.0",
     "typescript": "5.9.3",
     "ultracite": "7.1.4"
+  },
+  "overrides": {
+    "@architect/hydrate": {
+      "glob": "^10.5.0"
+    },
+    "@architect/utils": {
+      "glob": "^10.5.0"
+    },
+    "archiver-utils": {
+      "glob": "^10.5.0"
+    },
+    "rimraf@5": {
+      "glob": "^10.5.0"
+    }
   }
 }

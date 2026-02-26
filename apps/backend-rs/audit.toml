@@ -1,0 +1,7 @@
+[advisories]
+# Temporary exception tracked in GitHub issue #9:
+# - RUSTSEC-2023-0071 (rsa / Marvin Attack): no upstream patch is available yet.
+#   Casaora backend uses jsonwebtoken for JWT verification (public-key verification path),
+#   not private-key RSA signing operations exposed over the network.
+ignore = ["RUSTSEC-2023-0071"]
+

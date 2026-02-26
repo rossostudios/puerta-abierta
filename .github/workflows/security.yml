@@ -27,6 +27,7 @@ jobs:
     name: npm Audit
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         app: [apps/admin, apps/web]
     steps:
@@ -45,4 +46,6 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Tracked in issue #9. No upstream patch exists yet for rsa.
+          ignore: RUSTSEC-2023-0071
           working-directory: apps/backend-rs
