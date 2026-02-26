@@ -42,9 +42,6 @@ export function AppFooter({ locale }: { locale: Locale }) {
       <CasaoraLogo className="text-muted-foreground/70" size={20} />
 
       <div className="flex items-center gap-4">
-        <Link className="transition-colors hover:text-foreground" href="/setup">
-          {isEn ? "Setup" : "Configuración"}
-        </Link>
         <span className="tabular-nums">&copy; {new Date().getFullYear()}</span>
       </div>
     </footer>
