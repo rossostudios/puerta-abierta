@@ -1,15 +1,7 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
 import { Loading03Icon } from "@hugeicons/core-free-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  type DataUIPart,
-  DefaultChatTransport,
-  isTextUIPart,
-  type UIDataTypes,
-  type UIMessage,
-} from "ai";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +24,13 @@ import {
   ChatToolEventStrip,
   type StreamToolEvent,
 } from "@/components/agent/chat-tool-event";
+import {
+  type DataUIPart,
+  isTextUIPart,
+  type UIDataTypes,
+  type UIMessage,
+  useAgentChatStream,
+} from "@/components/agent/use-agent-chat-stream";
 import { useChatAttachments } from "@/components/agent/use-chat-attachments";
 import { useVoiceChat } from "@/components/agent/use-voice-chat";
 import { AutonomyIndicator } from "@/components/agent/autonomy-indicator";
@@ -99,16 +98,6 @@ function extractUiMessageText(message: UIMessage | undefined): string {
     if (text) chunks.push(text);
   }
   return chunks.join("").trim();
-}
-
-function findLastUserText(messages: UIMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const row = messages[i];
-    if (row.role !== "user") continue;
-    const text = extractUiMessageText(row);
-    if (text) return text;
-  }
-  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -293,36 +282,6 @@ export function ChatThread({
   // --- attachments ---------------------------------------------------------
   const attachmentHook = useChatAttachments(orgId, isEn);
 
-  // --- transport + chat hook -----------------------------------------------
-  const transport = useMemo(
-    () =>
-      new DefaultChatTransport<UIMessage>({
-        api: "/api/agent/chats/pending/messages/stream",
-        prepareSendMessagesRequest: ({
-          messages,
-          body,
-          headers,
-          credentials,
-        }) => {
-          const cid = activeChatIdRef.current;
-          if (!cid)
-            throw new Error(isEn ? "Missing chat id." : "Falta id de chat.");
-          const text = findLastUserText(messages);
-          if (!text)
-            throw new Error(
-              isEn ? "Missing message content." : "Falta contenido del mensaje."
-            );
-          return {
-            api: `/api/agent/chats/${encodeURIComponent(cid)}/messages/stream?org_id=${encodeURIComponent(orgId)}`,
-            headers,
-            credentials,
-            body: { ...(body ?? {}), org_id: orgId, message: text },
-          };
-        },
-      }),
-    [isEn, orgId]
-  );
-
   const {
     messages: liveMessages,
     sendMessage,
@@ -331,11 +290,19 @@ export function ChatThread({
     status,
     error: chatError,
     clearError,
-  } = useChat<UIMessage>({
-    // Use a stable id so the hook's internal state is never reset mid-stream.
-    // The transport already routes to the correct chat via activeChatIdRef.
-    id: "agent-chat",
-    transport,
+  } = useAgentChatStream({
+    prepareRequest: ({ text }) => {
+      const cid = activeChatIdRef.current;
+      if (!cid) throw new Error(isEn ? "Missing chat id." : "Falta id de chat.");
+      if (!text.trim())
+        throw new Error(
+          isEn ? "Missing message content." : "Falta contenido del mensaje."
+        );
+      return {
+        api: `/api/agent/chats/${encodeURIComponent(cid)}/messages/stream?org_id=${encodeURIComponent(orgId)}`,
+        body: { org_id: orgId, message: text },
+      };
+    },
     onData: (part: DataUIPart<UIDataTypes>) => {
       const typed = part as { type: string; data?: unknown };
       if (typed.type === "data-casaora-status") {

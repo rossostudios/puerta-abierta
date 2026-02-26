@@ -18,7 +18,6 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.96",
     "@base-ui/react": "^1.1.0",
     "@casaora/shared-api": "file:../../packages/shared-api",
     "@clerk/nextjs": "^6.38.2",
@@ -33,7 +32,6 @@
     "@tanstack/react-table": "8.21.3",
     "@types/papaparse": "^5.5.2",
     "@xyflow/react": "^12.10.1",
-    "ai": "^6.0.94",
     "class-variance-authority": "^0.7.1",
     "clsx": "2.1.1",
     "geist": "^1.7.0",
