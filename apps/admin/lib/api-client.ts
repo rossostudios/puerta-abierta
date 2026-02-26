@@ -94,10 +94,10 @@ export async function getClientAccessToken(): Promise<string | null> {
     };
     return clerkToken;
   }
-  cachedClientToken = {
-    token: null,
-    expiresAt: now + CLIENT_TOKEN_SKEW_MS,
-  };
+  // Do not cache null tokens. Clerk client auth can be temporarily unavailable
+  // during startup/hydration; caching null causes authenticated requests to send
+  // no bearer token for the entire cache window.
+  cachedClientToken = null;
   return null;
 }
 
