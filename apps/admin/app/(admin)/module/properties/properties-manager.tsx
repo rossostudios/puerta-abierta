@@ -67,15 +67,13 @@ export function PropertiesManager({
   const [healthFilter, setHealthFilter] = useState<PropertyHealthFilter>("all");
   const isWide = useMediaQuery("(min-width: 1440px)");
   const isMedium = useMediaQuery("(min-width: 1280px)");
-  const [userSidebarPref, setUserSidebarPref] = useState<boolean | null>(null);
-  const isSidebarOpen = userSidebarPref ?? isMedium;
+  const [userSidebarPref, setUserSidebarPref] = useState<boolean>(false);
+  const isSidebarOpen = userSidebarPref;
 
-  // Reset user pref when crossing the 1280px boundary
   const prevMediumRef = useRef(isMedium);
   useEffect(() => {
     if (prevMediumRef.current !== isMedium) {
       prevMediumRef.current = isMedium;
-      setUserSidebarPref(null);
     }
   }, [isMedium]);
 
@@ -189,7 +187,7 @@ export function PropertiesManager({
               onQueryChange={setQuery}
               onStatusFilterChange={setStatusFilter}
               onToggleSidebar={() =>
-                setUserSidebarPref((prev) => !(prev ?? isMedium))
+                setUserSidebarPref((prev) => !prev)
               }
               onViewModeChange={handleViewModeChange}
               query={query}

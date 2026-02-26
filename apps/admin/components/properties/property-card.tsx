@@ -52,7 +52,7 @@ export function PropertyCard({
 
   return (
     <Link className="group block" href={`/module/properties/${id}`}>
-      <Card className="overflow-hidden rounded-2xl transition-all duration-200 hover:-translate-y-0.5 hover:ring-1 hover:ring-primary/20 hover:shadow-[var(--shadow-floating)]">
+      <Card className="overflow-hidden rounded-2xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-soft)]">
         <div className="p-4 sm:p-5">
           {/* Row 1: Name + Status */}
           <div className="flex items-start justify-between gap-2">
