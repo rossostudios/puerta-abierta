@@ -25,6 +25,7 @@ export function ChatInputBar({
   isSending,
   isEn,
   isEmbedded,
+  isHero,
   editingSourceId,
   onCancelEdit,
   agentName,
@@ -47,6 +48,7 @@ export function ChatInputBar({
   isSending: boolean;
   isEn: boolean;
   isEmbedded: boolean;
+  isHero?: boolean;
   editingSourceId: string | null;
   onCancelEdit: () => void;
   agentName?: string;
@@ -74,12 +76,17 @@ export function ChatInputBar({
     <div
       className={cn(
         "absolute inset-x-0 bottom-0 pt-8 pr-4 pb-5 pl-4 sm:pr-6 sm:pl-6",
-        isEmbedded
+        isEmbedded && !isHero
           ? "border-border/40 border-t bg-card/95"
           : "pointer-events-none bg-gradient-to-t from-background via-background/90 to-transparent"
       )}
     >
-      <div className="pointer-events-auto mx-auto max-w-3xl space-y-2.5">
+      <div
+        className={cn(
+          "pointer-events-auto mx-auto space-y-2.5",
+          isHero ? "max-w-2xl" : "max-w-3xl"
+        )}
+      >
         {editingSourceId ? (
           <div className="glass-inner flex items-center justify-between rounded-xl px-3.5 py-2 text-[11px] text-muted-foreground">
             <span>
@@ -127,7 +134,7 @@ export function ChatInputBar({
         <div
           className={cn(
             "glass-float relative flex rounded-2xl transition-all duration-200",
-            "focus-within:shadow-[0_0_0_2px_var(--sidebar-primary)/12,0_8px_32px_rgba(0,0,0,0.08)]",
+            "focus-within:shadow-[0_0_0_2px_var(--sidebar-primary)/12,0_8px_32px_rgba(0,0,0,0.08)]"
           )}
         >
           <div className="flex items-end gap-0.5 py-2.5 pl-2.5">

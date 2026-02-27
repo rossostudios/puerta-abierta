@@ -3830,7 +3830,7 @@ async fn tool_list_rows(
         .build()
         .fetch_all(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
     let data = rows
         .into_iter()
@@ -3887,7 +3887,7 @@ async fn tool_get_row(
         .build()
         .fetch_optional(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
     let payload = row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten());
     if let Some(row) = payload {
@@ -3943,7 +3943,7 @@ async fn maybe_create_approval(
     .bind(context.requested_by_user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let approval_id = approval
         .and_then(|row| row.try_get::<Option<String>, _>("id").ok().flatten())
@@ -4140,7 +4140,7 @@ async fn tool_update_row(
         .build()
         .fetch_optional(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
     if let Some(row) = row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten()) {
         return Ok(json!({ "ok": true, "table": table, "row": row }));
@@ -4210,7 +4210,7 @@ async fn tool_delete_row(
         .build()
         .fetch_optional(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?
+        .map_err(|error| db_error(state, &error))?
         .and_then(|row| row.try_get::<Option<Value>, _>("row").ok().flatten());
 
     let Some(existing) = existing else {
@@ -4233,7 +4233,7 @@ async fn tool_delete_row(
         .build()
         .execute(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
     Ok(json!({ "ok": true, "table": table, "row": existing }))
 }
@@ -4266,7 +4266,7 @@ async fn tool_get_org_snapshot(state: &AppState, org_id: &str) -> AppResult<Valu
             .build()
             .fetch_one(pool)
             .await
-            .map_err(|error| supabase_error(state, &error))?;
+            .map_err(|error| db_error(state, &error))?;
 
         let count = row.try_get::<i64, _>("count").unwrap_or(0);
         summary.insert(table.to_string(), Value::from(count));
@@ -5323,7 +5323,7 @@ async fn tool_get_today_ops_brief(state: &AppState, org_id: &str) -> AppResult<V
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let departures = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint
@@ -5335,7 +5335,7 @@ async fn tool_get_today_ops_brief(state: &AppState, org_id: &str) -> AppResult<V
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let overdue_tasks = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint
@@ -5348,7 +5348,7 @@ async fn tool_get_today_ops_brief(state: &AppState, org_id: &str) -> AppResult<V
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let open_maintenance = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint
@@ -5359,7 +5359,7 @@ async fn tool_get_today_ops_brief(state: &AppState, org_id: &str) -> AppResult<V
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     Ok(json!({
         "ok": true,
@@ -5385,7 +5385,7 @@ async fn tool_get_lease_risk_summary(state: &AppState, org_id: &str) -> AppResul
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let delinquent = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint
@@ -5396,7 +5396,7 @@ async fn tool_get_lease_risk_summary(state: &AppState, org_id: &str) -> AppResul
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let overdue_collections = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::bigint
@@ -5408,7 +5408,7 @@ async fn tool_get_lease_risk_summary(state: &AppState, org_id: &str) -> AppResul
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     Ok(json!({
         "ok": true,
@@ -5447,7 +5447,7 @@ async fn tool_get_collections_risk(state: &AppState, org_id: &str) -> AppResult<
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let overdue_count = row.try_get::<i64, _>("overdue_count").unwrap_or(0);
     let late_count = row.try_get::<i64, _>("late_count").unwrap_or(0);
@@ -5481,7 +5481,7 @@ async fn tool_get_owner_statement_summary(state: &AppState, org_id: &str) -> App
     .bind(org_id)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let mut summary = Map::new();
     let mut total = 0_i64;
@@ -5549,7 +5549,7 @@ async fn tool_search_knowledge(
         .bind(fetch_n)
         .fetch_all(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
         // 2. Full-text search (top 20 by ts_rank_cd)
         let fts_rows = sqlx::query(
@@ -5665,7 +5665,7 @@ async fn tool_search_knowledge(
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let mut hits = Vec::with_capacity(rows.len());
     for row in rows {
@@ -5797,7 +5797,7 @@ async fn tool_get_staff_availability(state: &AppState, org_id: &str) -> AppResul
     .bind(org_id)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let mut staff = Vec::with_capacity(rows.len());
     for row in &rows {
@@ -5987,7 +5987,7 @@ async fn tool_get_revenue_analytics(
         .await
     };
 
-    let row = revenue_query.map_err(|e| supabase_error(state, &e))?;
+    let row = revenue_query.map_err(|e| db_error(state, &e))?;
     let total_reservations = row.try_get::<i64, _>("total_reservations").unwrap_or(0);
     let gross_revenue = row.try_get::<f64, _>("gross_revenue").unwrap_or(0.0);
     let avg_daily_rate = row.try_get::<f64, _>("avg_daily_rate").unwrap_or(0.0);
@@ -6000,7 +6000,7 @@ async fn tool_get_revenue_analytics(
     .bind(org_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let active_units = unit_count_row.try_get::<i64, _>("cnt").unwrap_or(1).max(1);
     let available_nights = active_units * days;
@@ -6063,7 +6063,7 @@ async fn tool_get_seasonal_demand(
     .bind(months_back as i32)
     .fetch_all(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let months: Vec<Value> = rows
         .iter()
@@ -6186,7 +6186,7 @@ async fn tool_generate_owner_statement(
         .await
     };
 
-    let rev_row = rev_query.map_err(|e| supabase_error(state, &e))?;
+    let rev_row = rev_query.map_err(|e| db_error(state, &e))?;
     let gross_revenue = rev_row.try_get::<f64, _>("gross_revenue").unwrap_or(0.0);
     let platform_fees = rev_row.try_get::<f64, _>("platform_fees").unwrap_or(0.0);
     let cleaning_fees = rev_row.try_get::<f64, _>("cleaning_fees").unwrap_or(0.0);
@@ -6234,7 +6234,7 @@ async fn tool_generate_owner_statement(
         .await
     };
 
-    let exp_rows = exp_query.map_err(|e| supabase_error(state, &e))?;
+    let exp_rows = exp_query.map_err(|e| db_error(state, &e))?;
     let mut expense_breakdown = Map::new();
     let mut total_expenses = 0.0_f64;
     for row in &exp_rows {
@@ -6285,7 +6285,7 @@ async fn tool_generate_owner_statement(
     }))
     .fetch_one(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let statement_id = insert_result
         .try_get::<sqlx::types::Uuid, _>("id")
@@ -6354,7 +6354,7 @@ async fn tool_reconcile_collections(
     .bind(period_end)
     .fetch_one(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let expected_total = res_row.try_get::<f64, _>("expected_total").unwrap_or(0.0);
     let collected_total = res_row.try_get::<f64, _>("collected_total").unwrap_or(0.0);
@@ -6378,7 +6378,7 @@ async fn tool_reconcile_collections(
     .bind(period_end)
     .fetch_all(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let mut collection_status = Map::new();
     for row in &coll_rows {
@@ -6411,7 +6411,7 @@ async fn tool_reconcile_collections(
     .bind(period_end)
     .fetch_all(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let discrepancies: Vec<Value> = unpaid_rows
         .iter()
@@ -6496,7 +6496,7 @@ async fn tool_categorize_expense(
     .bind(category)
     .fetch_optional(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     match result {
         Some(row) => Ok(json!({
@@ -6718,7 +6718,7 @@ async fn tool_recall_memory(
         .await
     };
 
-    let rows = rows.map_err(|e| supabase_error(state, &e))?;
+    let rows = rows.map_err(|e| db_error(state, &e))?;
 
     let memories: Vec<Value> = rows
         .iter()
@@ -6855,7 +6855,7 @@ async fn tool_store_memory(
     .bind(shared)
     .fetch_one(pool)
     .await
-    .map_err(|e| supabase_error(state, &e))?;
+    .map_err(|e| db_error(state, &e))?;
 
     let memory_id = result
         .try_get::<sqlx::types::Uuid, _>("id")
@@ -7474,13 +7474,11 @@ fn tool_error_detail(state: &AppState, error: &AppError) -> String {
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency(
-            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
-        )
+        AppError::Dependency("Database is not configured. Set DATABASE_URL.".to_string())
     })
 }
 
-fn supabase_error(_state: &AppState, error: &sqlx::Error) -> AppError {
+fn db_error(_state: &AppState, error: &sqlx::Error) -> AppError {
     tracing::error!(error = %error, "Database query failed");
     AppError::Dependency("External service request failed.".to_string())
 }

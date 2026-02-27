@@ -13,7 +13,7 @@ export type RouteDocItem = {
   method: "GET" | "POST" | "PATCH" | "DELETE" | "PUT";
   path: string;
   statusCode: number;
-  authHint: "require_user_id" | "require_supabase_user" | "none";
+  authHint: "require_user_id" | "require_authenticated_user" | "none";
   sourceFile: string;
   handler: string;
 };
@@ -60,7 +60,7 @@ const ENDPOINT_REGEX =
 const CREATE_TABLE_REGEX = /CREATE TABLE\s+("?[\w.]+"?)\s*\(([\s\S]*?)\);\s*/gi;
 const STATUS_CODE_REGEX = /status_code\s*=\s*(\d+)/i;
 const STRIP_QUOTES_REGEX = /^"+|"+$/g;
-const AUTH_SUPABASE_REGEX = /Depends\(\s*require_supabase_user\s*\)/;
+const AUTH_AUTHENTICATED_REGEX = /Depends\(\s*require_authenticated_user\s*\)/;
 const AUTH_USER_ID_REGEX = /Depends\(\s*require_user_id\s*\)/;
 const PUBLIC_PREFIX_REGEX = /^public\./;
 const COLUMN_LINE_REGEX = /^("?[\w]+"?)\s+(.+)$/;
@@ -98,8 +98,8 @@ function parseStatusCode(rawDecoratorArgs: string): number {
 }
 
 function parseAuthHint(block: string): RouteDocItem["authHint"] {
-  if (AUTH_SUPABASE_REGEX.test(block)) {
-    return "require_supabase_user";
+  if (AUTH_AUTHENTICATED_REGEX.test(block)) {
+    return "require_authenticated_user";
   }
   if (AUTH_USER_ID_REGEX.test(block)) {
     return "require_user_id";

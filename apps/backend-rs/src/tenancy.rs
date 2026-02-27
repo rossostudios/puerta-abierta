@@ -3,13 +3,11 @@
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 
-use crate::{auth::SupabaseUser, error::AppError, state::AppState};
+use crate::{auth::AuthenticatedUser, error::AppError, state::AppState};
 
 fn db_pool(state: &AppState) -> Result<&PgPool, AppError> {
     state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency(
-            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
-        )
+        AppError::Dependency("Database is not configured. Set DATABASE_URL.".to_string())
     })
 }
 
@@ -41,7 +39,7 @@ pub async fn get_org_membership(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Supabase request failed."))?;
+    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
 
     let membership = row.and_then(|value| value.try_get::<Option<Value>, _>("row").ok().flatten());
     state
@@ -85,7 +83,10 @@ pub async fn assert_org_role(
     )))
 }
 
-pub async fn ensure_app_user(state: &AppState, user: &SupabaseUser) -> Result<Value, AppError> {
+pub async fn ensure_app_user(
+    state: &AppState,
+    user: &AuthenticatedUser,
+) -> Result<Value, AppError> {
     if user.id.trim().is_empty() {
         return Err(AppError::Unauthorized(
             "Unauthorized: missing user.".to_string(),
@@ -93,7 +94,7 @@ pub async fn ensure_app_user(state: &AppState, user: &SupabaseUser) -> Result<Va
     }
     let Some(email) = user.email.as_ref() else {
         return Err(AppError::BadRequest(
-            "Supabase user is missing an email address.".to_string(),
+            "User is missing an email address.".to_string(),
         ));
     };
 
@@ -111,7 +112,7 @@ pub async fn ensure_app_user(state: &AppState, user: &SupabaseUser) -> Result<Va
     .bind(&full_name)
     .execute(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Supabase request failed."))?;
+    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
 
     Ok(json!({
         "id": user.id,
@@ -131,7 +132,7 @@ pub async fn list_user_org_ids(state: &AppState, user_id: &str) -> Result<Vec<St
     .bind(user_id)
     .fetch_all(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Supabase request failed."))?;
+    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
 
     let mut org_ids = Vec::new();
     for row in rows {
@@ -163,7 +164,7 @@ pub async fn list_user_organizations(
     .bind(&org_ids)
     .fetch_all(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Supabase request failed."))?;
+    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
 
     let mut organizations = Vec::new();
     for row in rows {
@@ -194,12 +195,12 @@ pub async fn ensure_org_membership(
     .bind(is_primary)
     .execute(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Supabase request failed."))?;
+    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
     state.org_membership_cache.invalidate(user_id, org_id).await;
     Ok(())
 }
 
-fn resolve_full_name(user: &SupabaseUser, email: &str) -> String {
+fn resolve_full_name(user: &AuthenticatedUser, email: &str) -> String {
     let metadata = user
         .user_metadata
         .as_ref()

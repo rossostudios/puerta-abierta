@@ -1,8 +1,7 @@
 import {
-  ArtificialIntelligence02Icon,
   ChartIcon,
   CheckmarkCircle02Icon,
-  Home01Icon,
+  type Home01Icon,
   InboxIcon,
   MailOpen01Icon,
   MailReply01Icon,
@@ -53,29 +52,14 @@ export const CHAT_LINKS: RouteLinkDef[] = [
     label: { "es-PY": "Historial de chats", "en-US": "Chat history" },
   },
   {
-    href: "/module/knowledge",
-    icon: SparklesIcon,
-    label: { "es-PY": "Base de conocimiento", "en-US": "Knowledge Base" },
-  },
-  {
-    href: "/module/agent-dashboard",
-    icon: ArtificialIntelligence02Icon,
-    label: { "es-PY": "Panel de agentes", "en-US": "Agent Dashboard" },
+    href: "/module/governance",
+    icon: CheckmarkCircle02Icon,
+    label: { "es-PY": "Gobernanza", "en-US": "Governance" },
   },
   {
     href: "/module/agent-config",
     icon: Settings02Icon,
-    label: { "es-PY": "Configuración de agentes", "en-US": "Agent Config" },
-  },
-  {
-    href: "/module/agent-playground",
-    icon: WorkflowSquare03Icon,
-    label: { "es-PY": "Playground", "en-US": "Playground" },
-  },
-  {
-    href: "/module/governance",
-    icon: Settings02Icon,
-    label: { "es-PY": "Gobernanza", "en-US": "Governance" },
+    label: { "es-PY": "Configuración de agentes", "en-US": "Agent settings" },
   },
 ];
 

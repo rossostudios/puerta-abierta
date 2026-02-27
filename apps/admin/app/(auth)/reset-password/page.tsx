@@ -19,12 +19,14 @@ export default async function ResetPasswordPage() {
       <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_0%_0%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_45%),radial-gradient(circle_at_100%_10%,color-mix(in_oklch,var(--chart-2)_12%,transparent),transparent_55%)]" />
       <CardHeader className="relative">
         <CardTitle className="text-2xl">
-          {isEn ? "Password reset link updated" : "Enlace de contraseña actualizado"}
+          {isEn
+            ? "Password reset link updated"
+            : "Enlace de contraseña actualizado"}
         </CardTitle>
         <CardDescription>
           {isEn
-            ? "Supabase reset links are no longer used. Clerk now handles password reset and account recovery."
-            : "Los enlaces de restablecimiento de Supabase ya no se usan. Clerk ahora maneja el restablecimiento y la recuperación de cuenta."}
+            ? "Legacy reset links are no longer used. Clerk now handles password reset and account recovery."
+            : "Los enlaces de restablecimiento anteriores ya no se usan. Clerk ahora maneja el restablecimiento y la recuperación de cuenta."}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">

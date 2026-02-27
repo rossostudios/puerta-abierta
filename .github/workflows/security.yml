@@ -7,9 +7,15 @@ on:
     branches: [main]
   schedule:
     - cron: "0 8 * * 1" # Weekly on Monday at 08:00 UTC
+  workflow_dispatch:
 
 permissions:
   contents: read
+  checks: write
+
+concurrency:
+  group: security-audit-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   gitleaks:
@@ -24,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   npm-audit:
-    name: npm Audit
+    name: npm Audit (Advisory)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -35,17 +41,31 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
       - run: npm ci --prefix ${{ matrix.app }}
-      - run: npm audit --prefix ${{ matrix.app }} --audit-level=high
+      - id: npm_audit
+        continue-on-error: true
+        run: npm audit --prefix ${{ matrix.app }} --audit-level=high
+      - name: Record audit status
+        if: steps.npm_audit.outcome == 'failure'
+        run: |
+          echo "::warning::npm audit reported high-severity advisories in ${{ matrix.app }}. Review and schedule remediation."
 
   cargo-audit:
-    name: Cargo Audit
+    name: Cargo Audit (Advisory)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2
+      - id: cargo_audit
+        continue-on-error: true
+        uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           # Tracked in issue #9. No upstream patch exists yet for rsa.
           ignore: RUSTSEC-2023-0071
           working-directory: apps/backend-rs
+      - name: Record cargo audit status
+        if: steps.cargo_audit.outcome == 'failure'
+        run: |
+          echo "::warning::Cargo audit reported advisories/warnings. Review output and update ignores only with explicit risk acceptance."

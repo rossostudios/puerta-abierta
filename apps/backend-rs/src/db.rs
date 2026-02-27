@@ -77,7 +77,7 @@ pub fn create_pool(config: &AppConfig) -> Result<Option<PgPool>, AppError> {
         }
     }
 
-    // PgBouncer transaction mode (Supabase pooler :6543) is incompatible with
+    // PgBouncer transaction mode (pooler :6543) is incompatible with
     // prepared statement caching unless disabled.
     let auto_disabled_statement_cache = statement_cache_capacity.is_none() && port == 6543;
     if auto_disabled_statement_cache {

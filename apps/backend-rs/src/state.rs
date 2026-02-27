@@ -124,8 +124,7 @@ impl AppState {
     pub async fn db_startup_probe(&self) -> Result<(), crate::error::AppError> {
         let Some(pool) = self.db_pool.as_ref() else {
             return Err(crate::error::AppError::Dependency(
-                "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported)."
-                    .to_string(),
+                "Database is not configured. Set DATABASE_URL.".to_string(),
             ));
         };
 

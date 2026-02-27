@@ -7,7 +7,7 @@
 
 Why:
 - `OpenNext` is primarily an AWS serverless adapter (Lambda/CloudFront), not an ECS runtime requirement.
-- For your current stack and cutover speed, ECS is the lowest-risk move from Vercel.
+- ECS is the production runtime for the admin frontend.
 
 ## What Exists in Repo
 
@@ -59,7 +59,7 @@ Optional overrides:
 1. Create `CNAME` `app` -> ALB DNS (`DNS only` first)
 2. Smoke test `https://app.casaora.co/login`
 3. Enable Cloudflare proxy (optional) after validation
-4. Later move `www` / apex routing from Vercel to AWS origin
+4. Verify `www` / apex routing through AWS origin
 
 ## OpenNext (Future Branch)
 

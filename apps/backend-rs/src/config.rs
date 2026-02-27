@@ -206,7 +206,7 @@ impl AppConfig {
             storage_s3_endpoint_url: env_opt("STORAGE_S3_ENDPOINT_URL"),
             storage_s3_force_path_style: env_parse_bool_or("STORAGE_S3_FORCE_PATH_STYLE", false),
             storage_presign_ttl_seconds: env_parse_or("STORAGE_PRESIGN_TTL_SECONDS", 900),
-            database_url: env_opt("DATABASE_URL").or_else(|| env_opt("SUPABASE_DB_URL")),
+            database_url: env_opt("DATABASE_URL"),
             db_fail_fast_on_startup: env_parse_bool_or(
                 "DB_FAIL_FAST_ON_STARTUP",
                 db_fail_fast_default,

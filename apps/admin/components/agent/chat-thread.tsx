@@ -1,10 +1,15 @@
 "use client";
 
-import { Loading03Icon } from "@hugeicons/core-free-icons";
+import {
+  Loading03Icon,
+  PlusSignIcon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import type { StructuredContent } from "@/components/agent/action-card";
+import { AutonomyIndicator } from "@/components/agent/autonomy-indicator";
 import { ChatEmptyState } from "@/components/agent/chat-empty-state";
 import { ChatHeader } from "@/components/agent/chat-header";
 import { ChatInputBar } from "@/components/agent/chat-input-bar";
@@ -24,6 +29,8 @@ import {
   ChatToolEventStrip,
   type StreamToolEvent,
 } from "@/components/agent/chat-tool-event";
+import type { ExplanationPayload } from "@/components/agent/explainability-panel";
+import { getModelDisplayName } from "@/components/agent/model-display";
 import {
   type DataUIPart,
   isTextUIPart,
@@ -32,16 +39,11 @@ import {
   useAgentChatStream,
 } from "@/components/agent/use-agent-chat-stream";
 import { useChatAttachments } from "@/components/agent/use-chat-attachments";
-import { useVoiceChat } from "@/components/agent/use-voice-chat";
-import { AutonomyIndicator } from "@/components/agent/autonomy-indicator";
-import {
-  deriveAutonomyLevel,
-  type AutonomyLevel,
-} from "@/lib/agents/autonomy-level";
-import type { StructuredContent } from "@/components/agent/action-card";
-import type { ExplanationPayload } from "@/components/agent/explainability-panel";
 import { useContextualSuggestions } from "@/components/agent/use-contextual-suggestions";
+import { useVoiceChat } from "@/components/agent/use-voice-chat";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Conversation,
   ConversationContent,
@@ -49,7 +51,16 @@ import {
 } from "@/components/ui/conversation";
 import { Icon } from "@/components/ui/icon";
 import { Message, MessageContent } from "@/components/ui/message";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  type AutonomyLevel,
+  deriveAutonomyLevel,
+} from "@/lib/agents/autonomy-level";
 import type {
   AgentChatMessage,
   AgentChatSummary,
@@ -111,16 +122,19 @@ export function ChatThread({
   defaultAgentSlug,
   mode = "full",
   freshKey,
+  firstName,
 }: {
   orgId: string;
   locale: Locale;
   chatId?: string;
   defaultAgentSlug?: string;
-  mode?: "full" | "embedded";
+  mode?: "full" | "embedded" | "hero";
   freshKey?: string;
+  firstName?: string;
 }) {
   const isEn = locale === "en-US";
   const isEmbedded = mode === "embedded";
+  const isHero = mode === "hero";
   const isChatDetailRoute = Boolean(chatId);
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -145,9 +159,9 @@ export function ChatThread({
   const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>(
     defaultAgentSlug || "guest-concierge"
   );
-  const [feedbackConfirmedIds, setFeedbackConfirmedIds] = useState<
-    Set<string>
-  >(new Set());
+  const [feedbackConfirmedIds, setFeedbackConfirmedIds] = useState<Set<string>>(
+    new Set()
+  );
 
   const activeChatIdRef = useRef<string | undefined>(chatId);
   const pendingSendRef = useRef<{
@@ -195,7 +209,13 @@ export function ChatThread({
         { cache: "no-store", headers: { Accept: "application/json" } }
       );
       if (!res.ok) return [];
-      const payload = (await res.json()) as { data?: Array<{ tool_name: string; approval_mode: string; enabled: boolean }> };
+      const payload = (await res.json()) as {
+        data?: Array<{
+          tool_name: string;
+          approval_mode: string;
+          enabled: boolean;
+        }>;
+      };
       return payload.data ?? [];
     },
     staleTime: 120_000,
@@ -293,7 +313,8 @@ export function ChatThread({
   } = useAgentChatStream({
     prepareRequest: ({ text }) => {
       const cid = activeChatIdRef.current;
-      if (!cid) throw new Error(isEn ? "Missing chat id." : "Falta id de chat.");
+      if (!cid)
+        throw new Error(isEn ? "Missing chat id." : "Falta id de chat.");
       if (!text.trim())
         throw new Error(
           isEn ? "Missing message content." : "Falta contenido del mensaje."
@@ -348,7 +369,7 @@ export function ChatThread({
             structured_content?: unknown;
           };
           const mid = typeof d.messageId === "string" ? d.messageId : "";
-          if (!mid || !d.structured_content) return;
+          if (!(mid && d.structured_content)) return;
           setStreamMetaByMessageId((prev) => ({
             ...prev,
             [mid]: {
@@ -779,16 +800,16 @@ export function ChatThread({
             body: JSON.stringify({ rating, reason }),
           }
         );
-        if (!res.ok) {
+        if (res.ok) {
+          // Mark feedback as confirmed
+          setFeedbackConfirmedIds((prev) => new Set([...prev, messageId]));
+        } else {
           // Revert on failure
           setFeedbackOverrides((prev) => {
             const next = { ...prev };
             delete next[messageId];
             return next;
           });
-        } else {
-          // Mark feedback as confirmed
-          setFeedbackConfirmedIds((prev) => new Set([...prev, messageId]));
         }
       } catch {
         setFeedbackOverrides((prev) => {
@@ -883,63 +904,205 @@ export function ChatThread({
     <div
       className={cn(
         "relative flex h-full flex-col",
-        isEmbedded
-          ? "min-h-[38rem] overflow-hidden rounded-3xl border border-border/40 bg-card shadow-[var(--shadow-floating)]"
-          : "min-h-[calc(100vh-4rem)] bg-background"
+        isHero
+          ? "overflow-hidden bg-background"
+          : isEmbedded
+            ? "min-h-[38rem] overflow-hidden rounded-3xl border border-border/40 bg-card shadow-[var(--shadow-floating)]"
+            : "min-h-[calc(100vh-4rem)] bg-background"
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1">
-          <ChatHeader
-            agents={activeAgents}
-            busy={busy}
-            chatTitle={chat?.title}
-            deleteArmed={deleteArmed}
-            isArchived={chat?.is_archived}
-            isChatDetailRoute={isChatDetailRoute}
-            isEmbedded={isEmbedded}
-            isEn={isEn}
-            isSending={isSending}
-            loading={loading}
-            modelBusy={modelBusy}
-            modelOptions={modelOptions}
-            onAgentChange={handleAgentChange}
-            onArchiveToggle={() => {
-              const action = chat?.is_archived ? "restore" : "archive";
-              mutateChat(action).catch(() => undefined);
-              setDeleteArmed(false);
-            }}
-            onDeleteArm={() => setDeleteArmed(true)}
-            onDeleteCancel={() => setDeleteArmed(false)}
-            onDeleteConfirm={() => {
-              mutateChat("delete").catch(() => undefined);
-              setDeleteArmed(false);
-            }}
-            onHistoryClick={() => router.push("/app/chats")}
-            onModelChange={(model) =>
-              updatePreferredModel(model).catch(() => undefined)
-            }
-            onNewThread={() => resetToFreshThread()}
-            primaryModel={primaryModel}
-            selectedAgentName={selectedAgent?.name}
-            selectedAgentSlug={selectedAgentSlug}
-            selectedModel={selectedModel}
-          />
+      {isHero && displayMessages.length === 0 ? null : isHero ? (
+        <div className="glass-chrome sticky top-0 z-10 flex shrink-0 items-center justify-between px-4 py-2.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-6 w-6 items-center justify-center rounded-[8px] bg-casaora-gradient text-white shadow-casaora">
+              <Icon className="h-3 w-3" icon={SparklesIcon} />
+            </div>
+
+            {activeAgents.length > 1 ? (
+              <PopoverRoot>
+                <PopoverTrigger
+                  className="flex items-center gap-1.5 rounded-lg px-1 py-0.5 transition-colors hover:bg-muted/40"
+                  disabled={isSending}
+                >
+                  <h2 className="truncate font-semibold text-[13.5px] tracking-tight">
+                    {chat?.title ||
+                      selectedAgent?.name ||
+                      (isEn ? "New Chat" : "Nuevo Chat")}
+                  </h2>
+                  <svg
+                    aria-label="Expand chevron"
+                    className="h-3 w-3 text-muted-foreground/50 transition-transform"
+                    fill="none"
+                    role="img"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M6 9l6 6 6-6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 p-1.5">
+                  <div className="px-2 py-1.5 font-medium text-[10px] text-muted-foreground/60 uppercase tracking-widest">
+                    {isEn ? "Agent" : "Agente"}
+                  </div>
+                  {activeAgents.map((agent) => (
+                    <button
+                      className={cn(
+                        "flex w-full flex-col gap-0.5 rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-muted/50",
+                        agent.slug === selectedAgentSlug &&
+                          "bg-[var(--sidebar-primary)]/[0.06] text-[var(--sidebar-primary)]"
+                      )}
+                      key={agent.slug}
+                      onClick={() => handleAgentChange(agent.slug)}
+                      type="button"
+                    >
+                      <span className="truncate font-medium text-[13px]">
+                        {agent.name}
+                      </span>
+                      {agent.description ? (
+                        <span className="truncate text-[11px] text-muted-foreground">
+                          {agent.description}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </PopoverRoot>
+            ) : (
+              <h2 className="truncate font-semibold text-[13.5px] tracking-tight">
+                {chat?.title ||
+                  selectedAgent?.name ||
+                  (isEn ? "New Chat" : "Nuevo Chat")}
+              </h2>
+            )}
+
+            <AutonomyIndicator isEn={isEn} level={autonomyLevel} />
+          </div>
+
+          <div className="flex items-center gap-1">
+            {modelOptions.length > 0 ? (
+              <PopoverRoot>
+                <PopoverTrigger
+                  className="flex items-center"
+                  disabled={isSending || modelBusy}
+                >
+                  <Badge
+                    className="cursor-pointer border-border/30 bg-transparent font-mono font-normal text-[10px] text-muted-foreground/70 transition-all hover:border-border/60 hover:bg-muted/30 hover:text-muted-foreground"
+                    variant="outline"
+                  >
+                    {getModelDisplayName(selectedModel || primaryModel) ||
+                      (isEn ? "Model" : "Modelo")}
+                  </Badge>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-52 p-1.5">
+                  <div className="px-2 py-1.5 font-medium text-[10px] text-muted-foreground/60 uppercase tracking-widest">
+                    {isEn ? "Model" : "Modelo"}
+                  </div>
+                  {modelOptions.map((model) => (
+                    <button
+                      className={cn(
+                        "flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm transition-all duration-150 hover:bg-muted/50",
+                        model.model === (selectedModel || primaryModel) &&
+                          "bg-[var(--sidebar-primary)]/[0.06] text-[var(--sidebar-primary)]"
+                      )}
+                      key={model.model}
+                      onClick={() =>
+                        updatePreferredModel(model.model).catch(() => undefined)
+                      }
+                      type="button"
+                    >
+                      <span className="truncate font-mono text-[11px]">
+                        {getModelDisplayName(model.model)}
+                      </span>
+                      {model.is_primary ? (
+                        <Badge
+                          className="ml-1.5 text-[9px]"
+                          variant="secondary"
+                        >
+                          {isEn ? "primary" : "primario"}
+                        </Badge>
+                      ) : null}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </PopoverRoot>
+            ) : null}
+
+            <Button
+              className="h-7 w-7 rounded-lg text-muted-foreground/60 hover:bg-muted/40 hover:text-foreground"
+              disabled={isSending}
+              onClick={() => resetToFreshThread()}
+              size="icon"
+              variant="ghost"
+            >
+              <Icon className="h-3.5 w-3.5" icon={PlusSignIcon} />
+              <span className="sr-only">
+                {isEn ? "New thread" : "Nuevo hilo"}
+              </span>
+            </Button>
+          </div>
         </div>
-        <div className="mr-3 shrink-0">
-          <AutonomyIndicator isEn={isEn} level={autonomyLevel} />
+      ) : (
+        <div className="flex items-center gap-2">
+          <div className="flex-1">
+            <ChatHeader
+              agents={activeAgents}
+              busy={busy}
+              chatTitle={chat?.title}
+              deleteArmed={deleteArmed}
+              isArchived={chat?.is_archived}
+              isChatDetailRoute={isChatDetailRoute}
+              isEmbedded={isEmbedded}
+              isEn={isEn}
+              isSending={isSending}
+              loading={loading}
+              modelBusy={modelBusy}
+              modelOptions={modelOptions}
+              onAgentChange={handleAgentChange}
+              onArchiveToggle={() => {
+                const action = chat?.is_archived ? "restore" : "archive";
+                mutateChat(action).catch(() => undefined);
+                setDeleteArmed(false);
+              }}
+              onDeleteArm={() => setDeleteArmed(true)}
+              onDeleteCancel={() => setDeleteArmed(false)}
+              onDeleteConfirm={() => {
+                mutateChat("delete").catch(() => undefined);
+                setDeleteArmed(false);
+              }}
+              onHistoryClick={() => router.push("/app/chats")}
+              onModelChange={(model) =>
+                updatePreferredModel(model).catch(() => undefined)
+              }
+              onNewThread={() => resetToFreshThread()}
+              primaryModel={primaryModel}
+              selectedAgentName={selectedAgent?.name}
+              selectedAgentSlug={selectedAgentSlug}
+              selectedModel={selectedModel}
+            />
+          </div>
+          <div className="mr-3 shrink-0">
+            <AutonomyIndicator isEn={isEn} level={autonomyLevel} />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Message area — Conversation auto-scroll wrapper */}
       <Conversation
-        className={cn("flex-1 p-0", isEmbedded ? "pb-52" : "pb-48")}
+        className={cn(
+          "flex-1 p-0",
+          isHero ? "pb-44" : isEmbedded ? "pb-52" : "pb-48"
+        )}
       >
         <ConversationContent
           className={cn(
             "mx-auto flex flex-col space-y-5 p-4 sm:p-6",
-            isEmbedded ? "max-w-4xl" : "max-w-3xl"
+            isHero ? "max-w-2xl" : isEmbedded ? "max-w-4xl" : "max-w-3xl"
           )}
         >
           {/* Error — only real errors, no agent/model banners */}
@@ -971,6 +1134,7 @@ export function ChatThread({
                 contextualSuggestionsQuery.data?.map((s) => s.text) ?? []
               }
               disabled={isSending}
+              firstName={isHero ? firstName : undefined}
               isEn={isEn}
               onSendPrompt={(prompt) => {
                 handleSend(prompt).catch(() => undefined);
@@ -1012,6 +1176,9 @@ export function ChatThread({
                         }
                       : undefined
                   }
+                  onQuickReply={(suggestion) => {
+                    handleSend(suggestion).catch(() => undefined);
+                  }}
                   onRegenerate={
                     msg.role === "assistant" && msg.source === "server"
                       ? (id) => {
@@ -1019,9 +1186,6 @@ export function ChatThread({
                         }
                       : undefined
                   }
-                  onQuickReply={(suggestion) => {
-                    handleSend(suggestion).catch(() => undefined);
-                  }}
                   onRetry={(id) => {
                     handleRetryAssistant(id).catch(() => undefined);
                   }}
@@ -1037,7 +1201,13 @@ export function ChatThread({
 
           {/* Streaming indicator — min-height prevents CLS */}
           {isSending ? (
-            <Message className="items-start py-3" from="assistant" style={{ minHeight: 56, contain: "layout" } as React.CSSProperties}>
+            <Message
+              className="items-start py-3"
+              from="assistant"
+              style={
+                { minHeight: 56, contain: "layout" } as React.CSSProperties
+              }
+            >
               <div className="relative mt-0.5">
                 <div className="absolute -inset-1 rounded-xl bg-[var(--sidebar-primary)]/[0.1] blur-md" />
                 <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
@@ -1062,9 +1232,18 @@ export function ChatThread({
                   {streamToolEvents.length === 0 && !streamStatus ? (
                     <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground/60">
                       <span className="flex gap-1">
-                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "0ms" }} />
-                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "150ms" }} />
-                        <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "300ms" }} />
+                        <span
+                          className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                          style={{ animationDelay: "0ms" }}
+                        />
+                        <span
+                          className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                          style={{ animationDelay: "150ms" }}
+                        />
+                        <span
+                          className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                          style={{ animationDelay: "300ms" }}
+                        />
                       </span>
                       {isEn ? "Thinking" : "Pensando"}
                     </p>
@@ -1087,6 +1266,7 @@ export function ChatThread({
         editingSourceId={editingSourceId}
         isEmbedded={isEmbedded}
         isEn={isEn}
+        isHero={isHero}
         isListening={voice.isListening}
         isSending={isSending}
         onAddFiles={(files) => attachmentHook.addFiles(files)}

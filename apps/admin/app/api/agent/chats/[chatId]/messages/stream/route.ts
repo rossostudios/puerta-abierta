@@ -431,7 +431,6 @@ function handleBackendAgentProxy(
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
-      "x-vercel-ai-ui-message-stream": "v1",
     },
   });
 }

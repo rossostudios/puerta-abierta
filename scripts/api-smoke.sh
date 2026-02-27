@@ -6,7 +6,7 @@ SMOKE_BEARER_TOKEN="${SMOKE_BEARER_TOKEN:-}"
 SMOKE_ORG_ID="${SMOKE_ORG_ID:-}"
 
 if [[ -z "${API_BASE_URL}" ]]; then
-  echo "API_BASE_URL is required (example: https://casaora.up.railway.app/v1)" >&2
+  echo "API_BASE_URL is required (example: https://api.casaora.co/v1)" >&2
   exit 2
 fi
 

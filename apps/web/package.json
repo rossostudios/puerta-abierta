@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "portless web next dev",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "ultracite check .",

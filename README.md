@@ -219,6 +219,11 @@ npm --prefix /Users/christopher/Desktop/casaora/apps/admin run typecheck
 npm --prefix /Users/christopher/Desktop/casaora/apps/web run typecheck
 ```
 
+### Security checks in CI
+
+- Secret scanning (`gitleaks`) is blocking.
+- Dependency audits (`npm audit`, `cargo audit`) run in advisory mode and surface warnings without blocking merges/deploys.
+
 ## Deployment Model (AWS)
 
 ### CI/CD
@@ -232,6 +237,15 @@ Workflow files:
 - `.github/workflows/aws-ecs-deploy.yml`
 - `.github/workflows/backend-quality.yml`
 - `.github/workflows/api-smoke.yml`
+
+`aws-ecs-deploy.yml` supports:
+
+- deploy modes: image-only (`deploy_service=false`) or full deploy (`deploy_service=true`)
+- optional ECS stability wait (`wait_for_service_stability`)
+- optional smoke checks (`run_smoke_tests`)
+- optional registry build cache (`enable_registry_cache`)
+
+Deployment scripts fail fast on missing ECR permissions and emit ECS diagnostics when stability checks fail.
 
 ### ECS Services (production)
 
@@ -306,8 +320,8 @@ Scripted smoke:
 ## Current Migration Notes
 
 - Mobile app (`apps/mobile`) has been intentionally removed from this branch and is planned for a future rebuild.
-- The platform has been migrated off Railway and Vercel for backend/web/admin runtime.
-- Supabase runtime dependency has been removed for backend/web/admin; any remaining Supabase references are legacy compatibility text or historical docs/scripts.
+- All backend/web/admin services run on AWS ECS Fargate with Cloudflare CDN.
+- Auth is provided by Clerk; database is Amazon RDS PostgreSQL.
 
 ## Documentation Standards
 

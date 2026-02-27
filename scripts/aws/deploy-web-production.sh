@@ -32,6 +32,11 @@ SECRET_CLERK_SECRET_NAME="${SECRET_CLERK_SECRET_NAME:-${SECRET_PREFIX}/CLERK_SEC
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 DOCKER_BUILDX="${DOCKER_BUILDX:-false}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/arm64}"
+DOCKER_REGISTRY_CACHE="${DOCKER_REGISTRY_CACHE:-false}"
+DEPLOY_SERVICE="${DEPLOY_SERVICE:-true}"
+WAIT_FOR_SERVICE_STABILITY="${WAIT_FOR_SERVICE_STABILITY:-true}"
+ECS_STABILITY_WAIT_ATTEMPTS="${ECS_STABILITY_WAIT_ATTEMPTS:-3}"
+RUN_SMOKE_TESTS="${RUN_SMOKE_TESTS:-true}"
 default_git_sha="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 IMAGE_TAG="${IMAGE_TAG:-${default_git_sha}-$(date +%Y%m%d%H%M%S)}"
 DOCKER_CONFIG_ISOLATED="${DOCKER_CONFIG_ISOLATED:-true}"
@@ -76,6 +81,77 @@ require_bin() {
   }
 }
 
+check_ecr_access() {
+  if aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" >/dev/null 2>&1; then
+    return
+  fi
+
+  cat >&2 <<MSG
+Unable to access ECR repository ${REPOSITORY_NAME} in ${REGION}.
+Failing early before image build.
+
+Required IAM actions include:
+- ecr:DescribeRepositories
+- ecr:GetAuthorizationToken
+- ecr:BatchCheckLayerAvailability
+- ecr:InitiateLayerUpload
+- ecr:UploadLayerPart
+- ecr:CompleteLayerUpload
+- ecr:PutImage
+MSG
+  exit 1
+}
+
+print_ecs_diagnostics() {
+  echo "==> ECS diagnostics for ${SERVICE_NAME}"
+
+  aws_cmd ecs describe-services \
+    --cluster "${CLUSTER_NAME}" \
+    --services "${SERVICE_NAME}" \
+    --query 'services[0].events[:10].[createdAt,message]' \
+    --output table || true
+
+  mapfile -t stopped_tasks < <(
+    aws_cmd ecs list-tasks \
+      --cluster "${CLUSTER_NAME}" \
+      --service-name "${SERVICE_NAME}" \
+      --desired-status STOPPED \
+      --max-items 5 \
+      --query 'taskArns' \
+      --output text 2>/dev/null | tr '\t' '\n' | sed '/^None$/d;/^$/d'
+  )
+
+  if [[ ${#stopped_tasks[@]} -gt 0 ]]; then
+    aws_cmd ecs describe-tasks \
+      --cluster "${CLUSTER_NAME}" \
+      --tasks "${stopped_tasks[@]}" \
+      --query 'tasks[].{task:taskArn,lastStatus:lastStatus,stoppedReason:stoppedReason,stoppedAt:stoppedAt}' \
+      --output table || true
+  fi
+}
+
+wait_for_ecs_stability() {
+  if [[ "${WAIT_FOR_SERVICE_STABILITY}" != "true" ]]; then
+    echo "==> WAIT_FOR_SERVICE_STABILITY=false; skipping stability wait"
+    return 0
+  fi
+
+  local attempt
+  local max_attempts="${ECS_STABILITY_WAIT_ATTEMPTS}"
+
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    echo "==> Waiting for ECS service stability (attempt ${attempt}/${max_attempts})"
+    if aws_cmd ecs wait services-stable --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}"; then
+      return 0
+    fi
+
+    echo "ECS service did not stabilize on attempt ${attempt}." >&2
+    print_ecs_diagnostics
+  done
+
+  return 1
+}
+
 require_bin "${AWS_BIN}"
 require_bin jq
 require_bin "${DOCKER_BIN}"
@@ -104,6 +180,9 @@ repo_uri="${account_id}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 image_uri="${repo_uri}:${IMAGE_TAG}"
 cache_platform="${DOCKER_PLATFORM//\//-}"
 build_cache_ref="${BUILD_CACHE_REF:-${repo_uri}:buildcache-${cache_platform}}"
+
+check_ecr_access
+
 current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
 if [[ "${current_taskdef_arn}" == "None" ]]; then
   current_taskdef_arn=""
@@ -123,20 +202,28 @@ aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password
 
 if [[ "${DOCKER_BUILDX}" == "true" ]]; then
   echo "==> Building and pushing web image via buildx (${DOCKER_PLATFORM}) -> ${image_uri}"
-  "${DOCKER_BIN}" buildx build \
-    --platform "${DOCKER_PLATFORM}" \
-    --cache-from "type=registry,ref=${build_cache_ref}" \
-    --cache-to "type=registry,ref=${build_cache_ref},mode=max" \
-    --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}" \
-    --build-arg "NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}" \
-    --build-arg "NEXT_PUBLIC_ADMIN_URL=${NEXT_PUBLIC_ADMIN_URL}" \
-    --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}" \
-    --build-arg "NEXT_PUBLIC_CLERK_DOMAIN=${CLERK_DOMAIN}" \
-    --build-arg "NEXT_PUBLIC_CLERK_JS_URL=${CLERK_JS_URL}" \
-    -f apps/web/Dockerfile \
-    -t "${image_uri}" \
-    --push \
+  buildx_args=(buildx build --platform "${DOCKER_PLATFORM}")
+  if [[ "${DOCKER_REGISTRY_CACHE}" == "true" ]]; then
+    buildx_args+=(
+      --cache-from "type=registry,ref=${build_cache_ref}"
+      --cache-to "type=registry,ref=${build_cache_ref},mode=max"
+    )
+  else
+    echo "==> Registry cache disabled for this run"
+  fi
+  buildx_args+=(
+    --build-arg "NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}"
+    --build-arg "NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}"
+    --build-arg "NEXT_PUBLIC_ADMIN_URL=${NEXT_PUBLIC_ADMIN_URL}"
+    --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${clerk_publishable_key}"
+    --build-arg "NEXT_PUBLIC_CLERK_DOMAIN=${CLERK_DOMAIN}"
+    --build-arg "NEXT_PUBLIC_CLERK_JS_URL=${CLERK_JS_URL}"
+    -f apps/web/Dockerfile
+    -t "${image_uri}"
+    --push
     .
+  )
+  "${DOCKER_BIN}" "${buildx_args[@]}"
 else
   echo "==> Building web image (ARM64 for Fargate) -> ${image_uri}"
   "${DOCKER_BIN}" build \
@@ -152,6 +239,19 @@ else
 
   echo "==> Pushing image"
   "${DOCKER_BIN}" push "${image_uri}"
+fi
+
+if [[ "${DEPLOY_SERVICE}" != "true" ]]; then
+  echo "==> DEPLOY_SERVICE=false; skipping ECS service update and smoke checks"
+  jq -n \
+    --arg image_uri "${image_uri}" \
+    --arg repository "${REPOSITORY_NAME}" \
+    '{
+      deploy_service: false,
+      image_uri: $image_uri,
+      repository: $repository
+    }'
+  exit 0
 fi
 
 echo "==> Registering task definition"
@@ -205,8 +305,27 @@ aws_cmd ecs update-service \
   --task-definition "${taskdef_arn}" \
   --force-new-deployment >/dev/null
 
-echo "==> Waiting for ECS service stability"
-aws_cmd ecs wait services-stable --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}"
+if ! wait_for_ecs_stability; then
+  echo "ECS deployment did not stabilize after ${ECS_STABILITY_WAIT_ATTEMPTS} wait attempt(s)." >&2
+  exit 2
+fi
+
+if [[ "${RUN_SMOKE_TESTS}" != "true" ]]; then
+  echo "==> RUN_SMOKE_TESTS=false; skipping smoke checks"
+  jq -n \
+    --arg cluster "${CLUSTER_NAME}" \
+    --arg service "${SERVICE_NAME}" \
+    --arg task_definition_arn "${taskdef_arn}" \
+    --arg image_uri "${image_uri}" \
+    '{
+      cluster: $cluster,
+      service: $service,
+      task_definition_arn: $task_definition_arn,
+      image_uri: $image_uri,
+      smoke: { skipped: true }
+    }'
+  exit 0
+fi
 
 tmp_smoke_body="$(mktemp)"
 smoke_url="${SMOKE_BASE_URL}${SMOKE_PATH}"
@@ -220,7 +339,6 @@ jq -n \
   --arg service "${SERVICE_NAME}" \
   --arg task_definition_arn "${taskdef_arn}" \
   --arg image_uri "${image_uri}" \
-  --arg alb_dns_name "" \
   --arg smoke_url "${smoke_url}" \
   --arg smoke_status "${smoke_status}" \
   --arg body_preview "$(head -c 500 "${tmp_smoke_body}")" \
@@ -229,7 +347,6 @@ jq -n \
     service: $service,
     task_definition_arn: $task_definition_arn,
     image_uri: $image_uri,
-    alb_dns_name: $alb_dns_name,
     smoke: {
       url: $smoke_url,
       status: ($smoke_status | tonumber),
@@ -239,5 +356,5 @@ jq -n \
 
 if [[ "${smoke_status}" -ge 500 ]]; then
   echo "Web smoke test failed (${smoke_status})" >&2
-  exit 2
+  exit 3
 fi

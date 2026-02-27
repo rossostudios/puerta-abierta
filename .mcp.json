@@ -4,18 +4,6 @@
       "type": "http",
       "url": "https://mcp.sentry.dev/mcp"
     },
-    "supabase": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@supabase/mcp-server-supabase@latest",
-        "--project-ref",
-        "thzhbiojhdeifjqhhzli"
-      ],
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_da2d736b5283f20d08f9b23dd90ab9609087dbfe"
-      }
-    },
     "mapbox": {
       "command": "npx",
       "args": [

@@ -17,6 +17,21 @@ on:
         required: true
         type: boolean
         default: true
+      wait_for_service_stability:
+        description: "Wait for ECS service stability after deployment"
+        required: true
+        type: boolean
+        default: true
+      run_smoke_tests:
+        description: "Run smoke tests after deployment"
+        required: true
+        type: boolean
+        default: true
+      enable_registry_cache:
+        description: "Enable registry-backed buildx cache (may require extra ECR permissions)"
+        required: true
+        type: boolean
+        default: false
       backend_image_tag:
         description: "Optional existing backend image tag to reuse (skips backend image build)"
         required: false
@@ -28,7 +43,7 @@ on:
         options:
           - ubuntu-24.04-arm
           - ubuntu-latest
-        default: ubuntu-24.04-arm
+        default: ubuntu-latest
 
 permissions:
   id-token: write
@@ -81,7 +96,7 @@ jobs:
       BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
       DOCKER_BUILDX: "true"
       DOCKER_PLATFORM: "linux/arm64"
-      DOCKER_CONFIG_ISOLATED: "false"
+      DOCKER_CONFIG_ISOLATED: "true"
 
     steps:
       - uses: actions/checkout@v4
@@ -103,12 +118,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.deploy_service }}" != "true" ]]; then
-            echo "deploy_service=false is not supported by the unified script-driven production workflow." >&2
-            echo "Use a local break-glass script path if you need image-only builds." >&2
-            exit 1
-          fi
-
+          deploy_service="${{ inputs.deploy_service }}"
+          wait_for_stability="${{ inputs.wait_for_service_stability }}"
+          run_smoke_tests="${{ inputs.run_smoke_tests }}"
+          registry_cache="${{ inputs.enable_registry_cache }}"
           app="${{ matrix.app }}"
           case "${app}" in
             backend) script_path="./scripts/aws/deploy-backend-production.sh" ;;
@@ -122,10 +135,29 @@ jobs:
 
           echo "## Deploying ${app}" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"
-          if [[ "${app}" == "backend" && -n "${BACKEND_IMAGE_TAG}" ]]; then
-            SKIP_IMAGE_BUILD=true IMAGE_TAG="${BACKEND_IMAGE_TAG}" "${script_path}"
+          if [[ "${deploy_service}" == "true" ]]; then
+            echo "- Mode: build + deploy" >> "${GITHUB_STEP_SUMMARY}"
+            echo "- Wait for stability: ${wait_for_stability}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "- Run smoke tests: ${run_smoke_tests}" >> "${GITHUB_STEP_SUMMARY}"
           else
-            "${script_path}"
+            echo "- Mode: image-only build/push (no ECS service update)" >> "${GITHUB_STEP_SUMMARY}"
           fi
+          echo "- Registry cache enabled: ${registry_cache}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+
+          run_args=(
+            "DEPLOY_SERVICE=${deploy_service}"
+            "WAIT_FOR_SERVICE_STABILITY=${wait_for_stability}"
+            "RUN_SMOKE_TESTS=${run_smoke_tests}"
+            "DOCKER_REGISTRY_CACHE=${registry_cache}"
+          )
+
+          if [[ "${app}" == "backend" && -n "${BACKEND_IMAGE_TAG}" ]]; then
+            run_args+=("SKIP_IMAGE_BUILD=true" "IMAGE_TAG=${BACKEND_IMAGE_TAG}")
+          else
+            run_args+=("SKIP_IMAGE_BUILD=false")
+          fi
+
+          env "${run_args[@]}" "${script_path}"
           echo "- Result: completed" >> "${GITHUB_STEP_SUMMARY}"
           echo "" >> "${GITHUB_STEP_SUMMARY}"

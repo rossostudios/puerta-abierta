@@ -1542,8 +1542,6 @@ async fn seed_demo(
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency(
-            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
-        )
+        AppError::Dependency("Database is not configured. Set DATABASE_URL.".to_string())
     })
 }

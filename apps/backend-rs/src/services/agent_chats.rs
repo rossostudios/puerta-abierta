@@ -50,7 +50,7 @@ pub async fn list_agents(state: &AppState, org_id: &str) -> AppResult<Vec<Value>
     .bind(org_id)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     Ok(rows
         .into_iter()
@@ -98,7 +98,7 @@ pub async fn list_chats(
     .bind(bounded_limit)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let chats = rows
         .into_iter()
@@ -127,7 +127,7 @@ pub async fn list_chats(
         .bind(&agent_ids)
         .fetch_all(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
 
         for row in agent_rows {
             if let Some(item) = row.try_get::<Option<Value>, _>("row").ok().flatten() {
@@ -193,7 +193,7 @@ pub async fn create_chat(
     .bind(preferred_model)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let chat = row
         .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
@@ -227,7 +227,7 @@ pub async fn update_chat_preferences(
     .bind(user_id)
     .execute(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     get_chat(state, chat_id, org_id, user_id).await
 }
@@ -271,7 +271,7 @@ pub async fn list_chat_messages(
     .bind(bounded_limit)
     .fetch_all(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let mut messages = rows
         .into_iter()
@@ -319,7 +319,7 @@ pub async fn send_chat_message(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?
+    .map_err(|error| db_error(state, &error))?
     .and_then(|row| row.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::Internal("Could not persist user message.".to_string()))?;
 
@@ -446,7 +446,7 @@ pub async fn send_chat_message(
     .bind(model_used.clone())
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?
+    .map_err(|error| db_error(state, &error))?
     .and_then(|row| row.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::Internal("Could not persist assistant message.".to_string()))?;
 
@@ -477,7 +477,7 @@ pub async fn send_chat_message(
         .bind(chat_id)
         .execute(pool)
         .await
-        .map_err(|error| supabase_error(state, &error))?;
+        .map_err(|error| db_error(state, &error))?;
     }
 
     let summary = get_chat(state, chat_id, org_id, user_id).await?;
@@ -826,7 +826,7 @@ pub async fn archive_chat(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?
+    .map_err(|error| db_error(state, &error))?
     .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::NotFound("Chat not found.".to_string()))?;
 
@@ -855,7 +855,7 @@ pub async fn restore_chat(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?
+    .map_err(|error| db_error(state, &error))?
     .and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::NotFound("Chat not found.".to_string()))?;
 
@@ -882,7 +882,7 @@ pub async fn delete_chat(
     .bind(user_id)
     .execute(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     Ok(chat)
 }
@@ -908,7 +908,7 @@ async fn fetch_agent_runtime_override(
     .bind(agent_slug)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let Some(row) = row else {
         return Ok(None);
@@ -958,7 +958,7 @@ async fn get_agent_by_slug(state: &AppState, org_id: &str, slug: &str) -> AppRes
     .bind(value)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
         .ok_or_else(|| AppError::NotFound(format!("AI agent '{value}' was not found.")))
@@ -976,7 +976,7 @@ async fn get_agent_by_id(state: &AppState, agent_id: &str) -> AppResult<Value> {
     .bind(agent_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
         .ok_or_else(|| AppError::NotFound("AI agent was not found.".to_string()))
@@ -1002,7 +1002,7 @@ async fn ensure_chat_owner(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
         .ok_or_else(|| AppError::NotFound("Chat not found.".to_string()))
@@ -1030,7 +1030,7 @@ async fn latest_preview_for_chat(
     .bind(user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| supabase_error(state, &error))?;
+    .map_err(|error| db_error(state, &error))?;
 
     let content = row
         .and_then(|item| item.try_get::<Option<String>, _>("content").ok().flatten())
@@ -1175,13 +1175,11 @@ fn value_str(row: &Value, key: &str) -> Option<String> {
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {
     state.db_pool.as_ref().ok_or_else(|| {
-        AppError::Dependency(
-            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
-        )
+        AppError::Dependency("Database is not configured. Set DATABASE_URL.".to_string())
     })
 }
 
-fn supabase_error(_state: &AppState, error: &sqlx::Error) -> AppError {
+fn db_error(_state: &AppState, error: &sqlx::Error) -> AppError {
     tracing::error!(error = %error, "Database query failed");
     AppError::Dependency("External service request failed.".to_string())
 }

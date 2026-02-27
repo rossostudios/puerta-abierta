@@ -324,9 +324,9 @@ export function SetupManager({
 
   const sheetDescription =
     sheetMode === "create"
-      ? "Crea un nuevo registro en Supabase."
+      ? "Crea un nuevo registro."
       : sheetMode === "edit"
-        ? "Edita y guarda cambios en Supabase."
+        ? "Edita y guarda cambios."
         : "Ver detalles del registro y tomar acciones.";
 
   const canDelete = sheetMode !== "create" && Boolean(asString(record?.id));

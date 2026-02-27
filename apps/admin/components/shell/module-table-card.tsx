@@ -557,8 +557,8 @@ export function ModuleTableCard({
                 description={
                   moduleEmptyState?.description ??
                   (isEn
-                    ? "Manage base records stored in Supabase. Use onboarding manager to add, edit, or seed data."
-                    : "Administra registros base guardados en Supabase. Usa el administrador para agregar, editar o cargar datos demo.")
+                    ? "Manage base records stored in the database. Use onboarding manager to add, edit, or seed data."
+                    : "Administra registros base guardados en la base de datos. Usa el administrador para agregar, editar o cargar datos demo.")
                 }
                 icon={moduleEmptyState?.icon ?? InboxIcon}
                 title={

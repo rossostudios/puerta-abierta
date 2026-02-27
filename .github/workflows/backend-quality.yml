@@ -2,8 +2,20 @@ name: Backend Quality Gate
 
 on:
   pull_request:
+    paths:
+      - "apps/backend-rs/**"
+      - "scripts/quality-gate.sh"
+      - ".github/workflows/backend-quality.yml"
   push:
     branches: [main]
+    paths:
+      - "apps/backend-rs/**"
+      - "scripts/quality-gate.sh"
+      - ".github/workflows/backend-quality.yml"
+
+concurrency:
+  group: backend-quality-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend-quality:
@@ -17,6 +29,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - name: Restore Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/backend-rs
+          cache-targets: true
 
       - name: Ensure rustfmt/clippy on pinned backend toolchain
         working-directory: apps/backend-rs

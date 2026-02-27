@@ -14,7 +14,7 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> AppResult<
     let app_user = ensure_app_user(&state, &user).await?;
     let Some(pool) = state.db_pool.as_ref() else {
         return Err(AppError::Dependency(
-            "Database is not configured. Set DATABASE_URL (legacy SUPABASE_DB_URL is also supported).".to_string(),
+            "Database is not configured. Set DATABASE_URL.".to_string(),
         ));
     };
 

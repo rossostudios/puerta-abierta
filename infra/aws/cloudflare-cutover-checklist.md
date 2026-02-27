@@ -1,6 +1,6 @@
 # Cloudflare Cutover Checklist (AWS ECS/ALB Origin)
 
-Use this checklist when switching Casaora traffic from Railway/Vercel origins to AWS.
+Use this checklist when switching Casaora traffic origins to AWS.
 
 ## Preconditions
 
@@ -51,7 +51,7 @@ Frontend checks against AWS origin:
 1. Re-run API smoke checks through public domain
 2. Validate admin login and core workflows
 3. Confirm error rates and latency are stable
-4. Keep Railway/Vercel services available but idle for fast rollback window
+4. Keep previous services available but idle for fast rollback window
 
 ## Rollback
 

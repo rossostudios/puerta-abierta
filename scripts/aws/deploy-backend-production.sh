@@ -26,7 +26,12 @@ SECRET_INTERNAL_API_KEY_NAME="${SECRET_INTERNAL_API_KEY_NAME:-${SECRET_PREFIX}/I
 DOCKER_BIN="${DOCKER_BIN:-docker}"
 DOCKER_BUILDX="${DOCKER_BUILDX:-false}"
 DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/arm64}"
+DOCKER_REGISTRY_CACHE="${DOCKER_REGISTRY_CACHE:-false}"
 SKIP_IMAGE_BUILD="${SKIP_IMAGE_BUILD:-false}"
+DEPLOY_SERVICE="${DEPLOY_SERVICE:-true}"
+WAIT_FOR_SERVICE_STABILITY="${WAIT_FOR_SERVICE_STABILITY:-true}"
+ECS_STABILITY_WAIT_ATTEMPTS="${ECS_STABILITY_WAIT_ATTEMPTS:-3}"
+RUN_SMOKE_TESTS="${RUN_SMOKE_TESTS:-true}"
 default_git_sha="$(git rev-parse --short HEAD 2>/dev/null || echo manual)"
 IMAGE_TAG="${IMAGE_TAG:-${default_git_sha}-$(date +%Y%m%d%H%M%S)}"
 DOCKER_CONFIG_ISOLATED="${DOCKER_CONFIG_ISOLATED:-true}"
@@ -37,6 +42,13 @@ aws_cmd() {
     args+=(--profile "${PROFILE}")
   fi
   "${args[@]}" "$@"
+}
+
+require_bin() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "missing required command: $1" >&2
+    exit 1
+  }
 }
 
 resolve_existing_secret_ref() {
@@ -64,13 +76,86 @@ resolve_existing_secret_ref() {
   printf '%s' "${secret_name}"
 }
 
-if ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
-  echo "docker is required for production deploy" >&2
+check_ecr_access() {
+  if aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" >/dev/null 2>&1; then
+    return
+  fi
+
+  cat >&2 <<MSG
+Unable to access ECR repository ${REPOSITORY_NAME} in ${REGION}.
+Failing early before image build.
+
+Required IAM actions include:
+- ecr:DescribeRepositories
+- ecr:GetAuthorizationToken
+- ecr:BatchCheckLayerAvailability
+- ecr:InitiateLayerUpload
+- ecr:UploadLayerPart
+- ecr:CompleteLayerUpload
+- ecr:PutImage
+MSG
   exit 1
-fi
+}
+
+print_ecs_diagnostics() {
+  echo "==> ECS diagnostics for ${SERVICE_NAME}"
+
+  aws_cmd ecs describe-services \
+    --cluster "${CLUSTER_NAME}" \
+    --services "${SERVICE_NAME}" \
+    --query 'services[0].events[:10].[createdAt,message]' \
+    --output table || true
+
+  mapfile -t stopped_tasks < <(
+    aws_cmd ecs list-tasks \
+      --cluster "${CLUSTER_NAME}" \
+      --service-name "${SERVICE_NAME}" \
+      --desired-status STOPPED \
+      --max-items 5 \
+      --query 'taskArns' \
+      --output text 2>/dev/null | tr '\t' '\n' | sed '/^None$/d;/^$/d'
+  )
+
+  if [[ ${#stopped_tasks[@]} -gt 0 ]]; then
+    aws_cmd ecs describe-tasks \
+      --cluster "${CLUSTER_NAME}" \
+      --tasks "${stopped_tasks[@]}" \
+      --query 'tasks[].{task:taskArn,lastStatus:lastStatus,stoppedReason:stoppedReason,stoppedAt:stoppedAt}' \
+      --output table || true
+  fi
+}
+
+wait_for_ecs_stability() {
+  if [[ "${WAIT_FOR_SERVICE_STABILITY}" != "true" ]]; then
+    echo "==> WAIT_FOR_SERVICE_STABILITY=false; skipping stability wait"
+    return 0
+  fi
+
+  local attempt
+  local max_attempts="${ECS_STABILITY_WAIT_ATTEMPTS}"
+
+  for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+    echo "==> Waiting for ECS service stability (attempt ${attempt}/${max_attempts})"
+    if aws_cmd ecs wait services-stable --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}"; then
+      return 0
+    fi
+
+    echo "ECS service did not stabilize on attempt ${attempt}." >&2
+    print_ecs_diagnostics
+  done
+
+  return 1
+}
+
+require_bin "${AWS_BIN}"
+require_bin jq
+require_bin "${DOCKER_BIN}"
+require_bin curl
 
 cleanup() {
   [[ -n "${tmp_taskdef:-}" && -f "${tmp_taskdef}" ]] && rm -f "${tmp_taskdef}"
+  [[ -n "${tmp_live_body:-}" && -f "${tmp_live_body}" ]] && rm -f "${tmp_live_body}"
+  [[ -n "${tmp_ready_body:-}" && -f "${tmp_ready_body}" ]] && rm -f "${tmp_ready_body}"
   if [[ "${DOCKER_CONFIG_ISOLATED}" == "true" && -n "${temp_docker_config:-}" && -d "${temp_docker_config}" ]]; then
     rm -rf "${temp_docker_config}"
   fi
@@ -91,6 +176,9 @@ repo_uri="${account_id}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 image_uri="${repo_uri}:${IMAGE_TAG}"
 cache_platform="${DOCKER_PLATFORM//\//-}"
 build_cache_ref="${BUILD_CACHE_REF:-${repo_uri}:buildcache-${cache_platform}}"
+
+check_ecr_access
+
 current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
 if [[ "${current_taskdef_arn}" == "None" ]]; then
   current_taskdef_arn=""
@@ -108,14 +196,22 @@ else
 
   if [[ "${DOCKER_BUILDX}" == "true" ]]; then
     echo "==> Building and pushing backend image via buildx (${DOCKER_PLATFORM}) -> ${image_uri}"
-    "${DOCKER_BIN}" buildx build \
-      --platform "${DOCKER_PLATFORM}" \
-      --cache-from "type=registry,ref=${build_cache_ref}" \
-      --cache-to "type=registry,ref=${build_cache_ref},mode=max" \
-      -f apps/backend-rs/Dockerfile \
-      -t "${image_uri}" \
-      --push \
+    buildx_args=(buildx build --platform "${DOCKER_PLATFORM}")
+    if [[ "${DOCKER_REGISTRY_CACHE}" == "true" ]]; then
+      buildx_args+=(
+        --cache-from "type=registry,ref=${build_cache_ref}"
+        --cache-to "type=registry,ref=${build_cache_ref},mode=max"
+      )
+    else
+      echo "==> Registry cache disabled for this run"
+    fi
+    buildx_args+=(
+      -f apps/backend-rs/Dockerfile
+      -t "${image_uri}"
+      --push
       apps/backend-rs
+    )
+    "${DOCKER_BIN}" "${buildx_args[@]}"
   else
     echo "==> Building backend image (ARM64 for Fargate) -> ${image_uri}"
     "${DOCKER_BIN}" build \
@@ -126,6 +222,19 @@ else
     echo "==> Pushing image"
     "${DOCKER_BIN}" push "${image_uri}"
   fi
+fi
+
+if [[ "${DEPLOY_SERVICE}" != "true" ]]; then
+  echo "==> DEPLOY_SERVICE=false; skipping ECS service update and smoke checks"
+  jq -n \
+    --arg image_uri "${image_uri}" \
+    --arg repository "${REPOSITORY_NAME}" \
+    '{
+      deploy_service: false,
+      image_uri: $image_uri,
+      repository: $repository
+    }'
+  exit 0
 fi
 
 echo "==> Registering task definition"
@@ -167,12 +276,33 @@ aws_cmd ecs update-service \
   --task-definition "${taskdef_arn}" \
   --force-new-deployment >/dev/null
 
-echo "==> Waiting for ECS service stability"
-aws_cmd ecs wait services-stable --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}"
+if ! wait_for_ecs_stability; then
+  echo "ECS deployment did not stabilize after ${ECS_STABILITY_WAIT_ATTEMPTS} wait attempt(s)." >&2
+  exit 2
+fi
+
+if [[ "${RUN_SMOKE_TESTS}" != "true" ]]; then
+  echo "==> RUN_SMOKE_TESTS=false; skipping smoke checks"
+  jq -n \
+    --arg cluster "${CLUSTER_NAME}" \
+    --arg service "${SERVICE_NAME}" \
+    --arg task_definition_arn "${taskdef_arn}" \
+    --arg image_uri "${image_uri}" \
+    '{
+      cluster: $cluster,
+      service: $service,
+      task_definition_arn: $task_definition_arn,
+      image_uri: $image_uri,
+      smoke: { skipped: true }
+    }'
+  exit 0
+fi
 
 echo "==> Smoke tests via ${SMOKE_BASE_URL}"
-live_status="$(curl -sS -o /tmp/casaora_prod_live.json -w '%{http_code}' "${SMOKE_BASE_URL}/v1/live")"
-ready_status="$(curl -sS -o /tmp/casaora_prod_ready.json -w '%{http_code}' "${SMOKE_BASE_URL}/v1/ready")"
+tmp_live_body="$(mktemp)"
+tmp_ready_body="$(mktemp)"
+live_status="$(curl -sS -o "${tmp_live_body}" -w '%{http_code}' "${SMOKE_BASE_URL}/v1/live")"
+ready_status="$(curl -sS -o "${tmp_ready_body}" -w '%{http_code}' "${SMOKE_BASE_URL}/v1/ready")"
 
 echo "/v1/live -> ${live_status}"
 echo "/v1/ready -> ${ready_status}"
@@ -183,18 +313,16 @@ jq -n \
   --arg service "${SERVICE_NAME}" \
   --arg task_definition_arn "${taskdef_arn}" \
   --arg image_uri "${image_uri}" \
-  --arg alb_dns_name "" \
   --arg smoke_base_url "${SMOKE_BASE_URL}" \
   --arg live_status "${live_status}" \
   --arg ready_status "${ready_status}" \
-  --arg live_body "$(cat /tmp/casaora_prod_live.json)" \
-  --arg ready_body "$(cat /tmp/casaora_prod_ready.json)" \
+  --arg live_body "$(cat "${tmp_live_body}")" \
+  --arg ready_body "$(cat "${tmp_ready_body}")" \
   '{
     cluster: $cluster,
     service: $service,
     task_definition_arn: $task_definition_arn,
     image_uri: $image_uri,
-    alb_dns_name: $alb_dns_name,
     smoke_base_url: $smoke_base_url,
     smoke: {
       live: { status: ($live_status | tonumber), body: ($live_body | fromjson?) },
@@ -204,5 +332,5 @@ jq -n \
 
 if [[ "${ready_status}" != "200" ]]; then
   echo "Readiness check failed; keeping service on live target group for bootstrap traffic." >&2
-  exit 2
+  exit 3
 fi

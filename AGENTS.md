@@ -276,9 +276,8 @@ The `packages/mcp-server/` package exposes the Casaora tool API as an MCP server
 
 ## Deployment Guardrail
 
-Before pushing to production (Vercel + Railway):
+Before pushing to production (AWS ECS):
 
 1. Apply pending SQL migrations to production DB.
-2. Confirm admin env points to Railway backend API URL.
-3. Run `./scripts/quality-gate.sh`.
-4. Verify `/marketplace`, `/module/applications`, `/module/leases`, `/module/owner-statements` manually.
+2. Run `./scripts/quality-gate.sh`.
+3. Verify `/marketplace`, `/module/applications`, `/module/leases`, `/module/owner-statements` manually.

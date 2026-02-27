@@ -1,6 +1,6 @@
 # AWS Migration Foundation (Casaora)
 
-This directory is the first AWS migration scaffold for moving Casaora off Railway/Vercel onto:
+This directory contains the AWS infrastructure scaffold for Casaora on:
 
 - Cloudflare (DNS/WAF/CDN)
 - AWS ECS Fargate (backend + optionally admin frontend)
@@ -47,11 +47,11 @@ Recommended next additions (not included yet):
 
 ## Migration Phases (Pragmatic Order)
 
-1. Backend hosting cutover (Railway -> ECS Fargate), keep current DB/auth temporarily
-2. Frontend hosting cutover (Vercel -> ECS/OpenNext on AWS)
-3. Auth migration (Supabase Auth -> Clerk)
-4. Database migration (Supabase Postgres -> RDS PostgreSQL Multi-AZ)
-5. Storage/realtime cutover (if needed)
+All migration phases are complete. Current stack:
+- Backend: ECS Fargate
+- Frontend: ECS Fargate (Next.js)
+- Auth: Clerk
+- Database: RDS PostgreSQL Multi-AZ
 
 ## Required GitHub Variables / Secrets (Workflow)
 
@@ -74,9 +74,7 @@ Repository `Variables`:
 
 Backend (ECS task secrets/env):
 
-- `DATABASE_URL` (preferred) or `SUPABASE_DB_URL` during transition
-- `SUPABASE_URL` (if still using Supabase Auth/Storage)
-- `SUPABASE_SERVICE_ROLE_KEY` (temporary until Clerk/RDS cutover)
+- `DATABASE_URL`
 - `OPENAI_API_KEY`
 - `ENVIRONMENT=production`
 - `API_PREFIX=/v1`
@@ -86,9 +84,8 @@ Backend (ECS task secrets/env):
 Frontend (admin task secrets/env):
 
 - `NEXT_PUBLIC_API_BASE_URL`
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (future phase)
-- `CLERK_SECRET_KEY` (future phase)
-- Supabase envs still required until auth migration is implemented in app code
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
 
 ## Backend Health Checks (Already Implemented in API Code)
 

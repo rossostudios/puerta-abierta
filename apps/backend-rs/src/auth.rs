@@ -11,7 +11,7 @@ use crate::{error::AppError, state::AppState};
 /// Compatibility auth user payload used across handlers/tenancy.
 /// `id` remains the canonical app user UUID in Casaora.
 #[derive(Debug, Clone, Deserialize)]
-pub struct SupabaseUser {
+pub struct AuthenticatedUser {
     pub id: String,
     pub email: Option<String>,
     #[serde(default)]
@@ -80,7 +80,7 @@ pub async fn current_user_id(state: &AppState, headers: &HeaderMap) -> Option<St
 pub async fn current_authenticated_user(
     state: &AppState,
     headers: &HeaderMap,
-) -> Option<SupabaseUser> {
+) -> Option<AuthenticatedUser> {
     #[cfg(debug_assertions)]
     if state.config.auth_dev_overrides_enabled() && header_string(headers, "x-user-id").is_some() {
         return None;
@@ -88,10 +88,6 @@ pub async fn current_authenticated_user(
 
     let token = bearer_token(headers)?;
     resolve_user(state, &token).await
-}
-
-pub async fn current_supabase_user(state: &AppState, headers: &HeaderMap) -> Option<SupabaseUser> {
-    current_authenticated_user(state, headers).await
 }
 
 pub async fn require_user_id(state: &AppState, headers: &HeaderMap) -> Result<String, AppError> {
@@ -103,19 +99,12 @@ pub async fn require_user_id(state: &AppState, headers: &HeaderMap) -> Result<St
 pub async fn require_authenticated_user(
     state: &AppState,
     headers: &HeaderMap,
-) -> Result<SupabaseUser, AppError> {
+) -> Result<AuthenticatedUser, AppError> {
     current_authenticated_user(state, headers)
         .await
         .ok_or_else(|| {
             AppError::Unauthorized("Unauthorized: missing or invalid access token.".to_string())
         })
-}
-
-pub async fn require_supabase_user(
-    state: &AppState,
-    headers: &HeaderMap,
-) -> Result<SupabaseUser, AppError> {
-    require_authenticated_user(state, headers).await
 }
 
 fn header_string(headers: &HeaderMap, key: &str) -> Option<String> {
@@ -128,13 +117,13 @@ fn header_string(headers: &HeaderMap, key: &str) -> Option<String> {
 }
 
 /// Validate Clerk JWTs via JWKS and map them to internal app users.
-async fn resolve_user(state: &AppState, token: &str) -> Option<SupabaseUser> {
+async fn resolve_user(state: &AppState, token: &str) -> Option<AuthenticatedUser> {
     validate_clerk_jwt_with_jwks(state, token).await
 }
 
 /// Validate a Clerk session JWT using the Clerk JWKS endpoint.
 /// Returns None if Clerk JWKS is not configured or validation fails.
-async fn validate_clerk_jwt_with_jwks(state: &AppState, token: &str) -> Option<SupabaseUser> {
+async fn validate_clerk_jwt_with_jwks(state: &AppState, token: &str) -> Option<AuthenticatedUser> {
     let jwks_cache = state.clerk_jwks_cache.as_ref()?;
 
     let header = decode_header(token).ok()?;
@@ -279,7 +268,7 @@ fn clerk_user_metadata(claims: &ClerkJwtClaims) -> Option<Value> {
     }))
 }
 
-async fn resolve_clerk_user(state: &AppState, claims: ClerkJwtClaims) -> Option<SupabaseUser> {
+async fn resolve_clerk_user(state: &AppState, claims: ClerkJwtClaims) -> Option<AuthenticatedUser> {
     let subject = claims.sub.trim().to_string();
     if subject.is_empty() {
         return None;
@@ -301,7 +290,7 @@ async fn resolve_clerk_user(state: &AppState, claims: ClerkJwtClaims) -> Option<
     {
         let id = row.try_get::<String, _>("id").ok()?;
         let email = row.try_get::<Option<String>, _>("email").ok().flatten();
-        return Some(SupabaseUser {
+        return Some(AuthenticatedUser {
             id,
             email,
             user_metadata,
@@ -342,7 +331,7 @@ async fn resolve_clerk_user(state: &AppState, claims: ClerkJwtClaims) -> Option<
 
     let id = row.try_get::<String, _>("id").ok()?;
     let email = row.try_get::<Option<String>, _>("email").ok().flatten();
-    Some(SupabaseUser {
+    Some(AuthenticatedUser {
         id,
         email,
         user_metadata,

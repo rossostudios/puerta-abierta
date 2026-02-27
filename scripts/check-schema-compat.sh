@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_URL="${DATABASE_URL:-${SUPABASE_DB_URL:-}}"
+DB_URL="${DATABASE_URL:-}"
 
 if [[ -z "${DB_URL}" ]]; then
-  echo "DATABASE_URL or SUPABASE_DB_URL is required" >&2
+  echo "DATABASE_URL is required" >&2
   exit 2
 fi
 

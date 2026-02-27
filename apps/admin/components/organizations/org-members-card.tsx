@@ -113,7 +113,7 @@ export function OrgMembersCard({
     const userId = newUserId.trim();
     if (!UUID_RE.test(userId)) {
       toast.error("ID inválido", {
-        description: "Pega el ID UUID del usuario (Supabase Auth).",
+        description: "Pega el ID UUID del usuario.",
       });
       return;
     }
@@ -204,7 +204,7 @@ export function OrgMembersCard({
                 <Input
                   id="member-user-id"
                   onChange={(event) => setNewUserId(event.target.value)}
-                  placeholder="UUID del usuario (Supabase)"
+                  placeholder="UUID del usuario"
                   value={newUserId}
                 />
               </label>

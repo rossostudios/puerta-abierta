@@ -1,6 +1,6 @@
 # Terraform (AWS Foundation)
 
-This folder codifies the AWS production foundation created during the Railway/Supabase/Vercel migration:
+This folder codifies the AWS production foundation for Casaora:
 
 - VPC / subnets / route tables / internet gateway
 - ALB + backend target groups + listeners

@@ -1,7 +1,6 @@
 .git
 .github
 .next
-.vercel
 .DS_Store
 
 **/node_modules

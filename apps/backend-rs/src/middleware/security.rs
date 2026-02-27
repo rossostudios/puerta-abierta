@@ -141,13 +141,8 @@ mod tests {
 
     #[test]
     fn accepts_exact_and_wildcard_hosts() {
-        let allowed = vec![
-            "localhost".to_string(),
-            "*.up.railway.app".to_string(),
-            "admin.example.com".to_string(),
-        ];
+        let allowed = vec!["localhost".to_string(), "admin.example.com".to_string()];
         assert!(host_allowed("localhost:3000", &allowed));
-        assert!(host_allowed("api.up.railway.app", &allowed));
         assert!(!host_allowed("evil.example.com", &allowed));
     }
 }
