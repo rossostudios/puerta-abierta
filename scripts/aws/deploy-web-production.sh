@@ -45,16 +45,6 @@ aws_cmd() {
   "${args[@]}" "$@"
 }
 
-secret_arn() {
-  local secret_name="$1"
-  aws_cmd secretsmanager describe-secret --secret-id "${secret_name}" --query 'ARN' --output text
-}
-
-secret_string() {
-  local secret_name="$1"
-  aws_cmd secretsmanager get-secret-value --secret-id "${secret_name}" --query 'SecretString' --output text
-}
-
 require_bin() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "missing required command: $1" >&2
@@ -89,9 +79,11 @@ account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
 
-clerk_publishable_secret_arn="$(secret_arn "${SECRET_CLERK_PUBLISHABLE_NAME}")"
-clerk_secret_secret_arn="$(secret_arn "${SECRET_CLERK_SECRET_NAME}")"
-clerk_publishable_key="$(secret_string "${SECRET_CLERK_PUBLISHABLE_NAME}")"
+clerk_publishable_key="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+if [[ -z "${clerk_publishable_key}" ]]; then
+  echo "Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY. Set it in the GitHub Production environment secrets." >&2
+  exit 1
+fi
 
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
@@ -147,8 +139,8 @@ jq \
   --arg admin_url "${NEXT_PUBLIC_ADMIN_URL}" \
   --arg clerk_domain "${CLERK_DOMAIN}" \
   --arg clerk_js_url "${CLERK_JS_URL}" \
-  --arg clerk_publishable_secret_arn "${clerk_publishable_secret_arn}" \
-  --arg clerk_secret_secret_arn "${clerk_secret_secret_arn}" \
+  --arg clerk_publishable_secret_ref "${SECRET_CLERK_PUBLISHABLE_NAME}" \
+  --arg clerk_secret_ref "${SECRET_CLERK_SECRET_NAME}" \
   '
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].environment |= map(
@@ -161,8 +153,8 @@ jq \
         end
       )
     | .containerDefinitions[0].secrets |= map(
-        if .name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" then .valueFrom = $clerk_publishable_secret_arn
-        elif .name == "CLERK_SECRET_KEY" then .valueFrom = $clerk_secret_secret_arn
+        if .name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" then .valueFrom = $clerk_publishable_secret_ref
+        elif .name == "CLERK_SECRET_KEY" then .valueFrom = $clerk_secret_ref
         else .
         end
       )

@@ -38,13 +38,6 @@ aws_cmd() {
   "${args[@]}" "$@"
 }
 
-secret_arn() {
-  local secret_name="$1"
-  aws_cmd secretsmanager describe-secret \
-    --secret-id "${secret_name}" \
-    --query 'ARN' --output text
-}
-
 if ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
   echo "docker is required for production deploy" >&2
   exit 1
@@ -70,10 +63,6 @@ fi
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
-
-database_url_secret_arn="$(secret_arn "${SECRET_DATABASE_URL_NAME}")"
-openai_secret_arn="$(secret_arn "${SECRET_OPENAI_NAME}")"
-internal_api_key_secret_arn="$(secret_arn "${SECRET_INTERNAL_API_KEY_NAME}")"
 
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
@@ -113,15 +102,15 @@ echo "==> Registering task definition"
 tmp_taskdef="$(mktemp)"
 jq \
   --arg image_uri "${image_uri}" \
-  --arg db_secret_arn "${database_url_secret_arn}" \
-  --arg openai_secret_arn "${openai_secret_arn}" \
-  --arg internal_api_key_secret_arn "${internal_api_key_secret_arn}" \
+  --arg db_secret_ref "${SECRET_DATABASE_URL_NAME}" \
+  --arg openai_secret_ref "${SECRET_OPENAI_NAME}" \
+  --arg internal_api_key_secret_ref "${SECRET_INTERNAL_API_KEY_NAME}" \
   '
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].secrets |= map(
-        if .name == "DATABASE_URL" then .valueFrom = $db_secret_arn
-        elif .name == "OPENAI_API_KEY" then .valueFrom = $openai_secret_arn
-        elif .name == "INTERNAL_API_KEY" then .valueFrom = $internal_api_key_secret_arn
+        if .name == "DATABASE_URL" then .valueFrom = $db_secret_ref
+        elif .name == "OPENAI_API_KEY" then .valueFrom = $openai_secret_ref
+        elif .name == "INTERNAL_API_KEY" then .valueFrom = $internal_api_key_secret_ref
         else .
         end
       )
