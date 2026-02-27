@@ -21,6 +21,14 @@ on:
         description: "Optional existing backend image tag to reuse (skips backend image build)"
         required: false
         type: string
+      runner_label:
+        description: "GitHub runner label for deploy jobs"
+        required: true
+        type: choice
+        options:
+          - ubuntu-24.04-arm
+          - ubuntu-latest
+        default: ubuntu-24.04-arm
 
 permissions:
   id-token: write
@@ -31,10 +39,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment: Production
+  resolve-targets:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    outputs:
+      apps: ${{ steps.resolve.outputs.apps }}
+    steps:
+      - name: Resolve app matrix
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected="${{ inputs.app }}"
+          case "${selected}" in
+            all)
+              apps='["backend","admin","web"]'
+              ;;
+            backend|admin|web)
+              apps="[\"${selected}\"]"
+              ;;
+            *)
+              echo "Unsupported app selection: ${selected}" >&2
+              exit 1
+              ;;
+          esac
+          echo "apps=${apps}" >> "${GITHUB_OUTPUT}"
+
+  deploy:
+    name: Deploy ${{ matrix.app }}
+    needs: resolve-targets
+    environment: Production
+    runs-on: ${{ inputs.runner_label }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        app: ${{ fromJson(needs.resolve-targets.outputs.apps) }}
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
@@ -52,12 +92,13 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Set up QEMU (ARM64 builds)
+        if: ${{ !contains(inputs.runner_label, 'arm') }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Deploy selected app(s)
+      - name: Deploy selected app
         shell: bash
         run: |
           set -euo pipefail
@@ -67,34 +108,23 @@ jobs:
             exit 1
           fi
 
-          run_deploy() {
-            local app="$1"
-            local script_path=""
-            case "${app}" in
-              backend) script_path="./scripts/aws/deploy-backend-production.sh" ;;
-              admin) script_path="./scripts/aws/deploy-admin-production.sh" ;;
-              web) script_path="./scripts/aws/deploy-web-production.sh" ;;
-              *)
-                echo "Unsupported app: ${app}" >&2
-                exit 1
-                ;;
-            esac
+          app="${{ matrix.app }}"
+          case "${app}" in
+            backend) script_path="./scripts/aws/deploy-backend-production.sh" ;;
+            admin) script_path="./scripts/aws/deploy-admin-production.sh" ;;
+            web) script_path="./scripts/aws/deploy-web-production.sh" ;;
+            *)
+              echo "Unsupported app: ${app}" >&2
+              exit 1
+              ;;
+          esac
 
-            echo "## Deploying ${app}" >> "${GITHUB_STEP_SUMMARY}"
-            echo "" >> "${GITHUB_STEP_SUMMARY}"
-            if [[ "${app}" == "backend" && -n "${BACKEND_IMAGE_TAG}" ]]; then
-              SKIP_IMAGE_BUILD=true IMAGE_TAG="${BACKEND_IMAGE_TAG}" "${script_path}"
-            else
-              "${script_path}"
-            fi
-            echo "- Result: completed" >> "${GITHUB_STEP_SUMMARY}"
-            echo "" >> "${GITHUB_STEP_SUMMARY}"
-          }
-
-          if [[ "${{ inputs.app }}" == "all" ]]; then
-            for app in backend admin web; do
-              run_deploy "${app}"
-            done
+          echo "## Deploying ${app}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          if [[ "${app}" == "backend" && -n "${BACKEND_IMAGE_TAG}" ]]; then
+            SKIP_IMAGE_BUILD=true IMAGE_TAG="${BACKEND_IMAGE_TAG}" "${script_path}"
           else
-            run_deploy "${{ inputs.app }}"
+            "${script_path}"
           fi
+          echo "- Result: completed" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
