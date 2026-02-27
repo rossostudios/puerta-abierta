@@ -1131,6 +1131,62 @@ CREATE TABLE ai_agents (
 CREATE INDEX idx_ai_agents_active_slug
   ON ai_agents(is_active, slug);
 
+CREATE TABLE agent_runtime_overrides (
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  agent_slug text NOT NULL,
+  is_active boolean,
+  model_override text,
+  max_steps_override integer CHECK (max_steps_override IS NULL OR max_steps_override BETWEEN 1 AND 24),
+  allow_mutations_default boolean,
+  guardrail_overrides jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, agent_slug)
+);
+
+CREATE INDEX idx_agent_runtime_overrides_org_slug
+  ON agent_runtime_overrides (organization_id, agent_slug);
+
+CREATE TRIGGER trg_agent_runtime_overrides_updated_at
+  BEFORE UPDATE ON agent_runtime_overrides
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+CREATE TABLE agent_runtime_rollouts (
+  organization_id uuid PRIMARY KEY REFERENCES organizations(id) ON DELETE CASCADE,
+  mode text NOT NULL DEFAULT 'canary'
+    CHECK (mode IN ('v2', 'legacy', 'canary')),
+  canary_percentage integer NOT NULL DEFAULT 100
+    CHECK (canary_percentage BETWEEN 0 AND 100),
+  shadow_enabled boolean NOT NULL DEFAULT true,
+  shadow_percentage integer NOT NULL DEFAULT 25
+    CHECK (shadow_percentage BETWEEN 0 AND 100),
+  gate_enabled boolean NOT NULL DEFAULT true,
+  gate_window_minutes integer NOT NULL DEFAULT 60
+    CHECK (gate_window_minutes BETWEEN 5 AND 1440),
+  gate_min_samples bigint NOT NULL DEFAULT 20
+    CHECK (gate_min_samples >= 1),
+  gate_max_error_rate double precision NOT NULL DEFAULT 0.15
+    CHECK (gate_max_error_rate BETWEEN 0 AND 1),
+  gate_max_mismatch_rate double precision NOT NULL DEFAULT 0.25
+    CHECK (gate_max_mismatch_rate BETWEEN 0 AND 1),
+  legacy_chat_cutoff_at timestamptz,
+  legacy_chat_window_days integer NOT NULL DEFAULT 7
+    CHECK (legacy_chat_window_days BETWEEN 1 AND 90),
+  legacy_chat_max_calls bigint NOT NULL DEFAULT 0
+    CHECK (legacy_chat_max_calls >= 0),
+  updated_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_agent_runtime_rollouts_mode
+  ON agent_runtime_rollouts (mode);
+
+CREATE TRIGGER trg_agent_runtime_rollouts_updated_at
+  BEFORE UPDATE ON agent_runtime_rollouts
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE ai_chats (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -1169,6 +1225,96 @@ CREATE INDEX idx_ai_chat_messages_chat_created
 
 CREATE INDEX idx_ai_chat_messages_org_user_created
   ON ai_chat_messages(organization_id, created_by_user_id, created_at DESC);
+
+CREATE TABLE agent_traces (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  chat_id uuid REFERENCES ai_chats(id) ON DELETE SET NULL,
+  agent_slug text NOT NULL DEFAULT 'supervisor',
+  user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  model_used text,
+  prompt_tokens integer NOT NULL DEFAULT 0,
+  completion_tokens integer NOT NULL DEFAULT 0,
+  total_tokens integer NOT NULL DEFAULT 0,
+  latency_ms integer NOT NULL DEFAULT 0,
+  tool_calls jsonb NOT NULL DEFAULT '[]'::jsonb,
+  tool_count integer NOT NULL DEFAULT 0,
+  fallback_used boolean NOT NULL DEFAULT false,
+  success boolean NOT NULL DEFAULT true,
+  error_message text,
+  llm_transport text NOT NULL DEFAULT 'responses'
+    CHECK (llm_transport IN ('responses', 'chat_completions')),
+  runtime_run_id text,
+  runtime_trace_id text,
+  is_shadow_run boolean NOT NULL DEFAULT false,
+  shadow_of_run_id text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_agent_traces_org_created
+  ON agent_traces (organization_id, created_at DESC);
+
+CREATE INDEX idx_agent_traces_org_agent_created
+  ON agent_traces (organization_id, agent_slug, created_at DESC);
+
+CREATE INDEX idx_agent_traces_chat
+  ON agent_traces (chat_id)
+  WHERE chat_id IS NOT NULL;
+
+CREATE INDEX idx_agent_traces_org_shadow_created
+  ON agent_traces (organization_id, is_shadow_run, created_at DESC);
+
+CREATE INDEX idx_agent_traces_org_transport_created
+  ON agent_traces (organization_id, llm_transport, created_at DESC);
+
+CREATE INDEX idx_agent_traces_runtime_run_id
+  ON agent_traces (runtime_run_id)
+  WHERE runtime_run_id IS NOT NULL;
+
+CREATE TABLE agent_runtime_parity_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  chat_id uuid REFERENCES ai_chats(id) ON DELETE SET NULL,
+  user_id uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  agent_slug text NOT NULL,
+  primary_transport text NOT NULL
+    CHECK (primary_transport IN ('responses', 'chat_completions')),
+  shadow_transport text NOT NULL
+    CHECK (shadow_transport IN ('responses', 'chat_completions')),
+  primary_run_id text NOT NULL,
+  shadow_run_id text,
+  primary_trace_id text,
+  shadow_trace_id text,
+  primary_model text,
+  shadow_model text,
+  primary_tool_count integer NOT NULL DEFAULT 0,
+  shadow_tool_count integer,
+  primary_success boolean NOT NULL DEFAULT true,
+  shadow_success boolean,
+  primary_fallback_used boolean NOT NULL DEFAULT false,
+  shadow_fallback_used boolean,
+  parity_status text NOT NULL DEFAULT 'pending'
+    CHECK (parity_status IN ('pending', 'match', 'mismatch', 'shadow_error', 'skipped')),
+  mismatch_reasons jsonb NOT NULL DEFAULT '[]'::jsonb,
+  primary_reply_hash text,
+  shadow_reply_hash text,
+  error_message text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX idx_agent_runtime_parity_org_created
+  ON agent_runtime_parity_runs (organization_id, created_at DESC);
+
+CREATE INDEX idx_agent_runtime_parity_org_status_created
+  ON agent_runtime_parity_runs (organization_id, parity_status, created_at DESC);
+
+CREATE INDEX idx_agent_runtime_parity_org_completed
+  ON agent_runtime_parity_runs (organization_id, completed_at DESC)
+  WHERE completed_at IS NOT NULL;
+
+CREATE INDEX idx_agent_runtime_parity_primary_run
+  ON agent_runtime_parity_runs (primary_run_id);
 
 -- ---------- Agent approvals and policies ----------
 
@@ -1946,8 +2092,12 @@ ALTER TABLE workflow_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_job_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_round_robin_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_runtime_overrides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_runtime_rollouts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_traces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_runtime_parity_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_approval_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE anomaly_alerts ENABLE ROW LEVEL SECURITY;
@@ -2172,6 +2322,64 @@ CREATE POLICY ai_agents_read_authenticated
   ON ai_agents FOR SELECT
   USING (auth_user_id() IS NOT NULL);
 
+CREATE POLICY agent_runtime_overrides_read_authenticated
+  ON agent_runtime_overrides FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY agent_runtime_overrides_manage_org_roles
+  ON agent_runtime_overrides FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  );
+
+CREATE POLICY agent_runtime_rollouts_read_authenticated
+  ON agent_runtime_rollouts FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY agent_runtime_rollouts_manage_org_roles
+  ON agent_runtime_rollouts FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  );
+
 CREATE POLICY ai_chats_owner_all
   ON ai_chats FOR ALL
   USING (is_org_member(organization_id) AND created_by_user_id = auth_user_id())
@@ -2181,6 +2389,58 @@ CREATE POLICY ai_chat_messages_owner_all
   ON ai_chat_messages FOR ALL
   USING (is_org_member(organization_id) AND created_by_user_id = auth_user_id())
   WITH CHECK (is_org_member(organization_id) AND created_by_user_id = auth_user_id());
+
+CREATE POLICY agent_traces_org_member_read
+  ON agent_traces FOR SELECT
+  USING (is_org_member(organization_id));
+
+CREATE POLICY agent_traces_manage_org_roles
+  ON agent_traces FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  );
+
+CREATE POLICY agent_runtime_parity_runs_org_member_read
+  ON agent_runtime_parity_runs FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY agent_runtime_parity_runs_manage_org_roles
+  ON agent_runtime_parity_runs FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role IN ('owner_admin', 'operator', 'accountant')
+    )
+  );
 
 CREATE POLICY org_members_can_read_approvals
   ON agent_approvals FOR SELECT

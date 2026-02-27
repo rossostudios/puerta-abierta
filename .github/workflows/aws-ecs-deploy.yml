@@ -52,7 +52,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Validate inputs
+      - name: Deploy selected app(s)
         shell: bash
         run: |
           set -euo pipefail
@@ -61,11 +61,6 @@ jobs:
             echo "Use a local break-glass script path if you need image-only builds." >&2
             exit 1
           fi
-
-      - name: Deploy selected app(s)
-        shell: bash
-        run: |
-          set -euo pipefail
 
           run_deploy() {
             local app="$1"

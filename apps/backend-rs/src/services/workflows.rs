@@ -4,13 +4,13 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use sqlx::Row;
 use tracing::{info, warn};
 use uuid::Uuid;
 
 use crate::{
     config::WorkflowEngineMode,
     repository::table_service::{create_row, get_row, list_rows, update_row},
+    services::agent_specs::{allowed_tools_for_slug, get_agent_spec},
     services::notification_center::{emit_event, EmitNotificationEventInput},
 };
 
@@ -1264,30 +1264,23 @@ async fn execute_invoke_agent(
         .unwrap_or("Process this request.");
     let message = resolve_template(message_template, context);
 
-    // Look up the agent
-    let agent_row = sqlx::query(
-        "SELECT system_prompt, allowed_tools FROM ai_agents WHERE slug = $1 AND is_active = true",
-    )
-    .bind(agent_slug)
-    .fetch_optional(pool)
-    .await
-    .map_err(|e| e.to_string())?;
+    // Ensure the agent exists and is active, then load code-owned runtime contract.
+    let agent_row = sqlx::query("SELECT 1 FROM ai_agents WHERE slug = $1 AND is_active = true")
+        .bind(agent_slug)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
 
-    let Some(agent_row) = agent_row else {
+    if agent_row.is_none() {
         return Ok(ExecutionOutcome::Skipped(format!(
             "Agent '{agent_slug}' not found or inactive"
         )));
-    };
+    }
 
-    let system_prompt: String = agent_row.try_get("system_prompt").unwrap_or_default();
-    let allowed_tools_str: Option<String> = agent_row
-        .try_get::<Option<String>, _>("allowed_tools")
-        .ok()
-        .flatten();
-    let allowed_tools: Vec<String> = allowed_tools_str
-        .as_deref()
-        .and_then(|s| serde_json::from_str(s).ok())
+    let system_prompt = get_agent_spec(agent_slug)
+        .map(|spec| spec.system_prompt.to_string())
         .unwrap_or_default();
+    let allowed_tools = allowed_tools_for_slug(agent_slug).unwrap_or_default();
 
     // Append context to the message
     let context_json =

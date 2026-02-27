@@ -3,13 +3,14 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use sqlx::Row;
 
 use crate::{
     auth::require_user_id,
     error::{AppError, AppResult},
+    services::agent_specs::default_max_steps_for_slug,
     state::AppState,
     tenancy::{assert_org_member, assert_org_role},
 };
@@ -56,9 +57,24 @@ struct AgentSlugPath {
 #[derive(Debug, Deserialize)]
 struct UpdateAgentInput {
     org_id: String,
-    system_prompt: Option<String>,
-    allowed_tools: Option<Vec<String>>,
-    is_active: Option<bool>,
+    #[serde(default, deserialize_with = "deserialize_patch_field")]
+    is_active: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "deserialize_patch_field")]
+    model_override: Option<Option<String>>,
+    #[serde(default, deserialize_with = "deserialize_patch_field")]
+    max_steps_override: Option<Option<i32>>,
+    #[serde(default, deserialize_with = "deserialize_patch_field")]
+    allow_mutations_default: Option<Option<bool>>,
+    #[serde(default, deserialize_with = "deserialize_patch_field")]
+    guardrail_overrides: Option<Option<Value>>,
+}
+
+fn deserialize_patch_field<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
 }
 
 async fn list_agents(
@@ -71,12 +87,25 @@ async fn list_agents(
     let pool = db_pool(&state)?;
 
     let rows = sqlx::query(
-        "SELECT slug, name, description, icon_key, is_active,
-                array_length(string_to_array(allowed_tools::text, ','), 1) AS tool_count,
-                created_at::text, updated_at::text
-         FROM ai_agents
-         ORDER BY name",
+        "SELECT
+            a.slug,
+            a.name,
+            a.description,
+            a.icon_key,
+            COALESCE(o.is_active, a.is_active) AS is_active,
+            o.model_override,
+            o.max_steps_override,
+            o.allow_mutations_default,
+            a.created_at::text AS created_at,
+            a.updated_at::text AS updated_at,
+            o.updated_at::text AS overrides_updated_at
+         FROM ai_agents a
+         LEFT JOIN agent_runtime_overrides o
+           ON o.organization_id = $1::uuid
+          AND o.agent_slug = a.slug
+         ORDER BY a.name",
     )
+    .bind(&query.org_id)
     .fetch_all(pool)
     .await
     .map_err(|e| {
@@ -93,8 +122,13 @@ async fn list_agents(
                 "description": r.try_get::<String, _>("description").unwrap_or_default(),
                 "icon_key": r.try_get::<String, _>("icon_key").unwrap_or_default(),
                 "is_active": r.try_get::<bool, _>("is_active").unwrap_or(false),
+                "model_override": r.try_get::<Option<String>, _>("model_override").unwrap_or(None),
+                "max_steps_override": r.try_get::<Option<i32>, _>("max_steps_override").unwrap_or(None),
+                "allow_mutations_default": r.try_get::<Option<bool>, _>("allow_mutations_default").unwrap_or(None),
+                "default_max_steps": default_max_steps_for_slug(&r.try_get::<String, _>("slug").unwrap_or_default()),
                 "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
                 "updated_at": r.try_get::<String, _>("updated_at").unwrap_or_default(),
+                "overrides_updated_at": r.try_get::<Option<String>, _>("overrides_updated_at").unwrap_or(None),
             })
         })
         .collect();
@@ -113,10 +147,28 @@ async fn get_agent(
     let pool = db_pool(&state)?;
 
     let row = sqlx::query(
-        "SELECT slug, name, description, icon_key, system_prompt,
-                allowed_tools::text, is_active, created_at::text, updated_at::text
-         FROM ai_agents WHERE slug = $1 LIMIT 1",
+        "SELECT
+            a.slug,
+            a.name,
+            a.description,
+            a.icon_key,
+            a.is_active AS baseline_is_active,
+            COALESCE(o.is_active, a.is_active) AS is_active,
+            o.model_override,
+            o.max_steps_override,
+            o.allow_mutations_default,
+            o.guardrail_overrides,
+            a.created_at::text AS created_at,
+            a.updated_at::text AS updated_at,
+            o.updated_at::text AS overrides_updated_at
+         FROM ai_agents a
+         LEFT JOIN agent_runtime_overrides o
+           ON o.organization_id = $1::uuid
+          AND o.agent_slug = a.slug
+         WHERE a.slug = $2
+         LIMIT 1",
     )
+    .bind(&query.org_id)
     .bind(&path.agent_slug)
     .fetch_optional(pool)
     .await
@@ -127,18 +179,24 @@ async fn get_agent(
 
     match row {
         Some(r) => {
-            let tools_str = r.try_get::<String, _>("allowed_tools").unwrap_or_default();
-            let tools: Vec<String> = serde_json::from_str(&tools_str).unwrap_or_default();
+            let slug = r.try_get::<String, _>("slug").unwrap_or_default();
             Ok(Json(json!({
-                "slug": r.try_get::<String, _>("slug").unwrap_or_default(),
+                "slug": slug,
                 "name": r.try_get::<String, _>("name").unwrap_or_default(),
                 "description": r.try_get::<String, _>("description").unwrap_or_default(),
                 "icon_key": r.try_get::<String, _>("icon_key").unwrap_or_default(),
-                "system_prompt": r.try_get::<Option<String>, _>("system_prompt").unwrap_or(None),
-                "allowed_tools": tools,
+                "baseline_is_active": r.try_get::<bool, _>("baseline_is_active").unwrap_or(false),
                 "is_active": r.try_get::<bool, _>("is_active").unwrap_or(false),
+                "model_override": r.try_get::<Option<String>, _>("model_override").unwrap_or(None),
+                "max_steps_override": r.try_get::<Option<i32>, _>("max_steps_override").unwrap_or(None),
+                "allow_mutations_default": r.try_get::<Option<bool>, _>("allow_mutations_default").unwrap_or(None),
+                "guardrail_overrides": r.try_get::<Option<Value>, _>("guardrail_overrides").unwrap_or(None),
+                "default_max_steps": default_max_steps_for_slug(&slug),
+                "prompt_source": "code",
+                "tools_source": "code",
                 "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
                 "updated_at": r.try_get::<String, _>("updated_at").unwrap_or_default(),
+                "overrides_updated_at": r.try_get::<Option<String>, _>("overrides_updated_at").unwrap_or(None),
             })))
         }
         None => Err(AppError::NotFound("Agent not found.".to_string())),
@@ -154,58 +212,138 @@ async fn update_agent(
     let user_id = require_user_id(&state, &headers).await?;
     assert_org_role(&state, &user_id, &payload.org_id, AGENT_ADMIN_ROLES).await?;
     let pool = db_pool(&state)?;
-
-    let mut updates = Vec::new();
-    let mut bind_idx = 2;
-
-    if payload.system_prompt.is_some() {
-        updates.push(format!("system_prompt = ${bind_idx}"));
-        bind_idx += 1;
-    }
-    if payload.allowed_tools.is_some() {
-        updates.push(format!("allowed_tools = ${bind_idx}::jsonb"));
-        bind_idx += 1;
-    }
-    if payload.is_active.is_some() {
-        updates.push(format!("is_active = ${bind_idx}"));
-        // bind_idx += 1; // unused after this
+    let exists =
+        sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM ai_agents WHERE slug = $1)")
+            .bind(&path.agent_slug)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| {
+                tracing::error!(error = %e, "Database query failed");
+                AppError::Dependency("External service request failed.".to_string())
+            })?;
+    if !exists {
+        return Err(AppError::NotFound("Agent not found.".to_string()));
     }
 
-    if updates.is_empty() {
+    if payload.is_active.is_none()
+        && payload.model_override.is_none()
+        && payload.max_steps_override.is_none()
+        && payload.allow_mutations_default.is_none()
+        && payload.guardrail_overrides.is_none()
+    {
         return Ok(Json(json!({ "ok": true, "message": "No changes." })));
     }
 
-    updates.push("updated_at = now()".to_string());
-    let set_clause = updates.join(", ");
-    let query_str = format!(
-        "UPDATE ai_agents SET {set_clause} WHERE slug = $1 RETURNING slug, name, is_active"
-    );
-
-    let mut q = sqlx::query(&query_str).bind(&path.agent_slug);
-    if let Some(ref prompt) = payload.system_prompt {
-        q = q.bind(prompt);
+    if let Some(Some(max_steps)) = payload.max_steps_override {
+        if !(1..=24).contains(&max_steps) {
+            return Err(AppError::BadRequest(
+                "max_steps_override must be between 1 and 24.".to_string(),
+            ));
+        }
     }
-    if let Some(ref tools) = payload.allowed_tools {
-        q = q.bind(json!(tools));
-    }
-    if let Some(active) = payload.is_active {
-        q = q.bind(active);
+    if let Some(Some(guardrails)) = payload.guardrail_overrides.as_ref() {
+        if !guardrails.is_object() {
+            return Err(AppError::BadRequest(
+                "guardrail_overrides must be a JSON object.".to_string(),
+            ));
+        }
     }
 
-    let result = q.fetch_optional(pool).await.map_err(|e| {
+    let update_is_active = payload.is_active.is_some();
+    let update_model_override = payload.model_override.is_some();
+    let update_max_steps_override = payload.max_steps_override.is_some();
+    let update_allow_mutations_default = payload.allow_mutations_default.is_some();
+    let update_guardrail_overrides = payload.guardrail_overrides.is_some();
+
+    let is_active_value = payload.is_active.flatten();
+    let model_override_value = payload
+        .model_override
+        .as_ref()
+        .and_then(|value| value.as_deref())
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let max_steps_override_value = payload.max_steps_override.flatten();
+    let allow_mutations_default_value = payload.allow_mutations_default.flatten();
+    let guardrail_overrides_value = payload
+        .guardrail_overrides
+        .as_ref()
+        .map(|value| value.clone().unwrap_or_else(|| json!({})));
+
+    let upserted = sqlx::query(
+        "INSERT INTO agent_runtime_overrides (
+            organization_id,
+            agent_slug,
+            is_active,
+            model_override,
+            max_steps_override,
+            allow_mutations_default,
+            guardrail_overrides,
+            updated_by
+         ) VALUES (
+            $1::uuid,
+            $2,
+            $3,
+            $4,
+            $5,
+            $6,
+            COALESCE($7, '{}'::jsonb),
+            $8::uuid
+         )
+         ON CONFLICT (organization_id, agent_slug)
+         DO UPDATE SET
+            is_active = CASE
+              WHEN $9::boolean THEN EXCLUDED.is_active
+              ELSE agent_runtime_overrides.is_active
+            END,
+            model_override = CASE
+              WHEN $10::boolean THEN EXCLUDED.model_override
+              ELSE agent_runtime_overrides.model_override
+            END,
+            max_steps_override = CASE
+              WHEN $11::boolean THEN EXCLUDED.max_steps_override
+              ELSE agent_runtime_overrides.max_steps_override
+            END,
+            allow_mutations_default = CASE
+              WHEN $12::boolean THEN EXCLUDED.allow_mutations_default
+              ELSE agent_runtime_overrides.allow_mutations_default
+            END,
+            guardrail_overrides = CASE
+              WHEN $13::boolean THEN EXCLUDED.guardrail_overrides
+              ELSE agent_runtime_overrides.guardrail_overrides
+            END,
+            updated_by = EXCLUDED.updated_by,
+            updated_at = now()
+         RETURNING agent_slug",
+    )
+    .bind(&payload.org_id)
+    .bind(&path.agent_slug)
+    .bind(is_active_value)
+    .bind(model_override_value)
+    .bind(max_steps_override_value)
+    .bind(allow_mutations_default_value)
+    .bind(guardrail_overrides_value)
+    .bind(&user_id)
+    .bind(update_is_active)
+    .bind(update_model_override)
+    .bind(update_max_steps_override)
+    .bind(update_allow_mutations_default)
+    .bind(update_guardrail_overrides)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
         tracing::error!(error = %e, "Database query failed");
         AppError::Dependency("External service request failed.".to_string())
     })?;
 
-    match result {
-        Some(r) => Ok(Json(json!({
-            "ok": true,
-            "slug": r.try_get::<String, _>("slug").unwrap_or_default(),
-            "name": r.try_get::<String, _>("name").unwrap_or_default(),
-            "is_active": r.try_get::<bool, _>("is_active").unwrap_or(false),
-        }))),
-        None => Err(AppError::NotFound("Agent not found.".to_string())),
+    if upserted.is_none() {
+        return Err(AppError::NotFound("Agent not found.".to_string()));
     }
+
+    Ok(Json(json!({
+        "ok": true,
+        "slug": path.agent_slug,
+        "org_id": payload.org_id,
+    })))
 }
 
 async fn dashboard_stats(

@@ -92,8 +92,8 @@ export default async function AgentConfigPage(_props: PageProps) {
           </h1>
           <p className="font-medium text-muted-foreground text-sm">
             {isEn
-              ? "Manage AI agent prompts, tools, and activation status."
-              : "Administra los prompts, herramientas y estado de activación de los agentes IA."}
+              ? "Manage per-organization AI runtime overrides and activation status."
+              : "Administra overrides de ejecución por organización y estado de activación de agentes IA."}
           </p>
         </div>
       </header>

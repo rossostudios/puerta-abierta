@@ -148,6 +148,8 @@ async fn process_voice_input(state: &AppState, caller: &str, speech: &str) -> St
         chat_id: None,
         requested_by_user_id: None,
         preferred_model: None,
+        max_steps_override: None,
+        runtime_context: None,
     };
 
     match crate::services::ai_agent::run_ai_agent_chat(state, params).await {

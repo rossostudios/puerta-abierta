@@ -8,10 +8,13 @@ use serde_json::{Map, Value};
 
 use crate::{
     auth::require_user_id,
-    error::AppResult,
+    error::{AppError, AppResult},
     services::{
-        ai_agent::{execute_tool, tool_definitions, ToolContext},
+        agent_runtime_v2::{runtime_metadata, RuntimeExecutionIds},
+        agent_specs::{allowed_tools_for_slug, get_agent_spec},
+        ai_agent::{execute_tool, tool_definitions, ToolContext, TOOL_REGISTRY_VERSION},
         audit::write_audit_log,
+        tool_validator::{normalize_tool_result, normalized_tool_error},
     },
     state::AppState,
     tenancy::assert_org_member,
@@ -71,6 +74,12 @@ async fn get_tool_definitions(
 
     // If agent_slug provided, look up its allowed_tools from the database
     let allowed_tools = if let Some(slug) = &query.agent_slug {
+        if get_agent_spec(slug).is_none() {
+            return Err(AppError::BadRequest(format!(
+                "Unknown agent_slug '{}'.",
+                slug.trim()
+            )));
+        }
         fetch_agent_allowed_tools(&state, &query.org_id, slug).await
     } else {
         None
@@ -120,6 +129,7 @@ async fn get_tool_definitions(
 
     Ok(Json(serde_json::json!({
         "organization_id": query.org_id,
+        "tool_registry_version": TOOL_REGISTRY_VERSION,
         "tools": sdk_tools,
         "count": sdk_tools.len(),
     })))
@@ -149,6 +159,12 @@ async fn post_execute_tool(
 
     // Look up allowed tools if agent_slug is specified
     let allowed_tools = if let Some(slug) = &payload.agent_slug {
+        if get_agent_spec(slug).is_none() {
+            return Err(AppError::BadRequest(format!(
+                "Unknown agent_slug '{}'.",
+                slug.trim()
+            )));
+        }
         fetch_agent_allowed_tools(&state, &payload.org_id, slug).await
     } else {
         None
@@ -174,16 +190,20 @@ async fn post_execute_tool(
 
     let (tool_result, ok) = match result {
         Ok(value) => {
-            let ok = value
+            let normalized = normalize_tool_result(value);
+            let ok = normalized
                 .as_object()
                 .and_then(|obj| obj.get("ok"))
                 .and_then(Value::as_bool)
-                .unwrap_or(true);
-            (value, ok)
+                .unwrap_or(false);
+            (normalized, ok)
         }
         Err(error) => {
             let detail = format!("{error}");
-            (serde_json::json!({ "ok": false, "error": detail }), false)
+            (
+                normalized_tool_error("tool_execution_failed", detail, false, None),
+                false,
+            )
         }
     };
 
@@ -210,31 +230,24 @@ async fn post_execute_tool(
             .await;
     }
 
+    let runtime_ids = RuntimeExecutionIds::generate();
+    let runtime = runtime_metadata(&runtime_ids);
     Ok(Json(serde_json::json!({
         "organization_id": payload.org_id,
         "tool_name": payload.tool_name,
         "ok": ok,
         "result": tool_result,
+        "runtime_version": runtime.get("runtime_version").cloned().unwrap_or(Value::Null),
+        "run_id": runtime.get("run_id").cloned().unwrap_or(Value::Null),
+        "trace_id": runtime.get("trace_id").cloned().unwrap_or(Value::Null),
     })))
 }
 
 /// Fetch allowed_tools for an agent by slug from the database.
 async fn fetch_agent_allowed_tools(
-    state: &AppState,
-    org_id: &str,
+    _state: &AppState,
+    _org_id: &str,
     agent_slug: &str,
 ) -> Option<Vec<String>> {
-    let pool = state.db_pool.as_ref()?;
-    let row = sqlx::query_scalar::<_, Option<Vec<String>>>(
-        "SELECT allowed_tools FROM ai_agents WHERE (organization_id = $1 OR organization_id IS NULL) AND slug = $2 AND is_active = true ORDER BY organization_id DESC NULLS LAST LIMIT 1"
-    )
-    .bind(org_id)
-    .bind(agent_slug)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-    .flatten();
-
-    row
+    allowed_tools_for_slug(agent_slug)
 }

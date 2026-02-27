@@ -4,6 +4,7 @@ use serde_json::{json, Map, Value};
 
 use crate::{
     repository::table_service::{create_row, get_row, list_rows},
+    services::agent_specs::{allowed_tools_for_slug, get_agent_spec},
     services::ai_agent::{run_ai_agent_chat, AgentConversationMessage, RunAiAgentChatParams},
     state::AppState,
 };
@@ -227,21 +228,9 @@ pub async fn generate_ai_reply(
         .and_then(Value::as_str)
         .unwrap_or("the property");
 
-    // Fetch the guest-concierge agent configuration
-    let agent = sqlx::query_as::<_, AgentRow>(
-        "SELECT slug, name, system_prompt, allowed_tools FROM ai_agents WHERE slug = $1 AND is_active = true",
-    )
-    .bind(GUEST_CONCIERGE_SLUG)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten();
-
-    let (agent_prompt, allowed_tools_json) = if let Some(ref agent) = agent {
-        (agent.system_prompt.clone(), agent.allowed_tools.clone())
-    } else {
-        (default_concierge_prompt(), None)
-    };
+    let agent_prompt = get_agent_spec(GUEST_CONCIERGE_SLUG)
+        .map(|spec| spec.system_prompt.to_string())
+        .unwrap_or_else(default_concierge_prompt);
 
     // Build contextual prompt with guest/reservation/unit/property info
     let mut context_lines = vec![
@@ -271,10 +260,8 @@ pub async fn generate_ai_reply(
     let conversation = load_conversation_history(pool, org_id, sender_phone, 10).await;
 
     // Parse allowed_tools from agent config
-    let allowed_tools: Vec<String> = allowed_tools_json
-        .as_ref()
-        .and_then(|v| serde_json::from_str::<Vec<String>>(v).ok())
-        .unwrap_or_else(|| {
+    let allowed_tools: Vec<String> =
+        allowed_tools_for_slug(GUEST_CONCIERGE_SLUG).unwrap_or_else(|| {
             vec![
                 "search_knowledge".to_string(),
                 "list_rows".to_string(),
@@ -301,6 +288,8 @@ pub async fn generate_ai_reply(
             chat_id: None,
             requested_by_user_id: None,
             preferred_model: None,
+            max_steps_override: None,
+            runtime_context: None,
         },
     )
     .await;
@@ -416,16 +405,6 @@ pub async fn queue_ai_reply(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-#[derive(sqlx::FromRow)]
-struct AgentRow {
-    #[allow(dead_code)]
-    slug: String,
-    #[allow(dead_code)]
-    name: String,
-    system_prompt: String,
-    allowed_tools: Option<String>,
-}
 
 fn default_concierge_prompt() -> String {
     "You are a friendly, professional guest concierge for a property management company. \

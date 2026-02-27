@@ -3,17 +3,26 @@ use sqlx::Row;
 
 use crate::{
     error::{AppError, AppResult},
+    services::{agent_runtime_v2::RuntimeExecutionIds, agent_specs::get_agent_spec},
     state::AppState,
 };
 
 use super::ai_agent::{
     run_ai_agent_chat, run_ai_agent_chat_streaming, AgentConversationMessage, AgentStreamEvent,
-    RunAiAgentChatParams,
+    RunAiAgentChatParams, RuntimeExecutionContext,
 };
 
 const MAX_CHAT_LIMIT: i64 = 100;
 const MAX_MESSAGE_LIMIT: i64 = 300;
 const CONTEXT_WINDOW: i64 = 20;
+
+#[derive(Debug, Clone, Default)]
+struct AgentRuntimeOverride {
+    is_active: Option<bool>,
+    model_override: Option<String>,
+    max_steps_override: Option<i32>,
+    allow_mutations_default: Option<bool>,
+}
 
 pub async fn list_agents(state: &AppState, org_id: &str) -> AppResult<Vec<Value>> {
     if org_id.trim().is_empty() {
@@ -23,12 +32,22 @@ pub async fn list_agents(state: &AppState, org_id: &str) -> AppResult<Vec<Value>
     let pool = db_pool(state)?;
     let rows = sqlx::query(
         "SELECT row_to_json(t) AS row FROM (
-            SELECT id, slug, name, description, icon_key, is_active
-            FROM ai_agents
-            WHERE is_active = TRUE
+            SELECT
+              a.id,
+              a.slug,
+              a.name,
+              a.description,
+              a.icon_key,
+              COALESCE(o.is_active, a.is_active) AS is_active
+            FROM ai_agents a
+            LEFT JOIN agent_runtime_overrides o
+              ON o.organization_id = $1::uuid
+             AND o.agent_slug = a.slug
+            WHERE COALESCE(o.is_active, a.is_active) = TRUE
             ORDER BY name ASC
         ) t",
     )
+    .bind(org_id)
     .fetch_all(pool)
     .await
     .map_err(|error| supabase_error(state, &error))?;
@@ -149,7 +168,7 @@ pub async fn create_chat(
     title: Option<&str>,
     preferred_model: Option<&str>,
 ) -> AppResult<Value> {
-    let agent = get_agent_by_slug(state, agent_slug).await?;
+    let agent = get_agent_by_slug(state, org_id, agent_slug).await?;
     let fallback_title = value_str(&agent, "name").unwrap_or_else(|| "New chat".to_string());
     let chat_title = clean_title(title, &fallback_title);
     let preferred_model = validate_preferred_model(state, preferred_model)?;
@@ -274,6 +293,7 @@ pub async fn send_chat_message(
     message: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    runtime_ids: Option<&RuntimeExecutionIds>,
 ) -> AppResult<Map<String, Value>> {
     let chat = ensure_chat_owner(state, chat_id, org_id, user_id).await?;
     let agent_id = value_str(&chat, "agent_id").unwrap_or_default();
@@ -303,10 +323,61 @@ pub async fn send_chat_message(
     .and_then(|row| row.try_get::<Option<Value>, _>("row").ok().flatten())
     .ok_or_else(|| AppError::Internal("Could not persist user message.".to_string()))?;
 
-    let agent_name = value_str(&agent, "name").unwrap_or_else(|| "Operations Copilot".to_string());
-    let agent_prompt = value_str(&agent, "system_prompt");
     let agent_slug = value_str(&agent, "slug");
-    let allowed_tools = agent_allowed_tools(&agent);
+    let canonical_spec = agent_slug
+        .as_deref()
+        .and_then(get_agent_spec)
+        .ok_or_else(|| {
+            AppError::BadRequest("Agent spec is missing from runtime registry.".to_string())
+        })?;
+    let agent_name = canonical_spec.name.to_string();
+    let runtime_override = if let Some(slug) = agent_slug.as_deref() {
+        fetch_agent_runtime_override(state, org_id, slug).await?
+    } else {
+        None
+    };
+    if runtime_override
+        .as_ref()
+        .and_then(|override_row| override_row.is_active)
+        == Some(false)
+    {
+        return Err(AppError::Forbidden(
+            "This agent is disabled for your organization.".to_string(),
+        ));
+    }
+    let code_owned_prompt = Some(canonical_spec.system_prompt);
+    let allowed_tools = canonical_spec.allowed_tools.map(|tools| {
+        tools
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect::<Vec<_>>()
+    });
+    let effective_allow_mutations = allow_mutations
+        && runtime_override
+            .as_ref()
+            .and_then(|override_row| override_row.allow_mutations_default)
+            .unwrap_or(true);
+    let effective_preferred_model =
+        preferred_model
+            .as_deref()
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                runtime_override
+                    .as_ref()
+                    .and_then(|override_row| override_row.model_override.clone())
+            });
+    let max_steps_override = runtime_override
+        .as_ref()
+        .and_then(|override_row| override_row.max_steps_override)
+        .or(Some(canonical_spec.max_steps));
+    let runtime_context = runtime_ids.map(|ids| RuntimeExecutionContext {
+        run_id: Some(ids.run_id.as_str()),
+        trace_id: Some(ids.trace_id.as_str()),
+        llm_transport: None,
+        is_shadow_run: false,
+        shadow_of_run_id: None,
+        disable_shadow: false,
+    });
 
     let agent_result = run_ai_agent_chat(
         state,
@@ -315,15 +386,17 @@ pub async fn send_chat_message(
             role,
             message: trimmed_message,
             conversation: &conversation,
-            allow_mutations,
+            allow_mutations: effective_allow_mutations,
             confirm_write,
             agent_name: &agent_name,
-            agent_prompt: agent_prompt.as_deref(),
+            agent_prompt: code_owned_prompt,
             allowed_tools: allowed_tools.as_deref(),
             agent_slug: agent_slug.as_deref(),
             chat_id: Some(chat_id),
             requested_by_user_id: Some(user_id),
-            preferred_model: preferred_model.as_deref(),
+            preferred_model: effective_preferred_model.as_deref(),
+            max_steps_override,
+            runtime_context,
         },
     )
     .await?;
@@ -456,6 +529,7 @@ pub async fn send_chat_message_streaming(
     message: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    runtime_ids: Option<&RuntimeExecutionIds>,
     stream_tx: tokio::sync::mpsc::Sender<AgentStreamEvent>,
 ) -> AppResult<()> {
     let chat = ensure_chat_owner(state, chat_id, org_id, user_id).await?;
@@ -487,10 +561,61 @@ pub async fn send_chat_message_streaming(
         AppError::Internal("Could not persist user message.".to_string())
     })?;
 
-    let agent_name = value_str(&agent, "name").unwrap_or_else(|| "Operations Copilot".to_string());
-    let agent_prompt = value_str(&agent, "system_prompt");
     let agent_slug = value_str(&agent, "slug");
-    let allowed_tools = agent_allowed_tools(&agent);
+    let canonical_spec = agent_slug
+        .as_deref()
+        .and_then(get_agent_spec)
+        .ok_or_else(|| {
+            AppError::BadRequest("Agent spec is missing from runtime registry.".to_string())
+        })?;
+    let agent_name = canonical_spec.name.to_string();
+    let runtime_override = if let Some(slug) = agent_slug.as_deref() {
+        fetch_agent_runtime_override(state, org_id, slug).await?
+    } else {
+        None
+    };
+    if runtime_override
+        .as_ref()
+        .and_then(|override_row| override_row.is_active)
+        == Some(false)
+    {
+        return Err(AppError::Forbidden(
+            "This agent is disabled for your organization.".to_string(),
+        ));
+    }
+    let code_owned_prompt = Some(canonical_spec.system_prompt);
+    let allowed_tools = canonical_spec.allowed_tools.map(|tools| {
+        tools
+            .iter()
+            .map(|value| (*value).to_string())
+            .collect::<Vec<_>>()
+    });
+    let effective_allow_mutations = allow_mutations
+        && runtime_override
+            .as_ref()
+            .and_then(|override_row| override_row.allow_mutations_default)
+            .unwrap_or(true);
+    let effective_preferred_model =
+        preferred_model
+            .as_deref()
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                runtime_override
+                    .as_ref()
+                    .and_then(|override_row| override_row.model_override.clone())
+            });
+    let max_steps_override = runtime_override
+        .as_ref()
+        .and_then(|override_row| override_row.max_steps_override)
+        .or(Some(canonical_spec.max_steps));
+    let runtime_context = runtime_ids.map(|ids| RuntimeExecutionContext {
+        run_id: Some(ids.run_id.as_str()),
+        trace_id: Some(ids.trace_id.as_str()),
+        llm_transport: None,
+        is_shadow_run: false,
+        shadow_of_run_id: None,
+        disable_shadow: false,
+    });
 
     let agent_result = run_ai_agent_chat_streaming(
         state,
@@ -499,15 +624,17 @@ pub async fn send_chat_message_streaming(
             role,
             message: trimmed_message,
             conversation: &conversation,
-            allow_mutations,
+            allow_mutations: effective_allow_mutations,
             confirm_write,
             agent_name: &agent_name,
-            agent_prompt: agent_prompt.as_deref(),
+            agent_prompt: code_owned_prompt,
             allowed_tools: allowed_tools.as_deref(),
             agent_slug: agent_slug.as_deref(),
             chat_id: Some(chat_id),
             requested_by_user_id: Some(user_id),
-            preferred_model: preferred_model.as_deref(),
+            preferred_model: effective_preferred_model.as_deref(),
+            max_steps_override,
+            runtime_context,
         },
         stream_tx,
     )
@@ -760,7 +887,48 @@ pub async fn delete_chat(
     Ok(chat)
 }
 
-async fn get_agent_by_slug(state: &AppState, slug: &str) -> AppResult<Value> {
+async fn fetch_agent_runtime_override(
+    state: &AppState,
+    org_id: &str,
+    agent_slug: &str,
+) -> AppResult<Option<AgentRuntimeOverride>> {
+    let pool = db_pool(state)?;
+    let row = sqlx::query(
+        "SELECT
+            is_active,
+            model_override,
+            max_steps_override,
+            allow_mutations_default
+         FROM agent_runtime_overrides
+         WHERE organization_id = $1::uuid
+           AND agent_slug = $2
+         LIMIT 1",
+    )
+    .bind(org_id)
+    .bind(agent_slug)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| supabase_error(state, &error))?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    Ok(Some(AgentRuntimeOverride {
+        is_active: row.try_get::<Option<bool>, _>("is_active").unwrap_or(None),
+        model_override: row
+            .try_get::<Option<String>, _>("model_override")
+            .unwrap_or(None),
+        max_steps_override: row
+            .try_get::<Option<i32>, _>("max_steps_override")
+            .unwrap_or(None),
+        allow_mutations_default: row
+            .try_get::<Option<bool>, _>("allow_mutations_default")
+            .unwrap_or(None),
+    }))
+}
+
+async fn get_agent_by_slug(state: &AppState, org_id: &str, slug: &str) -> AppResult<Value> {
     let value = slug.trim();
     if value.is_empty() {
         return Err(AppError::BadRequest("agent_slug is required.".to_string()));
@@ -769,11 +937,24 @@ async fn get_agent_by_slug(state: &AppState, slug: &str) -> AppResult<Value> {
     let pool = db_pool(state)?;
     let row = sqlx::query(
         "SELECT row_to_json(t) AS row
-         FROM ai_agents t
-         WHERE slug = $1
-           AND is_active = TRUE
-         LIMIT 1",
+         FROM (
+            SELECT
+              a.*,
+              COALESCE(o.is_active, a.is_active) AS effective_is_active,
+              o.model_override,
+              o.max_steps_override,
+              o.allow_mutations_default,
+              o.guardrail_overrides
+            FROM ai_agents a
+            LEFT JOIN agent_runtime_overrides o
+              ON o.organization_id = $1::uuid
+             AND o.agent_slug = a.slug
+            WHERE a.slug = $2
+            LIMIT 1
+         ) t
+         WHERE t.effective_is_active = TRUE",
     )
+    .bind(org_id)
     .bind(value)
     .fetch_optional(pool)
     .await
@@ -883,26 +1064,6 @@ async fn collect_context_messages(
 
     let trim_at = context.len().saturating_sub(CONTEXT_WINDOW as usize);
     Ok(context.split_off(trim_at))
-}
-
-fn agent_allowed_tools(agent_row: &Value) -> Option<Vec<String>> {
-    let raw = agent_row
-        .as_object()
-        .and_then(|obj| obj.get("allowed_tools"))
-        .and_then(Value::as_array)?;
-
-    let mut tools = Vec::new();
-    for item in raw {
-        let tool = item.as_str().map(str::trim).unwrap_or_default();
-        if !tool.is_empty() && !tools.iter().any(|existing| existing == tool) {
-            tools.push(tool.to_string());
-        }
-    }
-
-    if tools.is_empty() {
-        return None;
-    }
-    Some(tools)
 }
 
 fn serialize_chat_summary(

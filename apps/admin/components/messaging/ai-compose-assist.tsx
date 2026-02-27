@@ -57,38 +57,60 @@ export function AiComposeAssist({
       ? `Draft a concise and professional ${channel} reply for guest ${guestName}. Use the conversation context and return only the reply body.`
       : `Redacta una respuesta breve y profesional por ${channel} para el huesped ${guestName}. Usa el contexto de la conversacion y devuelve solo el texto de respuesta.`;
 
+    let chatId = "";
     try {
-      const result = await authedFetch<{ reply?: string; message?: string }>(
-        "/agent/chat",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            org_id: orgId,
-            message: draftPrompt,
-            conversation: preparedMessages,
-            allow_mutations: false,
-          }),
-        }
-      );
-
-      let text = "";
-      if (result.reply) {
-        text = result.reply;
-      } else if (result.message) {
-        text = result.message;
+      const chat = await authedFetch<{ id?: string }>("/agent/chats", {
+        method: "POST",
+        body: JSON.stringify({
+          org_id: orgId,
+          agent_slug: "guest-concierge",
+          title: isEn ? "AI Compose Assist" : "Asistente de Redacción IA",
+        }),
+      });
+      chatId = typeof chat.id === "string" ? chat.id : "";
+      if (!chatId) {
+        throw new Error(fallbackErrMsg);
       }
+
+      const transcript = preparedMessages
+        .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+        .join("\n");
+      const runtimeMessage = `${draftPrompt}\n\nConversation context:\n${transcript}`;
+
+      const result = await authedFetch<{
+        assistant_message?: { content?: string };
+        reply?: string;
+      }>(`/agent/chats/${encodeURIComponent(chatId)}/messages?org_id=${encodeURIComponent(orgId)}`, {
+        method: "POST",
+        body: JSON.stringify({
+          message: runtimeMessage,
+          allow_mutations: false,
+          confirm_write: false,
+        }),
+      });
+
+      const text =
+        result.assistant_message?.content ??
+        result.reply ??
+        "";
       if (text) {
         setDraft(text);
       } else {
         setError(noDraftMsg);
       }
-      setLoading(false);
     } catch (err) {
       let msg = fallbackErrMsg;
       if (err instanceof Error) {
         msg = err.message;
       }
       setError(msg);
+    } finally {
+      if (chatId) {
+        authedFetch(
+          `/agent/chats/${encodeURIComponent(chatId)}/archive?org_id=${encodeURIComponent(orgId)}`,
+          { method: "POST" }
+        ).catch(() => {});
+      }
       setLoading(false);
     }
   }, [orgId, conversation, channel, guestName, isEn]);
