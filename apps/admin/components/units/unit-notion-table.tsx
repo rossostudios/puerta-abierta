@@ -572,7 +572,7 @@ export function UnitNotionTable({
         </Table>
       </div>
       <DataTablePagination
-        filteredRows={table.getRowModel().rows.length}
+        filteredRows={optimisticRows.length}
         isEn={isEn}
         table={table}
         totalRows={optimisticRows.length}

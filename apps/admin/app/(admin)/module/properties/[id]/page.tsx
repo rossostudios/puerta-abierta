@@ -115,6 +115,8 @@ export default async function PropertyRecordPage({
   const propertyAddress = String(data.record.address ?? data.record.location ?? "");
   const occupancyRate = data.overview?.occupancyRate ?? null;
   const unitCount = data.overview?.unitCount ?? 0;
+  const propertyStatus = String(data.record.status ?? "active").toLowerCase();
+  const isActive = propertyStatus !== "inactive";
 
   return (
     <PropertyDetailsProvider>
@@ -130,8 +132,16 @@ export default async function PropertyRecordPage({
               <Badge className="h-6 rounded-md border-border/40 bg-muted/40 px-2.5 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
                 {data.propertyCodeLabel ?? data.recordId}
               </Badge>
-              <Badge className="h-6 rounded-md border-emerald-500/20 bg-emerald-500/10 px-2.5 font-semibold text-[11px] text-emerald-600">
-                {isEn ? "Active" : "Activo"}
+              <Badge
+                className={
+                  isActive
+                    ? "h-6 rounded-md border-emerald-500/20 bg-emerald-500/10 px-2.5 font-semibold text-[11px] text-emerald-600"
+                    : "h-6 rounded-md border-red-500/20 bg-red-500/10 px-2.5 font-semibold text-[11px] text-red-600"
+                }
+              >
+                {isActive
+                  ? isEn ? "Active" : "Activo"
+                  : isEn ? "Inactive" : "Inactivo"}
               </Badge>
             </div>
             <div className="flex items-center gap-1.5">
