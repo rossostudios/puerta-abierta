@@ -113,9 +113,11 @@ const CURRENCY_OPTIONS = [
 export function UnitNotionTable({
   rows,
   isEn,
+  totalRowCount,
 }: {
   rows: UnitRow[];
   isEn: boolean;
+  totalRowCount: number;
 }) {
   "use no memo";
   const router = useRouter();
@@ -575,7 +577,7 @@ export function UnitNotionTable({
         filteredRows={optimisticRows.length}
         isEn={isEn}
         table={table}
-        totalRows={optimisticRows.length}
+        totalRows={totalRowCount}
       />
     </div>
   );
