@@ -45,6 +45,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_OIDC_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 14400
 
       - name: Set up QEMU (ARM64 builds)
         uses: docker/setup-qemu-action@v3
