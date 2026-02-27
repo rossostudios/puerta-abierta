@@ -225,7 +225,7 @@ pub struct AgentConversationMessage {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct RuntimeExecutionContext<'a> {
     pub run_id: Option<&'a str>,
     pub trace_id: Option<&'a str>,
@@ -233,19 +233,6 @@ pub struct RuntimeExecutionContext<'a> {
     pub is_shadow_run: bool,
     pub shadow_of_run_id: Option<&'a str>,
     pub disable_shadow: bool,
-}
-
-impl<'a> Default for RuntimeExecutionContext<'a> {
-    fn default() -> Self {
-        Self {
-            run_id: None,
-            trace_id: None,
-            llm_transport: None,
-            is_shadow_run: false,
-            shadow_of_run_id: None,
-            disable_shadow: false,
-        }
-    }
 }
 
 pub struct RunAiAgentChatParams<'a> {
@@ -1750,6 +1737,7 @@ fn spawn_memory_extraction(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_agent_result(
     reply: String,
     tool_trace: Vec<Value>,

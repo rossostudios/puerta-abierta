@@ -314,9 +314,7 @@ async fn gate_forces_legacy(
     org_id: &str,
     settings: &RolloutSettings,
 ) -> Option<String> {
-    let Some(pool) = state.db_pool.as_ref() else {
-        return None;
-    };
+    let pool = state.db_pool.as_ref()?;
 
     let parity_row = sqlx::query(
         "SELECT
