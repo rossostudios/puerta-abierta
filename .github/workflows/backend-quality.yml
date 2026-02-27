@@ -38,8 +38,15 @@ jobs:
       - name: Enable sccache for Rust
         if: steps.sccache.outcome == 'success'
         run: |
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          export SCCACHE_GHA_ENABLED=true
+          if sccache --start-server 2>/dev/null && sccache --show-stats >/dev/null 2>&1; then
+            echo "sccache server started successfully"
+            echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+            echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          else
+            echo "::warning::sccache server failed to start, building without cache"
+            sccache --stop-server 2>/dev/null || true
+          fi
 
       - name: Restore Rust cache
         uses: Swatinem/rust-cache@v2
