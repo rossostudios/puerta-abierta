@@ -18,6 +18,7 @@ import { SHORTCUT_BY_HREF } from "@/lib/hotkeys/config";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { SidebarChatTab } from "./sidebar-chat-tab";
+import { SidebarQuickCreate } from "./sidebar-quick-create";
 import { APPLE_DEVICE_REGEX, PRIMARY_TABS } from "./sidebar-constants";
 import { SidebarHomeTab } from "./sidebar-home-tab";
 import { SidebarInboxTab } from "./sidebar-inbox-tab";
@@ -83,10 +84,12 @@ function SidebarContent({
                   key={tab.key}
                 >
                   <Icon icon={tab.icon} size={14} />
-                  <span className="truncate">{tab.label[locale]}</span>
+                  {active && (
+                    <span className="truncate">{tab.label[locale]}</span>
+                  )}
                 </Link>
               );
-              return shortcutKeys ? (
+              return (
                 <Tooltip key={tab.key}>
                   <TooltipTrigger asChild>{tabLink}</TooltipTrigger>
                   <TooltipContent
@@ -97,11 +100,9 @@ function SidebarContent({
                     <span className="font-medium text-[11px] text-popover-foreground">
                       {tab.label[locale]}
                     </span>
-                    <ShortcutKbd keys={shortcutKeys} />
+                    {shortcutKeys && <ShortcutKbd keys={shortcutKeys} />}
                   </TooltipContent>
                 </Tooltip>
-              ) : (
-                <span key={tab.key}>{tabLink}</span>
               );
             })}
           </div>
@@ -152,17 +153,20 @@ function SidebarContent({
       </div>
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
-        <Link
-          className="glass-inner group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full px-3 font-medium text-[13px] text-sidebar-foreground/80 transition-all duration-300 hover:bg-white/70 hover:text-sidebar-foreground hover:shadow-sm dark:hover:bg-white/10"
-          href="/app/agents?new=1"
-        >
-          <Icon
-            className="text-sidebar-primary transition-transform duration-300 group-hover:scale-110"
-            icon={AiVoiceGeneratorIcon}
-            size={14}
-          />
-          {isEn ? "Ask Casaora AI" : "Pregunta a Casaora AI"}
-        </Link>
+        <div className="flex items-center gap-1.5">
+          <Link
+            className="glass-inner group inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-full px-3 font-medium text-[13px] text-sidebar-foreground/80 transition-all duration-300 hover:bg-white/70 hover:text-sidebar-foreground hover:shadow-sm dark:hover:bg-white/10"
+            href="/app/agents?new=1"
+          >
+            <Icon
+              className="text-sidebar-primary transition-transform duration-300 group-hover:scale-110"
+              icon={AiVoiceGeneratorIcon}
+              size={14}
+            />
+            {isEn ? "Ask Casaora AI" : "Pregunta a Casaora AI"}
+          </Link>
+          <SidebarQuickCreate locale={locale} />
+        </div>
         <SidebarAccount collapsed={false} locale={locale} orgId={orgId} />
       </div>
     </div>

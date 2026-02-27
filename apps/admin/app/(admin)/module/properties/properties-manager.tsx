@@ -96,6 +96,16 @@ export function PropertiesManager({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []);
+
   const { rows, summary, recentActivity, notifications } = usePropertyPortfolio(
     {
       locale,

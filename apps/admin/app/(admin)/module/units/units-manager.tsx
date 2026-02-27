@@ -1,14 +1,14 @@
 "use client";
 
-import { Add01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createUnitFromUnitsModuleAction } from "@/app/(admin)/module/units/actions";
+import { UnitsFilterBar } from "@/app/(admin)/module/units/components/units-filter-bar";
 import { DataImportSheet } from "@/components/import/data-import-sheet";
+import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form } from "@/components/ui/form";
-import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
@@ -16,6 +16,11 @@ import {
   UnitNotionTable,
   type UnitRow,
 } from "@/components/units/unit-notion-table";
+import type {
+  UnitBedroomFilter,
+  UnitStatusFilter,
+  UnitViewMode,
+} from "@/lib/features/units/types";
 import { useActiveLocale } from "@/lib/i18n/client";
 
 type PropertyRow = {
@@ -97,16 +102,38 @@ export function UnitsManager({
   orgId,
   units,
   properties,
+  error: errorLabel,
+  success: successMessage,
 }: {
   orgId: string;
   units: Record<string, unknown>[];
   properties: Record<string, unknown>[];
+  error?: string;
+  success?: string;
 }) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
   const [open, setOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []);
+
+  /* --- filter state --- */
+  const [query, setQuery] = useState("");
   const [propertyFilter, setPropertyFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<UnitStatusFilter>("all");
+  const [bedroomFilter, setBedroomFilter] = useState<UnitBedroomFilter>("all");
+  const [viewMode, setViewMode] = useState<UnitViewMode>("table");
+
+  /* --- create sheet state --- */
   const [createPropertyId, setCreatePropertyId] = useState("");
   const [draftCode, setDraftCode] = useState("");
 
@@ -124,28 +151,60 @@ export function UnitsManager({
       .sort((left, right) => left.label.localeCompare(right.label));
   }, [properties]);
 
-  const rows = useMemo<UnitRow[]>(() => {
-    return (units as InternalUnitRow[])
-      .map((row) => ({
-        id: asString(row.id).trim(),
-        property_id: asString(row.property_id).trim() || null,
-        property_name: asString(row.property_name).trim() || null,
-        code: asString(row.code).trim() || null,
-        name: asString(row.name).trim() || null,
-        max_guests: asNumber(row.max_guests),
-        bedrooms: asNumber(row.bedrooms),
-        bathrooms: asNumber(row.bathrooms),
-        currency: asString(row.currency).trim() || null,
-        is_active:
-          typeof row.is_active === "boolean"
-            ? row.is_active
-            : Boolean(row.is_active),
-      }))
-      .filter((row) =>
-        propertyFilter === "all" ? true : row.property_id === propertyFilter
-      );
-  }, [units, propertyFilter]);
+  /* --- all rows (unfiltered) --- */
+  const allRows = useMemo<UnitRow[]>(() => {
+    return (units as InternalUnitRow[]).map((row) => ({
+      id: asString(row.id).trim(),
+      property_id: asString(row.property_id).trim() || null,
+      property_name: asString(row.property_name).trim() || null,
+      code: asString(row.code).trim() || null,
+      name: asString(row.name).trim() || null,
+      max_guests: asNumber(row.max_guests),
+      bedrooms: asNumber(row.bedrooms),
+      bathrooms: asNumber(row.bathrooms),
+      currency: asString(row.currency).trim() || null,
+      is_active:
+        typeof row.is_active === "boolean"
+          ? row.is_active
+          : Boolean(row.is_active),
+    }));
+  }, [units]);
 
+  /* --- bedroom options derived from all rows --- */
+  const bedroomOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        allRows
+          .map((r) => r.bedrooms)
+          .filter((b): b is number => b !== null && b !== undefined)
+      )
+    ).sort((a, b) => a - b);
+  }, [allRows]);
+
+  /* --- filtered rows --- */
+  const filteredRows = useMemo<UnitRow[]>(() => {
+    const lowerQuery = query.toLowerCase().trim();
+    return allRows.filter((row) => {
+      if (propertyFilter !== "all" && row.property_id !== propertyFilter)
+        return false;
+      if (statusFilter === "active" && !row.is_active) return false;
+      if (statusFilter === "inactive" && row.is_active) return false;
+      if (bedroomFilter !== "all" && row.bedrooms !== bedroomFilter)
+        return false;
+      if (
+        lowerQuery &&
+        !(
+          (row.name ?? "").toLowerCase().includes(lowerQuery) ||
+          (row.code ?? "").toLowerCase().includes(lowerQuery) ||
+          (row.property_name ?? "").toLowerCase().includes(lowerQuery)
+        )
+      )
+        return false;
+      return true;
+    });
+  }, [allRows, query, propertyFilter, statusFilter, bedroomFilter]);
+
+  /* --- create sheet helpers --- */
   const unitCodesByProperty = useMemo(() => {
     const map = new Map<string, Set<string>>();
     for (const row of units as InternalUnitRow[]) {
@@ -160,7 +219,6 @@ export function UnitsManager({
     return map;
   }, [units]);
 
-  // Validate createPropertyId: if it no longer exists in options, clear it.
   const validatedCreatePropertyId =
     createPropertyId &&
     propertyOptions.some((row) => row.id === createPropertyId)
@@ -182,12 +240,14 @@ export function UnitsManager({
       suggestion: suggestNextUnitCode(draftCode, existingCodes),
     };
   }, [validatedCreatePropertyId, draftCode, unitCodesByProperty]);
+
   const selectedPropertyLabel = useMemo(() => {
     if (!validatedCreatePropertyId) return null;
     return propertyOptions.find(
       (property) => property.id === validatedCreatePropertyId
     )?.label;
   }, [validatedCreatePropertyId, propertyOptions]);
+
   const existingUnitsInSelectedProperty = useMemo(() => {
     if (!validatedCreatePropertyId) return 0;
     return (units as InternalUnitRow[]).filter(
@@ -204,7 +264,32 @@ export function UnitsManager({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <PageHeader
+        description={
+          isEn
+            ? "Define rentable units with occupancy and capacity settings."
+            : "Define unidades rentables con configuración de capacidad y ocupación."
+        }
+        onPrimaryAction={() => setOpen(true)}
+        onSecondaryAction={() => setImportOpen(true)}
+        primaryActionDisabled={propertyOptions.length === 0}
+        primaryActionLabel={isEn ? "New unit" : "Nueva unidad"}
+        recordCount={filteredRows.length}
+        recordsLabel={
+          isEn
+            ? filteredRows.length === 1
+              ? "record"
+              : "records"
+            : filteredRows.length === 1
+              ? "registro"
+              : "registros"
+        }
+        secondaryActionDisabled={propertyOptions.length === 0}
+        secondaryActionLabel={isEn ? "Import" : "Importar"}
+        title={isEn ? "Units" : "Unidades"}
+      />
+
       {propertyOptions.length === 0 ? (
         <Alert variant="warning">
           <AlertTitle>
@@ -218,56 +303,41 @@ export function UnitsManager({
         </Alert>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Select
-            onChange={(event) => setPropertyFilter(event.target.value)}
-            value={propertyFilter}
-          >
-            <option value="all">
-              {isEn ? "All properties" : "Todas las propiedades"}
-            </option>
-            {propertyOptions.map((property) => (
-              <option key={property.id} value={property.id}>
-                {property.label}
-              </option>
-            ))}
-          </Select>
-          <span className="whitespace-nowrap text-muted-foreground text-sm">
-            {rows.length}{" "}
+      {errorLabel ? (
+        <Alert variant="destructive">
+          <AlertTitle>
             {isEn
-              ? rows.length === 1
-                ? "record"
-                : "records"
-              : rows.length === 1
-                ? "registro"
-                : "registros"}
-          </span>
-        </div>
+              ? "Could not complete request"
+              : "No se pudo completar la solicitud"}
+          </AlertTitle>
+          <AlertDescription>{errorLabel}</AlertDescription>
+        </Alert>
+      ) : null}
+      {successMessage ? (
+        <Alert variant="success">
+          <AlertTitle>
+            {isEn ? "Success" : "Éxito"}: {successMessage}
+          </AlertTitle>
+        </Alert>
+      ) : null}
 
-        <div className="flex items-center gap-2">
-          <Button
-            disabled={propertyOptions.length === 0}
-            onClick={() => setImportOpen(true)}
-            type="button"
-            variant="outline"
-          >
-            <Icon icon={Upload01Icon} size={16} />
-            {isEn ? "Import" : "Importar"}
-          </Button>
-          <Button
-            disabled={propertyOptions.length === 0}
-            onClick={() => setOpen(true)}
-            type="button"
-            variant="secondary"
-          >
-            <Icon icon={Add01Icon} size={16} />
-            {isEn ? "New unit" : "Nueva unidad"}
-          </Button>
-        </div>
-      </div>
+      <UnitsFilterBar
+        bedroomFilter={bedroomFilter}
+        bedroomOptions={bedroomOptions}
+        isEn={isEn}
+        onBedroomFilterChange={setBedroomFilter}
+        onPropertyFilterChange={setPropertyFilter}
+        onQueryChange={setQuery}
+        onStatusFilterChange={setStatusFilter}
+        onViewModeChange={setViewMode}
+        propertyFilter={propertyFilter}
+        propertyOptions={propertyOptions}
+        query={query}
+        statusFilter={statusFilter}
+        viewMode={viewMode}
+      />
 
-      <UnitNotionTable isEn={isEn} rows={rows} />
+      <UnitNotionTable isEn={isEn} rows={filteredRows} />
 
       <Sheet
         description={

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useOptimistic, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
 
 import { useActiveLocale } from "@/lib/i18n/client";
 
@@ -65,6 +65,12 @@ function CollectionsManagerInner({
   const [markPaidId, setMarkPaidId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "aging">("list");
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setOpen(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo<CollectionRow[]>(() => {
     return collections.map((row) => {

@@ -192,6 +192,12 @@ function LeasesManagerInner({
     setOpen(true);
   }, [resetTenantFields]);
 
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      openCreate();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const openEdit = useCallback(
     (row: LeaseRow) => {
       setEditing(row);
