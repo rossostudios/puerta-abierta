@@ -99,7 +99,7 @@ if [[ -z "${DOCKER_HOST:-}" && -S "${HOME}/.colima/default/docker.sock" ]]; then
 fi
 
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
-repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
+repo_uri="${account_id}.dkr.ecr.${REGION}.amazonaws.com/${REPOSITORY_NAME}"
 image_uri="${repo_uri}:${IMAGE_TAG}"
 cache_platform="${DOCKER_PLATFORM//\//-}"
 build_cache_ref="${BUILD_CACHE_REF:-${repo_uri}:buildcache-${cache_platform}}"
