@@ -89,6 +89,8 @@ fi
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
+cache_platform="${DOCKER_PLATFORM//\//-}"
+build_cache_ref="${BUILD_CACHE_REF:-${repo_uri}:buildcache-${cache_platform}}"
 current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
 if [[ "${current_taskdef_arn}" == "None" ]]; then
   current_taskdef_arn=""
@@ -108,6 +110,8 @@ else
     echo "==> Building and pushing backend image via buildx (${DOCKER_PLATFORM}) -> ${image_uri}"
     "${DOCKER_BIN}" buildx build \
       --platform "${DOCKER_PLATFORM}" \
+      --cache-from "type=registry,ref=${build_cache_ref}" \
+      --cache-to "type=registry,ref=${build_cache_ref},mode=max" \
       -f apps/backend-rs/Dockerfile \
       -t "${image_uri}" \
       --push \
