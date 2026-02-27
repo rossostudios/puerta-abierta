@@ -337,7 +337,11 @@ export function UnitsManager({
         viewMode={viewMode}
       />
 
-      <UnitNotionTable isEn={isEn} rows={filteredRows} />
+      <UnitNotionTable
+        isEn={isEn}
+        rows={filteredRows}
+        totalRowCount={allRows.length}
+      />
 
       <Sheet
         description={

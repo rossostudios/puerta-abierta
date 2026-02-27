@@ -1,12 +1,10 @@
-import { ArrowLeft01Icon } from "@hugeicons/core-free-icons";
-import Link from "next/link";
+import { Location01Icon } from "@hugeicons/core-free-icons";
 import { notFound } from "next/navigation";
 
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
 import { PinButton } from "@/components/shell/pin-button";
 import { RecordRecent } from "@/components/shell/record-recent";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -23,7 +21,6 @@ import {
   MODULE_BY_SLUG,
 } from "@/lib/modules";
 import { getActiveOrgId } from "@/lib/org";
-import { cn } from "@/lib/utils";
 import { PropertyAiBanner } from "./components/property-ai-banner";
 import { PropertyAiFab } from "./components/property-ai-fab";
 import {
@@ -31,7 +28,6 @@ import {
   PropertyDetailsProvider,
   PropertyDetailsTrigger,
 } from "./components/property-details-sheet";
-import { PropertyLocationMiniMap } from "./components/property-location-mini-map";
 import { PropertyOverview } from "./components/property-overview";
 import { loadPropertyDetailData } from "./data";
 
@@ -116,77 +112,67 @@ export default async function PropertyRecordPage({
   const activeOrgId = await getActiveOrgId();
   const { data } = result;
   const href = `/module/properties/${data.recordId}`;
-  const city = String(data.record.city ?? data.record.district ?? "asuncion");
   const propertyAddress = String(data.record.address ?? data.record.location ?? "");
   const occupancyRate = data.overview?.occupancyRate ?? null;
   const unitCount = data.overview?.unitCount ?? 0;
+  const propertyStatus = String(data.record.status ?? "active").toLowerCase();
+  const isActive = propertyStatus !== "inactive";
 
   return (
     <PropertyDetailsProvider>
       <div className="space-y-6">
         <RecordRecent href={href} label={data.title} meta={moduleLabel} />
 
-        <div className="relative rounded-3xl pt-2 pb-4">
-          <div className="relative grid gap-8 px-2 md:px-4 xl:grid-cols-[1fr_320px]">
-            <div className="flex flex-col justify-between space-y-8">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      className={cn(
-                        buttonVariants({ variant: "ghost", size: "sm" }),
-                        "h-7 rounded-full px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-widest transition-all hover:bg-muted/50 hover:text-foreground"
-                      )}
-                      href="/module/properties"
-                    >
-                      <Icon className="mr-1" icon={ArrowLeft01Icon} size={12} />
-                      {isEn ? "Back" : "Volver"}
-                    </Link>
-                    <Badge
-                      className="h-7 rounded-full border-border/30 bg-muted/30 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-widest backdrop-blur-sm"
-                      variant="outline"
-                    >
-                      {moduleLabel}
-                    </Badge>
-                    <Badge className="h-7 rounded-full border-primary/20 bg-primary/10 px-3 font-semibold text-[10px] text-primary uppercase tracking-widest backdrop-blur-sm">
-                      {data.propertyCodeLabel ?? data.recordId}
-                    </Badge>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h2 className="font-bold text-3xl text-foreground tracking-tight sm:text-4xl">
-                      {data.title}
-                    </h2>
-                    <p className="max-w-2xl font-medium text-muted-foreground text-sm leading-relaxed">
-                      {data.propertyLocationLabel || moduleDescription}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <PropertyDetailsTrigger
-                    fieldCount={data.keys.length}
-                    isEn={isEn}
-                  />
-                  <CopyButton
-                    className="h-9 rounded-full border-border/40 bg-muted/40 px-4 text-muted-foreground hover:bg-muted/80"
-                    value={data.recordId}
-                  />
-                  <PinButton
-                    className="h-9 rounded-full border-border/40 bg-muted/40 px-4 text-muted-foreground hover:bg-muted/80"
-                    href={href}
-                    label={data.title}
-                    meta={moduleLabel}
-                  />
-                </div>
-              </div>
+        <header className="flex flex-wrap items-start justify-between gap-4 px-2 md:px-4">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="font-bold text-2xl text-foreground tracking-tight">
+                {data.title}
+              </h2>
+              <Badge className="h-6 rounded-md border-border/40 bg-muted/40 px-2.5 font-semibold text-[11px] text-muted-foreground uppercase tracking-wider">
+                {data.propertyCodeLabel ?? data.recordId}
+              </Badge>
+              <Badge
+                className={
+                  isActive
+                    ? "h-6 rounded-md border-emerald-500/20 bg-emerald-500/10 px-2.5 font-semibold text-[11px] text-emerald-600"
+                    : "h-6 rounded-md border-red-500/20 bg-red-500/10 px-2.5 font-semibold text-[11px] text-red-600"
+                }
+              >
+                {isActive
+                  ? isEn ? "Active" : "Activo"
+                  : isEn ? "Inactive" : "Inactivo"}
+              </Badge>
             </div>
-
-            <div className="hidden xl:flex xl:items-end">
-              <PropertyLocationMiniMap city={city} isEn={isEn} />
+            <div className="flex items-center gap-1.5">
+              <Icon
+                className="text-muted-foreground/60"
+                icon={Location01Icon}
+                size={14}
+              />
+              <p className="text-muted-foreground text-sm">
+                {data.propertyLocationLabel || moduleDescription}
+              </p>
             </div>
           </div>
-        </div>
+
+          <div className="flex items-center gap-2">
+            <PropertyDetailsTrigger
+              fieldCount={data.keys.length}
+              isEn={isEn}
+            />
+            <CopyButton
+              className="h-9 rounded-xl border-border/60 text-muted-foreground"
+              value={data.recordId}
+            />
+            <PinButton
+              className="h-9 rounded-xl bg-foreground px-4 font-semibold text-background hover:bg-foreground/90"
+              href={href}
+              label={data.title}
+              meta={moduleLabel}
+            />
+          </div>
+        </header>
 
         {activeOrgId && (
           <PropertyAiBanner

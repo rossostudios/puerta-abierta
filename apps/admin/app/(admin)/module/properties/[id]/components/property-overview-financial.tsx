@@ -1,12 +1,5 @@
-import {
-  Calendar03Icon,
-  ChartIcon,
-  Task01Icon,
-} from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
-import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -48,18 +41,15 @@ export function PropertyOverviewFinancial({
   return (
     <section className="space-y-6">
       {/* ---- Financial Pulse ---- */}
-      <div className="space-y-4">
+      <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-5">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Icon className="text-muted-foreground/70" icon={ChartIcon} size={15} />
-            <h3 className="text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-              {isEn ? "Financial pulse" : "Pulso financiero"}
-            </h3>
-          </div>
+          <h3 className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
+            {isEn ? "Financial pulse" : "Pulso financiero"}
+          </h3>
           <Link
             className={cn(
               buttonVariants({ size: "sm", variant: "outline" }),
-              "h-7 px-2 text-xs"
+              "h-7 rounded-lg px-3 text-xs"
             )}
             href={`/module/reports?property_id=${encodeURIComponent(recordId)}`}
           >
@@ -73,17 +63,17 @@ export function PropertyOverviewFinancial({
             : `Resumen de ${overview.monthLabel}`}
         </p>
 
-        {/* Net income — prominent bare typography */}
-        <div>
-          <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
+        {/* Net income — recessed card */}
+        <div className="rounded-xl bg-muted/30 p-4">
+          <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
             {isEn ? "Net income" : "Ingreso neto"}
           </p>
-          <p className="my-1 font-bold text-3xl tabular-nums tracking-tight">
+          <p className="mt-1 font-extrabold text-[28px] tabular-nums leading-8 tracking-tight">
             {formatCurrency(overview.monthNetIncomePyg, "PYG", locale)}
           </p>
           <p
             className={cn(
-              "text-xs",
+              "mt-1.5 font-medium text-xs",
               netIncomePositive
                 ? "text-[var(--status-success-fg)]"
                 : "text-[var(--status-danger-fg)]"
@@ -91,141 +81,154 @@ export function PropertyOverviewFinancial({
           >
             {netIncomePositive
               ? isEn
-                ? "Positive month-to-date margin."
-                : "Margen mensual positivo."
+                ? "Positive month-to-date margin"
+                : "Margen mensual positivo"
               : isEn
-                ? "Expenses exceed collected income."
-                : "Los gastos superan el ingreso cobrado."}
+                ? "Expenses exceed collected income"
+                : "Los gastos superan el ingreso cobrado"}
           </p>
         </div>
 
-        {/* Metrics grid */}
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
-          {(overview.collectedThisMonthPyg > 0 ||
-            overview.overdueCollectionAmountPyg > 0) && (
-            <>
-              <div>
-                <dt className="text-muted-foreground text-xs">
-                  {isEn ? "Collected this month" : "Cobrado este mes"}
-                </dt>
-                <dd className="font-semibold text-[var(--status-success-fg)] tabular-nums">
-                  {formatCurrency(
-                    overview.collectedThisMonthPyg,
-                    "PYG",
-                    locale
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt
-                  className={cn(
-                    "text-xs",
-                    overview.overdueCollectionAmountPyg > 0
-                      ? "text-[var(--status-danger-fg)]"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {isEn ? "Overdue" : "Vencido"}
-                  {overview.overdueCollectionCount > 0
-                    ? ` (${overview.overdueCollectionCount})`
-                    : ""}
-                </dt>
-                <dd
-                  className={cn(
-                    "font-semibold tabular-nums",
-                    overview.overdueCollectionAmountPyg > 0
-                      ? "text-[var(--status-danger-fg)]"
-                      : ""
-                  )}
-                >
-                  {formatCurrency(
-                    overview.overdueCollectionAmountPyg,
-                    "PYG",
-                    locale
-                  )}
-                </dd>
-              </div>
-            </>
-          )}
-          <div>
-            <dt className="text-muted-foreground text-xs">
+        {/* Income / Expenses side-by-side */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-0.5">
+            <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
               {isEn ? "Income" : "Ingreso"}
-            </dt>
-            <dd className="font-semibold tabular-nums">
+            </p>
+            <p className="font-bold text-lg tabular-nums tracking-tight text-[var(--status-success-fg)]">
               {formatCurrency(overview.monthIncomePyg, "PYG", locale)}
-            </dd>
+            </p>
           </div>
-          <div>
-            <dt className="text-muted-foreground text-xs">
+          <div className="space-y-0.5">
+            <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
               {isEn ? "Expenses" : "Gastos"}
-            </dt>
-            <dd className="font-semibold tabular-nums">
+            </p>
+            <p className="font-bold text-lg tabular-nums tracking-tight">
               {formatCurrency(overview.monthExpensePyg, "PYG", locale)}
-            </dd>
+            </p>
           </div>
-        </dl>
+        </div>
 
-        {/* Progress bars */}
-        <div className="space-y-2">
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <p className="text-muted-foreground">
-                {isEn ? "Occupancy" : "Ocupación"}
+        {/* Collected / Overdue row */}
+        {(overview.collectedThisMonthPyg > 0 ||
+          overview.overdueCollectionAmountPyg > 0) && (
+          <div className="grid grid-cols-2 gap-3 border-t border-border/40 pt-3">
+            <div className="space-y-0.5">
+              <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
+                {isEn ? "Collected" : "Cobrado"}
               </p>
-              <p className="font-medium tabular-nums">{occupancyValue}%</p>
+              <p className="font-semibold text-sm tabular-nums text-[var(--status-success-fg)]">
+                {formatCurrency(
+                  overview.collectedThisMonthPyg,
+                  "PYG",
+                  locale
+                )}
+              </p>
             </div>
-            <Progress value={occupancyValue} />
+            <div className="space-y-0.5">
+              <p
+                className={cn(
+                  "font-semibold text-[10px] uppercase tracking-[0.1em]",
+                  overview.overdueCollectionAmountPyg > 0
+                    ? "text-[var(--status-danger-fg)]"
+                    : "text-muted-foreground/70"
+                )}
+              >
+                {isEn ? "Overdue" : "Vencido"}
+                {overview.overdueCollectionCount > 0
+                  ? ` (${overview.overdueCollectionCount})`
+                  : ""}
+              </p>
+              <p
+                className={cn(
+                  "font-semibold text-sm tabular-nums",
+                  overview.overdueCollectionAmountPyg > 0
+                    ? "text-[var(--status-danger-fg)]"
+                    : ""
+                )}
+              >
+                {formatCurrency(
+                  overview.overdueCollectionAmountPyg,
+                  "PYG",
+                  locale
+                )}
+              </p>
+            </div>
           </div>
-          <div>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <p className="text-muted-foreground">
-                {isEn ? "Expense ratio" : "Ratio de gasto"}
-              </p>
-              <p className="font-medium tabular-nums">
-                {hasIncome ? `${expenseRatio}%` : "-"}
-              </p>
-            </div>
-            <Progress value={expenseRatio} />
+        )}
+
+        {/* Occupancy / Expense ratio — bordered list rows */}
+        <div className="overflow-hidden rounded-xl border border-border/40">
+          <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+            <span className="text-[13px] text-muted-foreground">
+              {isEn ? "Occupancy" : "Ocupación"}
+            </span>
+            <span
+              className={cn(
+                "font-semibold text-[13px] tabular-nums",
+                occupancyValue >= 80
+                  ? "text-[var(--status-success-fg)]"
+                  : occupancyValue >= 50
+                    ? "text-[var(--status-warning-fg)]"
+                    : "text-[var(--status-danger-fg)]"
+              )}
+            >
+              {occupancyValue}%
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 border-t border-border/40 px-3.5 py-2.5">
+            <span className="text-[13px] text-muted-foreground">
+              {isEn ? "Expense ratio" : "Ratio de gasto"}
+            </span>
+            <span className="font-semibold text-[13px] tabular-nums">
+              {hasIncome ? `${expenseRatio}%` : "-"}
+            </span>
           </div>
         </div>
 
         {/* Expense breakdown */}
         {overview.expenseCategoryBreakdown.length ? (
-          <div className="space-y-4 border-t border-border/40 pt-3">
-            <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
+          <div className="space-y-2 border-t border-border/40 pt-3">
+            <h4 className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
               {isEn ? "Expense breakdown" : "Desglose de gastos"}
-            </p>
-            {overview.expenseCategoryBreakdown.map((row) => {
-              const categoryShare =
-                overview.monthExpensePyg > 0
-                  ? Math.round((row.amount / overview.monthExpensePyg) * 100)
-                  : 0;
-              return (
-                <div className="space-y-1" key={row.category}>
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <p className="truncate">{humanizeKey(row.category)}</p>
-                    <p className="font-medium tabular-nums">
-                      {formatCurrency(row.amount, "PYG", locale)}
-                    </p>
+            </h4>
+            <div className="overflow-hidden rounded-xl border border-border/40">
+              {overview.expenseCategoryBreakdown.map((row, i) => {
+                const categoryShare =
+                  overview.monthExpensePyg > 0
+                    ? Math.round((row.amount / overview.monthExpensePyg) * 100)
+                    : 0;
+                return (
+                  <div
+                    className={cn(
+                      "flex items-center justify-between gap-3 px-3.5 py-2.5",
+                      i < overview.expenseCategoryBreakdown.length - 1 &&
+                        "border-b border-border/20"
+                    )}
+                    key={row.category}
+                  >
+                    <span className="truncate text-[13px]">
+                      {humanizeKey(row.category)}
+                    </span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-muted-foreground text-[11px] tabular-nums">
+                        {categoryShare}%
+                      </span>
+                      <span className="font-medium text-[13px] tabular-nums">
+                        {formatCurrency(row.amount, "PYG", locale)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-foreground/75"
-                      style={{
-                        width: `${Math.max(6, Math.min(categoryShare, 100))}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
             {overview.totalExpenseCategoryCount >
             overview.expenseCategoryBreakdown.length ? (
-              <p className="text-muted-foreground text-xs">
+              <p className="text-center text-muted-foreground text-xs">
                 +
                 {overview.totalExpenseCategoryCount -
                   overview.expenseCategoryBreakdown.length}{" "}
-                {isEn ? "more categories" : "categorias mas"}
+                {isEn ? "more categories" : "categorías más"}
               </p>
             ) : null}
           </div>
@@ -235,12 +238,12 @@ export function PropertyOverviewFinancial({
         {overview.latestStatement ? (
           <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3">
             <div className="min-w-0">
-              <p className="font-semibold text-[11px] text-muted-foreground uppercase tracking-widest">
+              <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
                 {isEn
                   ? "Latest owner statement"
                   : "Último estado del propietario"}
               </p>
-              <p className="text-muted-foreground text-xs">
+              <p className="mt-0.5 font-medium text-sm tabular-nums">
                 {formatCurrency(
                   Number(overview.latestStatement.net_payout ?? 0),
                   String(overview.latestStatement.currency ?? "PYG"),
@@ -266,14 +269,11 @@ export function PropertyOverviewFinancial({
       </div>
 
       {/* ---- Urgent Attention ---- */}
-      <div className="space-y-3 border-t border-border/40 pt-4">
+      <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-5">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Icon className="text-muted-foreground/70" icon={Task01Icon} size={15} />
-            <h3 className="text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-              {isEn ? "Urgent attention" : "Atención urgente"}
-            </h3>
-          </div>
+          <h3 className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
+            {isEn ? "Urgent attention" : "Atención urgente"}
+          </h3>
           <p className="text-muted-foreground text-xs">
             {isEn
               ? "Items that can impact occupancy, cash flow, or lease continuity."
@@ -293,17 +293,19 @@ export function PropertyOverviewFinancial({
               return (
                 <article
                   className={cn(
-                    "border-l-2 py-2 pl-3",
+                    "rounded-lg border-l-2 bg-muted/20 py-2.5 pl-3 pr-3",
                     borderColor
                   )}
                   key={item.id}
                 >
                   <p className="font-medium text-sm">{item.title}</p>
-                  <p className="text-muted-foreground text-xs">{item.detail}</p>
+                  <p className="mt-0.5 text-muted-foreground text-xs">
+                    {item.detail}
+                  </p>
                   <Link
                     className={cn(
                       buttonVariants({ size: "sm", variant: "outline" }),
-                      "mt-1.5 h-6 px-2 text-xs"
+                      "mt-2 h-6 rounded-md px-2 text-xs"
                     )}
                     href={item.href}
                   >
@@ -324,14 +326,11 @@ export function PropertyOverviewFinancial({
 
       {/* ---- Lease Renewals ---- */}
       {overview.leasesExpiringSoon.length > 0 ? (
-        <div className="space-y-3 border-t border-border/40 pt-4">
+        <div className="space-y-4 rounded-2xl border border-border/60 bg-card p-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Icon className="text-muted-foreground/70" icon={Calendar03Icon} size={15} />
-              <h3 className="text-[11px] text-muted-foreground uppercase tracking-[0.14em]">
-                {isEn ? "Lease renewals" : "Renovaciones de contrato"}
-              </h3>
-            </div>
+            <h3 className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
+              {isEn ? "Lease renewals" : "Renovaciones de contrato"}
+            </h3>
             <p className="text-muted-foreground text-xs">
               {isEn
                 ? "Leases expiring within 90 days."
@@ -339,8 +338,8 @@ export function PropertyOverviewFinancial({
             </p>
           </div>
 
-          <div className="divide-y divide-border/40">
-            {overview.leasesExpiringSoon.map((lease) => {
+          <div className="overflow-hidden rounded-xl border border-border/40">
+            {overview.leasesExpiringSoon.map((lease, i) => {
               const urgencyColor =
                 lease.daysLeft <= 30
                   ? "status-tone-danger"
@@ -349,11 +348,15 @@ export function PropertyOverviewFinancial({
                     : "status-tone-info";
               return (
                 <div
-                  className="flex items-center justify-between gap-3 py-2.5"
+                  className={cn(
+                    "flex items-center justify-between gap-3 px-3.5 py-2.5",
+                    i < overview.leasesExpiringSoon.length - 1 &&
+                      "border-b border-border/20"
+                  )}
                   key={lease.leaseId}
                 >
                   <div className="min-w-0 space-y-0.5">
-                    <p className="truncate font-medium text-sm">
+                    <p className="truncate font-medium text-[13px]">
                       {lease.tenantName}
                     </p>
                     <p className="text-muted-foreground text-xs">
