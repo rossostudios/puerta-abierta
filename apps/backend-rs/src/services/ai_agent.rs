@@ -7,6 +7,10 @@ use sqlx::{Postgres, QueryBuilder, Row};
 use crate::{
     error::{AppError, AppResult},
     repository::table_service::create_row,
+    services::{
+        agent_specs::get_agent_spec,
+        tool_validator::{normalize_tool_result, normalized_tool_error, validate_tool_args},
+    },
     state::AppState,
 };
 
@@ -72,6 +76,7 @@ pub struct ReasoningStep {
 }
 
 const MUTATION_ROLES: &[&str] = &["owner_admin", "operator", "accountant"];
+pub const TOOL_REGISTRY_VERSION: &str = "2026-03-v1";
 const MUTATION_TOOLS: &[&str] = &[
     "create_row",
     "update_row",
@@ -229,6 +234,7 @@ pub struct RunAiAgentChatParams<'a> {
     pub chat_id: Option<&'a str>,
     pub requested_by_user_id: Option<&'a str>,
     pub preferred_model: Option<&'a str>,
+    pub max_steps_override: Option<i32>,
 }
 
 pub fn list_supported_tables() -> Vec<String> {
@@ -342,9 +348,18 @@ pub async fn run_ai_agent_chat(
         ));
     }
 
+    let canonical_spec = params.agent_slug.and_then(get_agent_spec);
+    let canonical_allowed_tools: Option<Vec<String>> = canonical_spec
+        .and_then(|spec| spec.allowed_tools)
+        .map(|tools| tools.iter().map(|value| (*value).to_string()).collect());
+    let effective_allowed_tools = canonical_allowed_tools.as_deref().or(params.allowed_tools);
+
     let role_value = normalize_role(params.role);
     let base_prompt = params
-        .agent_prompt
+        .agent_slug
+        .and_then(get_agent_spec)
+        .map(|spec| spec.system_prompt)
+        .or(params.agent_prompt)
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
@@ -384,13 +399,17 @@ pub async fn run_ai_agent_chat(
     let planning_mode = false;
     let mut token_usage = RunTokenUsage::default();
     let _run_start = std::time::Instant::now();
-    let tool_definitions = tool_definitions(params.allowed_tools);
+    let tool_definitions = tool_definitions(effective_allowed_tools);
 
-    let max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
+    let configured_max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
+    let requested_max_steps = params
+        .max_steps_override
+        .unwrap_or(configured_max_steps as i32)
+        .max(1) as usize;
     let effective_max = if planning_mode {
-        max_steps.max(12)
+        requested_max_steps.max(12)
     } else {
-        max_steps
+        requested_max_steps
     };
     for _ in 0..effective_max {
         let chat_resp = call_openai_chat_completion_tracked(
@@ -467,7 +486,7 @@ pub async fn run_ai_agent_chat(
                                 role: &role_value,
                                 allow_mutations: params.allow_mutations,
                                 confirm_write: params.confirm_write,
-                                allowed_tools: params.allowed_tools,
+                                allowed_tools: effective_allowed_tools,
                                 agent_slug: params.agent_slug,
                                 chat_id: params.chat_id,
                                 requested_by_user_id: params.requested_by_user_id,
@@ -476,15 +495,21 @@ pub async fn run_ai_agent_chat(
                         )
                         .await
                         {
-                            Ok(result) => result,
-                            Err(error) => {
-                                json!({ "ok": false, "error": tool_error_detail(state, &error) })
-                            }
+                            Ok(result) => normalize_tool_result(result),
+                            Err(error) => normalized_tool_error(
+                                "tool_execution_failed",
+                                tool_error_detail(state, &error),
+                                false,
+                                None,
+                            ),
                         }
                     }
-                    Err(error) => {
-                        json!({ "ok": false, "error": error.detail_message() })
-                    }
+                    Err(error) => normalized_tool_error(
+                        "tool_args_parse_failed",
+                        error.detail_message(),
+                        false,
+                        None,
+                    ),
                 };
 
                 tool_trace.push(json!({
@@ -664,9 +689,18 @@ pub async fn run_ai_agent_chat_streaming(
         return Ok(disabled_stream_payload());
     }
 
+    let canonical_spec = params.agent_slug.and_then(get_agent_spec);
+    let canonical_allowed_tools: Option<Vec<String>> = canonical_spec
+        .and_then(|spec| spec.allowed_tools)
+        .map(|tools| tools.iter().map(|value| (*value).to_string()).collect());
+    let effective_allowed_tools = canonical_allowed_tools.as_deref().or(params.allowed_tools);
+
     let role_value = normalize_role(params.role);
     let base_prompt = params
-        .agent_prompt
+        .agent_slug
+        .and_then(get_agent_spec)
+        .map(|spec| spec.system_prompt)
+        .or(params.agent_prompt)
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
@@ -705,7 +739,7 @@ pub async fn run_ai_agent_chat_streaming(
     let mut model_used = String::new();
     let planning_mode = false;
     let mut token_usage = RunTokenUsage::default();
-    let tool_definitions = tool_definitions(params.allowed_tools);
+    let tool_definitions = tool_definitions(effective_allowed_tools);
 
     let _ = tx
         .send(AgentStreamEvent::Status {
@@ -713,11 +747,15 @@ pub async fn run_ai_agent_chat_streaming(
         })
         .await;
 
-    let max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
+    let configured_max_steps = std::cmp::max(1, state.config.ai_agent_max_tool_steps);
+    let requested_max_steps = params
+        .max_steps_override
+        .unwrap_or(configured_max_steps as i32)
+        .max(1) as usize;
     let effective_max = if planning_mode {
-        max_steps.max(12)
+        requested_max_steps.max(12)
     } else {
-        max_steps
+        requested_max_steps
     };
     for _ in 0..effective_max {
         let chat_resp = call_openai_chat_completion_tracked(
@@ -782,16 +820,15 @@ pub async fn run_ai_agent_chat_streaming(
                 let raw_arguments = function_payload.get("arguments").cloned();
                 let mut arguments = Map::new();
 
-                let _ = tx
-                    .send(AgentStreamEvent::ToolCall {
-                        name: tool_name.clone(),
-                        args: arguments.clone(),
-                    })
-                    .await;
-
                 let tool_result = match parse_tool_arguments(raw_arguments) {
                     Ok(parsed) => {
                         arguments = parsed.clone();
+                        let _ = tx
+                            .send(AgentStreamEvent::ToolCall {
+                                name: tool_name.clone(),
+                                args: arguments.clone(),
+                            })
+                            .await;
                         match execute_tool(
                             state,
                             &tool_name,
@@ -801,7 +838,7 @@ pub async fn run_ai_agent_chat_streaming(
                                 role: &role_value,
                                 allow_mutations: params.allow_mutations,
                                 confirm_write: params.confirm_write,
-                                allowed_tools: params.allowed_tools,
+                                allowed_tools: effective_allowed_tools,
                                 agent_slug: params.agent_slug,
                                 chat_id: params.chat_id,
                                 requested_by_user_id: params.requested_by_user_id,
@@ -810,14 +847,28 @@ pub async fn run_ai_agent_chat_streaming(
                         )
                         .await
                         {
-                            Ok(result) => result,
-                            Err(error) => {
-                                json!({ "ok": false, "error": tool_error_detail(state, &error) })
-                            }
+                            Ok(result) => normalize_tool_result(result),
+                            Err(error) => normalized_tool_error(
+                                "tool_execution_failed",
+                                tool_error_detail(state, &error),
+                                false,
+                                None,
+                            ),
                         }
                     }
                     Err(error) => {
-                        json!({ "ok": false, "error": error.detail_message() })
+                        let _ = tx
+                            .send(AgentStreamEvent::ToolCall {
+                                name: tool_name.clone(),
+                                args: Map::new(),
+                            })
+                            .await;
+                        normalized_tool_error(
+                            "tool_args_parse_failed",
+                            error.detail_message(),
+                            false,
+                            None,
+                        )
                     }
                 };
 
@@ -2814,6 +2865,15 @@ pub async fn execute_tool(
         }
     }
 
+    if let Err(validation_error) = validate_tool_args(tool_name, args) {
+        return Ok(normalized_tool_error(
+            validation_error.code,
+            validation_error.message,
+            false,
+            validation_error.hint,
+        ));
+    }
+
     // --- Guardrails ---
     // Content moderation: block send_message with prohibited keywords
     if tool_name == "send_message" && !context.approved_execution {
@@ -3870,8 +3930,8 @@ async fn delegate_to_single_agent(
     message: &str,
 ) -> AppResult<Value> {
     let pool = db_pool(state)?;
-    let agent_row = sqlx::query_as::<_, (String, String, Option<String>, Option<Value>)>(
-        "SELECT slug, name, system_prompt, allowed_tools FROM ai_agents WHERE slug = $1 AND is_active = true LIMIT 1"
+    let agent_row = sqlx::query_as::<_, (String, String)>(
+        "SELECT slug, name FROM ai_agents WHERE slug = $1 AND is_active = true LIMIT 1",
     )
     .bind(agent_slug)
     .fetch_optional(pool)
@@ -3881,20 +3941,22 @@ async fn delegate_to_single_agent(
         AppError::Dependency("Failed to look up delegate agent.".to_string())
     })?;
 
-    let Some((slug, name, system_prompt, allowed_tools_json)) = agent_row else {
+    let Some((slug, name)) = agent_row else {
         return Ok(
             json!({ "ok": false, "error": format!("Agent '{}' not found or inactive.", agent_slug) }),
         );
     };
 
-    // Prevent delegation to tools that include delegate_to_agent (no chaining)
-    let target_tools: Vec<String> = allowed_tools_json
-        .and_then(|v| v.as_array().cloned())
-        .unwrap_or_default()
-        .into_iter()
-        .filter_map(|v| v.as_str().map(ToOwned::to_owned))
-        .filter(|t| t != "delegate_to_agent")
-        .collect();
+    let target_tools = get_agent_spec(&slug)
+        .and_then(|spec| spec.allowed_tools)
+        .map(|tools| {
+            tools
+                .iter()
+                .map(|value| (*value).to_string())
+                .filter(|tool_name| tool_name != "delegate_to_agent")
+                .collect::<Vec<_>>()
+        });
+    let target_prompt = get_agent_spec(&slug).map(|spec| spec.system_prompt);
 
     let params = RunAiAgentChatParams {
         org_id,
@@ -3904,12 +3966,13 @@ async fn delegate_to_single_agent(
         allow_mutations,
         confirm_write,
         agent_name: &name,
-        agent_prompt: system_prompt.as_deref(),
-        allowed_tools: Some(&target_tools),
+        agent_prompt: target_prompt,
+        allowed_tools: target_tools.as_deref(),
         agent_slug: Some(&slug),
         chat_id: None,
         requested_by_user_id: None,
         preferred_model: None,
+        max_steps_override: None,
     };
 
     match Box::pin(run_ai_agent_chat(state, params)).await {
@@ -6837,12 +6900,26 @@ fn preview_result(result: &Value) -> String {
     let Some(result_obj) = result.as_object() else {
         return "ok".to_string();
     };
+    let data_obj = result_obj
+        .get("data")
+        .and_then(Value::as_object)
+        .unwrap_or(result_obj);
 
     if !result_obj
         .get("ok")
         .and_then(Value::as_bool)
         .unwrap_or(false)
     {
+        if let Some(error_obj) = result_obj.get("error").and_then(Value::as_object) {
+            if let Some(message) = error_obj
+                .get("message")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            {
+                return message.to_string();
+            }
+        }
         return result_obj
             .get("error")
             .and_then(Value::as_str)
@@ -6852,7 +6929,7 @@ fn preview_result(result: &Value) -> String {
             .unwrap_or_else(|| "Operation failed.".to_string());
     }
 
-    if let Some(row) = result_obj.get("row").and_then(Value::as_object) {
+    if let Some(row) = data_obj.get("row").and_then(Value::as_object) {
         if let Some(id_value) = row.get("id").and_then(Value::as_str) {
             let trimmed = id_value.trim();
             if !trimmed.is_empty() {
@@ -6862,15 +6939,15 @@ fn preview_result(result: &Value) -> String {
         return "row updated".to_string();
     }
 
-    if let Some(rows) = result_obj.get("rows").and_then(Value::as_array) {
+    if let Some(rows) = data_obj.get("rows").and_then(Value::as_array) {
         return format!("rows={}", rows.len());
     }
 
-    if result_obj.get("summary").is_some() {
+    if data_obj.get("summary").is_some() {
         return "snapshot ready".to_string();
     }
 
-    if let Some(tables) = result_obj.get("tables").and_then(Value::as_array) {
+    if let Some(tables) = data_obj.get("tables").and_then(Value::as_array) {
         return format!("tables={}", tables.len());
     }
 
@@ -7026,6 +7103,7 @@ mod tests {
             chat_id: None,
             requested_by_user_id: None,
             preferred_model: None,
+            max_steps_override: None,
         };
 
         let payload = run_ai_agent_chat_streaming(&state, params, tx)

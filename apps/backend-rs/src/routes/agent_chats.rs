@@ -16,7 +16,11 @@ use sqlx::Row;
 use crate::{
     auth::require_user_id,
     error::{AppError, AppResult},
-    services::{agent_chats, audit::write_audit_log},
+    services::{
+        agent_chats,
+        agent_runtime_v2::{inject_runtime_metadata, wrap_stream_event, RuntimeExecutionIds},
+        audit::write_audit_log,
+    },
     state::AppState,
     tenancy::assert_org_member,
 };
@@ -320,6 +324,7 @@ async fn post_agent_chat_message(
 
     let allow_mutations = payload.allow_mutations.unwrap_or(true);
     let confirm_write = payload.confirm_write.unwrap_or(true);
+    let runtime_ids = RuntimeExecutionIds::generate();
 
     let result = agent_chats::send_chat_message(
         &state,
@@ -363,6 +368,7 @@ async fn post_agent_chat_message(
     response.insert("chat_id".to_string(), Value::String(path.chat_id.clone()));
     response.insert("role".to_string(), Value::String(role));
     response.extend(result);
+    inject_runtime_metadata(&mut response, &runtime_ids);
 
     Ok(Json(Value::Object(response)))
 }
@@ -387,6 +393,7 @@ async fn post_agent_chat_message_stream(
 
     let (tx, rx) = tokio::sync::mpsc::channel(32);
     let (sse_tx, sse_rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(32);
+    let runtime_ids = RuntimeExecutionIds::generate();
 
     // Spawn the agent execution in a background task
     let state_clone = state.clone();
@@ -419,10 +426,12 @@ async fn post_agent_chat_message_stream(
 
     // Forward agent stream events as SSE events
     let sse_tx_clone = sse_tx.clone();
+    let runtime_ids_clone = runtime_ids.clone();
     tokio::spawn(async move {
         let mut rx = rx;
         while let Some(event) = rx.recv().await {
-            let data = serde_json::to_string(&event).unwrap_or_default();
+            let wrapped = wrap_stream_event(event, &runtime_ids_clone);
+            let data = serde_json::to_string(&wrapped).unwrap_or_default();
             let sse_event = Event::default().data(data);
             if sse_tx_clone.send(Ok(sse_event)).await.is_err() {
                 break;

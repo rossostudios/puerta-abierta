@@ -79,6 +79,15 @@ type BackendEvent = {
   fallback_used?: boolean;
 };
 
+type BackendRuntimeEnvelope = {
+  type?: string;
+  runtime_version?: string;
+  run_id?: string;
+  trace_id?: string;
+  timestamp?: string;
+  payload?: BackendEvent;
+};
+
 type WriteFlags = {
   allow_mutations?: boolean;
   confirm_write?: boolean;
@@ -158,6 +167,11 @@ function handleBackendAgentProxy(
       let finished = false;
       let currentText = "";
       let toolCallCounter = 0;
+      const runtimeMeta: {
+        runtime_version?: string;
+        run_id?: string;
+        trace_id?: string;
+      } = {};
       const pendingToolCalls = new Map<string, string[]>();
 
       const ensureStart = () => {
@@ -211,6 +225,9 @@ function handleBackendAgentProxy(
             model_used: typeof modelUsed === "string" ? modelUsed : null,
             fallback_used: fallbackUsed,
             tool_trace: Array.isArray(toolTrace) ? toolTrace : [],
+            runtime_version: runtimeMeta.runtime_version ?? null,
+            run_id: runtimeMeta.run_id ?? null,
+            trace_id: runtimeMeta.trace_id ?? null,
           },
         });
         emitSsePart(controller, encoder, { type: "finish-step" });
@@ -219,8 +236,36 @@ function handleBackendAgentProxy(
         finished = true;
       };
 
-      const processEvent = (event: BackendEvent) => {
-        const eventType = event.type ?? "";
+      const processEvent = (
+        rawEvent: BackendEvent | BackendRuntimeEnvelope
+      ) => {
+        let eventType = rawEvent.type ?? "";
+        let event: BackendEvent = rawEvent as BackendEvent;
+
+        if (
+          rawEvent &&
+          typeof rawEvent === "object" &&
+          "payload" in rawEvent &&
+          (rawEvent as BackendRuntimeEnvelope).payload &&
+          typeof (rawEvent as BackendRuntimeEnvelope).payload === "object"
+        ) {
+          const envelope = rawEvent as BackendRuntimeEnvelope;
+          eventType = envelope.type ?? eventType;
+          event = envelope.payload ?? {};
+          runtimeMeta.runtime_version =
+            typeof envelope.runtime_version === "string"
+              ? envelope.runtime_version
+              : runtimeMeta.runtime_version;
+          runtimeMeta.run_id =
+            typeof envelope.run_id === "string"
+              ? envelope.run_id
+              : runtimeMeta.run_id;
+          runtimeMeta.trace_id =
+            typeof envelope.trace_id === "string"
+              ? envelope.trace_id
+              : runtimeMeta.trace_id;
+        }
+
         if (eventType === "status") {
           ensureStart();
           emitSsePart(controller, encoder, {

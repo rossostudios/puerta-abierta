@@ -1,22 +1,15 @@
 "use client";
 
 import {
-  ArrowDown01Icon,
-  CheckmarkCircle02Icon,
-  Database02Icon,
-  MailSend01Icon,
-  MessageSearch01Icon,
   Settings02Icon,
   SparklesIcon,
   TestTube01Icon,
-  Wrench01Icon,
 } from "@hugeicons/core-free-icons";
-import type { IconSvgElement } from "@hugeicons/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -26,92 +19,12 @@ import { cn } from "@/lib/utils";
 
 import type { AgentRow } from "./agent-config-types";
 
-/* ── Tool categories ── */
-
-type ToolCategory = {
-  key: string;
-  labelEn: string;
-  labelEs: string;
-  icon: IconSvgElement;
-  tools: string[];
-};
-
-const TOOL_CATEGORIES: ToolCategory[] = [
-  {
-    key: "data-access",
-    labelEn: "Data Access",
-    labelEs: "Acceso a Datos",
-    icon: Database02Icon,
-    tools: ["list_tables", "get_org_snapshot", "list_rows", "get_row"],
-  },
-  {
-    key: "data-mutation",
-    labelEn: "Data Mutation",
-    labelEs: "Mutación de Datos",
-    icon: Wrench01Icon,
-    tools: ["create_row", "update_row", "delete_row"],
-  },
-  {
-    key: "operations",
-    labelEn: "Operations",
-    labelEs: "Operaciones",
-    icon: Settings02Icon,
-    tools: [
-      "get_today_ops_brief",
-      "get_staff_availability",
-      "create_maintenance_task",
-      "delegate_to_agent",
-    ],
-  },
-  {
-    key: "analytics",
-    labelEn: "Analytics",
-    labelEs: "Analítica",
-    icon: SparklesIcon,
-    tools: [
-      "get_occupancy_forecast",
-      "get_anomaly_alerts",
-      "get_lease_risk_summary",
-      "get_revenue_analytics",
-      "get_seasonal_demand",
-    ],
-  },
-  {
-    key: "finance",
-    labelEn: "Finance",
-    labelEs: "Finanzas",
-    icon: CheckmarkCircle02Icon,
-    tools: [
-      "get_collections_risk",
-      "get_owner_statement_summary",
-      "generate_owner_statement",
-      "reconcile_collections",
-      "categorize_expense",
-    ],
-  },
-  {
-    key: "communication",
-    labelEn: "Communication",
-    labelEs: "Comunicación",
-    icon: MailSend01Icon,
-    tools: ["send_message", "search_knowledge"],
-  },
-  {
-    key: "memory",
-    labelEn: "Memory",
-    labelEs: "Memoria",
-    icon: MessageSearch01Icon,
-    tools: ["recall_memory", "store_memory"],
-  },
-];
-
-const ALL_TOOLS = TOOL_CATEGORIES.flatMap((c) => c.tools);
-
-/* ── Types ── */
-
 type AgentDetail = AgentRow & {
-  system_prompt?: string | null;
-  allowed_tools: string[];
+  baseline_is_active?: boolean;
+  model_override?: string | null;
+  max_steps_override?: number | null;
+  allow_mutations_default?: boolean | null;
+  guardrail_overrides?: Record<string, unknown> | null;
 };
 
 type Props = {
@@ -120,26 +33,38 @@ type Props = {
   locale: string;
 };
 
-/* ── Component ── */
+function parseGuardrailOverrides(input: string): Record<string, unknown> | null {
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Guardrail overrides must be a JSON object.");
+  }
+  return parsed as Record<string, unknown>;
+}
 
 export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
   const isEn = locale === "en-US";
+
   const [agents, setAgents] = useState<AgentRow[]>(initialAgents);
   const [selected, setSelected] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [prompt, setPrompt] = useState("");
-  const [enabledTools, setEnabledTools] = useState<Set<string>>(new Set());
   const [isActive, setIsActive] = useState(false);
+  const [modelOverride, setModelOverride] = useState("");
+  const [maxStepsOverride, setMaxStepsOverride] = useState("");
+  const [allowMutationsDefault, setAllowMutationsDefault] = useState(true);
+  const [guardrailOverrides, setGuardrailOverrides] = useState("{}");
 
   const [testInput, setTestInput] = useState("");
   const [testResult, setTestResult] = useState("");
   const [testing, setTesting] = useState(false);
-
   const [testOpen, setTestOpen] = useState(false);
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
-    new Set()
+
+  const sortedAgents = useMemo(
+    () => [...agents].sort((a, b) => a.name.localeCompare(b.name)),
+    [agents]
   );
 
   const selectAgent = useCallback(
@@ -152,9 +77,17 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
           `/ai-agents/${slug}?org_id=${orgId}`
         );
         setSelected(detail);
-        setPrompt(detail.system_prompt ?? "");
-        setEnabledTools(new Set(detail.allowed_tools ?? []));
         setIsActive(detail.is_active);
+        setModelOverride(detail.model_override ?? "");
+        setMaxStepsOverride(
+          typeof detail.max_steps_override === "number"
+            ? String(detail.max_steps_override)
+            : ""
+        );
+        setAllowMutationsDefault(detail.allow_mutations_default ?? true);
+        setGuardrailOverrides(
+          JSON.stringify(detail.guardrail_overrides ?? {}, null, 2)
+        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         toast.error(
@@ -173,119 +106,120 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
     if (!selected) return;
     setSaving(true);
     try {
+      const parsedMaxSteps = maxStepsOverride.trim()
+        ? Number.parseInt(maxStepsOverride.trim(), 10)
+        : null;
+      if (
+        parsedMaxSteps !== null &&
+        (!Number.isFinite(parsedMaxSteps) || parsedMaxSteps < 1 || parsedMaxSteps > 24)
+      ) {
+        throw new Error(
+          isEn
+            ? "Max steps must be between 1 and 24."
+            : "Los pasos máximos deben estar entre 1 y 24."
+        );
+      }
+
+      const parsedGuardrails = parseGuardrailOverrides(guardrailOverrides);
+
       await authedFetch(`/ai-agents/${selected.slug}`, {
         method: "PATCH",
         body: JSON.stringify({
           org_id: orgId,
-          system_prompt: prompt,
-          allowed_tools: Array.from(enabledTools),
           is_active: isActive,
+          model_override: modelOverride.trim() || null,
+          max_steps_override: parsedMaxSteps,
+          allow_mutations_default: allowMutationsDefault,
+          guardrail_overrides: parsedGuardrails,
         }),
       });
+
       setAgents((prev) =>
-        prev.map((a) =>
-          a.slug === selected.slug ? { ...a, is_active: isActive } : a
+        prev.map((agent) =>
+          agent.slug === selected.slug
+            ? {
+                ...agent,
+                is_active: isActive,
+                model_override: modelOverride.trim() || null,
+                max_steps_override: parsedMaxSteps,
+                allow_mutations_default: allowMutationsDefault,
+              }
+            : agent
         )
       );
-      toast.success(isEn ? "Changes saved" : "Cambios guardados");
-    } catch {
-      toast.error("Failed to save agent configuration");
+
+      toast.success(isEn ? "Runtime overrides saved" : "Overrides guardados");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
     }
-  }, [selected, orgId, prompt, enabledTools, isActive, isEn]);
-
-  const toggleTool = useCallback((tool: string) => {
-    setEnabledTools((prev) => {
-      const next = new Set(prev);
-      if (next.has(tool)) next.delete(tool);
-      else next.add(tool);
-      return next;
-    });
-  }, []);
-
-  const toggleCategory = useCallback(
-    (category: ToolCategory) => {
-      const allEnabled = category.tools.every((t) => enabledTools.has(t));
-      setEnabledTools((prev) => {
-        const next = new Set(prev);
-        for (const tool of category.tools) {
-          if (allEnabled) next.delete(tool);
-          else next.add(tool);
-        }
-        return next;
-      });
-    },
-    [enabledTools]
-  );
-
-  const toggleCollapse = useCallback((key: string) => {
-    setCollapsedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
+  }, [
+    allowMutationsDefault,
+    guardrailOverrides,
+    isActive,
+    isEn,
+    maxStepsOverride,
+    modelOverride,
+    orgId,
+    selected,
+  ]);
 
   const handleTest = useCallback(async () => {
     if (!(selected && testInput.trim())) return;
     setTesting(true);
     setTestResult("");
     try {
-      const res = await authedFetch<{ reply?: string; content?: string }>(
-        "/agent/chats",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            org_id: orgId,
-            agent_slug: selected.slug,
-            title: `Test: ${testInput.slice(0, 40)}`,
-          }),
-        }
-      );
-      const chatId = (res as Record<string, unknown>).id as string;
-      if (chatId) {
-        const msgRes = await authedFetch<{
-          assistant_message?: { content?: string };
-        }>(`/agent/chats/${chatId}/messages?org_id=${orgId}`, {
-          method: "POST",
-          body: JSON.stringify({ message: testInput }),
-        });
-        setTestResult(
-          msgRes.assistant_message?.content ?? JSON.stringify(msgRes, null, 2)
-        );
+      const chat = await authedFetch<{ id?: string }>("/agent/chats", {
+        method: "POST",
+        body: JSON.stringify({
+          org_id: orgId,
+          agent_slug: selected.slug,
+          title: `Test: ${testInput.slice(0, 40)}`,
+        }),
+      });
+      const chatId = typeof chat.id === "string" ? chat.id : "";
+      if (!chatId) {
+        throw new Error("Failed to create chat.");
       }
-    } catch (err) {
+
+      const msgRes = await authedFetch<{
+        assistant_message?: { content?: string };
+        reply?: string;
+      }>(`/agent/chats/${chatId}/messages?org_id=${orgId}`, {
+        method: "POST",
+        body: JSON.stringify({ message: testInput }),
+      });
+
       setTestResult(
-        `Error: ${err instanceof Error ? err.message : String(err)}`
+        msgRes.assistant_message?.content ??
+          msgRes.reply ??
+          JSON.stringify(msgRes, null, 2)
       );
+    } catch (err) {
+      setTestResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setTesting(false);
     }
-  }, [selected, orgId, testInput]);
-
-  const formatToolName = (tool: string) =>
-    tool.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }, [orgId, selected, testInput]);
 
   return (
     <div className="flex gap-6">
-      {/* Agent list — left panel */}
       <div className="w-64 shrink-0 space-y-1">
         <p className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-[0.15em]">
           {isEn ? "Agents" : "Agentes"}
         </p>
-        {agents.map((agent) => (
+        {sortedAgents.map((agent) => (
           <button
+            key={agent.slug}
+            type="button"
+            onClick={() => selectAgent(agent.slug)}
             className={cn(
               "w-full rounded-md px-3 py-2 text-left transition-colors",
               selected?.slug === agent.slug
                 ? "bg-muted/60 text-foreground"
                 : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             )}
-            key={agent.slug}
-            onClick={() => selectAgent(agent.slug)}
-            type="button"
           >
             <div className="flex items-center gap-2.5">
               <span
@@ -301,16 +235,8 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
             </p>
           </button>
         ))}
-        {agents.length === 0 && (
-          <div className="py-8 text-center">
-            <p className="text-muted-foreground text-sm">
-              {isEn ? "No agents configured." : "No hay agentes configurados."}
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* Detail panel — right */}
       <div className="min-w-0 flex-1">
         {!(selected || loading) && (
           <div className="flex h-64 items-center justify-center">
@@ -332,15 +258,10 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
 
         {selected && !loading && (
           <div className="space-y-5">
-            {/* Header section */}
             <div className="flex items-center justify-between gap-4 border-border/50 border-b pb-4">
               <div className="min-w-0">
-                <h3 className="truncate font-semibold text-base">
-                  {selected.name}
-                </h3>
-                <p className="text-muted-foreground text-xs">
-                  {selected.description}
-                </p>
+                <h3 className="truncate font-semibold text-base">{selected.name}</h3>
+                <p className="text-muted-foreground text-xs">{selected.description}</p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -363,10 +284,7 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
                   variant="ghost"
                 >
                   <Icon
-                    className={cn(
-                      "text-muted-foreground",
-                      testOpen && "text-foreground"
-                    )}
+                    className={cn("text-muted-foreground", testOpen && "text-foreground")}
                     icon={TestTube01Icon}
                     size={16}
                   />
@@ -383,145 +301,90 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
               </div>
             </div>
 
-            {/* System prompt */}
+            <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+              <div className="flex items-start gap-2">
+                <Icon className="mt-0.5 text-primary" icon={SparklesIcon} size={14} />
+                <div className="space-y-1">
+                  <p className="font-medium text-sm">
+                    {isEn ? "Code-owned agent contracts" : "Contratos gestionados por código"}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    {isEn
+                      ? "System prompts and allowed tools are now managed in backend source control. This panel only edits per-organization runtime overrides."
+                      : "Los prompts del sistema y herramientas permitidas ahora se administran en el código del backend. Este panel solo edita overrides de ejecución por organización."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="font-medium text-sm" htmlFor="model-override">
+                  {isEn ? "Model override" : "Override de modelo"}
+                </label>
+                <Input
+                  id="model-override"
+                  placeholder={isEn ? "e.g. gpt-5.2-mini" : "ej. gpt-5.2-mini"}
+                  value={modelOverride}
+                  onChange={(e) => setModelOverride(e.target.value)}
+                />
+                <p className="text-muted-foreground text-xs">
+                  {isEn
+                    ? "Leave empty to use chat preference or global model chain."
+                    : "Déjalo vacío para usar la preferencia del chat o la cadena global de modelos."}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="font-medium text-sm" htmlFor="max-steps-override">
+                  {isEn ? "Max steps override" : "Override de pasos máximos"}
+                </label>
+                <Input
+                  id="max-steps-override"
+                  inputMode="numeric"
+                  placeholder="1-24"
+                  value={maxStepsOverride}
+                  onChange={(e) => setMaxStepsOverride(e.target.value)}
+                />
+                <p className="text-muted-foreground text-xs">
+                  {isEn
+                    ? "Limits tool-loop iterations for this agent in this organization."
+                    : "Limita las iteraciones del loop de herramientas para este agente en esta organización."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Icon className="text-muted-foreground" icon={Settings02Icon} size={14} />
+                <span className="font-medium text-sm">
+                  {isEn ? "Allow mutations by default" : "Permitir mutaciones por defecto"}
+                </span>
+              </div>
+              <Switch
+                checked={allowMutationsDefault}
+                onCheckedChange={setAllowMutationsDefault}
+              />
+            </div>
+
             <div className="space-y-2">
-              <label className="block font-medium text-sm">
-                {isEn ? "System Prompt" : "Prompt del Sistema"}
+              <label className="font-medium text-sm" htmlFor="guardrail-overrides">
+                {isEn ? "Guardrail overrides (JSON)" : "Overrides de guardrails (JSON)"}
               </label>
               <Textarea
-                className="resize-y font-mono text-[13px]"
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder={
-                  isEn
-                    ? "Enter system instructions for this agent..."
-                    : "Ingresa las instrucciones del sistema para este agente..."
-                }
-                rows={10}
-                value={prompt}
+                id="guardrail-overrides"
+                rows={8}
+                className="font-mono text-[13px]"
+                value={guardrailOverrides}
+                onChange={(e) => setGuardrailOverrides(e.target.value)}
               />
               <div className="flex justify-end">
                 <Badge className="text-[10px] tabular-nums" variant="secondary">
-                  {prompt.length.toLocaleString()}{" "}
-                  {isEn ? "characters" : "caracteres"}
+                  {guardrailOverrides.length.toLocaleString()} {isEn ? "chars" : "caracteres"}
                 </Badge>
               </div>
             </div>
 
-            {/* Tools — categorized */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="font-medium text-sm">
-                  {isEn ? "Allowed Tools" : "Herramientas Permitidas"}
-                </label>
-                <div className="flex items-center gap-2">
-                  <Badge className="text-[10px] tabular-nums" variant="outline">
-                    {enabledTools.size}/{ALL_TOOLS.length}
-                  </Badge>
-                  <Button
-                    className="h-7 text-xs"
-                    onClick={() => setEnabledTools(new Set(ALL_TOOLS))}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    {isEn ? "All" : "Todo"}
-                  </Button>
-                  <Button
-                    className="h-7 text-xs"
-                    onClick={() => setEnabledTools(new Set())}
-                    size="sm"
-                    variant="ghost"
-                  >
-                    {isEn ? "None" : "Ninguno"}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {TOOL_CATEGORIES.map((cat) => {
-                  const enabledCount = cat.tools.filter((t) =>
-                    enabledTools.has(t)
-                  ).length;
-                  const allEnabled = enabledCount === cat.tools.length;
-                  const isCollapsed = collapsedCategories.has(cat.key);
-
-                  return (
-                    <div
-                      className="border-border/40 border-b last:border-b-0"
-                      key={cat.key}
-                    >
-                      <button
-                        className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-muted/30"
-                        onClick={() => toggleCollapse(cat.key)}
-                        type="button"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon
-                            className="text-muted-foreground"
-                            icon={cat.icon}
-                            size={14}
-                          />
-                          <span className="font-medium text-sm">
-                            {isEn ? cat.labelEn : cat.labelEs}
-                          </span>
-                          <Badge
-                            className="text-[10px] tabular-nums"
-                            variant={allEnabled ? "default" : "secondary"}
-                          >
-                            {enabledCount}/{cat.tools.length}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleCategory(cat);
-                            }}
-                            type="button"
-                          >
-                            {allEnabled
-                              ? isEn
-                                ? "Deselect all"
-                                : "Quitar todo"
-                              : isEn
-                                ? "Select all"
-                                : "Seleccionar todo"}
-                          </button>
-                          <Icon
-                            className={cn(
-                              "text-muted-foreground transition-transform",
-                              isCollapsed ? "-rotate-90" : "rotate-0"
-                            )}
-                            icon={ArrowDown01Icon}
-                            size={12}
-                          />
-                        </div>
-                      </button>
-                      {!isCollapsed && (
-                        <div className="grid gap-1.5 px-3 pb-2.5 sm:grid-cols-2">
-                          {cat.tools.map((tool) => (
-                            <label
-                              className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted/30"
-                              key={tool}
-                            >
-                              <Checkbox
-                                checked={enabledTools.has(tool)}
-                                onCheckedChange={() => toggleTool(tool)}
-                              />
-                              <span className="text-[13px]">
-                                {formatToolName(tool)}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Test panel — progressive disclosure */}
             {testOpen && (
               <div className="space-y-3 border-border/50 border-t pt-4">
                 <div className="flex gap-2">

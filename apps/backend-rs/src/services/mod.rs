@@ -1,4 +1,6 @@
 pub mod agent_chats;
+pub mod agent_runtime_v2;
+pub mod agent_specs;
 pub mod ai_agent;
 pub mod ai_guest_reply;
 #[allow(dead_code)]
@@ -44,6 +46,7 @@ pub mod sequences;
 pub mod storage;
 pub mod tenant_screening;
 pub mod token_hash;
+pub mod tool_validator;
 pub mod vision_ai;
 #[allow(dead_code)]
 pub mod voice_agent;

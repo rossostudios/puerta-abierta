@@ -10,6 +10,7 @@ use crate::{
     auth::require_user_id,
     error::AppResult,
     services::{
+        agent_runtime_v2::{inject_runtime_metadata, RuntimeExecutionIds},
         ai_agent::{
             agent_capabilities, run_ai_agent_chat, AgentConversationMessage, RunAiAgentChatParams,
         },
@@ -81,6 +82,8 @@ async fn ai_agent_chat(
     headers: HeaderMap,
     Json(payload): Json<AgentChatInput>,
 ) -> AppResult<Json<Value>> {
+    tracing::warn!("Deprecated endpoint /v1/agent/chat invoked; route is in compatibility mode.");
+
     let user_id = require_user_id(&state, &headers).await?;
     let membership = assert_org_member(&state, &user_id, &payload.org_id).await?;
     let role = membership
@@ -117,6 +120,7 @@ async fn ai_agent_chat(
             chat_id: None,
             requested_by_user_id: Some(&user_id),
             preferred_model: None,
+            max_steps_override: None,
         },
     )
     .await?;
@@ -148,7 +152,9 @@ async fn ai_agent_chat(
         Value::String(payload.org_id.clone()),
     );
     response.insert("role".to_string(), Value::String(role));
+    response.insert("deprecated".to_string(), Value::Bool(true));
     response.extend(result);
+    inject_runtime_metadata(&mut response, &RuntimeExecutionIds::generate());
 
     Ok(Json(Value::Object(response)))
 }

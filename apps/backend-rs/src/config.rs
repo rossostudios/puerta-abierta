@@ -140,7 +140,7 @@ impl AppConfig {
             openai_primary_model: env_or("OPENAI_PRIMARY_MODEL", "gpt-5.2"),
             openai_fallback_models: parse_csv(&env_or("OPENAI_FALLBACK_MODELS", "")),
             openai_model: env_opt("OPENAI_MODEL"),
-            ai_agent_use_responses_api: env_parse_bool_or("AI_AGENT_USE_RESPONSES_API", false),
+            ai_agent_use_responses_api: env_parse_bool_or("AI_AGENT_USE_RESPONSES_API", true),
             ai_agent_max_tool_steps: env_parse_or("AI_AGENT_MAX_TOOL_STEPS", 6),
             ai_agent_timeout_seconds: env_parse_or("AI_AGENT_TIMEOUT_SECONDS", 45),
             clerk_jwks_url: env_opt("CLERK_JWKS_URL"),

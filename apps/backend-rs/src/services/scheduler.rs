@@ -370,6 +370,7 @@ async fn run_cron_agent_playbooks(state: &AppState) {
             chat_id: None,
             requested_by_user_id: None,
             preferred_model: None,
+            max_steps_override: None,
         };
 
         match crate::services::ai_agent::run_ai_agent_chat(state, params).await {
@@ -552,28 +553,23 @@ async fn run_scheduled_agent_playbooks(state: &AppState) {
 
     let mut ran = 0_u32;
     for (schedule_id, org_id, agent_slug, _playbook_name, message) in &rows {
-        // Look up agent
-        let agent: Option<(String, Option<String>, Option<serde_json::Value>)> =
-            sqlx::query_as(
-                "SELECT name, system_prompt, allowed_tools FROM ai_agents WHERE slug = $1 AND is_active = true LIMIT 1",
-            )
-            .bind(agent_slug)
-            .fetch_optional(pool)
-            .await
-            .ok()
-            .flatten();
+        let agent: Option<(String,)> = sqlx::query_as(
+            "SELECT name FROM ai_agents WHERE slug = $1 AND is_active = true LIMIT 1",
+        )
+        .bind(agent_slug)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
 
-        let Some((agent_name, system_prompt, allowed_tools_json)) = agent else {
+        let Some((agent_name,)) = agent else {
             tracing::warn!(agent_slug, "Scheduled agent not found or inactive");
             continue;
         };
 
-        let target_tools: Vec<String> = allowed_tools_json
-            .and_then(|v| v.as_array().cloned())
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|v| v.as_str().map(ToOwned::to_owned))
-            .collect();
+        let target_tools = crate::services::agent_specs::allowed_tools_for_slug(agent_slug);
+        let target_prompt =
+            crate::services::agent_specs::get_agent_spec(agent_slug).map(|spec| spec.system_prompt);
 
         let params = crate::services::ai_agent::RunAiAgentChatParams {
             org_id,
@@ -583,12 +579,13 @@ async fn run_scheduled_agent_playbooks(state: &AppState) {
             allow_mutations: true,
             confirm_write: true,
             agent_name: &agent_name,
-            agent_prompt: system_prompt.as_deref(),
-            allowed_tools: Some(&target_tools),
+            agent_prompt: target_prompt,
+            allowed_tools: target_tools.as_deref(),
             agent_slug: Some(agent_slug),
             chat_id: None,
             requested_by_user_id: None,
             preferred_model: None,
+            max_steps_override: None,
         };
 
         match crate::services::ai_agent::run_ai_agent_chat(state, params).await {

@@ -6,6 +6,7 @@ use sqlx::Row;
 use crate::{
     error::{AppError, AppResult},
     services::{
+        agent_specs::{allowed_tools_for_slug, get_agent_spec},
         ai_agent::{run_ai_agent_chat, RunAiAgentChatParams},
         notification_center::{emit_event, EmitNotificationEventInput},
     },
@@ -73,6 +74,7 @@ async fn run_agent_playbook(
             chat_id: None,
             requested_by_user_id: None,
             preferred_model: None,
+            max_steps_override: None,
         },
     )
     .await?;
@@ -152,7 +154,7 @@ async fn resolve_agent_profile(
     };
 
     let row = sqlx::query(
-        "SELECT slug, name, system_prompt, allowed_tools
+        "SELECT slug, name
          FROM ai_agents
          WHERE slug = $1
            AND is_active = TRUE
@@ -181,21 +183,8 @@ async fn resolve_agent_profile(
     let name = row
         .try_get::<String, _>("name")
         .unwrap_or_else(|_| "Operations Copilot".to_string());
-    let prompt = row
-        .try_get::<Option<String>, _>("system_prompt")
-        .ok()
-        .flatten();
-    let allowed_tools = row
-        .try_get::<Option<Value>, _>("allowed_tools")
-        .ok()
-        .flatten()
-        .and_then(|value| value.as_array().cloned())
-        .map(|items| {
-            items
-                .into_iter()
-                .filter_map(|item| item.as_str().map(ToOwned::to_owned))
-                .collect::<Vec<_>>()
-        });
+    let prompt = get_agent_spec(&slug).map(|spec| spec.system_prompt.to_string());
+    let allowed_tools = allowed_tools_for_slug(&slug);
 
     Ok((slug, name, prompt, allowed_tools))
 }

@@ -1131,6 +1131,27 @@ CREATE TABLE ai_agents (
 CREATE INDEX idx_ai_agents_active_slug
   ON ai_agents(is_active, slug);
 
+CREATE TABLE agent_runtime_overrides (
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  agent_slug text NOT NULL,
+  is_active boolean,
+  model_override text,
+  max_steps_override integer CHECK (max_steps_override IS NULL OR max_steps_override BETWEEN 1 AND 24),
+  allow_mutations_default boolean,
+  guardrail_overrides jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_by uuid REFERENCES app_users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (organization_id, agent_slug)
+);
+
+CREATE INDEX idx_agent_runtime_overrides_org_slug
+  ON agent_runtime_overrides (organization_id, agent_slug);
+
+CREATE TRIGGER trg_agent_runtime_overrides_updated_at
+  BEFORE UPDATE ON agent_runtime_overrides
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 CREATE TABLE ai_chats (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -1946,6 +1967,7 @@ ALTER TABLE workflow_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_job_attempts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_round_robin_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE agent_runtime_overrides ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agent_approvals ENABLE ROW LEVEL SECURITY;
@@ -2171,6 +2193,35 @@ CREATE POLICY workflow_round_robin_state_org_member_all
 CREATE POLICY ai_agents_read_authenticated
   ON ai_agents FOR SELECT
   USING (auth_user_id() IS NOT NULL);
+
+CREATE POLICY agent_runtime_overrides_read_authenticated
+  ON agent_runtime_overrides FOR SELECT
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY agent_runtime_overrides_manage_org_roles
+  ON agent_runtime_overrides FOR ALL
+  USING (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  )
+  WITH CHECK (
+    organization_id IN (
+      SELECT organization_id
+      FROM organization_members
+      WHERE user_id = auth.uid()
+        AND role = ANY (ARRAY['owner_admin', 'operator'])
+    )
+  );
 
 CREATE POLICY ai_chats_owner_all
   ON ai_chats FOR ALL
