@@ -156,7 +156,9 @@ function LeasesManagerInner({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
-    const suffix = searchParams.toString();
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("new");
+    const suffix = params.toString();
     return suffix ? `${pathname}?${suffix}` : pathname;
   }, [pathname, searchParams]);
 
@@ -193,9 +195,11 @@ function LeasesManagerInner({
   }, [resetTenantFields]);
 
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      openCreate();
-    }
+    if (searchParams.get("new") !== "1") return;
+    openCreate();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openEdit = useCallback(

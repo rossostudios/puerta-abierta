@@ -57,7 +57,9 @@ function CollectionsManagerInner({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => {
-    const suffix = searchParams.toString();
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("new");
+    const suffix = params.toString();
     return suffix ? `${pathname}?${suffix}` : pathname;
   }, [pathname, searchParams]);
 
@@ -67,9 +69,11 @@ function CollectionsManagerInner({
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      setOpen(true);
-    }
+    if (searchParams.get("new") !== "1") return;
+    setOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("new");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo<CollectionRow[]>(() => {
