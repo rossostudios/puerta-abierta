@@ -33,7 +33,6 @@ jobs:
     timeout-minutes: 180
     env:
       AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_PROFILE: ""
       DOCKER_BUILDX: "true"
       DOCKER_PLATFORM: "linux/arm64"
 
