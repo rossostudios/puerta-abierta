@@ -2,17 +2,14 @@
 # Build with repo root as context:
 #   docker build -f apps/web/Dockerfile .
 
-FROM node:22-bookworm-slim AS deps
-
-ENV NEXT_TELEMETRY_DISABLED=1 \
-    npm_config_loglevel=warn
+FROM oven/bun:1-slim AS deps
 
 WORKDIR /repo/apps/web
 
-COPY apps/web/package.json apps/web/package-lock.json ./
+COPY apps/web/package.json apps/web/bun.lock ./
 COPY packages/shared-api /repo/packages/shared-api
 
-RUN npm ci --legacy-peer-deps
+RUN bun install --frozen-lockfile
 
 FROM node:22-bookworm-slim AS build
 
@@ -48,12 +45,10 @@ ENV NODE_ENV=production \
 
 WORKDIR /app
 
-COPY --from=build /repo/apps/web/package.json /repo/apps/web/package-lock.json ./
-COPY --from=build /repo/apps/web/.next ./.next
-COPY --from=build /repo/apps/web/public ./public
-COPY --from=build /repo/apps/web/next.config.mjs ./next.config.mjs
-COPY --from=deps /repo/apps/web/node_modules ./node_modules
+COPY --from=build /repo/apps/web/.next/standalone ./
+COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
+COPY --from=build /repo/apps/web/public ./apps/web/public
 
 EXPOSE 3001
 
-CMD ["npm", "run", "start"]
+CMD ["node", "apps/web/server.js"]

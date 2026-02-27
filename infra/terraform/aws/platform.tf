@@ -47,7 +47,7 @@ resource "aws_ecr_lifecycle_policy" "backend" {
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 100
+        countNumber = 20
       }
       action = { type = "expire" }
     }]
@@ -63,7 +63,7 @@ resource "aws_ecr_lifecycle_policy" "admin" {
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 100
+        countNumber = 20
       }
       action = { type = "expire" }
     }]
@@ -79,7 +79,7 @@ resource "aws_ecr_lifecycle_policy" "web" {
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 100
+        countNumber = 20
       }
       action = { type = "expire" }
     }]

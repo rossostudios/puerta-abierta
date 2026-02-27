@@ -31,7 +31,7 @@ on:
         description: "Enable registry-backed buildx cache (may require extra ECR permissions)"
         required: true
         type: boolean
-        default: false
+        default: true
       backend_image_tag:
         description: "Optional existing backend image tag to reuse (skips backend image build)"
         required: false
@@ -43,7 +43,7 @@ on:
         options:
           - ubuntu-24.04-arm
           - ubuntu-latest
-        default: ubuntu-latest
+        default: ubuntu-24.04-arm
 
 permissions:
   id-token: write

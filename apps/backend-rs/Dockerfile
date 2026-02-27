@@ -10,10 +10,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Cache dependency compilation: copy manifests first with a dummy main.rs
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
-COPY src ./src
+RUN mkdir src && echo 'fn main() {}' > src/main.rs
+RUN cargo build --release --locked && \
+    rm -rf src \
+           target/release/.fingerprint/casaora-backend-rs* \
+           target/release/deps/casaora_backend_rs* \
+           target/release/casaora-backend-rs
 
-RUN cargo build --release --locked
+# Now copy real source and rebuild (only app code recompiles)
+COPY src ./src
+RUN touch src/main.rs && cargo build --release --locked
 
 FROM debian:bookworm-slim AS runtime
 

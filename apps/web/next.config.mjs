@@ -6,6 +6,7 @@ const workspaceRoot = resolve(__dirname, "../..");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
   outputFileTracingRoot: workspaceRoot,
   images: {
