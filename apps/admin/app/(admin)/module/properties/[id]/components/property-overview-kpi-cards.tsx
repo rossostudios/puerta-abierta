@@ -11,27 +11,28 @@ type PropertyOverviewKpiCardsProps = {
 /* ---------- threshold color helpers ---------- */
 
 function occupancyColor(rate: number | null) {
-  if (rate === null) return "";
+  if (rate === null) return "text-foreground";
   if (rate >= 80) return "text-[var(--status-success-fg)]";
   if (rate >= 50) return "text-[var(--status-warning-fg)]";
   return "text-[var(--status-danger-fg)]";
 }
 
-function collectionRateColor(rate: number | null) {
-  if (rate === null) return "";
-  if (rate >= 80) return "text-[var(--status-success-fg)]";
-  if (rate >= 50) return "text-[var(--status-warning-fg)]";
-  return "text-[var(--status-danger-fg)]";
-}
+/* ---------- KPI card ---------- */
 
-/* ---------- divider ---------- */
-
-function Divider() {
+function KpiCard({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <span
-      aria-hidden="true"
-      className="hidden h-5 w-px bg-border/60 sm:block"
-    />
+    <div className="flex flex-1 flex-col gap-1 rounded-2xl border border-border/60 bg-card p-4">
+      <span className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
+        {label}
+      </span>
+      <div className="flex items-baseline gap-1.5">{children}</div>
+    </div>
   );
 }
 
@@ -55,74 +56,73 @@ export function PropertyOverviewKpiCards({
         : "";
 
   return (
-    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-border/50 pb-4">
+    <div className="flex flex-wrap gap-3">
       {/* Occupancy */}
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          {isEn ? "OCCUPANCY" : "OCUPACIÓN"}
-        </span>
+      <KpiCard label={isEn ? "Occupancy" : "Ocupación"}>
         <span
           className={cn(
-            "font-bold text-xl tabular-nums",
+            "font-extrabold text-[28px] tabular-nums leading-8 tracking-tight",
             occupancyColor(oRate)
           )}
         >
           {oRate !== null ? `${oRate}%` : "-"}
         </span>
         {overview.vacantUnitCount > 0 && (
-          <span className="text-muted-foreground text-xs">
+          <span
+            className={cn(
+              "text-xs font-medium",
+              oRate !== null && oRate < 50
+                ? "text-[var(--status-danger-fg)]"
+                : "text-muted-foreground"
+            )}
+          >
             {overview.vacantUnitCount} {isEn ? "vacant" : "vacantes"}
           </span>
         )}
-      </div>
-
-      <Divider />
+      </KpiCard>
 
       {/* Projected Rent */}
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          {isEn ? "RENT" : "RENTA"}
-        </span>
-        <span className="font-bold text-xl tabular-nums">
+      <KpiCard label={isEn ? "Monthly Rent" : "Renta Mensual"}>
+        <span className="font-extrabold text-[28px] tabular-nums leading-8 tracking-tight">
           {formatCompactCurrency(overview.projectedRentPyg, "PYG", locale)}
         </span>
         {overview.collectionRate !== null && (
           <span
             className={cn(
               "font-medium text-xs",
-              collectionRateColor(overview.collectionRate)
+              overview.collectionRate >= 80
+                ? "text-[var(--status-success-fg)]"
+                : overview.collectionRate >= 50
+                  ? "text-[var(--status-warning-fg)]"
+                  : "text-[var(--status-danger-fg)]"
             )}
           >
             {overview.collectionRate}% {isEn ? "collected" : "cobrado"}
           </span>
         )}
-      </div>
-
-      <Divider />
+      </KpiCard>
 
       {/* Active Leases */}
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          {isEn ? "LEASES" : "CONTRATOS"}
-        </span>
-        <span className="font-bold text-xl tabular-nums">
+      <KpiCard label={isEn ? "Active Leases" : "Contratos Activos"}>
+        <span className="font-extrabold text-[28px] tabular-nums leading-8 tracking-tight">
           {overview.activeLeaseCount}
         </span>
         {overview.activeReservationCount > 0 && (
           <span className="text-muted-foreground text-xs">
-            +{overview.activeReservationCount} {isEn ? "reservations" : "reservas"}
+            +{overview.activeReservationCount}{" "}
+            {isEn ? "reservations" : "reservas"}
           </span>
         )}
-      </div>
-
-      <Divider />
+      </KpiCard>
 
       {/* Open Tasks */}
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          {isEn ? "TASKS" : "TAREAS"}
-        </span>
-        <span className={cn("font-bold text-xl tabular-nums", taskColor)}>
+      <KpiCard label={isEn ? "Open Tasks" : "Tareas Abiertas"}>
+        <span
+          className={cn(
+            "font-extrabold text-[28px] tabular-nums leading-8 tracking-tight",
+            taskColor
+          )}
+        >
           {overview.openTaskCount}
         </span>
         {overview.urgentTaskCount > 0 && (
@@ -130,17 +130,15 @@ export function PropertyOverviewKpiCards({
             {overview.urgentTaskCount} {isEn ? "urgent" : "urgentes"}
           </span>
         )}
-      </div>
-
-      <Divider />
+      </KpiCard>
 
       {/* Open Collections */}
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-widest">
-          {isEn ? "COLLECTIONS" : "COBROS"}
-        </span>
+      <KpiCard label={isEn ? "Collections" : "Cobros"}>
         <span
-          className={cn("font-bold text-xl tabular-nums", collectionColor)}
+          className={cn(
+            "font-extrabold text-[28px] tabular-nums leading-8 tracking-tight",
+            collectionColor
+          )}
         >
           {overview.openCollectionCount}
         </span>
@@ -149,7 +147,7 @@ export function PropertyOverviewKpiCards({
             {overview.overdueCollectionCount} {isEn ? "overdue" : "vencidos"}
           </span>
         )}
-      </div>
+      </KpiCard>
     </div>
   );
 }

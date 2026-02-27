@@ -1,13 +1,8 @@
-import Link from "next/link";
 import { OrgAccessChanged } from "@/components/shell/org-access-changed";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { fetchList, getApiBaseUrl } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
-import { cn } from "@/lib/utils";
 import { UnitsManager } from "./units-manager";
 
 type PageProps = {
@@ -144,71 +139,12 @@ export default async function UnitsModulePage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="relative rounded-3xl pt-2 pb-4">
-        <div className="relative z-10 grid gap-8 px-2 md:px-4">
-          <div className="flex flex-col justify-between space-y-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge
-                    className="h-7 cursor-pointer rounded-full border-border/30 bg-muted/30 px-3 font-semibold text-[10px] text-muted-foreground uppercase tracking-widest backdrop-blur-sm transition-colors hover:bg-muted/50 hover:text-foreground"
-                    variant="outline"
-                  >
-                    {isEn ? "Portfolio" : "Portafolio"}
-                  </Badge>
-                  <Badge className="h-7 rounded-full border-primary/20 bg-primary/10 px-3 font-semibold text-[10px] text-primary uppercase tracking-widest backdrop-blur-sm">
-                    {isEn ? "Units" : "Unidades"}
-                  </Badge>
-                </div>
-                <div className="space-y-1">
-                  <h1 className="font-bold text-3xl text-foreground tracking-tight sm:text-4xl">
-                    {isEn ? "Units" : "Unidades"}
-                  </h1>
-                  <p className="max-w-2xl font-medium text-muted-foreground text-sm leading-relaxed">
-                    {isEn
-                      ? "Define rentable units with occupancy and capacity settings."
-                      : "Define unidades rentables con configuración de capacidad y ocupación."}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "h-9 rounded-full border-border/40 bg-muted/40 px-4 text-muted-foreground transition-all hover:bg-muted/80"
-                  )}
-                  href="/module/properties"
-                >
-                  {isEn ? "Properties" : "Propiedades"}
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="space-y-4">
-        {errorAlertMessage ? (
-          <Alert variant="destructive">
-            <AlertTitle>
-              {isEn
-                ? "Could not complete request"
-                : "No se pudo completar la solicitud"}
-            </AlertTitle>
-            <AlertDescription>{errorAlertMessage}</AlertDescription>
-          </Alert>
-        ) : null}
-        {successMessage ? (
-          <Alert variant="success">
-            <AlertTitle>
-              {isEn ? "Success" : "Éxito"}: {successMessage}
-            </AlertTitle>
-          </Alert>
-        ) : null}
-
-        <UnitsManager orgId={orgId} properties={properties} units={units} />
-      </div>
-    </div>
+    <UnitsManager
+      error={errorAlertMessage}
+      orgId={orgId}
+      properties={properties}
+      success={successMessage}
+      units={units}
+    />
   );
 }

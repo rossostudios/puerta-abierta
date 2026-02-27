@@ -10,19 +10,19 @@ import {
   Layers01Icon,
   MoreVerticalIcon,
   PencilEdit02Icon,
+  SlidersHorizontalIcon,
   Tag01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
 import {
   type ColumnDef,
-  type ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   type SortingState,
   useReactTable,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import {
@@ -39,7 +39,6 @@ import { EditableCell } from "@/components/properties/editable-cell";
 import { buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +48,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
-import { Select } from "@/components/ui/select";
+import {
+  PopoverContent,
+  PopoverRoot,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   Table,
@@ -59,6 +62,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { humanizeKey } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* ---------- helpers ---------- */
@@ -118,22 +122,7 @@ export function UnitNotionTable({
   const [, startTransition] = useTransition();
 
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [globalFilter, setGlobalFilter] = useState("");
-
-  const uniqueProperties = useMemo(() => {
-    return Array.from(
-      new Set(rows.map((r) => r.property_name).filter(Boolean))
-    ) as string[];
-  }, [rows]);
-
-  const uniqueBedrooms = useMemo(() => {
-    return Array.from(
-      new Set(
-        rows.map((r) => r.bedrooms).filter((r) => r !== null && r !== undefined)
-      )
-    ).sort((a, b) => Number(a) - Number(b)) as number[];
-  }, [rows]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
   const [optimisticRows, addOptimistic] = useOptimistic(
     rows,
@@ -193,6 +182,7 @@ export function UnitNotionTable({
         minSize: 40,
         maxSize: 40,
         enableResizing: false,
+        enableHiding: false,
         header: ({ table }) => (
           <Checkbox
             aria-label="Select all"
@@ -383,6 +373,7 @@ export function UnitNotionTable({
         minSize: 48,
         maxSize: 48,
         enableResizing: false,
+        enableHiding: false,
         cell: ({ row }) => {
           const unit = row.original;
           return (
@@ -426,6 +417,17 @@ export function UnitNotionTable({
     [isEn, commitText, commitNumber, router]
   );
 
+  const COLUMN_LABELS: Record<string, string> = {
+    property_name: isEn ? "Property" : "Propiedad",
+    name: isEn ? "Name" : "Nombre",
+    code: isEn ? "Code" : "Código",
+    max_guests: isEn ? "Guests" : "Huéspedes",
+    bedrooms: isEn ? "Bedrooms" : "Dormitorios",
+    bathrooms: isEn ? "Bathrooms" : "Baños",
+    currency: isEn ? "Currency" : "Moneda",
+    is_active: isEn ? "Active" : "Activo",
+  };
+
   // eslint-disable-next-line react-hooks-js/incompatible-library
   const table = useReactTable({
     data: optimisticRows,
@@ -433,78 +435,48 @@ export function UnitNotionTable({
     columnResizeMode: "onChange",
     state: {
       sorting,
-      columnFilters,
-      globalFilter,
+      columnVisibility,
     },
     onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <DataTableToolbar
-          active={globalFilter.length > 0 || columnFilters.length > 0}
-          globalFilter={globalFilter}
-          hideSearch={false}
-          isEn={isEn}
-          reset={() => {
-            setGlobalFilter("");
-            setColumnFilters([]);
-          }}
-          searchPlaceholder={isEn ? "Search units..." : "Buscar unidades..."}
-          setGlobalFilter={setGlobalFilter}
-          table={table}
-        />
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            className="w-[180px]"
-            onChange={(e) => {
-              const val = e.target.value;
-              table
-                .getColumn("property_name")
-                ?.setFilterValue(val === "all" ? undefined : val);
-            }}
-            value={
-              (table.getColumn("property_name")?.getFilterValue() as string) ??
-              "all"
-            }
+    <div className="space-y-3">
+      <div className="flex items-center justify-end">
+        <PopoverRoot>
+          <PopoverTrigger
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "h-9 gap-2 rounded-xl border-border/60 font-semibold text-muted-foreground hover:bg-muted"
+            )}
           >
-            <option value="all">
-              {isEn ? "All properties" : "Todas las propiedades"}
-            </option>
-            {uniqueProperties.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className="w-[140px]"
-            onChange={(e) => {
-              const val = e.target.value;
-              table
-                .getColumn("bedrooms")
-                ?.setFilterValue(val === "all" ? undefined : Number(val));
-            }}
-            value={
-              (table.getColumn("bedrooms")?.getFilterValue() as string) ?? "all"
-            }
-          >
-            <option value="all">{isEn ? "All beds" : "Todas las camas"}</option>
-            {uniqueBedrooms.map((b) => (
-              <option key={String(b)} value={String(b)}>
-                {b}{" "}
-                {isEn ? (b === 1 ? "bed" : "beds") : b === 1 ? "hab." : "habs."}
-              </option>
-            ))}
-          </Select>
-        </div>
+            <Icon icon={SlidersHorizontalIcon} size={15} />
+            {isEn ? "Columns" : "Columnas"}
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-[200px] p-2">
+            {table
+              .getAllLeafColumns()
+              .filter((col) => col.getCanHide())
+              .map((col) => (
+                <label
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted"
+                  key={col.id}
+                >
+                  <Checkbox
+                    checked={col.getIsVisible()}
+                    onCheckedChange={(v) => col.toggleVisibility(!!v)}
+                  />
+                  <span className="truncate">
+                    {COLUMN_LABELS[col.id] ?? humanizeKey(col.id)}
+                  </span>
+                </label>
+              ))}
+          </PopoverContent>
+        </PopoverRoot>
       </div>
       <div className="overflow-x-auto rounded-xl border bg-background shadow-[var(--shadow-floating)]">
         <Table
@@ -600,10 +572,10 @@ export function UnitNotionTable({
         </Table>
       </div>
       <DataTablePagination
-        filteredRows={table.getFilteredRowModel().rows.length}
+        filteredRows={table.getRowModel().rows.length}
         isEn={isEn}
         table={table}
-        totalRows={table.getCoreRowModel().rows.length}
+        totalRows={optimisticRows.length}
       />
     </div>
   );
