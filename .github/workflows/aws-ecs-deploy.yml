@@ -81,6 +81,7 @@ jobs:
       BACKEND_IMAGE_TAG: ${{ inputs.backend_image_tag }}
       DOCKER_BUILDX: "true"
       DOCKER_PLATFORM: "linux/arm64"
+      DOCKER_CONFIG_ISOLATED: "false"
 
     steps:
       - uses: actions/checkout@v4
