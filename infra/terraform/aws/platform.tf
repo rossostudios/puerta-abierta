@@ -13,7 +13,7 @@ resource "aws_ecs_cluster" "main" {
 
 resource "aws_ecr_repository" "backend" {
   name                 = local.names.backend_ecr
-  image_tag_mutability = "IMMUTABLE"
+  image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
@@ -22,7 +22,7 @@ resource "aws_ecr_repository" "backend" {
 
 resource "aws_ecr_repository" "admin" {
   name                 = local.names.admin_ecr
-  image_tag_mutability = "IMMUTABLE"
+  image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
@@ -31,7 +31,7 @@ resource "aws_ecr_repository" "admin" {
 
 resource "aws_ecr_repository" "web" {
   name                 = local.names.web_ecr
-  image_tag_mutability = "IMMUTABLE"
+  image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true

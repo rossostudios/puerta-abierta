@@ -200,7 +200,7 @@ else
     if [[ "${DOCKER_REGISTRY_CACHE}" == "true" ]]; then
       buildx_args+=(
         --cache-from "type=registry,ref=${build_cache_ref}"
-        --cache-to "type=registry,ref=${build_cache_ref},mode=max"
+        --cache-to "type=registry,ref=${build_cache_ref},mode=max,ignore-error=true"
       )
     else
       echo "==> Registry cache disabled for this run"
