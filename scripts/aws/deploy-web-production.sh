@@ -45,6 +45,30 @@ aws_cmd() {
   "${args[@]}" "$@"
 }
 
+resolve_existing_secret_ref() {
+  local secret_name="$1"
+  local existing_ref=""
+
+  if [[ -n "${current_taskdef_arn:-}" ]]; then
+    existing_ref="$(
+      aws_cmd ecs describe-task-definition \
+        --task-definition "${current_taskdef_arn}" \
+        --query "taskDefinition.containerDefinitions[?name=='${CONTAINER_NAME}'].secrets[?name=='${secret_name}'].valueFrom | [0][0]" \
+        --output text 2>/dev/null || true
+    )"
+    if [[ "${existing_ref}" == "None" ]]; then
+      existing_ref=""
+    fi
+  fi
+
+  if [[ -n "${existing_ref}" ]]; then
+    printf '%s' "${existing_ref}"
+    return
+  fi
+
+  printf '%s' "${secret_name}"
+}
+
 require_bin() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "missing required command: $1" >&2
@@ -78,6 +102,13 @@ fi
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
+current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
+if [[ "${current_taskdef_arn}" == "None" ]]; then
+  current_taskdef_arn=""
+fi
+
+clerk_publishable_secret_ref="$(resolve_existing_secret_ref "${SECRET_CLERK_PUBLISHABLE_NAME}")"
+clerk_secret_ref="$(resolve_existing_secret_ref "${SECRET_CLERK_SECRET_NAME}")"
 
 clerk_publishable_key="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
 if [[ -z "${clerk_publishable_key}" ]]; then
@@ -139,8 +170,8 @@ jq \
   --arg admin_url "${NEXT_PUBLIC_ADMIN_URL}" \
   --arg clerk_domain "${CLERK_DOMAIN}" \
   --arg clerk_js_url "${CLERK_JS_URL}" \
-  --arg clerk_publishable_secret_ref "${SECRET_CLERK_PUBLISHABLE_NAME}" \
-  --arg clerk_secret_ref "${SECRET_CLERK_SECRET_NAME}" \
+  --arg clerk_publishable_secret_ref "${clerk_publishable_secret_ref}" \
+  --arg clerk_secret_ref "${clerk_secret_ref}" \
   '
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].environment |= map(
