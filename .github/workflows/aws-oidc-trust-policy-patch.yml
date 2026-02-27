@@ -1,0 +1,122 @@
+name: AWS OIDC Trust Policy Patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "GitHub repository in owner/name format"
+        required: true
+        default: "rossostudios/casaora"
+      branch:
+        description: "Branch allowed to assume the deploy role"
+        required: true
+        default: "main"
+      environment_name:
+        description: "GitHub environment allowed to assume the deploy role"
+        required: true
+        default: "Production"
+      role_arn:
+        description: "Optional override. Defaults to AWS_GITHUB_OIDC_ROLE_ARN secret."
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  patch-trust-policy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve role ARN
+        id: role
+        shell: bash
+        env:
+          INPUT_ROLE_ARN: ${{ inputs.role_arn }}
+          SECRET_ROLE_ARN: ${{ secrets.AWS_GITHUB_OIDC_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          ROLE_ARN="${INPUT_ROLE_ARN}"
+          if [[ -z "${ROLE_ARN}" ]]; then
+            ROLE_ARN="${SECRET_ROLE_ARN}"
+          fi
+          if [[ -z "${ROLE_ARN}" ]]; then
+            echo "AWS_GITHUB_OIDC_ROLE_ARN is not set and no role_arn input was provided." >&2
+            exit 1
+          fi
+          echo "::add-mask::${ROLE_ARN}"
+          echo "role_arn=${ROLE_ARN}" >> "${GITHUB_OUTPUT}"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.role.outputs.role_arn }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Patch IAM role trust policy
+        shell: bash
+        env:
+          ROLE_ARN: ${{ steps.role.outputs.role_arn }}
+          GH_REPOSITORY: ${{ inputs.repository }}
+          GH_BRANCH: ${{ inputs.branch }}
+          GH_ENVIRONMENT: ${{ inputs.environment_name }}
+        run: |
+          set -euo pipefail
+
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          ROLE_NAME="${ROLE_ARN##*/}"
+          OIDC_PROVIDER_ARN="arn:aws:iam::${ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+
+          cat > trust-policy.json <<EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "${OIDC_PROVIDER_ARN}"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                  },
+                  "StringLike": {
+                    "token.actions.githubusercontent.com:sub": [
+                      "repo:${GH_REPOSITORY}:ref:refs/heads/${GH_BRANCH}",
+                      "repo:${GH_REPOSITORY}:environment:${GH_ENVIRONMENT}"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+
+          aws iam update-assume-role-policy \
+            --role-name "${ROLE_NAME}" \
+            --policy-document "file://trust-policy.json"
+
+          aws iam get-role \
+            --role-name "${ROLE_NAME}" \
+            --query "Role.AssumeRolePolicyDocument" \
+            --output json > updated-assume-role-policy.json
+
+          {
+            echo "## OIDC Trust Policy Updated"
+            echo ""
+            echo "- role: \`${ROLE_NAME}\`"
+            echo "- repository subject: \`repo:${GH_REPOSITORY}:ref:refs/heads/${GH_BRANCH}\`"
+            echo "- environment subject: \`repo:${GH_REPOSITORY}:environment:${GH_ENVIRONMENT}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload updated policy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: updated-assume-role-policy
+          path: updated-assume-role-policy.json
