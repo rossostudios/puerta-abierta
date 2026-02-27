@@ -43,14 +43,29 @@ aws_cmd() {
   "${args[@]}" "$@"
 }
 
-secret_arn() {
-  local secret_name="$1"
-  aws_cmd secretsmanager describe-secret --secret-id "${secret_name}" --query 'ARN' --output text
-}
+resolve_existing_secret_ref() {
+  local env_var_name="$1"
+  local secret_name="$2"
+  local existing_ref=""
 
-secret_string() {
-  local secret_name="$1"
-  aws_cmd secretsmanager get-secret-value --secret-id "${secret_name}" --query 'SecretString' --output text
+  if [[ -n "${current_taskdef_arn:-}" ]]; then
+    existing_ref="$(
+      aws_cmd ecs describe-task-definition \
+        --task-definition "${current_taskdef_arn}" \
+        --query "taskDefinition.containerDefinitions[?name=='${CONTAINER_NAME}'].secrets[?name=='${env_var_name}'].valueFrom | [0][0]" \
+        --output text 2>/dev/null || true
+    )"
+    if [[ "${existing_ref}" == "None" ]]; then
+      existing_ref=""
+    fi
+  fi
+
+  if [[ -n "${existing_ref}" ]]; then
+    printf '%s' "${existing_ref}"
+    return
+  fi
+
+  printf '%s' "${secret_name}"
 }
 
 require_bin() {
@@ -86,10 +101,19 @@ fi
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
+current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
+if [[ "${current_taskdef_arn}" == "None" ]]; then
+  current_taskdef_arn=""
+fi
 
-clerk_publishable_secret_arn="$(secret_arn "${SECRET_CLERK_PUBLISHABLE_NAME}")"
-clerk_secret_secret_arn="$(secret_arn "${SECRET_CLERK_SECRET_NAME}")"
-clerk_publishable_key="$(secret_string "${SECRET_CLERK_PUBLISHABLE_NAME}")"
+clerk_publishable_secret_ref="$(resolve_existing_secret_ref "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" "${SECRET_CLERK_PUBLISHABLE_NAME}")"
+clerk_secret_ref="$(resolve_existing_secret_ref "CLERK_SECRET_KEY" "${SECRET_CLERK_SECRET_NAME}")"
+
+clerk_publishable_key="${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+if [[ -z "${clerk_publishable_key}" ]]; then
+  echo "Missing NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY. Set it in the GitHub Production environment secrets." >&2
+  exit 1
+fi
 
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
@@ -142,8 +166,8 @@ jq \
   --arg site_url "${NEXT_PUBLIC_SITE_URL}" \
   --arg clerk_domain "${CLERK_DOMAIN}" \
   --arg clerk_js_url "${CLERK_JS_URL}" \
-  --arg clerk_publishable_secret_arn "${clerk_publishable_secret_arn}" \
-  --arg clerk_secret_secret_arn "${clerk_secret_secret_arn}" \
+  --arg clerk_publishable_secret_ref "${clerk_publishable_secret_ref}" \
+  --arg clerk_secret_ref "${clerk_secret_ref}" \
   '
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].environment |= map(
@@ -155,8 +179,8 @@ jq \
         end
       )
     | .containerDefinitions[0].secrets |= map(
-        if .name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" then .valueFrom = $clerk_publishable_secret_arn
-        elif .name == "CLERK_SECRET_KEY" then .valueFrom = $clerk_secret_secret_arn
+        if .name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" then .valueFrom = $clerk_publishable_secret_ref
+        elif .name == "CLERK_SECRET_KEY" then .valueFrom = $clerk_secret_ref
         else .
         end
       )

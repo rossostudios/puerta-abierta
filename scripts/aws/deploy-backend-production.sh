@@ -38,11 +38,29 @@ aws_cmd() {
   "${args[@]}" "$@"
 }
 
-secret_arn() {
-  local secret_name="$1"
-  aws_cmd secretsmanager describe-secret \
-    --secret-id "${secret_name}" \
-    --query 'ARN' --output text
+resolve_existing_secret_ref() {
+  local env_var_name="$1"
+  local secret_name="$2"
+  local existing_ref=""
+
+  if [[ -n "${current_taskdef_arn:-}" ]]; then
+    existing_ref="$(
+      aws_cmd ecs describe-task-definition \
+        --task-definition "${current_taskdef_arn}" \
+        --query "taskDefinition.containerDefinitions[?name=='${CONTAINER_NAME}'].secrets[?name=='${env_var_name}'].valueFrom | [0][0]" \
+        --output text 2>/dev/null || true
+    )"
+    if [[ "${existing_ref}" == "None" ]]; then
+      existing_ref=""
+    fi
+  fi
+
+  if [[ -n "${existing_ref}" ]]; then
+    printf '%s' "${existing_ref}"
+    return
+  fi
+
+  printf '%s' "${secret_name}"
 }
 
 if ! command -v "${DOCKER_BIN}" >/dev/null 2>&1; then
@@ -70,10 +88,14 @@ fi
 account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 repo_uri="$(aws_cmd ecr describe-repositories --repository-names "${REPOSITORY_NAME}" --query 'repositories[0].repositoryUri' --output text)"
 image_uri="${repo_uri}:${IMAGE_TAG}"
+current_taskdef_arn="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
+if [[ "${current_taskdef_arn}" == "None" ]]; then
+  current_taskdef_arn=""
+fi
 
-database_url_secret_arn="$(secret_arn "${SECRET_DATABASE_URL_NAME}")"
-openai_secret_arn="$(secret_arn "${SECRET_OPENAI_NAME}")"
-internal_api_key_secret_arn="$(secret_arn "${SECRET_INTERNAL_API_KEY_NAME}")"
+database_url_secret_ref="$(resolve_existing_secret_ref "DATABASE_URL" "${SECRET_DATABASE_URL_NAME}")"
+openai_secret_ref="$(resolve_existing_secret_ref "OPENAI_API_KEY" "${SECRET_OPENAI_NAME}")"
+internal_api_key_secret_ref="$(resolve_existing_secret_ref "INTERNAL_API_KEY" "${SECRET_INTERNAL_API_KEY_NAME}")"
 
 echo "==> Logging into ECR"
 aws_cmd ecr get-login-password | "${DOCKER_BIN}" login --username AWS --password-stdin "${account_id}.dkr.ecr.${REGION}.amazonaws.com" >/dev/null
@@ -113,15 +135,15 @@ echo "==> Registering task definition"
 tmp_taskdef="$(mktemp)"
 jq \
   --arg image_uri "${image_uri}" \
-  --arg db_secret_arn "${database_url_secret_arn}" \
-  --arg openai_secret_arn "${openai_secret_arn}" \
-  --arg internal_api_key_secret_arn "${internal_api_key_secret_arn}" \
+  --arg db_secret_ref "${database_url_secret_ref}" \
+  --arg openai_secret_ref "${openai_secret_ref}" \
+  --arg internal_api_key_secret_ref "${internal_api_key_secret_ref}" \
   '
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].secrets |= map(
-        if .name == "DATABASE_URL" then .valueFrom = $db_secret_arn
-        elif .name == "OPENAI_API_KEY" then .valueFrom = $openai_secret_arn
-        elif .name == "INTERNAL_API_KEY" then .valueFrom = $internal_api_key_secret_arn
+        if .name == "DATABASE_URL" then .valueFrom = $db_secret_ref
+        elif .name == "OPENAI_API_KEY" then .valueFrom = $openai_secret_ref
+        elif .name == "INTERNAL_API_KEY" then .valueFrom = $internal_api_key_secret_ref
         else .
         end
       )
