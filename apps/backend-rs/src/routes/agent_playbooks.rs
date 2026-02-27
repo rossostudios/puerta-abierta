@@ -75,6 +75,7 @@ async fn run_agent_playbook(
             requested_by_user_id: None,
             preferred_model: None,
             max_steps_override: None,
+            runtime_context: None,
         },
     )
     .await?;

@@ -8,11 +8,13 @@ use serde_json::{Map, Value};
 
 use crate::{
     auth::require_user_id,
-    error::AppResult,
+    error::{AppError, AppResult},
     services::{
+        agent_runtime_rollout::evaluate_legacy_chat_shim,
         agent_runtime_v2::{inject_runtime_metadata, RuntimeExecutionIds},
         ai_agent::{
             agent_capabilities, run_ai_agent_chat, AgentConversationMessage, RunAiAgentChatParams,
+            RuntimeExecutionContext,
         },
         audit::write_audit_log,
     },
@@ -84,6 +86,26 @@ async fn ai_agent_chat(
 ) -> AppResult<Json<Value>> {
     tracing::warn!("Deprecated endpoint /v1/agent/chat invoked; route is in compatibility mode.");
 
+    let legacy_shim_decision = evaluate_legacy_chat_shim(&state, &payload.org_id).await;
+    if !legacy_shim_decision.allowed {
+        return Err(AppError::Gone(legacy_shim_decision.reason.unwrap_or_else(
+            || {
+                "Legacy /agent/chat has been sunset. Use /agent/chats/{chatId}/messages."
+                    .to_string()
+            },
+        )));
+    }
+    if let Some(reason) = legacy_shim_decision.reason.as_deref() {
+        tracing::warn!(
+            org_id = payload.org_id,
+            recent_calls = legacy_shim_decision.recent_calls,
+            max_calls = legacy_shim_decision.max_calls,
+            window_days = legacy_shim_decision.window_days,
+            reason = reason,
+            "Legacy /agent/chat shim allowed with rollout note"
+        );
+    }
+
     let user_id = require_user_id(&state, &headers).await?;
     let membership = assert_org_member(&state, &user_id, &payload.org_id).await?;
     let role = membership
@@ -103,6 +125,7 @@ async fn ai_agent_chat(
             content: item.content.clone(),
         })
         .collect::<Vec<_>>();
+    let runtime_ids = RuntimeExecutionIds::generate();
 
     let result = run_ai_agent_chat(
         &state,
@@ -121,6 +144,14 @@ async fn ai_agent_chat(
             requested_by_user_id: Some(&user_id),
             preferred_model: None,
             max_steps_override: None,
+            runtime_context: Some(RuntimeExecutionContext {
+                run_id: Some(runtime_ids.run_id.as_str()),
+                trace_id: Some(runtime_ids.trace_id.as_str()),
+                llm_transport: None,
+                is_shadow_run: false,
+                shadow_of_run_id: None,
+                disable_shadow: false,
+            }),
         },
     )
     .await?;
@@ -129,7 +160,7 @@ async fn ai_agent_chat(
         state.db_pool.as_ref(),
         Some(&payload.org_id),
         Some(&user_id),
-        "agent.chat",
+        "agent.chat.legacy_shim",
         "ai_agent",
         None,
         None,
@@ -137,6 +168,12 @@ async fn ai_agent_chat(
             "role": role,
             "allow_mutations": payload.allow_mutations,
             "tool_trace_count": tool_trace_count(&result),
+            "recent_calls_window": legacy_shim_decision.recent_calls,
+            "window_days": legacy_shim_decision.window_days,
+            "max_calls_threshold": legacy_shim_decision.max_calls,
+            "run_id": runtime_ids.run_id.clone(),
+            "trace_id": runtime_ids.trace_id.clone(),
+            "llm_transport": result.get("llm_transport").cloned().unwrap_or(Value::Null),
         })),
     )
     .await;
@@ -154,7 +191,7 @@ async fn ai_agent_chat(
     response.insert("role".to_string(), Value::String(role));
     response.insert("deprecated".to_string(), Value::Bool(true));
     response.extend(result);
-    inject_runtime_metadata(&mut response, &RuntimeExecutionIds::generate());
+    inject_runtime_metadata(&mut response, &runtime_ids);
 
     Ok(Json(Value::Object(response)))
 }

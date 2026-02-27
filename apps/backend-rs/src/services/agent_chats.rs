@@ -3,13 +3,13 @@ use sqlx::Row;
 
 use crate::{
     error::{AppError, AppResult},
-    services::agent_specs::get_agent_spec,
+    services::{agent_runtime_v2::RuntimeExecutionIds, agent_specs::get_agent_spec},
     state::AppState,
 };
 
 use super::ai_agent::{
     run_ai_agent_chat, run_ai_agent_chat_streaming, AgentConversationMessage, AgentStreamEvent,
-    RunAiAgentChatParams,
+    RunAiAgentChatParams, RuntimeExecutionContext,
 };
 
 const MAX_CHAT_LIMIT: i64 = 100;
@@ -293,6 +293,7 @@ pub async fn send_chat_message(
     message: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    runtime_ids: Option<&RuntimeExecutionIds>,
 ) -> AppResult<Map<String, Value>> {
     let chat = ensure_chat_owner(state, chat_id, org_id, user_id).await?;
     let agent_id = value_str(&chat, "agent_id").unwrap_or_default();
@@ -369,6 +370,14 @@ pub async fn send_chat_message(
         .as_ref()
         .and_then(|override_row| override_row.max_steps_override)
         .or(Some(canonical_spec.max_steps));
+    let runtime_context = runtime_ids.map(|ids| RuntimeExecutionContext {
+        run_id: Some(ids.run_id.as_str()),
+        trace_id: Some(ids.trace_id.as_str()),
+        llm_transport: None,
+        is_shadow_run: false,
+        shadow_of_run_id: None,
+        disable_shadow: false,
+    });
 
     let agent_result = run_ai_agent_chat(
         state,
@@ -387,6 +396,7 @@ pub async fn send_chat_message(
             requested_by_user_id: Some(user_id),
             preferred_model: effective_preferred_model.as_deref(),
             max_steps_override,
+            runtime_context,
         },
     )
     .await?;
@@ -519,6 +529,7 @@ pub async fn send_chat_message_streaming(
     message: &str,
     allow_mutations: bool,
     confirm_write: bool,
+    runtime_ids: Option<&RuntimeExecutionIds>,
     stream_tx: tokio::sync::mpsc::Sender<AgentStreamEvent>,
 ) -> AppResult<()> {
     let chat = ensure_chat_owner(state, chat_id, org_id, user_id).await?;
@@ -597,6 +608,14 @@ pub async fn send_chat_message_streaming(
         .as_ref()
         .and_then(|override_row| override_row.max_steps_override)
         .or(Some(canonical_spec.max_steps));
+    let runtime_context = runtime_ids.map(|ids| RuntimeExecutionContext {
+        run_id: Some(ids.run_id.as_str()),
+        trace_id: Some(ids.trace_id.as_str()),
+        llm_transport: None,
+        is_shadow_run: false,
+        shadow_of_run_id: None,
+        disable_shadow: false,
+    });
 
     let agent_result = run_ai_agent_chat_streaming(
         state,
@@ -615,6 +634,7 @@ pub async fn send_chat_message_streaming(
             requested_by_user_id: Some(user_id),
             preferred_model: effective_preferred_model.as_deref(),
             max_steps_override,
+            runtime_context,
         },
         stream_tx,
     )

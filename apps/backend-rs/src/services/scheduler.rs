@@ -371,6 +371,7 @@ async fn run_cron_agent_playbooks(state: &AppState) {
             requested_by_user_id: None,
             preferred_model: None,
             max_steps_override: None,
+            runtime_context: None,
         };
 
         match crate::services::ai_agent::run_ai_agent_chat(state, params).await {
@@ -586,6 +587,7 @@ async fn run_scheduled_agent_playbooks(state: &AppState) {
             requested_by_user_id: None,
             preferred_model: None,
             max_steps_override: None,
+            runtime_context: None,
         };
 
         match crate::services::ai_agent::run_ai_agent_chat(state, params).await {

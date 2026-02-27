@@ -1,4 +1,5 @@
 pub mod agent_chats;
+pub mod agent_runtime_rollout;
 pub mod agent_runtime_v2;
 pub mod agent_specs;
 pub mod ai_agent;

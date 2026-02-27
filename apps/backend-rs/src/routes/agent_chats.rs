@@ -335,6 +335,7 @@ async fn post_agent_chat_message(
         &payload.message,
         allow_mutations,
         confirm_write,
+        Some(&runtime_ids),
     )
     .await?;
 
@@ -404,6 +405,7 @@ async fn post_agent_chat_message_stream(
     let message = payload.message.clone();
     let allow_mutations = payload.allow_mutations.unwrap_or(true);
     let confirm_write = payload.confirm_write.unwrap_or(true);
+    let runtime_ids_for_run = runtime_ids.clone();
 
     tokio::spawn(async move {
         let result = agent_chats::send_chat_message_streaming(
@@ -415,6 +417,7 @@ async fn post_agent_chat_message_stream(
             &message,
             allow_mutations,
             confirm_write,
+            Some(&runtime_ids_for_run),
             tx,
         )
         .await;

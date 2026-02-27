@@ -59,6 +59,19 @@ pub struct AppConfig {
     pub ai_agent_use_responses_api: bool,
     pub ai_agent_max_tool_steps: u32,
     pub ai_agent_timeout_seconds: u64,
+    pub ai_agent_rollout_mode: String,
+    pub ai_agent_rollout_canary_percentage: u32,
+    pub ai_agent_shadow_mode_enabled: bool,
+    pub ai_agent_shadow_mode_percentage: u32,
+    pub ai_agent_rollout_gate_enabled: bool,
+    pub ai_agent_rollout_gate_window_minutes: i32,
+    pub ai_agent_rollout_gate_min_samples: i64,
+    pub ai_agent_rollout_gate_max_error_rate: f64,
+    pub ai_agent_rollout_gate_max_mismatch_rate: f64,
+    pub ai_agent_legacy_chat_shim_enabled: bool,
+    pub ai_agent_legacy_chat_cutoff_at: Option<String>,
+    pub ai_agent_legacy_chat_window_days: i32,
+    pub ai_agent_legacy_chat_max_calls: i64,
     pub clerk_jwks_url: Option<String>,
     pub clerk_issuer_url: Option<String>,
     pub clerk_jwt_audience: Option<String>,
@@ -114,6 +127,12 @@ impl AppConfig {
     pub fn from_env() -> Self {
         let environment = env_or("ENVIRONMENT", "development");
         let db_fail_fast_default = environment.trim().eq_ignore_ascii_case("production");
+        let ai_agent_use_responses_api = env_parse_bool_or("AI_AGENT_USE_RESPONSES_API", true);
+        let rollout_mode_default = if ai_agent_use_responses_api {
+            "canary"
+        } else {
+            "legacy"
+        };
 
         Self {
             app_name: env_or("APP_NAME", "Casaora API"),
@@ -140,9 +159,40 @@ impl AppConfig {
             openai_primary_model: env_or("OPENAI_PRIMARY_MODEL", "gpt-5.2"),
             openai_fallback_models: parse_csv(&env_or("OPENAI_FALLBACK_MODELS", "")),
             openai_model: env_opt("OPENAI_MODEL"),
-            ai_agent_use_responses_api: env_parse_bool_or("AI_AGENT_USE_RESPONSES_API", true),
+            ai_agent_use_responses_api,
             ai_agent_max_tool_steps: env_parse_or("AI_AGENT_MAX_TOOL_STEPS", 6),
             ai_agent_timeout_seconds: env_parse_or("AI_AGENT_TIMEOUT_SECONDS", 45),
+            ai_agent_rollout_mode: env_or("AI_AGENT_ROLLOUT_MODE", rollout_mode_default),
+            ai_agent_rollout_canary_percentage: env_parse_or(
+                "AI_AGENT_ROLLOUT_CANARY_PERCENTAGE",
+                100,
+            ),
+            ai_agent_shadow_mode_enabled: env_parse_bool_or("AI_AGENT_SHADOW_MODE_ENABLED", true),
+            ai_agent_shadow_mode_percentage: env_parse_or("AI_AGENT_SHADOW_MODE_PERCENTAGE", 25),
+            ai_agent_rollout_gate_enabled: env_parse_bool_or("AI_AGENT_ROLLOUT_GATE_ENABLED", true),
+            ai_agent_rollout_gate_window_minutes: env_parse_or(
+                "AI_AGENT_ROLLOUT_GATE_WINDOW_MINUTES",
+                60,
+            ),
+            ai_agent_rollout_gate_min_samples: env_parse_or(
+                "AI_AGENT_ROLLOUT_GATE_MIN_SAMPLES",
+                20,
+            ),
+            ai_agent_rollout_gate_max_error_rate: env_parse_or(
+                "AI_AGENT_ROLLOUT_GATE_MAX_ERROR_RATE",
+                0.15,
+            ),
+            ai_agent_rollout_gate_max_mismatch_rate: env_parse_or(
+                "AI_AGENT_ROLLOUT_GATE_MAX_MISMATCH_RATE",
+                0.25,
+            ),
+            ai_agent_legacy_chat_shim_enabled: env_parse_bool_or(
+                "AI_AGENT_LEGACY_CHAT_SHIM_ENABLED",
+                true,
+            ),
+            ai_agent_legacy_chat_cutoff_at: env_opt("AI_AGENT_LEGACY_CHAT_CUTOFF_AT"),
+            ai_agent_legacy_chat_window_days: env_parse_or("AI_AGENT_LEGACY_CHAT_WINDOW_DAYS", 7),
+            ai_agent_legacy_chat_max_calls: env_parse_or("AI_AGENT_LEGACY_CHAT_MAX_CALLS", 0),
             clerk_jwks_url: env_opt("CLERK_JWKS_URL"),
             clerk_issuer_url: env_opt("CLERK_ISSUER_URL").or_else(|| {
                 env_opt("NEXT_PUBLIC_CLERK_FRONTEND_API_URL")

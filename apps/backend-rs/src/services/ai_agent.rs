@@ -3,11 +3,16 @@ use std::collections::BTreeSet;
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sqlx::{Postgres, QueryBuilder, Row};
+use uuid::Uuid;
 
 use crate::{
     error::{AppError, AppResult},
     repository::table_service::create_row,
     services::{
+        agent_runtime_rollout::{
+            compare_parity, complete_parity_result, insert_parity_pending,
+            resolve_rollout_decision, LlmTransport, ParitySnapshot,
+        },
         agent_specs::get_agent_spec,
         tool_validator::{normalize_tool_result, normalized_tool_error, validate_tool_args},
     },
@@ -220,6 +225,29 @@ pub struct AgentConversationMessage {
     pub content: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RuntimeExecutionContext<'a> {
+    pub run_id: Option<&'a str>,
+    pub trace_id: Option<&'a str>,
+    pub llm_transport: Option<LlmTransport>,
+    pub is_shadow_run: bool,
+    pub shadow_of_run_id: Option<&'a str>,
+    pub disable_shadow: bool,
+}
+
+impl<'a> Default for RuntimeExecutionContext<'a> {
+    fn default() -> Self {
+        Self {
+            run_id: None,
+            trace_id: None,
+            llm_transport: None,
+            is_shadow_run: false,
+            shadow_of_run_id: None,
+            disable_shadow: false,
+        }
+    }
+}
+
 pub struct RunAiAgentChatParams<'a> {
     pub org_id: &'a str,
     pub role: &'a str,
@@ -235,6 +263,7 @@ pub struct RunAiAgentChatParams<'a> {
     pub requested_by_user_id: Option<&'a str>,
     pub preferred_model: Option<&'a str>,
     pub max_steps_override: Option<i32>,
+    pub runtime_context: Option<RuntimeExecutionContext<'a>>,
 }
 
 pub fn list_supported_tables() -> Vec<String> {
@@ -348,6 +377,38 @@ pub async fn run_ai_agent_chat(
         ));
     }
 
+    let runtime_context = params.runtime_context.unwrap_or_default();
+    let run_id = runtime_context
+        .run_id
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let trace_id = runtime_context
+        .trace_id
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let rollout_stable_key = build_rollout_stable_key(
+        params.org_id,
+        params.chat_id,
+        params.requested_by_user_id,
+        params.agent_slug,
+        params.message,
+    );
+    let rollout_decision = if let Some(transport) = runtime_context.llm_transport {
+        crate::services::agent_runtime_rollout::RolloutDecision::forced(transport)
+    } else {
+        resolve_rollout_decision(state, params.org_id, &rollout_stable_key).await
+    };
+    if rollout_decision.forced_legacy_by_gate {
+        tracing::warn!(
+            org_id = params.org_id,
+            run_id = run_id,
+            trace_id = trace_id,
+            gate_reason = rollout_decision.gate_reason.as_deref().unwrap_or("unknown"),
+            "Agent rollout gate forced legacy transport"
+        );
+    }
+    let llm_transport = rollout_decision.primary_transport;
+
     let canonical_spec = params.agent_slug.and_then(get_agent_spec);
     let canonical_allowed_tools: Option<Vec<String>> = canonical_spec
         .and_then(|spec| spec.allowed_tools)
@@ -416,6 +477,7 @@ pub async fn run_ai_agent_chat(
             state,
             &messages,
             Some(&tool_definitions),
+            llm_transport,
             params.preferred_model,
         )
         .await?;
@@ -536,12 +598,25 @@ pub async fn run_ai_agent_chat(
         }
 
         if !assistant_text.is_empty() {
+            let primary_snapshot = ParitySnapshot {
+                run_id: run_id.clone(),
+                trace_id: trace_id.clone(),
+                transport: llm_transport,
+                model_used: non_empty_option(&model_used),
+                tool_count: tool_trace.len(),
+                fallback_used,
+                success: true,
+                reply: assistant_text.clone(),
+            };
             let result = build_agent_result(
                 assistant_text.clone(),
                 tool_trace.clone(),
                 mutations_allowed(&role_value, params.allow_mutations, params.confirm_write),
                 model_used.clone(),
                 fallback_used,
+                llm_transport,
+                &run_id,
+                &trace_id,
             );
             write_agent_trace(
                 state,
@@ -555,23 +630,45 @@ pub async fn run_ai_agent_chat(
                 fallback_used,
                 true,
                 None,
+                llm_transport,
+                &run_id,
+                &trace_id,
+                runtime_context.is_shadow_run,
+                runtime_context.shadow_of_run_id,
             )
             .await;
-            spawn_auto_evaluation(
-                state.clone(),
-                params.org_id.to_string(),
-                params.agent_slug.unwrap_or("supervisor").to_string(),
-                assistant_text,
-                tool_trace,
+            maybe_spawn_shadow_parity(
+                state,
+                &params,
+                effective_allowed_tools,
+                llm_transport,
+                rollout_decision.shadow_transport,
+                runtime_context,
+                &primary_snapshot,
             );
+            if !runtime_context.is_shadow_run {
+                spawn_auto_evaluation(
+                    state.clone(),
+                    params.org_id.to_string(),
+                    params.agent_slug.unwrap_or("supervisor").to_string(),
+                    assistant_text,
+                    tool_trace,
+                );
+            }
             return Ok(result);
         }
 
         break;
     }
 
-    let final_resp =
-        call_openai_chat_completion_tracked(state, &messages, None, params.preferred_model).await?;
+    let final_resp = call_openai_chat_completion_tracked(
+        state,
+        &messages,
+        None,
+        llm_transport,
+        params.preferred_model,
+    )
+    .await?;
     if !final_resp.model_used.trim().is_empty() {
         model_used = final_resp.model_used.clone();
     }
@@ -596,6 +693,16 @@ pub async fn run_ai_agent_chat(
         final_text
     };
 
+    let primary_snapshot = ParitySnapshot {
+        run_id: run_id.clone(),
+        trace_id: trace_id.clone(),
+        transport: llm_transport,
+        model_used: non_empty_option(&model_used),
+        tool_count: tool_trace.len(),
+        fallback_used,
+        success: true,
+        reply: reply.clone(),
+    };
     write_agent_trace(
         state,
         params.org_id,
@@ -608,24 +715,41 @@ pub async fn run_ai_agent_chat(
         fallback_used,
         true,
         None,
+        llm_transport,
+        &run_id,
+        &trace_id,
+        runtime_context.is_shadow_run,
+        runtime_context.shadow_of_run_id,
     )
     .await;
 
-    spawn_auto_evaluation(
-        state.clone(),
-        params.org_id.to_string(),
-        params.agent_slug.unwrap_or("supervisor").to_string(),
-        reply.clone(),
-        tool_trace.clone(),
+    maybe_spawn_shadow_parity(
+        state,
+        &params,
+        effective_allowed_tools,
+        llm_transport,
+        rollout_decision.shadow_transport,
+        runtime_context,
+        &primary_snapshot,
     );
 
-    spawn_memory_extraction(
-        state.clone(),
-        params.org_id.to_string(),
-        params.agent_slug.unwrap_or("supervisor").to_string(),
-        params.message.to_string(),
-        reply.clone(),
-    );
+    if !runtime_context.is_shadow_run {
+        spawn_auto_evaluation(
+            state.clone(),
+            params.org_id.to_string(),
+            params.agent_slug.unwrap_or("supervisor").to_string(),
+            reply.clone(),
+            tool_trace.clone(),
+        );
+
+        spawn_memory_extraction(
+            state.clone(),
+            params.org_id.to_string(),
+            params.agent_slug.unwrap_or("supervisor").to_string(),
+            params.message.to_string(),
+            reply.clone(),
+        );
+    }
 
     Ok(build_agent_result(
         reply,
@@ -633,6 +757,9 @@ pub async fn run_ai_agent_chat(
         mutations_allowed(&role_value, params.allow_mutations, params.confirm_write),
         model_used,
         fallback_used,
+        llm_transport,
+        &run_id,
+        &trace_id,
     ))
 }
 
@@ -688,6 +815,38 @@ pub async fn run_ai_agent_chat_streaming(
 
         return Ok(disabled_stream_payload());
     }
+
+    let runtime_context = params.runtime_context.unwrap_or_default();
+    let run_id = runtime_context
+        .run_id
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let trace_id = runtime_context
+        .trace_id
+        .map(ToOwned::to_owned)
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let rollout_stable_key = build_rollout_stable_key(
+        params.org_id,
+        params.chat_id,
+        params.requested_by_user_id,
+        params.agent_slug,
+        params.message,
+    );
+    let rollout_decision = if let Some(transport) = runtime_context.llm_transport {
+        crate::services::agent_runtime_rollout::RolloutDecision::forced(transport)
+    } else {
+        resolve_rollout_decision(state, params.org_id, &rollout_stable_key).await
+    };
+    if rollout_decision.forced_legacy_by_gate {
+        tracing::warn!(
+            org_id = params.org_id,
+            run_id = run_id,
+            trace_id = trace_id,
+            gate_reason = rollout_decision.gate_reason.as_deref().unwrap_or("unknown"),
+            "Agent rollout gate forced legacy transport (streaming)"
+        );
+    }
+    let llm_transport = rollout_decision.primary_transport;
 
     let canonical_spec = params.agent_slug.and_then(get_agent_spec);
     let canonical_allowed_tools: Option<Vec<String>> = canonical_spec
@@ -762,6 +921,7 @@ pub async fn run_ai_agent_chat_streaming(
             state,
             &messages,
             Some(&tool_definitions),
+            llm_transport,
             params.preferred_model,
         )
         .await?;
@@ -938,12 +1098,25 @@ pub async fn run_ai_agent_chat_streaming(
                     explanation: build_explanation_from_trace(&tool_trace),
                 })
                 .await;
+            let primary_snapshot = ParitySnapshot {
+                run_id: run_id.clone(),
+                trace_id: trace_id.clone(),
+                transport: llm_transport,
+                model_used: non_empty_option(&model_used),
+                tool_count: tool_trace.len(),
+                fallback_used,
+                success: true,
+                reply: assistant_text.clone(),
+            };
             let result = build_agent_result(
                 assistant_text,
                 tool_trace.clone(),
                 mutations_allowed(&role_value, params.allow_mutations, params.confirm_write),
                 model_used.clone(),
                 fallback_used,
+                llm_transport,
+                &run_id,
+                &trace_id,
             );
             write_agent_trace(
                 state,
@@ -957,16 +1130,36 @@ pub async fn run_ai_agent_chat_streaming(
                 fallback_used,
                 true,
                 None,
+                llm_transport,
+                &run_id,
+                &trace_id,
+                runtime_context.is_shadow_run,
+                runtime_context.shadow_of_run_id,
             )
             .await;
+            maybe_spawn_shadow_parity(
+                state,
+                &params,
+                effective_allowed_tools,
+                llm_transport,
+                rollout_decision.shadow_transport,
+                runtime_context,
+                &primary_snapshot,
+            );
             return Ok(result);
         }
 
         break;
     }
 
-    let final_resp =
-        call_openai_chat_completion_tracked(state, &messages, None, params.preferred_model).await?;
+    let final_resp = call_openai_chat_completion_tracked(
+        state,
+        &messages,
+        None,
+        llm_transport,
+        params.preferred_model,
+    )
+    .await?;
     if !final_resp.model_used.trim().is_empty() {
         model_used = final_resp.model_used.clone();
     }
@@ -1011,6 +1204,16 @@ pub async fn run_ai_agent_chat_streaming(
         })
         .await;
 
+    let primary_snapshot = ParitySnapshot {
+        run_id: run_id.clone(),
+        trace_id: trace_id.clone(),
+        transport: llm_transport,
+        model_used: non_empty_option(&model_used),
+        tool_count: tool_trace.len(),
+        fallback_used,
+        success: true,
+        reply: reply.clone(),
+    };
     write_agent_trace(
         state,
         params.org_id,
@@ -1023,8 +1226,23 @@ pub async fn run_ai_agent_chat_streaming(
         fallback_used,
         true,
         None,
+        llm_transport,
+        &run_id,
+        &trace_id,
+        runtime_context.is_shadow_run,
+        runtime_context.shadow_of_run_id,
     )
     .await;
+
+    maybe_spawn_shadow_parity(
+        state,
+        &params,
+        effective_allowed_tools,
+        llm_transport,
+        rollout_decision.shadow_transport,
+        runtime_context,
+        &primary_snapshot,
+    );
 
     Ok(build_agent_result(
         reply,
@@ -1032,6 +1250,9 @@ pub async fn run_ai_agent_chat_streaming(
         mutations_allowed(&role_value, params.allow_mutations, params.confirm_write),
         model_used,
         fallback_used,
+        llm_transport,
+        &run_id,
+        &trace_id,
     ))
 }
 
@@ -1049,6 +1270,11 @@ async fn write_agent_trace(
     fallback_used: bool,
     success: bool,
     error_message: Option<&str>,
+    llm_transport: LlmTransport,
+    run_id: &str,
+    trace_id: &str,
+    is_shadow_run: bool,
+    shadow_of_run_id: Option<&str>,
 ) {
     let pool = match state.db_pool.as_ref() {
         Some(p) => p,
@@ -1060,12 +1286,14 @@ async fn write_agent_trace(
             organization_id, chat_id, agent_slug, user_id,
             model_used, prompt_tokens, completion_tokens, total_tokens,
             latency_ms, tool_calls, tool_count, fallback_used,
-            success, error_message, created_at
+            success, error_message, llm_transport, runtime_run_id,
+            runtime_trace_id, is_shadow_run, shadow_of_run_id, created_at
         ) VALUES (
             $1::uuid, $2::uuid, $3, $4::uuid,
             $5, $6, $7, $8,
             $9, $10, $11, $12,
-            $13, $14, now()
+            $13, $14, $15, $16,
+            $17, $18, $19, now()
         )",
     )
     .bind(org_id)
@@ -1082,11 +1310,210 @@ async fn write_agent_trace(
     .bind(fallback_used)
     .bind(success)
     .bind(error_message)
+    .bind(llm_transport.storage_value())
+    .bind(run_id)
+    .bind(trace_id)
+    .bind(is_shadow_run)
+    .bind(shadow_of_run_id)
     .execute(pool)
     .await
     .map_err(|e| {
         tracing::warn!(error = %e, "Failed to write agent trace");
     });
+}
+
+#[derive(Clone)]
+struct ShadowParitySeed {
+    state: AppState,
+    org_id: String,
+    role: String,
+    message: String,
+    conversation: Vec<AgentConversationMessage>,
+    agent_name: String,
+    agent_prompt: Option<String>,
+    allowed_tools: Option<Vec<String>>,
+    agent_slug: Option<String>,
+    chat_id: Option<String>,
+    requested_by_user_id: Option<String>,
+    preferred_model: Option<String>,
+    max_steps_override: Option<i32>,
+    shadow_transport: LlmTransport,
+    primary_snapshot: ParitySnapshot,
+}
+
+fn non_empty_option(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn build_rollout_stable_key(
+    org_id: &str,
+    chat_id: Option<&str>,
+    user_id: Option<&str>,
+    agent_slug: Option<&str>,
+    message: &str,
+) -> String {
+    let chat_component = chat_id.unwrap_or("-");
+    let user_component = user_id.unwrap_or("-");
+    let agent_component = agent_slug.unwrap_or("supervisor");
+    let message_prefix = truncate_chars(message.trim(), 120);
+    format!("{org_id}:{chat_component}:{user_component}:{agent_component}:{message_prefix}")
+}
+
+fn maybe_spawn_shadow_parity(
+    state: &AppState,
+    params: &RunAiAgentChatParams<'_>,
+    effective_allowed_tools: Option<&[String]>,
+    primary_transport: LlmTransport,
+    shadow_transport: Option<LlmTransport>,
+    runtime_context: RuntimeExecutionContext<'_>,
+    primary_snapshot: &ParitySnapshot,
+) {
+    if runtime_context.disable_shadow || runtime_context.is_shadow_run {
+        return;
+    }
+
+    let Some(shadow_transport) = shadow_transport else {
+        return;
+    };
+    if shadow_transport == primary_transport {
+        return;
+    }
+
+    let shadow_seed = ShadowParitySeed {
+        state: state.clone(),
+        org_id: params.org_id.to_string(),
+        role: params.role.to_string(),
+        message: params.message.to_string(),
+        conversation: params
+            .conversation
+            .iter()
+            .map(|item| AgentConversationMessage {
+                role: item.role.clone(),
+                content: item.content.clone(),
+            })
+            .collect(),
+        agent_name: params.agent_name.to_string(),
+        agent_prompt: params.agent_prompt.map(ToOwned::to_owned),
+        allowed_tools: effective_allowed_tools.map(|tools| tools.to_vec()),
+        agent_slug: params.agent_slug.map(ToOwned::to_owned),
+        chat_id: params.chat_id.map(ToOwned::to_owned),
+        requested_by_user_id: params.requested_by_user_id.map(ToOwned::to_owned),
+        preferred_model: params.preferred_model.map(ToOwned::to_owned),
+        max_steps_override: params.max_steps_override,
+        shadow_transport,
+        primary_snapshot: primary_snapshot.clone(),
+    };
+
+    tokio::spawn(async move {
+        run_shadow_parity(shadow_seed).await;
+    });
+}
+
+async fn run_shadow_parity(seed: ShadowParitySeed) {
+    let parity_id = insert_parity_pending(
+        &seed.state,
+        &seed.org_id,
+        seed.chat_id.as_deref(),
+        seed.requested_by_user_id.as_deref(),
+        seed.agent_slug.as_deref().unwrap_or("supervisor"),
+        &seed.primary_snapshot,
+        seed.shadow_transport,
+    )
+    .await;
+
+    let shadow_run_id = Uuid::new_v4().to_string();
+    let shadow_trace_id = Uuid::new_v4().to_string();
+    let runtime_context = RuntimeExecutionContext {
+        run_id: Some(&shadow_run_id),
+        trace_id: Some(&shadow_trace_id),
+        llm_transport: Some(seed.shadow_transport),
+        is_shadow_run: true,
+        shadow_of_run_id: Some(&seed.primary_snapshot.run_id),
+        disable_shadow: true,
+    };
+
+    let shadow_result = run_ai_agent_chat(
+        &seed.state,
+        RunAiAgentChatParams {
+            org_id: &seed.org_id,
+            role: &seed.role,
+            message: &seed.message,
+            conversation: &seed.conversation,
+            allow_mutations: false,
+            confirm_write: false,
+            agent_name: &seed.agent_name,
+            agent_prompt: seed.agent_prompt.as_deref(),
+            allowed_tools: seed.allowed_tools.as_deref(),
+            agent_slug: seed.agent_slug.as_deref(),
+            chat_id: seed.chat_id.as_deref(),
+            requested_by_user_id: seed.requested_by_user_id.as_deref(),
+            preferred_model: seed.preferred_model.as_deref(),
+            max_steps_override: seed.max_steps_override,
+            runtime_context: Some(runtime_context),
+        },
+    )
+    .await;
+
+    match shadow_result {
+        Ok(payload) => {
+            let shadow_reply = payload
+                .get("reply")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or_default()
+                .to_string();
+            let shadow_model = payload
+                .get("model_used")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned);
+            let shadow_tool_count = payload
+                .get("tool_trace")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            let shadow_fallback = payload
+                .get("fallback_used")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            let shadow_snapshot = ParitySnapshot {
+                run_id: shadow_run_id,
+                trace_id: shadow_trace_id,
+                transport: seed.shadow_transport,
+                model_used: shadow_model,
+                tool_count: shadow_tool_count,
+                fallback_used: shadow_fallback,
+                success: true,
+                reply: shadow_reply,
+            };
+            let comparison = compare_parity(&seed.primary_snapshot, &shadow_snapshot);
+            complete_parity_result(
+                &seed.state,
+                parity_id.as_deref(),
+                Some(&shadow_snapshot),
+                Some(&comparison),
+                None,
+            )
+            .await;
+        }
+        Err(error) => {
+            let message = error.detail_message();
+            complete_parity_result(
+                &seed.state,
+                parity_id.as_deref(),
+                None,
+                None,
+                Some(&message),
+            )
+            .await;
+        }
+    }
 }
 
 /// Fire-and-forget auto-evaluation: score the agent's response via LLM rubric.
@@ -1323,6 +1750,9 @@ fn build_agent_result(
     mutations_enabled: bool,
     model_used: String,
     fallback_used: bool,
+    llm_transport: LlmTransport,
+    run_id: &str,
+    trace_id: &str,
 ) -> Map<String, Value> {
     let mut payload = Map::new();
     payload.insert("reply".to_string(), Value::String(reply));
@@ -1333,6 +1763,16 @@ fn build_agent_result(
     );
     payload.insert("model_used".to_string(), Value::String(model_used));
     payload.insert("fallback_used".to_string(), Value::Bool(fallback_used));
+    payload.insert(
+        "llm_transport".to_string(),
+        Value::String(llm_transport.as_str().to_string()),
+    );
+    payload.insert(
+        "runtime_version".to_string(),
+        Value::String("v2".to_string()),
+    );
+    payload.insert("run_id".to_string(), Value::String(run_id.to_string()));
+    payload.insert("trace_id".to_string(), Value::String(trace_id.to_string()));
     payload
 }
 
@@ -1440,6 +1880,7 @@ async fn call_openai_chat_completion_tracked(
     state: &AppState,
     messages: &[Value],
     tools: Option<&[Value]>,
+    llm_transport: LlmTransport,
     preferred_model: Option<&str>,
 ) -> AppResult<crate::services::llm_client::ChatResponse> {
     let request = crate::services::llm_client::ChatRequest {
@@ -1450,7 +1891,7 @@ async fn call_openai_chat_completion_tracked(
         timeout_seconds: None,
     };
 
-    if state.config.ai_agent_use_responses_api {
+    if llm_transport == LlmTransport::Responses {
         state
             .llm_client
             .chat_completion_via_responses(request)
@@ -3973,6 +4414,7 @@ async fn delegate_to_single_agent(
         requested_by_user_id: None,
         preferred_model: None,
         max_steps_override: None,
+        runtime_context: None,
     };
 
     match Box::pin(run_ai_agent_chat(state, params)).await {
@@ -7104,6 +7546,7 @@ mod tests {
             requested_by_user_id: None,
             preferred_model: None,
             max_steps_override: None,
+            runtime_context: None,
         };
 
         let payload = run_ai_agent_chat_streaming(&state, params, tx)
