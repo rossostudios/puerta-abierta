@@ -1,0 +1,132 @@
+name: AWS ECS Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Which app to roll back"
+        required: true
+        type: choice
+        options:
+          - backend
+          - admin
+          - web
+      task_definition:
+        description: "Optional task definition ARN or family:revision (leave empty to roll back to previous revision)"
+        required: false
+        type: string
+      wait_for_service_stability:
+        description: "Wait for ECS service stability"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: aws-ecs-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    environment: Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Roll back ECS service
+        env:
+          INPUT_TASK_DEFINITION: ${{ inputs.task_definition }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app="${{ inputs.app }}"
+          cluster="${{ vars.ECS_CLUSTER }}"
+          explicit_taskdef="${INPUT_TASK_DEFINITION}"
+          wait_for_stability="${{ inputs.wait_for_service_stability }}"
+
+          case "${app}" in
+            backend)
+              service="${{ vars.ECS_SERVICE_BACKEND }}"
+              family="casaora-backend"
+              ;;
+            admin)
+              service="${{ vars.ECS_SERVICE_ADMIN }}"
+              family="casaora-admin"
+              ;;
+            web)
+              service="${{ vars.ECS_SERVICE_WEB }}"
+              family="casaora-web"
+              ;;
+            *)
+              echo "Unsupported app: ${app}" >&2
+              exit 1
+              ;;
+          esac
+
+          current_taskdef="$(aws ecs describe-services \
+            --cluster "${cluster}" \
+            --services "${service}" \
+            --query 'services[0].taskDefinition' \
+            --output text)"
+
+          if [[ -n "${explicit_taskdef}" ]]; then
+            target_taskdef="${explicit_taskdef}"
+          else
+            mapfile -t taskdefs < <(
+              aws ecs list-task-definitions \
+                --family-prefix "${family}" \
+                --sort DESC \
+                --query 'taskDefinitionArns' \
+                --output text | tr '\t' '\n'
+            )
+
+            target_taskdef=""
+            for taskdef in "${taskdefs[@]}"; do
+              if [[ -n "${taskdef}" && "${taskdef}" != "${current_taskdef}" ]]; then
+                target_taskdef="${taskdef}"
+                break
+              fi
+            done
+
+            if [[ -z "${target_taskdef}" ]]; then
+              echo "No previous task definition revision found for ${family}." >&2
+              exit 1
+            fi
+          fi
+
+          echo "Rolling back ${service} in ${cluster}"
+          echo "Current: ${current_taskdef}"
+          echo "Target:  ${target_taskdef}"
+
+          aws ecs update-service \
+            --cluster "${cluster}" \
+            --service "${service}" \
+            --task-definition "${target_taskdef}" \
+            --force-new-deployment >/dev/null
+
+          if [[ "${wait_for_stability}" == "true" ]]; then
+            aws ecs wait services-stable --cluster "${cluster}" --services "${service}"
+          fi
+
+          {
+            echo "## ECS rollback complete"
+            echo ""
+            echo "- App: \`${app}\`"
+            echo "- Cluster: \`${cluster}\`"
+            echo "- Service: \`${service}\`"
+            echo "- Previous task definition: \`${current_taskdef}\`"
+            echo "- Deployed task definition: \`${target_taskdef}\`"
+            echo "- Waited for stability: \`${wait_for_stability}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
