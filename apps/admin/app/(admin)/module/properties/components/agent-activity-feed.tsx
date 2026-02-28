@@ -41,7 +41,7 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
   });
 
   const { data: approvals = [] } = useQuery<Approval[]>({
-    queryKey: ["agent-approvals", orgId],
+    queryKey: ["agent-approvals-feed", orgId],
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/approvals?org_id=${encodeURIComponent(orgId)}`,

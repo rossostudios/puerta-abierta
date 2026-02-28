@@ -30,7 +30,7 @@ export function useNewBookingToast({
   useEffect(() => {
     initializedRef.current = false;
     seenReservationIdsRef.current = new Set();
-  }, []);
+  }, [orgId]);
 
   const { data: recentDirectBookings = [] } = useQuery<
     Record<string, unknown>[]

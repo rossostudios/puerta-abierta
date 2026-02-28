@@ -60,14 +60,14 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
   const deliveryStatusSeededRef = useRef(false);
   const approvalPollInterval = useVisibilityPollingInterval({
     enabled: !!orgId,
-    foregroundMs: 45_000,
+    foregroundMs: 15_000,
     backgroundMs: 60_000,
   });
 
   useEffect(() => {
     deliveryStatusByIdRef.current = new Map();
     deliveryStatusSeededRef.current = false;
-  }, []);
+  }, [orgId]);
 
   const { data: approvals = [], isPending: loading } = useQuery({
     queryKey: ["agent-approvals", orgId],
@@ -81,6 +81,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
       return payload.data ?? [];
     },
     refetchInterval: approvalPollInterval,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {

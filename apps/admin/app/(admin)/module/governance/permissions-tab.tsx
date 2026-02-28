@@ -20,9 +20,25 @@ type ApprovalMode = "required" | "auto" | "disabled";
 type ApprovalPolicy = {
   id: string;
   tool_name: string;
-  mode: ApprovalMode;
+  approval_mode: string;
+  enabled: boolean;
   updated_at?: string;
 };
+
+/** Map backend fields to the UI's three-state mode. */
+function toUiMode(p: ApprovalPolicy): ApprovalMode {
+  if (!p.enabled) return "disabled";
+  return p.approval_mode === "auto" ? "auto" : "required";
+}
+
+/** Map UI mode to backend payload. */
+function toBackendPayload(mode: ApprovalMode): {
+  approval_mode: string;
+  enabled: boolean;
+} {
+  if (mode === "disabled") return { approval_mode: "required", enabled: false };
+  return { approval_mode: mode, enabled: true };
+}
 
 type BoundaryRule = {
   id: string;
@@ -423,7 +439,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
   const cyclePolicyMode = useCallback(
     async (toolName: string) => {
       const existing = policyMap.get(toolName);
-      const currentMode: ApprovalMode = existing?.mode ?? "required";
+      const currentMode: ApprovalMode = existing ? toUiMode(existing) : "required";
       const currentIdx = MODE_CYCLE.indexOf(currentMode);
       const nextMode = MODE_CYCLE[(currentIdx + 1) % MODE_CYCLE.length];
 
@@ -432,10 +448,10 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
 
       try {
         await authedFetch(
-          `/agent/approval-policies?org_id=${encodeURIComponent(orgId)}`,
+          `/agent/approval-policies/${encodeURIComponent(toolName)}?org_id=${encodeURIComponent(orgId)}`,
           {
-            method: "PUT",
-            body: JSON.stringify({ tool_name: toolName, mode: nextMode }),
+            method: "PATCH",
+            body: JSON.stringify(toBackendPayload(nextMode)),
           }
         );
 
@@ -446,7 +462,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
             const idx = prev.findIndex((p) => p.tool_name === toolName);
             if (idx >= 0) {
               const updated = [...prev];
-              updated[idx] = { ...updated[idx], mode: nextMode };
+              updated[idx] = { ...updated[idx], ...toBackendPayload(nextMode) };
               return updated;
             }
             return [
@@ -454,7 +470,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
               {
                 id: toolName,
                 tool_name: toolName,
-                mode: nextMode,
+                ...toBackendPayload(nextMode),
                 updated_at: new Date().toISOString(),
               },
             ];
@@ -484,10 +500,10 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
         await Promise.allSettled(
           toolNames.map((toolName) =>
             authedFetch(
-              `/agent/approval-policies?org_id=${encodeURIComponent(orgId)}`,
+              `/agent/approval-policies/${encodeURIComponent(toolName)}?org_id=${encodeURIComponent(orgId)}`,
               {
-                method: "PUT",
-                body: JSON.stringify({ tool_name: toolName, mode }),
+                method: "PATCH",
+                body: JSON.stringify(toBackendPayload(mode)),
               }
             )
           )
@@ -501,12 +517,12 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
             for (const toolName of toolNames) {
               const idx = updated.findIndex((p) => p.tool_name === toolName);
               if (idx >= 0) {
-                updated[idx] = { ...updated[idx], mode };
+                updated[idx] = { ...updated[idx], ...toBackendPayload(mode) };
               } else {
                 updated.push({
                   id: toolName,
                   tool_name: toolName,
-                  mode,
+                  ...toBackendPayload(mode),
                   updated_at: new Date().toISOString(),
                 });
               }
@@ -598,7 +614,8 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
   } {
     const counts = { required: 0, auto: 0, disabled: 0 };
     for (const tool of tools) {
-      const mode = policyMap.get(tool.name)?.mode ?? "required";
+      const p = policyMap.get(tool.name);
+      const mode = p ? toUiMode(p) : "required";
       counts[mode]++;
     }
     return counts;
@@ -795,7 +812,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                       <div className="space-y-1">
                         {cat.tools.map((tool) => {
                           const policy = policyMap.get(tool.name);
-                          const mode: ApprovalMode = policy?.mode ?? "required";
+                          const mode: ApprovalMode = policy ? toUiMode(policy) : "required";
                           const toggling = togglingIds.has(
                             policy?.id ?? tool.name
                           );
