@@ -559,7 +559,8 @@ fn strategy_presets(strategy: &str) -> AppResult<serde_json::Map<String, Value>>
         }
         _ => {
             return Err(AppError::BadRequest(
-                "strategy must be one of: aggressive_growth, maximum_occupancy, balanced".to_string(),
+                "strategy must be one of: aggressive_growth, maximum_occupancy, balanced"
+                    .to_string(),
             ));
         }
     }
