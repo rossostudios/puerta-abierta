@@ -49,15 +49,18 @@ export function OrgSwitcher({
 
   const isEn = locale === "en-US";
 
-  const { data: orgs = [], isLoading: loading } = useQuery({
+  const { data, isLoading: loading } = useQuery({
     queryKey: ["me-organizations"],
     queryFn: async () => {
       const response = await fetch("/api/me", { cache: "no-store" });
-      if (!response.ok) return [];
+      if (!response.ok) return null;
       const payload = (await response.json()) as MeResponse;
       return payload.organizations ?? [];
     },
   });
+
+  const orgs = data ?? [];
+  const fetchFailed = data === null;
 
   const activeOrg = useMemo(
     () => orgs.find((org) => org.id === activeOrgId) ?? null,
@@ -183,6 +186,19 @@ export function OrgSwitcher({
           {loading ? (
             <div className="px-2 py-4 text-center text-muted-foreground text-xs">
               {isEn ? "Loading..." : "Cargando..."}
+            </div>
+          ) : fetchFailed ? (
+            <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-muted-foreground">
+              <Icon
+                className="text-muted-foreground/40"
+                icon={UnavailableIcon}
+                size={24}
+              />
+              <p className="text-xs">
+                {isEn
+                  ? "Could not load organizations"
+                  : "No se pudieron cargar las organizaciones"}
+              </p>
             </div>
           ) : orgs.length === 0 ? (
             <div className="flex flex-col items-center gap-2 px-2 py-8 text-center text-muted-foreground">

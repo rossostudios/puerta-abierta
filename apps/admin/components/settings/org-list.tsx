@@ -35,16 +35,18 @@ export function OrgList({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const { data: orgs = [], isLoading: loading } = useQuery({
+  const { data, isLoading: loading } = useQuery({
     queryKey: ["me-organizations"],
     queryFn: async () => {
       const response = await fetch("/api/me", { cache: "no-store" });
-      if (!response.ok) return [];
+      if (!response.ok) return null;
       const payload = (await response.json()) as MeResponse;
       return payload.organizations ?? [];
     },
   });
 
+  const orgs = data ?? [];
+  const fetchFailed = data === null;
   const canDelete = orgs.length >= 2;
 
   const deleteOrg = (orgId: string) => {
@@ -72,10 +74,22 @@ export function OrgList({
               isEn ? "Organization deleted" : "Organización eliminada"
             );
             if (orgId === activeOrgId) {
-              await fetch("/api/org", {
-                method: "DELETE",
-                headers: { Accept: "application/json" },
-              });
+              const remaining = orgs.find((o) => o.id !== orgId);
+              if (remaining) {
+                await fetch("/api/org", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                  },
+                  body: JSON.stringify({ org_id: remaining.id }),
+                });
+              } else {
+                await fetch("/api/org", {
+                  method: "DELETE",
+                  headers: { Accept: "application/json" },
+                });
+              }
             }
             router.refresh();
           });
@@ -88,6 +102,16 @@ export function OrgList({
     return (
       <div className="py-4 text-center text-muted-foreground text-sm">
         {isEn ? "Loading..." : "Cargando..."}
+      </div>
+    );
+  }
+
+  if (fetchFailed) {
+    return (
+      <div className="py-4 text-muted-foreground text-sm">
+        {isEn
+          ? "Could not load organizations. Please try again."
+          : "No se pudieron cargar las organizaciones. Inténtalo de nuevo."}
       </div>
     );
   }

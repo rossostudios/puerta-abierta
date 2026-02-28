@@ -24,6 +24,7 @@ import { PropertiesFeedback } from "./components/properties-feedback";
 import { PropertiesFilterBar } from "./components/properties-filter-bar";
 import { PropertiesList } from "./components/properties-list";
 import { PropertiesPageHeader } from "./components/properties-page-header";
+import { usePropertyAgentStatus } from "./hooks/use-property-agent-status";
 import { usePropertyPortfolio } from "./hooks/use-property-portfolio";
 
 type PropertiesPageDictionary = {
@@ -140,6 +141,13 @@ export function PropertiesManager({
       ? "active"
       : "offline";
 
+  const propertyIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const { propertyAgentStatusMap, approvals } = usePropertyAgentStatus({
+    orgId,
+    propertyIds,
+    agentOnline: agentStatus === "active",
+  });
+
   const filteredRows = useMemo(
     () =>
       filterPropertyPortfolioRows({
@@ -165,7 +173,11 @@ export function PropertiesManager({
               onOpenCreate={() => setOpen(true)}
               onOpenImport={() => setImportOpen(true)}
               recordCount={filteredRows.length}
-              recordsLabel={common.records}
+              recordsLabel={
+                filteredRows.length === 1
+                  ? isEn ? "Property" : "Propiedad"
+                  : isEn ? "Properties" : "Propiedades"
+              }
               title={title}
             />
 
@@ -202,6 +214,7 @@ export function PropertiesManager({
               agentStatus={agentStatus}
               isSidebarOpen={isSidebarOpen}
               locale={locale}
+              propertyAgentStatusMap={propertyAgentStatusMap}
               rows={filteredRows}
               summary={summary}
               viewMode={viewMode}
@@ -211,12 +224,12 @@ export function PropertiesManager({
 
       <aside
         className={cn(
-          "shrink-0 border-border/30 border-l transition-all duration-300 ease-in-out",
+          "shrink-0 transition-all duration-300 ease-in-out",
           isSidebarOpen
             ? isWide
-              ? "w-[360px]"
-              : "w-[320px]"
-            : "w-0 overflow-hidden border-l-0"
+              ? "w-[376px]"
+              : "w-[336px]"
+            : "w-0 overflow-hidden"
         )}
       >
         <div
@@ -226,12 +239,15 @@ export function PropertiesManager({
           )}
         >
           <PortfolioSidebar
+            agentOnline={agentStatus === "active"}
+            approvals={approvals}
             avgRentPyg={summary.averageRentPyg}
             formatLocale={formatLocale}
             isEn={isEn}
             notifications={notifications}
             occupancyRate={summary.averageOccupancy}
             orgId={orgId}
+            propertyRows={rows}
             recentActivity={recentActivity}
             totalOverdueCollections={summary.totalOverdueCollections}
             totalRevenueMtdPyg={summary.totalRevenueMtdPyg}

@@ -16,7 +16,7 @@ export function OrgBootstrap({ activeOrgId }: OrgBootstrapProps) {
     queryKey: ["me-organizations-bootstrap"],
     queryFn: async () => {
       const response = await fetch("/api/me", { cache: "no-store" });
-      if (!response.ok) return [];
+      if (!response.ok) return null;
       const payload = (await response.json()) as {
         organizations?: Array<{ id: string }>;
       };

@@ -61,7 +61,7 @@ export function PageHeader({
           </Button>
         ) : null}
         <Button
-          className="h-9 rounded-xl bg-primary px-4 font-semibold text-white transition-all hover:bg-primary/90"
+          className="h-9 rounded-xl bg-primary px-4 font-semibold text-primary-foreground transition-all hover:bg-primary/90"
           disabled={primaryActionDisabled}
           onClick={onPrimaryAction}
           type="button"

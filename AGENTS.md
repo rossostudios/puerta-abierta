@@ -2,7 +2,7 @@
 
 This repository runs a dual-app stack:
 - **`apps/admin`**: Next.js 16 admin + public marketplace
-- **`apps/backend-rs`**: Rust/Axum backend with Supabase table-service routers
+- **`apps/backend-rs`**: Rust/Axum backend with PostgreSQL table-service routers
 
 ## Architecture Overview
 
@@ -253,7 +253,7 @@ The `packages/mcp-server/` package exposes the Casaora tool API as an MCP server
 ## Operating Rules
 
 1. Always validate with the latest docs when requirements are time-sensitive.
-2. Prefer MCP-backed docs access first (Exa MCP, Supabase MCP).
+2. Prefer MCP-backed docs access first (Exa MCP, Casaora MCP).
 3. Keep schema/API/frontend changes synchronized in the same PR whenever possible.
 
 ## Fast Project Map

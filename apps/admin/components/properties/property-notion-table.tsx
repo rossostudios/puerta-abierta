@@ -69,6 +69,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { PropertyAiContext } from "@/app/(admin)/module/properties/hooks/use-property-agent-status";
 import type {
   PropertyPortfolioRow,
   PropertyPortfolioSummary,
@@ -125,6 +126,7 @@ type Props = {
   summary: PropertyPortfolioSummary;
   isSidebarOpen?: boolean;
   agentStatus?: "active" | "offline" | "loading";
+  propertyAgentStatusMap?: Map<string, PropertyAiContext>;
 };
 
 const STICKY_ACTIONS = "sticky right-0 z-10 bg-background shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] dark:shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.3)]";
@@ -138,6 +140,7 @@ export function PropertyNotionTable({
   summary,
   isSidebarOpen,
   agentStatus,
+  propertyAgentStatusMap,
 }: Props) {
   "use no memo";
   const router = useRouter();
@@ -261,12 +264,21 @@ export function PropertyNotionTable({
         ),
         cell: ({ row }) => {
           const data = row.original;
+          const aiCtx = propertyAgentStatusMap?.get(data.id);
+          const needsReview = aiCtx?.status === "awaiting-approval";
           return (
             <EditableCell
               displayNode={
                 <div className="flex min-w-0 flex-col">
-                  <span className="truncate font-medium text-foreground text-sm">
+                  <span className="flex items-center gap-1 truncate font-medium text-foreground text-sm">
                     {data.name}
+                    {needsReview && (
+                      <Icon
+                        className="shrink-0 text-[var(--agentic-rose-gold)]"
+                        icon={SparklesIcon}
+                        size={12}
+                      />
+                    )}
                   </span>
                   <span className="truncate text-muted-foreground text-xs">
                     {data.address}
@@ -371,26 +383,72 @@ export function PropertyNotionTable({
       },
       {
         id: "aiStatus",
-        size: 90,
-        minSize: 70,
+        size: 110,
+        minSize: 80,
         header: () => (
-          <ColHeader icon={SparklesIcon} label="AI" tooltip={isEn ? "AI agent connection status" : "Estado de conexión del agente IA"} />
+          <ColHeader icon={SparklesIcon} label="AI" tooltip={isEn ? "AI agent status per property" : "Estado del agente IA por propiedad"} />
         ),
-        cell: () => {
+        cell: ({ row }) => {
           if (agentStatus === "loading") {
             return (
               <span className="text-muted-foreground text-xs">&hellip;</span>
             );
           }
-          return agentStatus === "active" ? (
-            <Badge
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[10px]"
-              variant="outline"
-            >
-              <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              {isEn ? "Active" : "Activo"}
-            </Badge>
-          ) : (
+          const aiCtx = propertyAgentStatusMap?.get(row.original.id);
+          const status = aiCtx?.status ?? (agentStatus === "active" ? "monitoring" : "offline");
+
+          if (status === "awaiting-approval") {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    className="status-tone-agentic-warning border text-[10px]"
+                    variant="outline"
+                  >
+                    <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--agentic-rose-gold)]" />
+                    {isEn ? "Needs Review" : "Necesita Revisión"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {aiCtx?.pendingCount ?? 1} {isEn ? "pending" : "pendiente(s)"}
+                  {aiCtx?.latestToolName ? ` · ${aiCtx.latestToolName.replace(/_/g, " ")}` : ""}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          if (status === "recently-handled") {
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    className="status-tone-agentic-success border text-[10px]"
+                    variant="outline"
+                  >
+                    {isEn ? "Handled" : "Gestionado"}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {aiCtx?.latestAgentSlug ?? "agent"}{" "}
+                  {aiCtx?.latestToolName ? `· ${aiCtx.latestToolName.replace(/_/g, " ")}` : ""}
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          if (status === "monitoring") {
+            return (
+              <Badge
+                className="status-tone-agentic-info border text-[10px]"
+                variant="outline"
+              >
+                <span className="gentle-pulse mr-1 inline-block h-1.5 w-1.5 rounded-full bg-[var(--agentic-cyan)]" />
+                {isEn ? "Monitoring" : "Monitoreando"}
+              </Badge>
+            );
+          }
+
+          return (
             <Badge
               className="border-border/40 bg-muted/20 text-muted-foreground text-[10px]"
               variant="outline"
@@ -467,12 +525,12 @@ export function PropertyNotionTable({
       },
       {
         id: "actions",
-        size: 48,
-        minSize: 48,
-        maxSize: 48,
+        size: 80,
+        minSize: 80,
+        maxSize: 80,
         enableResizing: false,
         enableHiding: false,
-        header: () => <ColHeader icon={MoreVerticalIcon} label="" />,
+        header: () => <ColHeader icon={MoreVerticalIcon} label={isEn ? "Action" : "Acción"} />,
         cell: ({ row }) => {
           const property = row.original;
           return (
@@ -551,7 +609,7 @@ export function PropertyNotionTable({
         },
       },
     ],
-    [isEn, formatLocale, commitEdit, router, agentStatus]
+    [isEn, formatLocale, commitEdit, router, agentStatus, propertyAgentStatusMap]
   );
 
   // eslint-disable-next-line react-hooks-js/incompatible-library
@@ -661,7 +719,7 @@ export function PropertyNotionTable({
         <TableBody>
           {table.getRowModel().rows.map((row) => (
             <TableRow
-              className="hover:bg-muted/20"
+              className="glass-row-hover hover:bg-muted/10"
               data-state={row.getIsSelected() && "selected"}
               key={row.id}
             >

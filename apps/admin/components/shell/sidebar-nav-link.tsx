@@ -62,7 +62,7 @@ export function NavLinkRow({
   const link = (
     <Link
       className={cn(
-        "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
+        "group/nav mx-1 flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
           ? "bg-white/50 font-semibold text-sidebar-foreground shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.6)] dark:bg-mauve-400/10 dark:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.06)]"
           : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-mauve-400/8"

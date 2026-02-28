@@ -13,6 +13,7 @@ import type {
 } from "@/lib/features/properties/types";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import type { PropertyAiContext } from "../hooks/use-property-agent-status";
 
 type PropertiesListProps = {
   rows: PropertyPortfolioRow[];
@@ -21,6 +22,7 @@ type PropertiesListProps = {
   summary: PropertyPortfolioSummary;
   isSidebarOpen?: boolean;
   agentStatus?: "active" | "offline" | "loading";
+  propertyAgentStatusMap?: Map<string, PropertyAiContext>;
 };
 
 export function PropertiesList({
@@ -30,6 +32,7 @@ export function PropertiesList({
   summary,
   isSidebarOpen,
   agentStatus,
+  propertyAgentStatusMap,
 }: PropertiesListProps) {
   const isEn = locale === "en-US";
   const formatLocale = isEn ? "en-US" : "es-PY";
@@ -96,6 +99,7 @@ export function PropertiesList({
           formatLocale={formatLocale}
           isEn={isEn}
           isSidebarOpen={isSidebarOpen}
+          propertyAgentStatusMap={propertyAgentStatusMap}
           rows={rows}
           summary={summary}
         />

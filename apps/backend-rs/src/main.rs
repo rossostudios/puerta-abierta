@@ -1,3 +1,4 @@
+//! Casaora backend — Axum-based API server.
 #![recursion_limit = "512"]
 
 mod auth;
