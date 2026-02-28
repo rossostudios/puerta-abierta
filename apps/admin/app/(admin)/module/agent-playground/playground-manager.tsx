@@ -620,9 +620,8 @@ export function PlaygroundManager({
             {/* Streaming indicator with thinking steps */}
             {isSending ? (
               <Message className="items-start py-3" from="assistant">
-                <div className="relative mt-0.5">
-                  <div className="absolute -inset-1 rounded-xl bg-[var(--sidebar-primary)]/[0.1] blur-md" />
-                  <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
+                <div className="mt-0.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
                     <Icon
                       className="h-3.5 w-3.5 animate-spin"
                       icon={Loading03Icon}

@@ -1,9 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
+
+import { ChartIcon, SparklesIcon } from "@hugeicons/core-free-icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Snapshot = {
   snapshot_date: string;
@@ -39,6 +44,7 @@ type Props = {
   snapshots: Record<string, unknown>[];
   digests: Record<string, unknown>[];
   benchmarks: Record<string, unknown>[];
+  locale: string;
 };
 
 function str(v: unknown): string {
@@ -58,7 +64,12 @@ export function PortfolioDashboard({
   snapshots: rawSnaps,
   digests: rawDigests,
   benchmarks: rawBench,
+  locale,
 }: Props) {
+  const isEn = locale === "en-US";
+  const isEmpty =
+    rawSnaps.length === 0 && rawDigests.length === 0 && rawBench.length === 0;
+
   const [period, setPeriod] = useState<"30d" | "90d" | "12m">("30d");
 
   const snapshots: Snapshot[] = useMemo(() => {
@@ -121,6 +132,66 @@ export function PortfolioDashboard({
     latest && first && first.revenue > 0
       ? ((latest.revenue - first.revenue) / first.revenue) * 100
       : 0;
+
+  if (isEmpty) {
+    const kpiLabels = isEn
+      ? ["Revenue", "Occupancy", "NOI", "RevPAR", "Units"]
+      : ["Ingresos", "Ocupación", "NOI", "RevPAR", "Unidades"];
+
+    return (
+      <div className="relative">
+        {/* Skeleton preview layer */}
+        <div className="pointer-events-none select-none" aria-hidden="true">
+          <div className="space-y-4 opacity-[0.35] blur-[1px]">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              {kpiLabels.map((label) => (
+                <div className="glass-inner rounded-lg p-3" key={label}>
+                  <Skeleton className="mb-2 h-3 w-16" />
+                  <Skeleton className="h-7 w-20" />
+                </div>
+              ))}
+            </div>
+            <Skeleton className="h-48 w-full rounded-lg" />
+          </div>
+        </div>
+
+        {/* Overlay CTA */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="glass-liquid mx-4 max-w-md rounded-2xl border p-8 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Icon
+                className="h-6 w-6 text-primary"
+                icon={ChartIcon}
+              />
+            </div>
+            <h3 className="mb-2 text-lg font-semibold">
+              {isEn
+                ? "Welcome to your Portfolio Command Center"
+                : "Bienvenido a tu Centro de Control de Portafolio"}
+            </h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              {isEn
+                ? "Get real-time insights, occupancy rates, and revenue analytics across all your units. Add your first property to bring this dashboard to life."
+                : "Obtiene datos en tiempo real, tasas de ocupaci\u00f3n y an\u00e1lisis de ingresos en todas tus unidades. Agrega tu primera propiedad para activar este panel."}
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Button asChild className="!bg-primary !text-primary-foreground shadow-sm">
+                <Link href="/module/properties">
+                  {isEn ? "+ Add First Property" : "+ Agregar Propiedad"}
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/app/chats?new=1">
+                  <Icon className="mr-1.5 h-4 w-4" icon={SparklesIcon} />
+                  {isEn ? "Ask Casaora AI" : "Preguntar a Casaora IA"}
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

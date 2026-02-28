@@ -3,9 +3,12 @@
 import {
   ArrowUp02Icon,
   AttachmentIcon,
+  Mail01Icon,
   Mic01Icon,
   MicOff01Icon,
+  NoteIcon,
   StopCircleIcon,
+  Wrench01Icon,
 } from "@hugeicons/core-free-icons";
 import { useRef } from "react";
 
@@ -17,6 +20,48 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollingWaveform } from "@/components/ui/waveform";
 import { cn } from "@/lib/utils";
 
+export type QuickAction = {
+  label: string;
+  prompt: string;
+  icon: typeof Wrench01Icon;
+};
+
+const QUICK_ACTIONS_EN: QuickAction[] = [
+  {
+    label: "Log Maintenance",
+    prompt: "Log a new maintenance request",
+    icon: Wrench01Icon,
+  },
+  {
+    label: "Generate Report",
+    prompt: "Generate a financial report for this month",
+    icon: NoteIcon,
+  },
+  {
+    label: "Draft Guest Message",
+    prompt: "Draft a message for an upcoming guest",
+    icon: Mail01Icon,
+  },
+];
+
+const QUICK_ACTIONS_ES: QuickAction[] = [
+  {
+    label: "Registrar Mantenimiento",
+    prompt: "Registrar una nueva solicitud de mantenimiento",
+    icon: Wrench01Icon,
+  },
+  {
+    label: "Generar Reporte",
+    prompt: "Generar un reporte financiero de este mes",
+    icon: NoteIcon,
+  },
+  {
+    label: "Mensaje a Huésped",
+    prompt: "Redactar un mensaje para un próximo huésped",
+    icon: Mail01Icon,
+  },
+];
+
 export function ChatInputBar({
   draft,
   onDraftChange,
@@ -26,6 +71,7 @@ export function ChatInputBar({
   isEn,
   isEmbedded,
   isHero,
+  hasMessages,
   editingSourceId,
   onCancelEdit,
   agentName,
@@ -40,6 +86,8 @@ export function ChatInputBar({
   onAddFiles,
   onRemoveAttachment,
   attachmentsReady,
+  // Quick actions
+  quickActions,
 }: {
   draft: string;
   onDraftChange: (value: string) => void;
@@ -49,6 +97,7 @@ export function ChatInputBar({
   isEn: boolean;
   isEmbedded: boolean;
   isHero?: boolean;
+  hasMessages?: boolean;
   editingSourceId: string | null;
   onCancelEdit: () => void;
   agentName?: string;
@@ -63,6 +112,8 @@ export function ChatInputBar({
   onAddFiles?: (files: FileList) => void;
   onRemoveAttachment?: (id: string) => void;
   attachmentsReady?: boolean;
+  // Quick actions
+  quickActions?: QuickAction[];
 }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const displayValue =
@@ -70,12 +121,13 @@ export function ChatInputBar({
   const canSend =
     !isSending && (draft.trim() || (attachments?.length && attachmentsReady));
 
-  const placeholderName = agentName || (isEn ? "Agent" : "Agente");
+  const placeholderName = agentName || "Casaora AI";
+  const actions = quickActions ?? (isEn ? QUICK_ACTIONS_EN : QUICK_ACTIONS_ES);
 
   return (
     <div
       className={cn(
-        "absolute inset-x-0 bottom-0 pt-8 pr-4 pb-5 pl-4 sm:pr-6 sm:pl-6",
+        "absolute inset-x-0 bottom-0 pt-12 pr-4 pb-5 pl-4 sm:pr-6 sm:pl-6",
         isEmbedded && !isHero
           ? "border-border/40 border-t bg-card/95"
           : "pointer-events-none bg-gradient-to-t from-background via-background/90 to-transparent"
@@ -133,15 +185,15 @@ export function ChatInputBar({
 
         <div
           className={cn(
-            "glass-float relative flex rounded-2xl transition-all duration-200",
-            "focus-within:shadow-[0_0_0_2px_var(--sidebar-primary)/12,0_8px_32px_rgba(0,0,0,0.08)]"
+            "glass-float relative flex rounded-2xl transition-all duration-300",
+            "focus-within:border-[var(--sidebar-primary)]/20"
           )}
         >
           <div className="flex items-end gap-0.5 py-2.5 pl-2.5">
             {onAddFiles ? (
               <>
                 <Button
-                  className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/50 transition-colors hover:bg-muted/30 hover:text-foreground"
+                  className="h-8 w-8 shrink-0 rounded-xl text-muted-foreground/50 transition-all duration-200 hover:scale-105 hover:bg-muted/30 hover:text-foreground"
                   disabled={isSending}
                   onClick={() => fileInputRef.current?.click()}
                   size="icon"
@@ -173,8 +225,8 @@ export function ChatInputBar({
                 className={cn(
                   "h-8 w-8 shrink-0 rounded-xl transition-all duration-200",
                   voiceModeActive
-                    ? "bg-casaora-gradient text-white shadow-casaora hover:opacity-90"
-                    : "text-muted-foreground/50 hover:bg-muted/30 hover:text-foreground"
+                    ? "bg-casaora-gradient text-white shadow-casaora hover:scale-105 hover:opacity-90"
+                    : "text-muted-foreground/50 hover:scale-105 hover:bg-muted/30 hover:text-foreground"
                 )}
                 disabled={isSending}
                 onClick={onToggleVoice}
@@ -213,8 +265,8 @@ export function ChatInputBar({
             }}
             placeholder={
               isEn
-                ? `Message ${placeholderName}...`
-                : `Enviar mensaje a ${placeholderName}...`
+                ? `What would you like ${placeholderName} to handle today?`
+                : `¿Qué te gustaría que ${placeholderName} gestione hoy?`
             }
             rows={1}
             value={displayValue}
@@ -233,7 +285,7 @@ export function ChatInputBar({
               </Button>
             ) : null}
             <Button
-              className="h-8 w-8 rounded-xl bg-casaora-gradient text-white shadow-casaora transition-all duration-200 hover:opacity-90 disabled:opacity-30 disabled:shadow-none"
+              className="h-8 w-8 rounded-xl bg-casaora-gradient text-white shadow-casaora transition-all duration-200 hover:scale-105 hover:brightness-110 disabled:opacity-30 disabled:shadow-none"
               disabled={!canSend}
               onClick={() => onSend()}
               size="icon"
@@ -246,8 +298,36 @@ export function ChatInputBar({
           </div>
         </div>
 
+        {/* Quick actions */}
+        {isHero && !hasMessages ? (
+          <div className="flex items-center justify-center gap-1.5">
+            {actions.map((action) => (
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg glass-liquid px-3 py-1.5 text-[11px] text-muted-foreground/60",
+                  "transition-all duration-200 ease-out",
+                  "hover:border-[var(--sidebar-primary)]/20 hover:bg-[var(--sidebar-primary)]/[0.04] hover:text-foreground/70",
+                  "active:scale-[0.97]",
+                  "disabled:pointer-events-none disabled:opacity-40"
+                )}
+                disabled={isSending}
+                key={action.label}
+                onClick={() => onSend(action.prompt)}
+                type="button"
+              >
+                <Icon
+                  className="h-3 w-3 shrink-0"
+                  icon={action.icon}
+                  strokeWidth={1.8}
+                />
+                {action.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <div className="text-center">
-          <span className="text-[10px] text-muted-foreground/40">
+          <span className="text-[11px] text-muted-foreground/50">
             {isEn
               ? "AI can make mistakes. Verify important information."
               : "La IA puede cometer errores. Verifica la información importante."}

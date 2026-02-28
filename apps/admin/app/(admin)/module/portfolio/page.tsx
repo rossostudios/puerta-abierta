@@ -99,6 +99,7 @@ export default async function PortfolioPage() {
             <PortfolioDashboard
               benchmarks={benchmarks}
               digests={digests}
+              locale={locale}
               snapshots={snapshots}
             />
           </Suspense>

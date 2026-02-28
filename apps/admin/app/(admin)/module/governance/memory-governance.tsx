@@ -34,6 +34,12 @@ const TIER_STYLES: Record<string, string> = {
   episodic: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
 };
 
+const TIER_LABELS: Record<string, { en: string; es: string }> = {
+  core: { en: "Key facts", es: "Datos clave" },
+  working: { en: "Recent context", es: "Contexto reciente" },
+  episodic: { en: "Past interactions", es: "Interacciones pasadas" },
+};
+
 export function MemoryGovernance({ orgId, isEn }: MemoryGovernanceProps) {
   const queryClient = useQueryClient();
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
@@ -92,12 +98,12 @@ export function MemoryGovernance({ orgId, isEn }: MemoryGovernanceProps) {
     <Card>
       <CardHeader className="space-y-1 border-b border-border/70 pb-4">
         <CardTitle className="text-base">
-          {isEn ? "Agent Memory" : "Memoria del Agente"}
+          {isEn ? "What the AI remembers" : "Lo que la IA recuerda"}
         </CardTitle>
         <CardDescription>
           {isEn
-            ? "View and manage agent memories grouped by tier"
-            : "Ver y gestionar las memorias del agente agrupadas por nivel"}
+            ? "View and manage what the AI knows, organized by importance"
+            : "Ver y gestionar lo que la IA sabe, organizado por importancia"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
@@ -119,12 +125,16 @@ export function MemoryGovernance({ orgId, isEn }: MemoryGovernanceProps) {
               <div className="mb-2 flex items-center gap-2">
                 <Badge
                   className={cn(
-                    "text-[10px] capitalize",
+                    "text-[10px]",
                     TIER_STYLES[tier] ?? TIER_STYLES.episodic
                   )}
                   variant="outline"
                 >
-                  {tier}
+                  {TIER_LABELS[tier]
+                    ? isEn
+                      ? TIER_LABELS[tier].en
+                      : TIER_LABELS[tier].es
+                    : tier}
                 </Badge>
                 <span className="text-[11px] text-muted-foreground/50">
                   {items.length} {isEn ? "entries" : "entradas"}

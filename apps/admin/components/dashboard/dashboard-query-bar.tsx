@@ -47,12 +47,11 @@ export function DashboardQueryBar({ isEn }: DashboardQueryBarProps) {
 
   return (
     <div className="relative space-y-3">
-      <div className="pointer-events-none absolute inset-x-6 top-3 -z-10 h-16 rounded-full bg-[var(--sidebar-primary)]/18 blur-2xl" />
       <form
         className={cn(
-          "glass-float relative flex items-center gap-2 rounded-3xl border border-[var(--sidebar-primary)]/20 p-2.5",
-          "shadow-[0_10px_30px_-18px_var(--sidebar-primary)] transition-all duration-200",
-          "focus-within:border-[var(--sidebar-primary)]/35 focus-within:shadow-[0_14px_36px_-18px_var(--sidebar-primary)]"
+          "glass-float relative flex items-center gap-2 rounded-3xl border border-border/40 p-2.5",
+          "transition-all duration-200",
+          "focus-within:border-[var(--sidebar-primary)]/25"
         )}
         onSubmit={handleSubmit}
       >
@@ -101,7 +100,7 @@ export function DashboardQueryBar({ isEn }: DashboardQueryBarProps) {
         {suggestions.map((suggestion) => (
           <button
             className={cn(
-              "rounded-full border border-border/60 bg-background/70 px-3 py-1.5 text-xs text-muted-foreground",
+              "rounded-full glass-liquid px-3 py-1.5 text-xs text-muted-foreground",
               "transition-colors hover:border-[var(--sidebar-primary)]/25 hover:text-foreground"
             )}
             key={suggestion}

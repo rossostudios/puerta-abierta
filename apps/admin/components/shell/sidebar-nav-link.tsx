@@ -13,6 +13,7 @@ import { SHORTCUT_BY_HREF } from "@/lib/hotkeys/config";
 import type { Locale } from "@/lib/i18n";
 import { useTabContext } from "@/lib/tabs/tab-context";
 import { cn } from "@/lib/utils";
+import { AnimatedNavItem, AnimatedNavList } from "./sidebar-animated-list";
 import type { RouteLinkDef } from "./sidebar-types";
 import { isRouteActive } from "./sidebar-utils";
 
@@ -63,8 +64,8 @@ export function NavLinkRow({
       className={cn(
         "group/nav flex items-center gap-2 rounded-lg px-2 py-[5px] transition-all duration-200 ease-in-out",
         active
-          ? "bg-white/50 font-semibold text-sidebar-foreground shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.6)] dark:bg-white/[0.08] dark:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.06)]"
-          : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
+          ? "bg-white/50 font-semibold text-sidebar-foreground shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.6)] dark:bg-mauve-400/10 dark:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.06)]"
+          : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-mauve-400/8"
       )}
       href={href}
       onClick={handleClick}
@@ -139,17 +140,18 @@ export function ShortcutBlock({
       <h3 className="px-2 font-medium text-[10px] text-sidebar-foreground/40 uppercase tracking-[0.08em]">
         {label[locale]}
       </h3>
-      <div className="space-y-0.5">
+      <AnimatedNavList>
         {links.map((link) => (
-          <NavLinkRow
-            active={isRouteActive(pathname, search, link.href)}
-            href={link.href}
-            icon={link.icon}
-            key={link.href}
-            label={link.label[locale]}
-          />
+          <AnimatedNavItem key={link.href}>
+            <NavLinkRow
+              active={isRouteActive(pathname, search, link.href)}
+              href={link.href}
+              icon={link.icon}
+              label={link.label[locale]}
+            />
+          </AnimatedNavItem>
         ))}
-      </div>
+      </AnimatedNavList>
     </section>
   );
 }

@@ -6,7 +6,6 @@ import {
   MailOpen01Icon,
   MailReply01Icon,
   Message01Icon,
-  Settings02Icon,
   SparklesIcon,
   StarIcon,
   Task01Icon,
@@ -54,12 +53,8 @@ export const CHAT_LINKS: RouteLinkDef[] = [
   {
     href: "/module/governance",
     icon: CheckmarkCircle02Icon,
-    label: { "es-PY": "Gobernanza", "en-US": "Governance" },
-  },
-  {
-    href: "/module/agent-config",
-    icon: Settings02Icon,
-    label: { "es-PY": "Configuración de agentes", "en-US": "Agent settings" },
+    label: { "es-PY": "Config. IA", "en-US": "AI Settings" },
+    roles: ["owner_admin"],
   },
 ];
 

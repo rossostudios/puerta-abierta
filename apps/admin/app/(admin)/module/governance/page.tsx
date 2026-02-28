@@ -1,5 +1,6 @@
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
+import { getActiveRole } from "@/lib/role";
 import {
   Card,
   CardContent,
@@ -25,8 +26,8 @@ export default async function GovernancePage() {
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Select an organization to access governance controls."
-              : "Selecciona una organización para acceder a los controles de gobernanza."}
+              ? "Select an organization to access AI Settings."
+              : "Selecciona una organización para acceder a la configuración de IA."}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
@@ -38,5 +39,33 @@ export default async function GovernancePage() {
     );
   }
 
-  return <GovernanceManager locale={locale} orgId={orgId} />;
+  const role = await getActiveRole(orgId);
+
+  if (role !== "owner_admin") {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isEn ? "Access restricted" : "Acceso restringido"}
+          </CardTitle>
+          <CardDescription>
+            {isEn
+              ? "Only administrators can access AI Settings."
+              : "Solo los administradores pueden acceder a la configuración de IA."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          {isEn
+            ? "Contact your organization administrator if you need access."
+            : "Contacta al administrador de tu organización si necesitas acceso."}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="-mx-3 -mb-3 -mt-3 sm:-mx-4 sm:-mb-4 sm:-mt-4 lg:-mx-5 lg:-mb-5 lg:-mt-5 xl:-mx-7 xl:-mb-7 xl:-mt-7">
+      <GovernanceManager locale={locale} orgId={orgId} />
+    </div>
+  );
 }

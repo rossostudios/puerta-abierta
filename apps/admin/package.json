@@ -38,6 +38,7 @@
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
     "mapbox-gl": "^3.18.1",
+    "motion": "^12.34.3",
     "next": "16.1.6",
     "papaparse": "^5.5.3",
     "radix-ui": "^1.4.3",

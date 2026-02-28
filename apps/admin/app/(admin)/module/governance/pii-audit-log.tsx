@@ -52,15 +52,33 @@ export function PiiAuditLog({ orgId, isEn }: PiiAuditLogProps) {
     <Card>
       <CardHeader className="space-y-1 border-b border-border/70 pb-4">
         <CardTitle className="text-base">
-          {isEn ? "PII Intercept Log" : "Registro de Intercepción de PII"}
+          {isEn ? "Data Privacy" : "Privacidad de Datos"}
         </CardTitle>
         <CardDescription>
           {isEn
-            ? "Records of personal data detected and handled by agents"
-            : "Registros de datos personales detectados y manejados por agentes"}
+            ? "Records of personal data detected and handled by the AI"
+            : "Registros de datos personales detectados y manejados por la IA"}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-4">
+        {!loading && intercepts.length > 0 && (
+          <div className="mb-4 rounded-xl border border-border/30 bg-muted/10 px-4 py-3">
+            <p className="text-[13px] text-foreground/80">
+              {(() => {
+                const total = intercepts.length;
+                const redacted = intercepts.filter(
+                  (i) => i.action_taken === "redacted"
+                ).length;
+                const blocked = intercepts.filter(
+                  (i) => i.action_taken === "blocked"
+                ).length;
+                return isEn
+                  ? `Your AI has handled ${total} piece${total !== 1 ? "s" : ""} of personal data. ${redacted} redacted, ${blocked} blocked.`
+                  : `Tu IA ha manejado ${total} dato${total !== 1 ? "s" : ""} personal${total !== 1 ? "es" : ""}. ${redacted} redactado${redacted !== 1 ? "s" : ""}, ${blocked} bloqueado${blocked !== 1 ? "s" : ""}.`;
+              })()}
+            </p>
+          </div>
+        )}
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((k) => (

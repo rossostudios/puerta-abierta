@@ -15,6 +15,7 @@ import { Icon } from "@/components/ui/icon";
 import { Progress } from "@/components/ui/progress";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { AnimatedNavItem, AnimatedNavList } from "./sidebar-animated-list";
 import { NavLinkRow } from "./sidebar-nav-link";
 import type { MemberRole, OnboardingProgress } from "./sidebar-types";
 import {
@@ -112,7 +113,7 @@ export function SidebarHomeTab({
     <nav className="space-y-3">
       {showOnboardingHub && !onboardingCompleted ? (
         <Link
-          className="glass-inner group block rounded-xl p-3 transition-all hover:bg-white/70 hover:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.9)] dark:hover:bg-white/10"
+          className="glass-inner group block rounded-xl p-3 transition-all hover:bg-white/70 hover:shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.9)] dark:hover:bg-mauve-400/12"
           href="/setup"
         >
           <div className="flex items-center justify-between gap-2">
@@ -130,7 +131,7 @@ export function SidebarHomeTab({
               aria-label={
                 isEn ? "Dismiss setup widget" : "Cerrar widget de configuración"
               }
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-white/50 hover:text-sidebar-foreground dark:hover:bg-white/10"
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-sidebar-foreground/40 transition-colors hover:bg-white/50 hover:text-sidebar-foreground dark:hover:bg-mauve-400/12"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -143,7 +144,7 @@ export function SidebarHomeTab({
           </div>
           <Progress
             aria-valuetext={`${completionPercent}%`}
-            className="mt-2.5 h-1.5 bg-black/10 dark:bg-white/15"
+            className="mt-2.5 h-1.5 bg-black/10 dark:bg-mauve-400/15"
             indicatorClassName="bg-sidebar-primary"
             value={completionPercent}
           />
@@ -189,19 +190,20 @@ export function SidebarHomeTab({
                 </span>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="mt-0.5 space-y-0.5">
+                <AnimatedNavList className="mt-0.5">
                   {section.links.map((link) => (
-                    <NavLinkRow
-                      active={isRouteActive(pathname, search, link.href)}
-                      badge={link.badge}
-                      count={link.count}
-                      href={link.href}
-                      icon={link.iconElement}
-                      key={link.href}
-                      label={link.label}
-                    />
+                    <AnimatedNavItem key={link.href}>
+                      <NavLinkRow
+                        active={isRouteActive(pathname, search, link.href)}
+                        badge={link.badge}
+                        count={link.count}
+                        href={link.href}
+                        icon={link.iconElement}
+                        label={link.label}
+                      />
+                    </AnimatedNavItem>
                   ))}
-                </div>
+                </AnimatedNavList>
               </CollapsibleContent>
             </Collapsible>
           </div>

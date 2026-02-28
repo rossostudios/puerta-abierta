@@ -51,7 +51,8 @@ export function resolvePrimaryTab(pathname: string): PrimaryTabKey {
   if (
     pathname.startsWith("/app/agent") ||
     pathname.startsWith("/app/agents") ||
-    pathname.startsWith("/app/chats")
+    pathname.startsWith("/app/chats") ||
+    pathname.startsWith("/module/governance")
   ) {
     return "chat";
   }

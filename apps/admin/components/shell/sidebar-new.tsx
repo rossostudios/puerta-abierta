@@ -1,6 +1,7 @@
 "use client";
 
 import { AiVoiceGeneratorIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { AnimatePresence, motion, MotionConfig } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useCallback } from "react";
@@ -33,6 +34,8 @@ import { resolvePrimaryTab } from "./sidebar-utils";
 
 export type { MemberRole, ViewportMode } from "./sidebar-types";
 
+const EASING = [0.22, 1, 0.36, 1] as const;
+
 function SidebarContent({
   locale,
   orgId,
@@ -61,13 +64,14 @@ function SidebarContent({
   }, []);
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="flex h-full flex-col">
       <div className="flex h-14 shrink-0 items-center px-4">
         <OrgSwitcher activeOrgId={orgId} locale={locale} />
       </div>
 
       <div className="px-3 pb-2">
-        <div className="flex items-center gap-1 rounded-xl bg-white/35 p-1 ring-1 ring-white/40 ring-inset dark:bg-white/[0.06] dark:ring-white/[0.06]">
+        <div className="flex items-center gap-1 rounded-xl bg-white/35 p-1 ring-1 ring-white/40 ring-inset dark:bg-mauve-400/8 dark:ring-mauve-400/8">
           <div className="flex min-w-0 flex-1 items-center gap-0.5">
             {PRIMARY_TABS.map((tab) => {
               const active = tab.key === activeTab;
@@ -77,16 +81,27 @@ function SidebarContent({
                   className={cn(
                     "inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1.5 font-medium text-[12px] transition-all duration-200",
                     active
-                      ? "bg-white/60 text-sidebar-primary shadow-sm ring-1 ring-white/50 ring-inset dark:bg-white/10 dark:ring-white/[0.08]"
-                      : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
+                      ? "bg-white/60 text-sidebar-primary shadow-sm ring-1 ring-white/50 ring-inset dark:bg-mauve-400/12 dark:ring-mauve-300/10"
+                      : "text-sidebar-foreground/75 hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-mauve-400/8"
                   )}
                   href={tab.href}
                   key={tab.key}
                 >
                   <Icon icon={tab.icon} size={14} />
-                  {active && (
-                    <span className="truncate">{tab.label[locale]}</span>
-                  )}
+                  <AnimatePresence initial={false}>
+                    {active && (
+                      <motion.span
+                        animate={{ opacity: 1, width: "auto" }}
+                        className="truncate overflow-hidden"
+                        exit={{ opacity: 0, width: 0 }}
+                        initial={{ opacity: 0, width: 0 }}
+                        key={tab.key}
+                        transition={{ duration: 0.15, ease: EASING }}
+                      >
+                        {tab.label[locale]}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </Link>
               );
               return (
@@ -112,7 +127,7 @@ function SidebarContent({
               <TooltipTrigger asChild>
                 <button
                   aria-label={isEn ? "Search" : "Buscar"}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-white/[0.06]"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-sidebar-foreground/60 transition-colors hover:bg-white/30 hover:text-sidebar-foreground dark:hover:bg-mauve-400/8"
                   onClick={openSearch}
                   type="button"
                 >
@@ -135,21 +150,34 @@ function SidebarContent({
         </div>
       </div>
 
-      <div className="sidebar-scroll-mask flex-1 space-y-3 overflow-y-auto px-3 py-1.5">
-        {activeTab === "chat" ? (
-          <SidebarChatTab locale={locale} orgId={orgId} />
-        ) : null}
+      <div className="sidebar-scroll-mask flex-1 overflow-y-auto px-3 py-1.5">
+        <AnimatePresence initial={false} mode="wait">
+          <motion.div
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-3"
+            exit={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: 4 }}
+            key={activeTab}
+            transition={{ duration: 0.15, ease: EASING }}
+          >
+            {activeTab === "chat" ? (
+              <SidebarChatTab locale={locale} orgId={orgId} role={role} />
+            ) : null}
 
-        {activeTab === "inbox" ? <SidebarInboxTab locale={locale} /> : null}
+            {activeTab === "inbox" ? (
+              <SidebarInboxTab locale={locale} />
+            ) : null}
 
-        {activeTab === "home" ? (
-          <SidebarHomeTab
-            locale={locale}
-            onboardingProgress={onboardingProgress}
-            orgId={orgId}
-            role={role}
-          />
-        ) : null}
+            {activeTab === "home" ? (
+              <SidebarHomeTab
+                locale={locale}
+                onboardingProgress={onboardingProgress}
+                orgId={orgId}
+                role={role}
+              />
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <div className="shrink-0 space-y-2 p-3 pt-0">
@@ -170,6 +198,7 @@ function SidebarContent({
         <SidebarAccount collapsed={false} locale={locale} orgId={orgId} />
       </div>
     </div>
+    </MotionConfig>
   );
 }
 

@@ -1,6 +1,15 @@
 "use client";
 
-import { SparklesIcon } from "@hugeicons/core-free-icons";
+import {
+  AlertCircleIcon,
+  ArrowRight01Icon,
+  Calendar03Icon,
+  ChartLineData02Icon,
+  Mail01Icon,
+  SparklesIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
+import type { IconSvgElement } from "@hugeicons/react";
 
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -16,6 +25,74 @@ function getGreeting(isEn: boolean, firstName: string): string {
   return isEn ? `Good evening, ${firstName}` : `Buenas noches, ${firstName}`;
 }
 
+// -- Category metadata for quick prompt icons/colors --------------------------
+
+type PromptCategory = "maintenance" | "guests" | "finance" | "general";
+
+const CATEGORY_META: Record<
+  PromptCategory,
+  { icon: IconSvgElement; color: string }
+> = {
+  maintenance: {
+    icon: Wrench01Icon,
+    color: "text-amber-500/70",
+  },
+  guests: {
+    icon: Calendar03Icon,
+    color: "text-blue-500/70",
+  },
+  finance: {
+    icon: ChartLineData02Icon,
+    color: "text-emerald-500/70",
+  },
+  general: {
+    icon: SparklesIcon,
+    color: "text-[var(--sidebar-primary)]/60",
+  },
+};
+
+function classifyPrompt(prompt: string): PromptCategory {
+  const lower = prompt.toLowerCase();
+  if (
+    lower.includes("maintenan") ||
+    lower.includes("repair") ||
+    lower.includes("fix") ||
+    lower.includes("mantenimi") ||
+    lower.includes("reparaci")
+  )
+    return "maintenance";
+  if (
+    lower.includes("guest") ||
+    lower.includes("check-in") ||
+    lower.includes("checkin") ||
+    lower.includes("arriving") ||
+    lower.includes("huésped") ||
+    lower.includes("llegan")
+  )
+    return "guests";
+  if (
+    lower.includes("revenue") ||
+    lower.includes("financ") ||
+    lower.includes("payment") ||
+    lower.includes("income") ||
+    lower.includes("ingreso") ||
+    lower.includes("pago") ||
+    lower.includes("cobr")
+  )
+    return "finance";
+  return "general";
+}
+
+// -- Daily summary type -------------------------------------------------------
+
+export type DailySummaryItem = {
+  label: string;
+  count: number;
+  urgent?: boolean;
+};
+
+// -- Component ----------------------------------------------------------------
+
 export function ChatEmptyState({
   quickPrompts,
   contextualSuggestions,
@@ -25,6 +102,7 @@ export function ChatEmptyState({
   agentName,
   agentDescription,
   firstName,
+  dailySummary,
 }: {
   quickPrompts: string[];
   contextualSuggestions?: string[];
@@ -34,100 +112,167 @@ export function ChatEmptyState({
   agentName?: string;
   agentDescription?: string;
   firstName?: string;
+  dailySummary?: DailySummaryItem[];
 }) {
-  return (
-    <div className="flex min-h-[50vh] flex-col items-center justify-center px-4">
-      {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/2 h-[320px] w-[320px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--sidebar-primary)]/[0.06] blur-[100px]" />
-      </div>
+  const hasUrgent = dailySummary?.some((item) => item.urgent && item.count > 0);
 
-      <div className="relative mb-10 flex flex-col items-center gap-5">
+  return (
+    <div className="flex min-h-[55vh] flex-col items-center justify-center px-4 pb-8">
+      {/* Greeting + Agent identity */}
+      <div className="relative mb-8 flex flex-col items-center gap-3">
         {firstName ? (
-          <h1 className="font-serif text-2xl text-foreground/80 tracking-tight">
+          <h1 className="font-sans text-3xl text-foreground/90 tracking-tight animate-[fadeInUp_0.5s_ease-out_both]">
             {getGreeting(isEn, firstName)}
           </h1>
         ) : null}
-        {/* Avatar mark */}
-        <div className="relative">
-          <div className="absolute -inset-3 rounded-3xl bg-[var(--sidebar-primary)]/[0.08] blur-xl" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-casaora-gradient text-white shadow-casaora">
-            <Icon className="h-6 w-6" icon={SparklesIcon} strokeWidth={1.5} />
-          </div>
-        </div>
 
-        <div className="space-y-2.5 text-center">
-          <h2 className="font-serif text-[1.75rem] text-foreground leading-tight tracking-tight">
-            {agentName || (isEn ? "Concierge" : "Concierge")}
-          </h2>
-          <p className="mx-auto max-w-sm text-[13.5px] text-muted-foreground leading-relaxed">
-            {agentDescription ||
-              (isEn
-                ? "Your AI-powered property operations assistant. Ask me anything."
-                : "Tu asistente de operaciones impulsado por IA. Preguntame lo que necesites.")}
-          </p>
+        {/* Agent identity badge */}
+        <div
+          className="flex items-center gap-2 animate-[fadeInUp_0.5s_ease-out_both]"
+          style={{ animationDelay: "60ms" }}
+        >
+          <div className="flex h-5 w-5 items-center justify-center rounded-md bg-casaora-gradient">
+            <Icon
+              className="h-3 w-3 text-white"
+              icon={SparklesIcon}
+              strokeWidth={2}
+            />
+          </div>
+          <span className="text-[13px] font-medium text-muted-foreground/70">
+            {agentName || "Casaora AI"}
+          </span>
         </div>
       </div>
+
+      {/* Daily summary briefing */}
+      {dailySummary && dailySummary.length > 0 ? (
+        <div
+          className="mb-8 w-full max-w-xl animate-[fadeInUp_0.4s_ease-out_both]"
+          style={{ animationDelay: "120ms" }}
+        >
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-xl border px-4 py-3",
+              hasUrgent
+                ? "border-amber-500/20 bg-amber-500/[0.04]"
+                : "border-border/40 bg-muted/30"
+            )}
+          >
+            {hasUrgent ? (
+              <Icon
+                className="h-4 w-4 shrink-0 text-amber-500/80"
+                icon={AlertCircleIcon}
+              />
+            ) : null}
+            <p className="text-[13px] leading-relaxed text-foreground/70">
+              {dailySummary
+                .filter((item) => item.count > 0)
+                .map((item, i, arr) => (
+                  <span key={item.label}>
+                    <span
+                      className={cn(
+                        "font-medium",
+                        item.urgent
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-foreground/90"
+                      )}
+                    >
+                      {item.count} {item.label}
+                    </span>
+                    {i < arr.length - 1 ? (
+                      <span className="text-muted-foreground/40">
+                        {" "}
+                        &middot;{" "}
+                      </span>
+                    ) : null}
+                  </span>
+                ))}
+            </p>
+          </div>
+        </div>
+      ) : null}
 
       {/* Contextual suggestions (dynamic, portfolio-aware) */}
       {contextualSuggestions && contextualSuggestions.length > 0 ? (
         <div className="relative flex w-full max-w-xl flex-col items-center gap-2.5">
-          <p className="mb-1 flex items-center gap-1.5 font-medium text-[11px] text-muted-foreground/60 uppercase tracking-widest">
+          <p
+            className="mb-1 flex items-center gap-1.5 font-medium text-[11px] text-muted-foreground/60 uppercase tracking-widest animate-[fadeInUp_0.5s_ease-out_both]"
+            style={{ animationDelay: "200ms" }}
+          >
             <Icon
               className="h-3 w-3 text-[var(--sidebar-primary)]/60"
               icon={SparklesIcon}
             />
             {isEn ? "Suggested for you" : "Sugerido para ti"}
           </p>
-          <div className="flex w-full flex-wrap justify-center gap-2">
+          <div className="flex w-full flex-col gap-2">
             {contextualSuggestions.slice(0, 3).map((prompt, i) => (
               <button
                 className={cn(
-                  "glass-inner group relative cursor-pointer rounded-xl border border-[var(--sidebar-primary)]/10 px-4 py-3 text-left text-[13px] text-foreground/80 leading-snug",
+                  "group relative w-full cursor-pointer rounded-xl glass-liquid border-l-2 border-l-[var(--sidebar-primary)]/30 px-4 py-3.5 text-left text-[13px] text-foreground/80 leading-snug",
                   "transition-all duration-200 ease-out",
-                  "hover:border-[var(--sidebar-primary)]/20 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground hover:shadow-sm",
-                  "active:scale-[0.98]",
+                  "hover:border-[var(--sidebar-primary)]/20 hover:border-l-[var(--sidebar-primary)]/50 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground hover:shadow-sm",
+                  "active:scale-[0.99]",
                   "disabled:pointer-events-none disabled:opacity-40",
                   "animate-[fadeInUp_0.4s_ease-out_both]"
                 )}
                 disabled={disabled}
                 key={prompt}
                 onClick={() => onSendPrompt(prompt)}
-                style={{ animationDelay: `${i * 80 + 100}ms` }}
+                style={{ animationDelay: `${i * 80 + 260}ms` }}
                 type="button"
               >
-                <span className="relative">{prompt}</span>
+                <span className="relative flex items-center justify-between gap-3">
+                  <span>{prompt}</span>
+                  <Icon
+                    className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-[var(--sidebar-primary)]/60"
+                    icon={ArrowRight01Icon}
+                  />
+                </span>
               </button>
             ))}
           </div>
         </div>
       ) : null}
 
+      {/* Categorized quick prompts */}
       {quickPrompts.length > 0 ? (
-        <div className="relative flex w-full max-w-xl flex-col items-center gap-2.5">
-          <p className="mb-1 font-medium text-[11px] text-muted-foreground/60 uppercase tracking-widest">
+        <div className="relative mt-5 flex w-full max-w-xl flex-col items-center gap-2.5">
+          <p
+            className="mb-1 font-medium text-[11px] text-muted-foreground/40 uppercase tracking-widest animate-[fadeInUp_0.5s_ease-out_both]"
+            style={{ animationDelay: "500ms" }}
+          >
             {isEn ? "Try asking" : "Prueba preguntar"}
           </p>
           <div className="flex w-full flex-wrap justify-center gap-2">
-            {quickPrompts.slice(0, 3).map((prompt, i) => (
-              <button
-                className={cn(
-                  "glass-inner group relative cursor-pointer rounded-xl px-4 py-3 text-left text-[13px] text-foreground/80 leading-snug",
-                  "transition-all duration-200 ease-out",
-                  "hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground hover:shadow-sm",
-                  "active:scale-[0.98]",
-                  "disabled:pointer-events-none disabled:opacity-40",
-                  "animate-[fadeInUp_0.4s_ease-out_both]"
-                )}
-                disabled={disabled}
-                key={prompt}
-                onClick={() => onSendPrompt(prompt)}
-                style={{ animationDelay: `${i * 80 + 100}ms` }}
-                type="button"
-              >
-                <span className="relative">{prompt}</span>
-              </button>
-            ))}
+            {quickPrompts.slice(0, 3).map((prompt, i) => {
+              const category = classifyPrompt(prompt);
+              const meta = CATEGORY_META[category];
+              return (
+                <button
+                  className={cn(
+                    "group relative flex cursor-pointer items-center gap-1.5 rounded-full glass-liquid py-2 pr-4 pl-3 text-center text-[12.5px] text-muted-foreground/70 leading-snug",
+                    "transition-all duration-200 ease-out",
+                    "hover:border-[var(--sidebar-primary)]/20 hover:bg-[var(--sidebar-primary)]/[0.04] hover:text-foreground/80 hover:shadow-sm",
+                    "active:scale-[0.97]",
+                    "disabled:pointer-events-none disabled:opacity-40",
+                    "animate-[fadeInUp_0.4s_ease-out_both]"
+                  )}
+                  disabled={disabled}
+                  key={prompt}
+                  onClick={() => onSendPrompt(prompt)}
+                  style={{ animationDelay: `${i * 60 + 560}ms` }}
+                  type="button"
+                >
+                  <Icon
+                    className={cn("h-3 w-3 shrink-0", meta.color)}
+                    icon={meta.icon}
+                    strokeWidth={1.8}
+                  />
+                  <span className="relative">{prompt}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       ) : null}

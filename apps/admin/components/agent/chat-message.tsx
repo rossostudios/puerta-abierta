@@ -108,15 +108,12 @@ export function ChatMessage({
 
   return (
     <Message
-      className={cn("py-3", isUser ? "" : "items-start")}
+      className={cn("py-3 animate-[fadeInUp_0.3s_ease-out_both]", isUser ? "" : "items-start")}
       from={message.role}
     >
       {isUser ? null : (
-        <div className="relative mt-0.5">
-          <div className="absolute -inset-1 rounded-xl bg-[var(--sidebar-primary)]/[0.1] blur-md" />
-          <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
-            <Icon className="h-3.5 w-3.5" icon={SparklesIcon} />
-          </div>
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
+          <Icon className="h-3.5 w-3.5" icon={SparklesIcon} />
         </div>
       )}
 

@@ -5,7 +5,7 @@ import {
   SparklesIcon,
   TestTube01Icon,
 } from "@hugeicons/core-free-icons";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,7 @@ type AgentDetail = AgentRow & {
 
 type Props = {
   orgId: string;
-  initialAgents: AgentRow[];
+  initialAgents?: AgentRow[];
   locale: string;
 };
 
@@ -46,7 +46,7 @@ function parseGuardrailOverrides(input: string): Record<string, unknown> | null 
 export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
   const isEn = locale === "en-US";
 
-  const [agents, setAgents] = useState<AgentRow[]>(initialAgents);
+  const [agents, setAgents] = useState<AgentRow[]>(initialAgents ?? []);
   const [selected, setSelected] = useState<AgentDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -61,6 +61,20 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
   const [testResult, setTestResult] = useState("");
   const [testing, setTesting] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
+
+  // Fetch agents on mount when no initial data is provided
+  useEffect(() => {
+    if (initialAgents && initialAgents.length > 0) return;
+    let cancelled = false;
+    authedFetch<{ data?: AgentRow[] }>(`/ai-agents?org_id=${orgId}`)
+      .then((res) => {
+        if (!cancelled) setAgents(res.data ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, initialAgents]);
 
   const sortedAgents = useMemo(
     () => [...agents].sort((a, b) => a.name.localeCompare(b.name)),

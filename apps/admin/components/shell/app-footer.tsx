@@ -1,48 +1,47 @@
 "use client";
 
-import { KeyboardIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
-import { CasaoraLogo } from "@/components/ui/casaora-logo";
-import { Icon } from "@/components/ui/icon";
 import type { Locale } from "@/lib/i18n";
 
 export function AppFooter({ locale }: { locale: Locale }) {
   const isEn = locale === "en-US";
 
   return (
-    <footer className="glass-chrome glass-edge-top relative flex h-9 shrink-0 items-center justify-between px-4 text-[11px] text-muted-foreground/70">
+    <footer className="relative flex h-9 shrink-0 items-center justify-between border-t border-sidebar-border/60 bg-sidebar px-4 text-[11px] text-sidebar-foreground/60">
       <div className="flex items-center gap-4">
         <Link
-          className="transition-colors hover:text-foreground"
-          href="/documentation"
+          className="transition-colors hover:text-sidebar-foreground"
+          href="/privacy"
         >
-          {isEn ? "Docs" : "Documentación"}
+          {isEn ? "Privacy" : "Privacidad"}
         </Link>
         <Link
-          className="transition-colors hover:text-foreground"
-          href="/settings"
+          className="transition-colors hover:text-sidebar-foreground"
+          href="/terms"
         >
-          {isEn ? "Settings" : "Ajustes"}
+          {isEn ? "Terms" : "Términos"}
         </Link>
-        <button
-          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
-          onClick={() =>
-            window.dispatchEvent(new CustomEvent("pa:show-shortcuts-help"))
-          }
-          type="button"
+        <Link
+          className="transition-colors hover:text-sidebar-foreground"
+          href="/changelog"
         >
-          <Icon icon={KeyboardIcon} size={12} />
-          <span className="hidden sm:inline">
-            {isEn ? "Shortcuts" : "Atajos"}
-          </span>
-        </button>
+          Changelog
+        </Link>
       </div>
 
-      <CasaoraLogo className="text-muted-foreground/70" size={20} />
-
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-1">
         <span className="tabular-nums">&copy; {new Date().getFullYear()}</span>
+        <a
+          className="transition-colors hover:text-sidebar-foreground"
+          href="https://casaora.co"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          Casaora
+        </a>
+        <span>·</span>
+        <span>{isEn ? "All rights reserved" : "Todos los derechos reservados"}</span>
       </div>
     </footer>
   );

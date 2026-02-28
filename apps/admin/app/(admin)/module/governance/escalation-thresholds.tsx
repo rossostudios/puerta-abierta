@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ type EscalationThreshold = {
 
 type Props = {
   orgId: string;
-  initialThresholds: EscalationThreshold[];
+  initialThresholds?: EscalationThreshold[];
   locale: string;
 };
 
@@ -61,7 +61,7 @@ export function EscalationThresholds({
   locale,
 }: Props) {
   const isEn = locale === "en-US";
-  const [thresholds, setThresholds] = useState(initialThresholds);
+  const [thresholds, setThresholds] = useState(initialThresholds ?? []);
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newThreshold, setNewThreshold] = useState({
@@ -71,6 +71,22 @@ export function EscalationThresholds({
     description: "",
     agent_slug: "",
   });
+
+  // Fetch thresholds on mount when no initial data is provided
+  useEffect(() => {
+    if (initialThresholds && initialThresholds.length > 0) return;
+    let cancelled = false;
+    authedFetch<{ data?: EscalationThreshold[] }>(
+      `/escalation-thresholds?org_id=${orgId}`
+    )
+      .then((res) => {
+        if (!cancelled) setThresholds(res.data ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, initialThresholds]);
 
   const handleToggle = useCallback(
     async (id: string, isActive: boolean) => {

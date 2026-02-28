@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Loading03Icon,
   PlusSignIcon,
   SparklesIcon,
 } from "@hugeicons/core-free-icons";
@@ -233,6 +232,25 @@ export function ChatThread({
     orgId,
     !activeChatId && !!orgId
   );
+
+  // --- daily summary (proactive briefing) ------------------------------------
+  const dailySummaryQuery = useQuery({
+    queryKey: ["daily-summary", orgId],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/agent/daily-summary?org_id=${encodeURIComponent(orgId)}`,
+        { cache: "no-store", headers: { Accept: "application/json" } }
+      );
+      if (!res.ok) return [];
+      const payload = (await res.json()) as {
+        data?: Array<{ label: string; count: number; urgent?: boolean }>;
+      };
+      return payload.data ?? [];
+    },
+    staleTime: 300_000,
+    enabled: !activeChatId && !!orgId,
+    retry: false,
+  });
 
   // Auto-select: prefer guest-concierge, fallback to first active
   useEffect(() => {
@@ -1096,7 +1114,7 @@ export function ChatThread({
       <Conversation
         className={cn(
           "flex-1 p-0",
-          isHero ? "pb-44" : isEmbedded ? "pb-52" : "pb-48"
+          isHero ? "pb-48" : isEmbedded ? "pb-52" : "pb-48"
         )}
       >
         <ConversationContent
@@ -1133,6 +1151,7 @@ export function ChatThread({
               contextualSuggestions={
                 contextualSuggestionsQuery.data?.map((s) => s.text) ?? []
               }
+              dailySummary={dailySummaryQuery.data}
               disabled={isSending}
               firstName={isHero ? firstName : undefined}
               isEn={isEn}
@@ -1208,19 +1227,19 @@ export function ChatThread({
                 { minHeight: 56, contain: "layout" } as React.CSSProperties
               }
             >
-              <div className="relative mt-0.5">
-                <div className="absolute -inset-1 rounded-xl bg-[var(--sidebar-primary)]/[0.1] blur-md" />
-                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
-                  <Icon
-                    className="h-3.5 w-3.5 animate-spin"
-                    icon={Loading03Icon}
-                  />
-                </div>
+              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
+                <Icon
+                  className="h-3.5 w-3.5 animate-pulse"
+                  icon={SparklesIcon}
+                />
               </div>
               <MessageContent variant="flat">
                 <div className="min-w-0 flex-1 space-y-2 py-0.5">
                   {streamStatus ? (
-                    <p className="text-[12px] text-muted-foreground/70">
+                    <p
+                      className="animate-[statusFade_0.3s_ease-out] text-[12px] text-muted-foreground/70"
+                      key={streamStatus}
+                    >
                       {streamStatus}
                     </p>
                   ) : null}
@@ -1245,7 +1264,7 @@ export function ChatThread({
                           style={{ animationDelay: "300ms" }}
                         />
                       </span>
-                      {isEn ? "Thinking" : "Pensando"}
+                      {isEn ? "Casaora AI is thinking..." : "Casaora AI está pensando..."}
                     </p>
                   ) : null}
                 </div>
@@ -1264,6 +1283,7 @@ export function ChatThread({
         attachmentsReady={attachmentHook.allReady}
         draft={draft}
         editingSourceId={editingSourceId}
+        hasMessages={displayMessages.length > 0}
         isEmbedded={isEmbedded}
         isEn={isEn}
         isHero={isHero}

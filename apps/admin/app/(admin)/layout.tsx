@@ -1,32 +1,9 @@
 import { AdminShell } from "@/components/shell/admin-shell";
 import { OrgBootstrap } from "@/components/shell/org-bootstrap";
-import type { MemberRole } from "@/components/shell/sidebar-new";
-import { fetchMe } from "@/lib/api";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getOnboardingProgress } from "@/lib/onboarding";
 import { getActiveOrgId } from "@/lib/org";
-
-const VALID_ROLES = new Set<MemberRole>([
-  "owner_admin",
-  "operator",
-  "cleaner",
-  "accountant",
-  "viewer",
-]);
-
-async function getActiveRole(orgId: string | null): Promise<MemberRole | null> {
-  if (!orgId) return null;
-  try {
-    const me = await fetchMe();
-    const membership = me.memberships?.find((m) => m.organization_id === orgId);
-    const role = membership?.role?.trim().toLowerCase() as
-      | MemberRole
-      | undefined;
-    return role && VALID_ROLES.has(role) ? role : null;
-  } catch {
-    return null;
-  }
-}
+import { getActiveRole } from "@/lib/role";
 
 export default async function AdminLayout({
   children,

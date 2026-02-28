@@ -8,15 +8,17 @@ import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { CHAT_LINKS } from "./sidebar-constants";
 import { ShortcutBlock } from "./sidebar-nav-link";
-import type { ChatSummaryItem } from "./sidebar-types";
+import type { ChatSummaryItem, MemberRole } from "./sidebar-types";
 import { isRouteActive, normalizeChatItems } from "./sidebar-utils";
 
 export function SidebarChatTab({
   locale,
   orgId,
+  role,
 }: {
   locale: Locale;
   orgId: string | null;
+  role?: MemberRole | null;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -138,11 +140,15 @@ export function SidebarChatTab({
     [isEn, loadChatData, orgId]
   );
 
+  const filteredLinks = CHAT_LINKS.filter(
+    (link) => !link.roles || (role && link.roles.includes(role))
+  );
+
   return (
     <div className="space-y-3">
       <ShortcutBlock
         label={{ "es-PY": "Agentes", "en-US": "Agents" }}
-        links={CHAT_LINKS}
+        links={filteredLinks}
         locale={locale}
         pathname={pathname}
         search={search}
