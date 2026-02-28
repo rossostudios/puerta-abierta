@@ -439,9 +439,7 @@ export function PropertyNotionTable({
             );
           }
           const aiCtx = agentStatusRef.current?.get(row.original.id);
-          const status =
-            aiCtx?.status ??
-            (agentStatus === "active" ? "monitoring" : "offline");
+          const status = aiCtx?.status ?? (agentStatus === "active" ? "monitoring" : "offline");
 
           if (status === "awaiting-approval") {
             return (
@@ -457,9 +455,7 @@ export function PropertyNotionTable({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {aiCtx?.pendingCount ?? 1} {isEn ? "pending" : "pendiente(s)"}
-                  {aiCtx?.latestToolName
-                    ? ` · ${aiCtx.latestToolName.replace(/_/g, " ")}`
-                    : ""}
+                  {aiCtx?.latestToolName ? ` · ${aiCtx.latestToolName.replace(/_/g, " ")}` : ""}
                 </TooltipContent>
               </Tooltip>
             );
@@ -478,9 +474,7 @@ export function PropertyNotionTable({
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   {aiCtx?.latestAgentSlug ?? "agent"}{" "}
-                  {aiCtx?.latestToolName
-                    ? `· ${aiCtx.latestToolName.replace(/_/g, " ")}`
-                    : ""}
+                  {aiCtx?.latestToolName ? `· ${aiCtx.latestToolName.replace(/_/g, " ")}` : ""}
                 </TooltipContent>
               </Tooltip>
             );
@@ -686,7 +680,7 @@ export function PropertyNotionTable({
         },
       },
     ],
-    [isEn, formatLocale, commitEdit, router, agentStatus]
+    [isEn, formatLocale, commitEdit, router, agentStatus, propertyAgentStatusMap]
   );
 
   // eslint-disable-next-line react-hooks-js/incompatible-library

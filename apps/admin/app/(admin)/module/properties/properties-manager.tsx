@@ -178,12 +178,8 @@ export function PropertiesManager({
             recordCount={filteredRows.length}
             recordsLabel={
               filteredRows.length === 1
-                ? isEn
-                  ? "Property"
-                  : "Propiedad"
-                : isEn
-                  ? "Properties"
-                  : "Propiedades"
+                ? isEn ? "Property" : "Propiedad"
+                : isEn ? "Properties" : "Propiedades"
             }
             title={title}
           />

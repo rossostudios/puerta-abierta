@@ -64,7 +64,7 @@ export function AiInsightsBanner({
   const hasPending = approvals_24h.pending > 0;
 
   return (
-    <div className="fade-in slide-in-from-top-2 glass-inner relative animate-in overflow-hidden rounded-xl transition-all duration-300">
+    <div className="animate-in fade-in slide-in-from-top-2 relative overflow-hidden rounded-xl glass-inner transition-all duration-300">
       {/* Left accent gradient */}
       <div className="absolute top-0 bottom-0 left-0 w-1 bg-casaora-gradient" />
 

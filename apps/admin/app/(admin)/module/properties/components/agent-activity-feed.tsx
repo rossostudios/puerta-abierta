@@ -73,9 +73,8 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
           <div
             className={cn(
               "glass-inner rounded-lg p-2.5 transition-all",
-              idx === 0 && "fade-in slide-in-from-top-1 animate-in",
-              approval.status === "pending" &&
-                "border-[var(--agentic-rose-gold-border)]"
+              idx === 0 && "animate-in fade-in slide-in-from-top-1",
+              approval.status === "pending" && "border-[var(--agentic-rose-gold-border)]"
             )}
             key={approval.id}
           >
@@ -85,9 +84,7 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
               </Badge>
               <span className="text-[10px] text-muted-foreground/70">
                 {approval.status === "pending"
-                  ? isEn
-                    ? `wants to ${approval.tool_name.replace(/_/g, " ")}`
-                    : `quiere ${approval.tool_name.replace(/_/g, " ")}`
+                  ? isEn ? `wants to ${approval.tool_name.replace(/_/g, " ")}` : `quiere ${approval.tool_name.replace(/_/g, " ")}`
                   : approval.tool_name.replace(/_/g, " ")}
               </span>
             </div>
