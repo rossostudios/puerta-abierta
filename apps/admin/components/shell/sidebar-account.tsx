@@ -1,5 +1,6 @@
 "use client";
 
+import { useClerk, useUser } from "@clerk/nextjs";
 import {
   ArrowDown01Icon,
   CreditCardIcon,
@@ -9,7 +10,6 @@ import {
   Settings03Icon,
   UserCircle02Icon,
 } from "@hugeicons/core-free-icons";
-import { useClerk, useUser } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";

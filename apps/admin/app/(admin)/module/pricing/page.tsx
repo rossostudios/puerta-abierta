@@ -13,10 +13,10 @@ import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
-import { MlModels } from "./ml-models";
+import { MarketCalibration } from "./market-calibration";
+import { PricingHero } from "./pricing-hero";
 import { PricingManager } from "./pricing-manager";
-import { PricingRecommendations } from "./pricing-recommendations";
-import { PricingRules } from "./pricing-rules";
+import { PricingStrategy } from "./pricing-strategy";
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
@@ -51,8 +51,8 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Select an organization to load pricing templates."
-              : "Selecciona una organización para cargar plantillas de precios."}
+              ? "Select an organization to load pricing intelligence."
+              : "Selecciona una organización para cargar inteligencia de precios."}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -61,16 +61,16 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
 
   let templates: Record<string, unknown>[] = [];
   let recommendations: unknown[] = [];
-  let pricingRules: unknown[] = [];
+  let strategies: unknown[] = [];
   try {
-    const [t, r, rules] = await Promise.all([
+    const [t, r, s] = await Promise.all([
       fetchList("/pricing/templates", orgId, 500),
       fetchList("/pricing/recommendations", orgId, 50, { status: "pending" }),
-      fetchList("/pricing-rule-sets", orgId, 50).catch(() => []),
+      fetchList("/pricing/strategies", orgId, 10),
     ]);
     templates = t as Record<string, unknown>[];
     recommendations = r;
-    pricingRules = rules;
+    strategies = s;
   } catch (err) {
     const message = errorMessage(err);
     if (isOrgMembershipError(message)) {
@@ -85,8 +85,8 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Could not load pricing templates from backend."
-              : "No se pudieron cargar plantillas desde el backend."}
+              ? "Could not load pricing data from backend."
+              : "No se pudieron cargar datos de precios desde el backend."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2 text-muted-foreground text-sm">
@@ -104,56 +104,41 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
+      {errorLabel ? (
+        <Alert variant="destructive">
+          <AlertTitle>
+            {isEn
+              ? "Could not complete request"
+              : "No se pudo completar la solicitud"}
+          </AlertTitle>
+          <AlertDescription>{errorLabel}</AlertDescription>
+        </Alert>
+      ) : null}
+      {successLabel ? (
+        <Alert variant="success">
+          <AlertTitle>
+            {isEn ? "Success" : "Éxito"}: {successLabel}
+          </AlertTitle>
+        </Alert>
+      ) : null}
+
+      {/* 1. AI Pricing Recommendations — hero section */}
+      <Card className="border-primary/20">
         <CardHeader>
           <CardTitle className="text-2xl">
-            {isEn ? "Pricing templates" : "Plantillas de precios"}
+            {isEn
+              ? "AI Pricing Recommendations"
+              : "Recomendaciones de Precios IA"}
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Define transparent move-in pricing blocks used by marketplace listings."
-              : "Define bloques transparentes de costo de ingreso para anuncios del marketplace."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {errorLabel ? (
-            <Alert variant="destructive">
-              <AlertTitle>
-                {isEn
-                  ? "Could not complete request"
-                  : "No se pudo completar la solicitud"}
-              </AlertTitle>
-              <AlertDescription>{errorLabel}</AlertDescription>
-            </Alert>
-          ) : null}
-          {successLabel ? (
-            <Alert variant="success">
-              <AlertTitle>
-                {isEn ? "Success" : "Éxito"}: {successLabel}
-              </AlertTitle>
-            </Alert>
-          ) : null}
-
-          <Suspense fallback={null}>
-            <PricingManager orgId={orgId} templates={templates} />
-          </Suspense>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "AI Rate Recommendations" : "Recomendaciones de Tarifas IA"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "The pricing agent analyzes occupancy, seasonality, competitor data, and market trends to suggest rate adjustments with confidence scores."
-              : "El agente de precios analiza ocupación, estacionalidad, datos de competidores y tendencias de mercado para sugerir ajustes de tarifas con puntuaciones de confianza."}
+              ? "Your pricing agent analyzes occupancy, seasonality, and market trends to suggest rate adjustments."
+              : "Tu agente de precios analiza ocupación, estacionalidad y tendencias de mercado para sugerir ajustes de tarifas."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Suspense fallback={null}>
-            <PricingRecommendations
+            <PricingHero
               initialRecommendations={recommendations}
               locale={locale}
               orgId={orgId}
@@ -162,41 +147,63 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
         </CardContent>
       </Card>
 
+      {/* 2. Market Calibration */}
       <Card>
         <CardHeader>
           <CardTitle>
-            {isEn ? "Pricing Rule Sets" : "Conjuntos de Reglas de Precios"}
+            {isEn ? "Market Calibration" : "Calibración de Mercado"}
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Configure min/max rates, weekend premiums, seasonal adjustments, last-minute discounts, and length-of-stay tiers that feed into AI pricing recommendations."
-              : "Configura tarifas mín/máx, premiums de fin de semana, ajustes estacionales, descuentos de última hora y niveles de estadía que alimentan las recomendaciones de precios IA."}
+              ? "AI model status trained from your reservation history to improve pricing accuracy."
+              : "Estado del modelo IA entrenado con tu historial de reservas para mejorar la precisión de precios."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Suspense fallback={null}>
-            <PricingRules
-              initialRules={pricingRules as never[]}
+            <MarketCalibration locale={locale} orgId={orgId} />
+          </Suspense>
+        </CardContent>
+      </Card>
+
+      {/* 3. Pricing Strategy */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isEn ? "Pricing Strategy" : "Estrategia de Precios"}
+          </CardTitle>
+          <CardDescription>
+            {isEn
+              ? "Choose a strategy that controls how AI adjusts your rates. Parameters are automatically configured."
+              : "Elige una estrategia que controle cómo la IA ajusta tus tarifas. Los parámetros se configuran automáticamente."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Suspense fallback={null}>
+            <PricingStrategy
+              initialStrategies={strategies as never[]}
               locale={locale}
               orgId={orgId}
             />
           </Suspense>
         </CardContent>
       </Card>
+
+      {/* 4. Move-in Fee Templates */}
       <Card>
         <CardHeader>
           <CardTitle>
-            {isEn ? "ML Price Elasticity Model" : "Modelo ML de Elasticidad de Precio"}
+            {isEn ? "Move-in Fee Templates" : "Plantillas de Costos de Ingreso"}
           </CardTitle>
           <CardDescription>
             {isEn
-              ? "Machine-learned price elasticity replaces the hardcoded -0.8 default. Trained weekly from your reservation history."
-              : "Elasticidad de precio aprendida por ML reemplaza el valor predeterminado de -0.8. Entrenado semanalmente de su historial de reservas."}
+              ? "Define transparent move-in pricing blocks used by marketplace listings."
+              : "Define bloques transparentes de costo de ingreso para anuncios del marketplace."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Suspense fallback={null}>
-            <MlModels locale={locale} orgId={orgId} />
+            <PricingManager orgId={orgId} templates={templates} />
           </Suspense>
         </CardContent>
       </Card>

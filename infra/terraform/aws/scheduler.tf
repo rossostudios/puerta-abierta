@@ -18,7 +18,7 @@ data "aws_secretsmanager_secret" "internal_api_key" {
 resource "aws_cloudwatch_log_group" "scheduler_job_runner" {
   count             = var.enable_scheduler_jobs ? 1 : 0
   name              = local.names.scheduler_job_runner_log_group
-  retention_in_days = 30
+  retention_in_days = 7
 }
 
 resource "aws_ecs_task_definition" "scheduler_job_runner" {

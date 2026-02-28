@@ -36,11 +36,12 @@ type ApprovalQueueProps = {
   locale: Locale;
 };
 
-const KIND_FILTERS = ["all", "approval", "anomaly"] as const;
-const PRIORITY_FILTERS = ["all", "critical", "high", "medium"] as const;
+const _KIND_FILTERS = ["all", "approval", "anomaly"] as const;
+const _PRIORITY_FILTERS = ["all", "critical", "high", "medium"] as const;
 
 function confidenceTone(pct: number): string {
-  if (pct >= 80) return "text-emerald-600 bg-emerald-500/10 border-emerald-500/30";
+  if (pct >= 80)
+    return "text-emerald-600 bg-emerald-500/10 border-emerald-500/30";
   if (pct >= 60) return "text-amber-600 bg-amber-500/10 border-amber-500/30";
   return "text-red-600 bg-red-500/10 border-red-500/30";
 }
@@ -59,14 +60,14 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
   const deliveryStatusSeededRef = useRef(false);
   const approvalPollInterval = useVisibilityPollingInterval({
     enabled: !!orgId,
-    foregroundMs: 15_000,
+    foregroundMs: 45_000,
     backgroundMs: 60_000,
   });
 
   useEffect(() => {
     deliveryStatusByIdRef.current = new Map();
     deliveryStatusSeededRef.current = false;
-  }, [orgId]);
+  }, []);
 
   const { data: approvals = [], isPending: loading } = useQuery({
     queryKey: ["agent-approvals", orgId],
@@ -80,7 +81,6 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
       return payload.data ?? [];
     },
     refetchInterval: approvalPollInterval,
-    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -392,7 +392,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
               {hasWhyData ? (
                 <div className="rounded-lg border border-border/40 bg-muted/20">
                   <button
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                     onClick={() => toggleWhy(approval.id)}
                     type="button"
                   >
@@ -408,7 +408,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
                     {confidence !== null ? (
                       <span
                         className={cn(
-                          "ml-auto inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums",
+                          "ml-auto inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono font-semibold text-[10px] tabular-nums",
                           confidenceTone(confidence)
                         )}
                         title={
@@ -422,7 +422,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
                     ) : null}
                   </button>
                   {whyOpen ? (
-                    <div className="space-y-1.5 border-t border-border/30 px-3 py-2">
+                    <div className="space-y-1.5 border-border/30 border-t px-3 py-2">
                       {confidence !== null ? (
                         <div className="flex items-center gap-2 text-[11px]">
                           <span className="text-muted-foreground">
@@ -430,7 +430,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
                           </span>
                           <span
                             className={cn(
-                              "inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums",
+                              "inline-flex items-center rounded-full border px-1.5 py-0.5 font-mono font-semibold text-[10px] tabular-nums",
                               confidenceTone(confidence)
                             )}
                           >
@@ -477,7 +477,8 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
                                   {k.replace(/_/g, " ")}
                                 </span>
                                 <span className="font-medium text-foreground/80">
-                                  {typeof v === "string" || typeof v === "number"
+                                  {typeof v === "string" ||
+                                  typeof v === "number"
                                     ? String(v)
                                     : JSON.stringify(v)}
                                 </span>
@@ -492,7 +493,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
               {/* Collapsible tool_args JSON */}
               <div className="rounded-lg border border-border/40 bg-muted/20">
                 <button
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left font-medium text-[11px] text-muted-foreground transition-colors hover:text-foreground"
                   onClick={() => toggleArgs(approval.id)}
                   type="button"
                 >
@@ -514,7 +515,7 @@ export function ApprovalQueue({ orgId, locale }: ApprovalQueueProps) {
                   </Badge>
                 </button>
                 {argsOpen ? (
-                  <pre className="overflow-x-auto border-t border-border/30 px-3 py-2 text-[11px]">
+                  <pre className="overflow-x-auto border-border/30 border-t px-3 py-2 text-[11px]">
                     {JSON.stringify(approval.tool_args, null, 2)}
                   </pre>
                 ) : null}

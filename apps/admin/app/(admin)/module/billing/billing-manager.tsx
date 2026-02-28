@@ -245,15 +245,15 @@ export function BillingManager({
       {/* Upgrade warning banners */}
       <UpgradePrompt
         isEn={isEn}
-        usage={{
-          agent_calls: asNumber(usage.agent_calls),
-          messages: asNumber(usage.messages),
-          properties: usageProperties,
-        }}
         limits={{
           agent_calls: asNumber(currentPlan.max_agent_calls_monthly) || 999,
           messages: asNumber(currentPlan.max_messages_monthly) || 999,
           properties: maxProperties,
+        }}
+        usage={{
+          agent_calls: asNumber(usage.agent_calls),
+          messages: asNumber(usage.messages),
+          properties: usageProperties,
         }}
       />
 
@@ -435,7 +435,11 @@ export function UpgradePrompt({
   const warnings: { key: string; label: string; percent: number }[] = [];
 
   const checks: { key: string; enLabel: string; esLabel: string }[] = [
-    { key: "agent_calls", enLabel: "agent calls", esLabel: "llamadas de agente" },
+    {
+      key: "agent_calls",
+      enLabel: "agent calls",
+      esLabel: "llamadas de agente",
+    },
     { key: "messages", enLabel: "messages", esLabel: "mensajes" },
     { key: "properties", enLabel: "properties", esLabel: "propiedades" },
   ];
@@ -532,7 +536,9 @@ function SparklineCard({
   const usableH = H - padding * 2;
 
   const points = months.map((m, i) => {
-    const x = padding + (months.length > 1 ? (i / (months.length - 1)) * usableW : usableW / 2);
+    const x =
+      padding +
+      (months.length > 1 ? (i / (months.length - 1)) * usableW : usableW / 2);
     const y = padding + usableH - (m.count / maxVal) * usableH;
     return `${x},${y}`;
   });
@@ -542,7 +548,9 @@ function SparklineCard({
   return (
     <div className="rounded-lg border p-3">
       <div className="mb-1 flex items-center justify-between">
-        <span className="font-medium text-sm">{eventLabel(eventType, isEn)}</span>
+        <span className="font-medium text-sm">
+          {eventLabel(eventType, isEn)}
+        </span>
         <span className="font-semibold text-sm" style={{ color }}>
           {total.toLocaleString()}
         </span>
@@ -572,28 +580,24 @@ function SparklineCard({
         />
         {/* dots on each data point */}
         {months.map((m, i) => {
-          const x = padding + (months.length > 1 ? (i / (months.length - 1)) * usableW : usableW / 2);
+          const x =
+            padding +
+            (months.length > 1
+              ? (i / (months.length - 1)) * usableW
+              : usableW / 2);
           const y = padding + usableH - (m.count / maxVal) * usableH;
-          return (
-            <circle cx={x} cy={y} fill={color} key={m.month} r={2.5} />
-          );
+          return <circle cx={x} cy={y} fill={color} key={m.month} r={2.5} />;
         })}
       </svg>
       <div className="mt-1 flex justify-between text-muted-foreground text-xs">
         {months.length > 0 && <span>{months[0].month}</span>}
-        {months.length > 1 && <span>{months[months.length - 1].month}</span>}
+        {months.length > 1 && <span>{months.at(-1).month}</span>}
       </div>
     </div>
   );
 }
 
-function UsageHistoryCharts({
-  orgId,
-  isEn,
-}: {
-  orgId: string;
-  isEn: boolean;
-}) {
+function UsageHistoryCharts({ orgId, isEn }: { orgId: string; isEn: boolean }) {
   const [data, setData] = useState<UsageHistoryMonth[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -656,7 +660,9 @@ function UsageHistoryCharts({
         </p>
       ) : eventTypes.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {isEn ? "No usage data available yet." : "Aún no hay datos de uso disponibles."}
+          {isEn
+            ? "No usage data available yet."
+            : "Aún no hay datos de uso disponibles."}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -699,7 +705,11 @@ const COMPARISON_COLUMNS: {
   { key: "max_properties", en: "Properties", es: "Propiedades" },
   { key: "max_units", en: "Units", es: "Unidades" },
   { key: "max_users", en: "Users", es: "Usuarios" },
-  { key: "max_agent_calls_monthly", en: "Agent Calls/mo", es: "Llamadas Agente/mes" },
+  {
+    key: "max_agent_calls_monthly",
+    en: "Agent Calls/mo",
+    es: "Llamadas Agente/mes",
+  },
   { key: "max_messages_monthly", en: "Messages/mo", es: "Mensajes/mes" },
   { key: "max_integrations", en: "Integrations", es: "Integraciones" },
   { key: "max_workflow_rules", en: "Workflow Rules", es: "Reglas de Flujo" },

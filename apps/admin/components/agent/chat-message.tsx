@@ -11,19 +11,19 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useCallback, useState } from "react";
 import {
-  ToolTraceBadges,
-  type ToolTraceEntry,
-} from "@/components/agent/chat-tool-event";
-import {
   ActionCard,
   type StructuredContent,
 } from "@/components/agent/action-card";
-import { QuickReplyChips } from "@/components/agent/quick-reply-chips";
+import {
+  ToolTraceBadges,
+  type ToolTraceEntry,
+} from "@/components/agent/chat-tool-event";
 import {
   ExplainabilityPanel,
   type ExplanationPayload,
 } from "@/components/agent/explainability-panel";
 import { getModelDisplayName } from "@/components/agent/model-display";
+import { QuickReplyChips } from "@/components/agent/quick-reply-chips";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Message, MessageContent } from "@/components/ui/message";
@@ -108,7 +108,10 @@ export function ChatMessage({
 
   return (
     <Message
-      className={cn("py-3 animate-[fadeInUp_0.3s_ease-out_both]", isUser ? "" : "items-start")}
+      className={cn(
+        "animate-[fadeInUp_0.3s_ease-out_both] py-3",
+        isUser ? "" : "items-start"
+      )}
       from={message.role}
     >
       {isUser ? null : (
@@ -267,8 +270,7 @@ export function ChatMessage({
                   </Button>
 
                   {/* Item 3: Regenerate button after thumbs-down */}
-                  {onRegenerate &&
-                  message.feedback_rating === "negative" ? (
+                  {onRegenerate && message.feedback_rating === "negative" ? (
                     <Button
                       className="h-7 w-7 rounded-md text-amber-500 transition-all hover:scale-110 hover:bg-amber-500/10 hover:text-amber-600 active:scale-95"
                       disabled={isSending}
@@ -298,7 +300,7 @@ export function ChatMessage({
           <div className="mt-1.5 flex flex-wrap gap-1">
             {FEEDBACK_REASONS.map((reason) => (
               <button
-                className="rounded-full border border-border/50 bg-muted/40 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                className="rounded-full border border-border/50 bg-muted/40 px-2.5 py-1 font-medium text-[10px] text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                 key={reason}
                 onClick={() => handleReasonSelect(reason)}
                 type="button"

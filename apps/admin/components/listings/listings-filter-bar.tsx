@@ -6,9 +6,13 @@ import {
   FilterIcon,
   Search01Icon,
   SlidersHorizontalIcon,
+  SparklesIcon,
 } from "@hugeicons/core-free-icons";
 import type { VisibilityState } from "@tanstack/react-table";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import type { ListingRow } from "@/app/(admin)/module/listings/listings-manager";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -43,6 +47,54 @@ export type ListingReadinessFilter =
   | "incomplete"
   | "not_ready";
 
+type AiAction = {
+  id: string;
+  labelEn: string;
+  labelEs: string;
+  /** Compute how many selected rows this action applies to */
+  countFn: (rows: ListingRow[]) => number;
+  toastEn: string;
+  toastEs: string;
+};
+
+const AI_ACTIONS = [
+  {
+    id: "optimize_descriptions" as const,
+    labelEn: "Optimize descriptions for seasonality",
+    labelEs: "Optimizar descripciones por temporada",
+    countFn: (rows: ListingRow[]) => rows.length,
+    toastEn: "Optimizing descriptions",
+    toastEs: "Optimizando descripciones",
+  },
+  {
+    id: "autofill_missing" as const,
+    labelEn: "Auto-generate missing fields",
+    labelEs: "Auto-completar campos faltantes",
+    countFn: (rows: ListingRow[]) =>
+      rows.filter((r) => r.readiness_blocking.length > 0).length,
+    toastEn: "Generating missing fields",
+    toastEs: "Generando campos faltantes",
+  },
+  {
+    id: "refresh_pricing" as const,
+    labelEn: "Refresh pricing recommendations",
+    labelEs: "Actualizar recomendaciones de precio",
+    countFn: (rows: ListingRow[]) => rows.length,
+    toastEn: "Refreshing pricing",
+    toastEs: "Actualizando precios",
+  },
+  {
+    id: "generate_neighborhoods" as const,
+    labelEn: "Generate neighborhood descriptions",
+    labelEs: "Generar descripciones de barrio",
+    countFn: (rows: ListingRow[]) => rows.filter((r) => !r.neighborhood).length,
+    toastEn: "Generating neighborhoods",
+    toastEs: "Generando barrios",
+  },
+] satisfies AiAction[];
+
+export type BulkAiActionId = (typeof AI_ACTIONS)[number]["id"];
+
 const TOGGLEABLE_COLUMNS: { id: string; en: string; es: string }[] = [
   { id: "city", en: "City", es: "Ciudad" },
   { id: "property_type", en: "Type", es: "Tipo" },
@@ -68,6 +120,11 @@ type ListingsFilterBarProps = {
   columnVisibility?: VisibilityState;
   responsiveDefaults?: VisibilityState;
   onToggleColumn?: (colId: string) => void;
+  selectedRows?: ListingRow[];
+  onBulkAiAction?: (
+    action: BulkAiActionId,
+    listingIds: string[]
+  ) => Promise<void>;
 };
 
 export function ListingsFilterBar({
@@ -84,6 +141,8 @@ export function ListingsFilterBar({
   columnVisibility,
   responsiveDefaults,
   onToggleColumn,
+  selectedRows,
+  onBulkAiAction,
 }: ListingsFilterBarProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [customViews, setCustomViews] = useState<SavedView[]>(() =>
@@ -331,7 +390,116 @@ export function ListingsFilterBar({
             </PopoverContent>
           </PopoverRoot>
         ) : null}
+
+        {onBulkAiAction ? (
+          <AiActionsDropdown
+            isEn={isEn}
+            onBulkAiAction={onBulkAiAction}
+            selectedRows={selectedRows}
+          />
+        ) : null}
       </div>
     </div>
+  );
+}
+
+/* ---------- AI Actions Dropdown ---------- */
+
+function AiActionsDropdown({
+  isEn,
+  selectedRows = [],
+  onBulkAiAction,
+}: {
+  isEn: boolean;
+  selectedRows?: ListingRow[];
+  onBulkAiAction: (
+    action: BulkAiActionId,
+    listingIds: string[]
+  ) => Promise<void>;
+}) {
+  const [running, setRunning] = useState<string | null>(null);
+  const count = selectedRows.length;
+  const rows = selectedRows;
+
+  async function handleAction(action: (typeof AI_ACTIONS)[number]) {
+    if (count === 0 || running) return;
+    setRunning(action.id);
+    const label = isEn ? action.toastEn : action.toastEs;
+    const ids = rows.map((r) => r.id);
+    toast.loading(`${label} (${count})...`, { id: `ai-${action.id}` });
+    try {
+      await onBulkAiAction(action.id, ids);
+      toast.success(isEn ? "Done" : "Hecho", { id: `ai-${action.id}` });
+    } catch {
+      toast.error(isEn ? "Failed" : "Error", { id: `ai-${action.id}` });
+    }
+    setRunning(null);
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            className={cn(
+              "h-10 gap-2 rounded-xl font-semibold",
+              count > 0
+                ? "border-primary/30 bg-primary/8 text-primary hover:bg-primary/15"
+                : "border-border/60 text-muted-foreground hover:bg-muted"
+            )}
+            size="sm"
+            variant="outline"
+          />
+        }
+      >
+        <Icon className="ai-sparkle" icon={SparklesIcon} size={15} />
+        {isEn ? "AI Actions" : "Acciones IA"}
+        {count > 0 ? (
+          <div className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-bold text-[10px] text-primary-foreground">
+            {count}
+          </div>
+        ) : null}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[16rem] rounded-xl">
+        <DropdownMenuLabel className="text-[10px] text-muted-foreground/60 uppercase tracking-widest">
+          {count > 0
+            ? isEn
+              ? `AI actions (${count} selected)`
+              : `Acciones IA (${count} seleccionados)`
+            : isEn
+              ? "Select listings first"
+              : "Selecciona anuncios primero"}
+        </DropdownMenuLabel>
+        {AI_ACTIONS.map((action) => {
+          const applicable = count > 0 ? action.countFn(rows) : 0;
+          const disabled = count === 0 || applicable === 0 || running !== null;
+          return (
+            <DropdownMenuItem
+              className={cn("m-1 gap-2.5 rounded-lg", disabled && "opacity-50")}
+              disabled={disabled}
+              key={action.id}
+              onClick={() => handleAction(action)}
+            >
+              <Icon
+                className={cn(
+                  "shrink-0 text-primary",
+                  running === action.id && "ai-sparkle-fast"
+                )}
+                icon={SparklesIcon}
+                size={13}
+              />
+              <span className="min-w-0 flex-1 text-sm">
+                {isEn ? action.labelEn : action.labelEs}
+              </span>
+              {applicable > 0 && (
+                <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 font-semibold text-[10px] text-primary tabular-nums">
+                  {applicable}
+                </span>
+              )}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

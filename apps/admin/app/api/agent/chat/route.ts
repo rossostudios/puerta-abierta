@@ -29,7 +29,8 @@ function sanitizeConversation(
   return rows
     .map((item) => {
       const role = item?.role === "assistant" ? "assistant" : "user";
-      const content = typeof item?.content === "string" ? item.content.trim() : "";
+      const content =
+        typeof item?.content === "string" ? item.content.trim() : "";
       if (!content) {
         return null;
       }
@@ -41,13 +42,18 @@ function sanitizeConversation(
     .slice(-20);
 }
 
-function buildComposePrompt(baseMessage: string, conversation: ReturnType<typeof sanitizeConversation>): string {
+function buildComposePrompt(
+  baseMessage: string,
+  conversation: ReturnType<typeof sanitizeConversation>
+): string {
   if (conversation.length === 0) {
     return baseMessage;
   }
 
   const transcript = conversation
-    .map((row) => `${row.role === "assistant" ? "Agent" : "Guest"}: ${row.content}`)
+    .map(
+      (row) => `${row.role === "assistant" ? "Agent" : "Guest"}: ${row.content}`
+    )
     .join("\n");
 
   return [
@@ -137,7 +143,10 @@ export async function POST(request: Request) {
 
     if (!createRes.ok) {
       const error = await parseBackendError(createRes);
-      return NextResponse.json({ ok: false, error }, { status: createRes.status });
+      return NextResponse.json(
+        { ok: false, error },
+        { status: createRes.status }
+      );
     }
 
     const created = (await createRes.json().catch(() => ({}))) as {
@@ -167,7 +176,10 @@ export async function POST(request: Request) {
 
     if (!sendRes.ok) {
       const error = await parseBackendError(sendRes);
-      return NextResponse.json({ ok: false, error }, { status: sendRes.status });
+      return NextResponse.json(
+        { ok: false, error },
+        { status: sendRes.status }
+      );
     }
 
     const result = (await sendRes.json().catch(() => ({}))) as {
@@ -181,7 +193,7 @@ export async function POST(request: Request) {
     const reply =
       typeof result.reply === "string" && result.reply.trim()
         ? result.reply
-        : result.assistant_message?.content ?? "";
+        : (result.assistant_message?.content ?? "");
 
     if (!reply.trim()) {
       return NextResponse.json(

@@ -3,7 +3,7 @@ resource "aws_ecs_cluster" "main" {
 
   setting {
     name  = "containerInsights"
-    value = "enabled"
+    value = "disabled"
   }
 
   tags = {
@@ -43,11 +43,11 @@ resource "aws_ecr_lifecycle_policy" "backend" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Expire images beyond 100"
+      description  = "Expire images beyond 5"
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 20
+        countNumber = 5
       }
       action = { type = "expire" }
     }]
@@ -59,11 +59,11 @@ resource "aws_ecr_lifecycle_policy" "admin" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Expire images beyond 100"
+      description  = "Expire images beyond 5"
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 20
+        countNumber = 5
       }
       action = { type = "expire" }
     }]
@@ -75,11 +75,11 @@ resource "aws_ecr_lifecycle_policy" "web" {
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "Expire images beyond 100"
+      description  = "Expire images beyond 5"
       selection = {
         tagStatus   = "any"
         countType   = "imageCountMoreThan"
-        countNumber = 20
+        countNumber = 5
       }
       action = { type = "expire" }
     }]
@@ -88,17 +88,17 @@ resource "aws_ecr_lifecycle_policy" "web" {
 
 resource "aws_cloudwatch_log_group" "backend" {
   name              = local.names.backend_log_group
-  retention_in_days = 30
+  retention_in_days = 7
 }
 
 resource "aws_cloudwatch_log_group" "admin" {
   name              = local.names.admin_log_group
-  retention_in_days = 30
+  retention_in_days = 7
 }
 
 resource "aws_cloudwatch_log_group" "web" {
   name              = local.names.web_log_group
-  retention_in_days = 30
+  retention_in_days = 7
 }
 
 resource "aws_s3_bucket" "public_media" {

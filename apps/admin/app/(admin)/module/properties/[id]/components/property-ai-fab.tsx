@@ -34,7 +34,11 @@ export function PropertyAiFab({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === "a"
+      ) {
         e.preventDefault();
         setOpen((prev) => !prev);
       }
@@ -48,7 +52,7 @@ export function PropertyAiFab({
       <button
         aria-label={isEn ? "Ask AI" : "Preguntar a IA"}
         className={cn(
-          "fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full",
+          "fixed right-6 bottom-6 z-40 flex h-14 w-14 items-center justify-center rounded-full",
           "bg-casaora-gradient text-white shadow-casaora",
           "transition-all duration-200 hover:scale-105 hover:shadow-lg",
           "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"

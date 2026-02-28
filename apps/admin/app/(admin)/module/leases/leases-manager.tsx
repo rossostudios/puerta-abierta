@@ -199,8 +199,12 @@ function LeasesManagerInner({
     openCreate();
     const url = new URL(window.location.href);
     url.searchParams.delete("new");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    window.history.replaceState(
+      {},
+      "",
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  }, [openCreate, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openEdit = useCallback(
     (row: LeaseRow) => {

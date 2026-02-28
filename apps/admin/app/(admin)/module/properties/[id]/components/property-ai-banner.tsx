@@ -11,7 +11,12 @@ import { cn } from "@/lib/utils";
 
 type AgentDashboardStats = {
   agents: { total: number; active: number };
-  approvals_24h: { total: number; pending: number; approved: number; rejected: number };
+  approvals_24h: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
 };
 
 type PropertyAiBannerProps = {
@@ -88,17 +93,17 @@ export function PropertyAiBanner({
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[11px]"
+              className="border-emerald-500/30 bg-emerald-500/10 text-[11px] text-emerald-600"
               variant="outline"
             >
               {agents.active} {isEn ? "agents active" : "agentes activos"}
             </Badge>
             <Badge
-              className="border-border/40 bg-muted/30 text-muted-foreground text-[11px]"
+              className="border-border/40 bg-muted/30 text-[11px] text-muted-foreground"
               variant="outline"
             >
-              {totalActions} {isEn ? "actions" : "acciones"} &middot; {successRate}%{" "}
-              {isEn ? "success" : "éxito"}
+              {totalActions} {isEn ? "actions" : "acciones"} &middot;{" "}
+              {successRate}% {isEn ? "success" : "éxito"}
             </Badge>
           </div>
 
@@ -112,7 +117,7 @@ export function PropertyAiBanner({
           <div className="flex flex-wrap items-center gap-1.5">
             {QUICK_ACTIONS.map((action) => (
               <Link
-                className="rounded-full border border-border/30 bg-muted/20 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
+                className="rounded-full border border-border/30 bg-muted/20 px-2.5 py-1 font-medium text-[10px] text-muted-foreground transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
                 href={`/module/agent-playground?property_id=${encodeURIComponent(propertyId)}&property_name=${encodeURIComponent(propertyName)}&agent=${action.agent}`}
                 key={action.labelEn}
               >

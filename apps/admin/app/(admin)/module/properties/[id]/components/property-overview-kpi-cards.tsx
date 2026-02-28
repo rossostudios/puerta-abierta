@@ -70,7 +70,7 @@ export function PropertyOverviewKpiCards({
         {overview.vacantUnitCount > 0 && (
           <span
             className={cn(
-              "text-xs font-medium",
+              "font-medium text-xs",
               oRate !== null && oRate < 50
                 ? "text-[var(--status-danger-fg)]"
                 : "text-muted-foreground"

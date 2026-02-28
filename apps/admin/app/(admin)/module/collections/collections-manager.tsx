@@ -1,7 +1,14 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useOptimistic, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useState,
+} from "react";
 
 import { useActiveLocale } from "@/lib/i18n/client";
 
@@ -73,8 +80,12 @@ function CollectionsManagerInner({
     setOpen(true);
     const url = new URL(window.location.href);
     url.searchParams.delete("new");
-    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    window.history.replaceState(
+      {},
+      "",
+      `${url.pathname}${url.search}${url.hash}`
+    );
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = useMemo<CollectionRow[]>(() => {
     return collections.map((row) => {

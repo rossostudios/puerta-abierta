@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ListingForm } from "@/components/listings/listing-form";
 import { ListingNotionTable } from "@/components/listings/listing-notion-table";
 import { ListingPreviewModal } from "@/components/listings/listing-preview-modal";
+import type { BulkAiActionId } from "@/components/listings/listings-filter-bar";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { Sheet } from "@/components/ui/sheet";
@@ -129,20 +130,21 @@ async function bulkPublishListings(
   ids: string[],
   action: "publish" | "unpublish"
 ): Promise<void> {
-  for (const listingId of ids) {
-    const encodedId = encodeURIComponent(listingId);
-    if (action === "publish") {
-      await authedFetch(`/listings/${encodedId}/publish`, {
-        method: "POST",
-        body: "{}",
-      });
-    } else {
-      await authedFetch(`/listings/${encodedId}`, {
+  await Promise.all(
+    ids.map((listingId) => {
+      const encodedId = encodeURIComponent(listingId);
+      if (action === "publish") {
+        return authedFetch(`/listings/${encodedId}/publish`, {
+          method: "POST",
+          body: "{}",
+        });
+      }
+      return authedFetch(`/listings/${encodedId}`, {
         method: "PATCH",
         body: JSON.stringify({ is_published: false }),
       });
-    }
-  }
+    })
+  );
 }
 
 export function ListingsManager({
@@ -389,6 +391,44 @@ export function ListingsManager({
     [selectedIds, queryClient, isEn]
   );
 
+  /* --- readiness popover: open form at specific field --- */
+  const handleFixReadinessField = useCallback(
+    (listingId: string, field: string) => {
+      const row = rows.find((r) => r.id === listingId);
+      if (!row) return;
+      setScrollToField(field);
+      setEditing(row);
+      setOpen(true);
+    },
+    [rows]
+  );
+
+  /* --- AI generate placeholder (to be wired to real API later) --- */
+  const handleAiGenerate = useCallback(
+    async (listingId: string, _field: string) => {
+      toast.loading(isEn ? "AI is generating..." : "La IA está generando...", {
+        id: `ai-gen-${listingId}`,
+      });
+      // Placeholder: simulate a 2-second async operation
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+      toast.success(isEn ? "Generated successfully" : "Generado exitosamente", {
+        id: `ai-gen-${listingId}`,
+      });
+    },
+    [isEn, queryClient]
+  );
+
+  /* --- bulk AI actions placeholder --- */
+  const handleBulkAiAction = useCallback(
+    async (_action: BulkAiActionId, _listingIds: string[]) => {
+      // Placeholder: simulate a 2-second async operation
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+    },
+    [queryClient]
+  );
+
   const isEditing = editing !== null;
 
   return (
@@ -439,9 +479,12 @@ export function ListingsManager({
         globalFilter={query.globalFilter}
         isEn={isEn}
         isLoading={query.isLoading}
+        onAiGenerate={handleAiGenerate}
         onApplyView={handleApplyView}
+        onBulkAiAction={handleBulkAiAction}
         onCommitEdit={handleCommitEdit}
         onEditInSheet={openEdit}
+        onFixReadinessField={handleFixReadinessField}
         onGlobalFilterChange={query.setGlobalFilter}
         onMakeReady={handleMakeReady}
         onPaginationChange={query.setPagination}

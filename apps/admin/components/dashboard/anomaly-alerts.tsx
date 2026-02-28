@@ -103,7 +103,7 @@ export function AnomalyAlerts({
     <Card
       className={cn(
         "overflow-hidden",
-        promoted && hasCritical && "ring-2 ring-red-500/30 animate-pulse"
+        promoted && hasCritical && "animate-pulse ring-2 ring-red-500/30"
       )}
     >
       <CardHeader className="space-y-3 border-border/70 border-b pb-4">

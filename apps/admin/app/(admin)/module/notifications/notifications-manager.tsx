@@ -4,10 +4,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { Select } from "@/components/ui/select";
-import type { NotificationListItem, NotificationListResponse } from "@/lib/api";
+import {
+  type NotificationListItem,
+  type NotificationListResponse,
+  normalizeNotification,
+} from "@/lib/api";
+import { toRelativeTimeIntl } from "@/lib/format";
+import { useVisibilityPollingInterval } from "@/lib/hooks/use-visibility-polling";
 import { cn } from "@/lib/utils";
 
-const POLL_INTERVAL_MS = 45_000;
 const PAGE_LIMIT = 40;
 
 type NotificationsManagerProps = {
@@ -27,53 +32,6 @@ function normalizeStatus(value: string | undefined): StatusFilter {
     default:
       return "all";
   }
-}
-
-function normalizeNotification(item: unknown): NotificationListItem | null {
-  if (!item || typeof item !== "object") return null;
-  const row = item as Record<string, unknown>;
-  const id = typeof row.id === "string" ? row.id.trim() : "";
-  if (!id) return null;
-
-  return {
-    id,
-    event_id: typeof row.event_id === "string" ? row.event_id : "",
-    event_type: typeof row.event_type === "string" ? row.event_type : "",
-    category: typeof row.category === "string" ? row.category : "system",
-    severity: typeof row.severity === "string" ? row.severity : "info",
-    title: typeof row.title === "string" ? row.title : "",
-    body: typeof row.body === "string" ? row.body : "",
-    link_path: typeof row.link_path === "string" ? row.link_path : null,
-    source_table:
-      typeof row.source_table === "string" ? row.source_table : null,
-    source_id: typeof row.source_id === "string" ? row.source_id : null,
-    payload:
-      row.payload && typeof row.payload === "object"
-        ? (row.payload as Record<string, unknown>)
-        : {},
-    read_at: typeof row.read_at === "string" ? row.read_at : null,
-    created_at: typeof row.created_at === "string" ? row.created_at : null,
-    occurred_at: typeof row.occurred_at === "string" ? row.occurred_at : null,
-  };
-}
-
-function toRelativeTime(
-  value: string | null | undefined,
-  locale: string
-): string {
-  if (!value) return "";
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "";
-  const deltaSeconds = Math.round((timestamp - Date.now()) / 1000);
-  const abs = Math.abs(deltaSeconds);
-  const rtf = new Intl.RelativeTimeFormat(locale === "en-US" ? "en" : "es", {
-    numeric: "auto",
-  });
-
-  if (abs < 60) return rtf.format(deltaSeconds, "second");
-  if (abs < 3600) return rtf.format(Math.round(deltaSeconds / 60), "minute");
-  if (abs < 86_400) return rtf.format(Math.round(deltaSeconds / 3600), "hour");
-  return rtf.format(Math.round(deltaSeconds / 86_400), "day");
 }
 
 type NotificationsQueryData = {
@@ -165,17 +123,22 @@ export function NotificationsManager({
   const [extraRows, setExtraRows] = useState<NotificationListItem[]>([]);
   const [extraCursor, setExtraCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const pollInterval = useVisibilityPollingInterval({
+    enabled: !!orgId,
+    foregroundMs: 60_000,
+    backgroundMs: 120_000,
+  });
 
   const notificationsQuery = useQuery({
     queryKey: ["notifications", orgId, status, category],
     queryFn: () => fetchNotificationsPage(orgId, status, category, isEn),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   });
 
   const unreadQuery = useQuery({
     queryKey: ["notifications-unread-count", orgId],
     queryFn: () => fetchUnreadCount(orgId),
-    refetchInterval: POLL_INTERVAL_MS,
+    refetchInterval: pollInterval,
   });
 
   // Reset extra rows when filters change (notificationsQuery refetches)
@@ -408,7 +371,7 @@ export function NotificationsManager({
                       {item.body || item.category}
                     </p>
                     <p className="mt-1 text-[11px] text-muted-foreground/80">
-                      {toRelativeTime(
+                      {toRelativeTimeIntl(
                         item.occurred_at ?? item.created_at,
                         locale
                       )}

@@ -8,7 +8,11 @@ export type AutonomyLevel = "copilot" | "collaborator" | "autonomous";
  * - Collaborator: mixed (some require approval, some don't)
  */
 export function deriveAutonomyLevel(
-  policies: Array<{ tool_name: string; approval_mode: string; enabled: boolean }>
+  policies: Array<{
+    tool_name: string;
+    approval_mode: string;
+    enabled: boolean;
+  }>
 ): AutonomyLevel {
   const activePolicies = policies.filter((p) => p.enabled);
 

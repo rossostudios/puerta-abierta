@@ -26,7 +26,7 @@ export function Topbar({
   const isEn = locale === "en-US";
 
   return (
-    <header className="sticky top-0 z-20 border-b border-sidebar-border/60 bg-sidebar px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
+    <header className="sticky top-0 z-20 border-sidebar-border/60 border-b bg-sidebar px-3 py-2.5 sm:px-4 lg:px-5 xl:px-6">
       <div className="flex items-center gap-2.5">
         {showNavToggle ? (
           <button

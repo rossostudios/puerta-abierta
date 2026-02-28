@@ -1,4 +1,8 @@
-import { ChartIcon, FilterIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import {
+  ChartIcon,
+  FilterIcon,
+  Search01Icon,
+} from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

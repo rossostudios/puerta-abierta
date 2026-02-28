@@ -41,7 +41,8 @@ function extractPropertyId(approval: AgentApproval): string | null {
   const data = args.data as Record<string, unknown> | undefined;
   if (data && typeof data.property_id === "string") return data.property_id;
 
-  if (args.table === "properties" && typeof args.id === "string") return args.id;
+  if (args.table === "properties" && typeof args.id === "string")
+    return args.id;
 
   return null;
 }
@@ -55,12 +56,12 @@ export function usePropertyAgentStatus({
 }: UsePropertyAgentStatusOptions) {
   const pollInterval = useVisibilityPollingInterval({
     enabled: !!orgId,
-    foregroundMs: 20_000,
+    foregroundMs: 45_000,
     backgroundMs: 60_000,
   });
 
   const { data: approvalsData } = useQuery<{ data?: AgentApproval[] }>({
-    queryKey: ["property-agent-status-approvals", orgId],
+    queryKey: ["agent-approvals", orgId],
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/approvals?org_id=${encodeURIComponent(orgId)}`,
@@ -73,7 +74,6 @@ export function usePropertyAgentStatus({
     enabled: !!orgId,
     retry: false,
     refetchInterval: pollInterval,
-    refetchOnWindowFocus: true,
   });
 
   const approvals = approvalsData?.data ?? [];
@@ -83,7 +83,9 @@ export function usePropertyAgentStatus({
     const now = Date.now();
 
     // Initialize all property IDs with default status
-    const defaultStatus: PropertyAiStatus = agentOnline ? "monitoring" : "offline";
+    const defaultStatus: PropertyAiStatus = agentOnline
+      ? "monitoring"
+      : "offline";
     for (const pid of propertyIds) {
       map.set(pid, { status: defaultStatus, pendingCount: 0 });
     }
@@ -92,7 +94,7 @@ export function usePropertyAgentStatus({
     const approvalsByProperty = new Map<string, AgentApproval[]>();
     for (const approval of approvals) {
       const pid = extractPropertyId(approval);
-      if (!pid || !map.has(pid)) continue;
+      if (!(pid && map.has(pid))) continue;
       const existing = approvalsByProperty.get(pid) ?? [];
       existing.push(approval);
       approvalsByProperty.set(pid, existing);
@@ -115,13 +117,13 @@ export function usePropertyAgentStatus({
 
       if (pending.length > 0) {
         status = "awaiting-approval";
-        const latest = pending[0]!;
+        const latest = pending[0];
         latestToolName = latest.tool_name;
         latestAgentSlug = latest.agent_slug;
         lastActiveAt = latest.created_at;
       } else if (handled.length > 0) {
         status = "recently-handled";
-        const latest = handled[0]!;
+        const latest = handled[0];
         latestToolName = latest.tool_name;
         latestAgentSlug = latest.agent_slug;
         lastActiveAt = latest.executed_at ?? latest.created_at;

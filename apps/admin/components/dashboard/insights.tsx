@@ -190,20 +190,30 @@ export function RevenueSnapshotCard({
                 )}
                 cursor={{ fill: "rgba(0,0,0,0.04)" }}
               />
-              <Bar dataKey="gross" fill="var(--color-gross)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="gross"
+                fill="var(--color-gross)"
+                radius={[6, 6, 0, 0]}
+              />
               <Bar
                 dataKey="expenses"
                 fill="var(--color-expenses)"
                 radius={[6, 6, 0, 0]}
               />
-              <Bar dataKey="net" fill="var(--color-net)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="net"
+                fill="var(--color-net)"
+                radius={[6, 6, 0, 0]}
+              />
             </BarChart>
           </ChartContainer>
         ) : (
           <EmptyState
             action={
               <Link
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" })
+                )}
                 href="/module/reservations"
               >
                 {isEn ? "Add a reservation →" : "Agregar una reserva →"}
@@ -303,7 +313,9 @@ export function TaskStatusCard({
           <EmptyState
             action={
               <Link
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" })
+                )}
                 href="/module/tasks"
               >
                 {isEn ? "Create a task →" : "Crear una tarea →"}
@@ -315,7 +327,9 @@ export function TaskStatusCard({
                 : "Crea una tarea de limpieza o mantenimiento para ver el desglose aquí."
             }
             icon={Task01Icon}
-            title={isEn ? "Your task queue is empty" : "Tu cola de tareas está vacía"}
+            title={
+              isEn ? "Your task queue is empty" : "Tu cola de tareas está vacía"
+            }
           />
         )}
       </CardContent>
@@ -405,7 +419,12 @@ export function OperationsHealthCard({
           <ChartContainer className="h-56 w-full" config={operationsConfig}>
             <BarChart data={operationsChartData} margin={{ left: 0, right: 8 }}>
               <CartesianGrid vertical={false} />
-              <XAxis axisLine={false} dataKey="metric" tickLine={false} tickMargin={8} />
+              <XAxis
+                axisLine={false}
+                dataKey="metric"
+                tickLine={false}
+                tickMargin={8}
+              />
               <YAxis
                 allowDecimals={false}
                 axisLine={false}
@@ -434,7 +453,9 @@ export function OperationsHealthCard({
           <EmptyState
             action={
               <Link
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" })
+                )}
                 href="/module/tasks"
               >
                 {isEn ? "Open tasks →" : "Abrir tareas →"}
@@ -446,7 +467,9 @@ export function OperationsHealthCard({
                 : "Las tarjetas operativas se activan cuando registres tareas y reservas."
             }
             icon={Task01Icon}
-            title={isEn ? "No operations metrics yet" : "Aún sin métricas operativas"}
+            title={
+              isEn ? "No operations metrics yet" : "Aún sin métricas operativas"
+            }
           />
         )}
       </CardContent>
@@ -464,7 +487,10 @@ export function DashboardInsights({
     <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
       <RevenueSnapshotCard locale={locale} revenue={revenue} />
       <TaskStatusCard locale={locale} taskStatuses={taskStatuses} />
-      <OperationsHealthCard locale={locale} operationsSummary={operationsSummary} />
+      <OperationsHealthCard
+        locale={locale}
+        operationsSummary={operationsSummary}
+      />
     </section>
   );
 }

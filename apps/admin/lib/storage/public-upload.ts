@@ -67,4 +67,3 @@ export async function uploadPublicFileViaApi(input: {
     objectKey: presigned.object_key,
   };
 }
-

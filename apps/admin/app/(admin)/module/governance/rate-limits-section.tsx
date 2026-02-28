@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authedFetch } from "@/lib/api-client";
 
@@ -85,7 +85,7 @@ export function RateLimitsSection({ orgId, isEn }: RateLimitsSectionProps) {
 
   return (
     <Card>
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <CardTitle className="text-base">
           {isEn ? "Rate Limits" : "Limites de Frecuencia"}
         </CardTitle>
@@ -102,10 +102,8 @@ export function RateLimitsSection({ orgId, isEn }: RateLimitsSectionProps) {
           <div className="rounded-xl border border-border/30 bg-muted/10 px-4 py-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
-                  {isEn
-                    ? "Max requests / minute"
-                    : "Max solicitudes / minuto"}
+                <label className="mb-1.5 block font-medium text-[11px] text-muted-foreground/60 uppercase tracking-wider">
+                  {isEn ? "Max requests / minute" : "Max solicitudes / minuto"}
                 </label>
                 <Input
                   className="h-9 font-mono text-sm"
@@ -127,7 +125,7 @@ export function RateLimitsSection({ orgId, isEn }: RateLimitsSectionProps) {
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                <label className="mb-1.5 block font-medium text-[11px] text-muted-foreground/60 uppercase tracking-wider">
                   {isEn ? "Max requests / hour" : "Max solicitudes / hora"}
                 </label>
                 <Input

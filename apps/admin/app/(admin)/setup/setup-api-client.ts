@@ -101,7 +101,10 @@ export async function wizardCreateOrganization(payload: {
       rental_mode,
     })) as { id?: string; name?: string } | null;
 
-    return { ok: true, data: { id: created?.id ?? "", name: created?.name ?? name } };
+    return {
+      ok: true,
+      data: { id: created?.id ?? "", name: created?.name ?? name },
+    };
   } catch (err) {
     return {
       ok: false,
@@ -298,7 +301,9 @@ export async function wizardSeedDemoData(payload: {
   }
 
   try {
-    await postWizard("/demo/seed", { organization_id: payload.organization_id });
+    await postWizard("/demo/seed", {
+      organization_id: payload.organization_id,
+    });
     return { ok: true, data: {} };
   } catch (err) {
     return {

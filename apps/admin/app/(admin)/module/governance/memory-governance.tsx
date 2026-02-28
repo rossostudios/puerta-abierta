@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,8 @@ type MemoryGovernanceProps = {
 
 const TIER_STYLES: Record<string, string> = {
   core: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
-  working: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  working:
+    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   episodic: "border-muted-foreground/30 bg-muted/30 text-muted-foreground",
 };
 
@@ -96,7 +97,7 @@ export function MemoryGovernance({ orgId, isEn }: MemoryGovernanceProps) {
 
   return (
     <Card>
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <CardTitle className="text-base">
           {isEn ? "What the AI remembers" : "Lo que la IA recuerda"}
         </CardTitle>
@@ -114,7 +115,7 @@ export function MemoryGovernance({ orgId, isEn }: MemoryGovernanceProps) {
             ))}
           </div>
         ) : memories.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground/60">
+          <p className="py-8 text-center text-muted-foreground/60 text-sm">
             {isEn
               ? "No agent memories stored yet."
               : "No hay memorias del agente almacenadas aún."}

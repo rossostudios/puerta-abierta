@@ -76,6 +76,36 @@ export type NotificationListResponse = {
   next_cursor?: string | null;
 };
 
+export function normalizeNotification(
+  item: unknown
+): NotificationListItem | null {
+  if (!item || typeof item !== "object") return null;
+  const row = item as Record<string, unknown>;
+  const id = typeof row.id === "string" ? row.id.trim() : "";
+  if (!id) return null;
+
+  return {
+    id,
+    event_id: typeof row.event_id === "string" ? row.event_id : "",
+    event_type: typeof row.event_type === "string" ? row.event_type : "",
+    category: typeof row.category === "string" ? row.category : "system",
+    severity: typeof row.severity === "string" ? row.severity : "info",
+    title: typeof row.title === "string" ? row.title : "",
+    body: typeof row.body === "string" ? row.body : "",
+    link_path: typeof row.link_path === "string" ? row.link_path : null,
+    source_table:
+      typeof row.source_table === "string" ? row.source_table : null,
+    source_id: typeof row.source_id === "string" ? row.source_id : null,
+    payload:
+      row.payload && typeof row.payload === "object"
+        ? (row.payload as Record<string, unknown>)
+        : {},
+    read_at: typeof row.read_at === "string" ? row.read_at : null,
+    created_at: typeof row.created_at === "string" ? row.created_at : null,
+    occurred_at: typeof row.occurred_at === "string" ? row.occurred_at : null,
+  };
+}
+
 export type UnreadCountResponse = {
   unread: number;
 };

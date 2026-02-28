@@ -4,9 +4,7 @@ export { guestConcierge } from "./guest-concierge";
 export { leasingAgent } from "./leasing-agent";
 export { maintenanceTriage } from "./maintenance-triage";
 export { supervisor } from "./supervisor";
-export type {
-  AgentConfig,
-} from "./types";
+export type { AgentConfig } from "./types";
 
 import { financeAgent } from "./finance-agent";
 import { guestConcierge } from "./guest-concierge";

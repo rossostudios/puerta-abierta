@@ -141,7 +141,7 @@ export function ChatHeader({
                             {agent.name}
                           </span>
                           {agent.description ? (
-                            <span className="truncate text-muted-foreground text-[11px]">
+                            <span className="truncate text-[11px] text-muted-foreground">
                               {agent.description}
                             </span>
                           ) : null}

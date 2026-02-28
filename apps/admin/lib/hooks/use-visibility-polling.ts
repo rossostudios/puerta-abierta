@@ -34,4 +34,3 @@ export function useVisibilityPollingInterval({
   if (!enabled) return false;
   return visible ? foregroundMs : backgroundMs;
 }
-

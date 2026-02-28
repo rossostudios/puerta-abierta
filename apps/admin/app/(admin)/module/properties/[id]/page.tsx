@@ -112,7 +112,9 @@ export default async function PropertyRecordPage({
   const activeOrgId = await getActiveOrgId();
   const { data } = result;
   const href = `/module/properties/${data.recordId}`;
-  const propertyAddress = String(data.record.address ?? data.record.location ?? "");
+  const propertyAddress = String(
+    data.record.address ?? data.record.location ?? ""
+  );
   const occupancyRate = data.overview?.occupancyRate ?? null;
   const unitCount = data.overview?.unitCount ?? 0;
   const propertyStatus = String(data.record.status ?? "active").toLowerCase();
@@ -140,8 +142,12 @@ export default async function PropertyRecordPage({
                 }
               >
                 {isActive
-                  ? isEn ? "Active" : "Activo"
-                  : isEn ? "Inactive" : "Inactivo"}
+                  ? isEn
+                    ? "Active"
+                    : "Activo"
+                  : isEn
+                    ? "Inactive"
+                    : "Inactivo"}
               </Badge>
             </div>
             <div className="flex items-center gap-1.5">
@@ -157,10 +163,7 @@ export default async function PropertyRecordPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <PropertyDetailsTrigger
-              fieldCount={data.keys.length}
-              isEn={isEn}
-            />
+            <PropertyDetailsTrigger fieldCount={data.keys.length} isEn={isEn} />
             <CopyButton
               className="h-9 rounded-xl border-border/60 text-muted-foreground"
               value={data.recordId}

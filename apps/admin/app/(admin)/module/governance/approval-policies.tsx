@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +12,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { authedFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,8 +69,7 @@ const MODE_STYLES: Record<ApprovalMode, string> = {
   required:
     "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   auto: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  disabled:
-    "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
+  disabled: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
 };
 
 const MODE_LABELS: Record<ApprovalMode, { en: string; es: string }> = {
@@ -170,9 +169,11 @@ export function ApprovalPolicies({ orgId, isEn }: ApprovalPoliciesProps) {
     <div className="space-y-4">
       {/* Approval Policy Table */}
       <Card>
-        <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+        <CardHeader className="space-y-1 border-border/70 border-b pb-4">
           <CardTitle className="text-base">
-            {isEn ? "Tool Approval Policies" : "Politicas de Aprobacion de Herramientas"}
+            {isEn
+              ? "Tool Approval Policies"
+              : "Politicas de Aprobacion de Herramientas"}
           </CardTitle>
           <CardDescription>
             {isEn
@@ -192,9 +193,7 @@ export function ApprovalPolicies({ orgId, isEn }: ApprovalPoliciesProps) {
               {MUTATION_TOOLS.map((toolName) => {
                 const policy = policyMap.get(toolName);
                 const mode: ApprovalMode = policy?.mode ?? "required";
-                const toggling = togglingIds.has(
-                  policy?.id ?? toolName
-                );
+                const toggling = togglingIds.has(policy?.id ?? toolName);
 
                 return (
                   <div
@@ -209,14 +208,12 @@ export function ApprovalPolicies({ orgId, isEn }: ApprovalPoliciesProps) {
                     <div className="flex items-center gap-2">
                       <Badge
                         className={cn(
-                          "text-[10px] whitespace-nowrap",
+                          "whitespace-nowrap text-[10px]",
                           MODE_STYLES[mode]
                         )}
                         variant="outline"
                       >
-                        {isEn
-                          ? MODE_LABELS[mode].en
-                          : MODE_LABELS[mode].es}
+                        {isEn ? MODE_LABELS[mode].en : MODE_LABELS[mode].es}
                       </Badge>
                       <Button
                         className="shrink-0"
@@ -227,11 +224,7 @@ export function ApprovalPolicies({ orgId, isEn }: ApprovalPoliciesProps) {
                         size="sm"
                         variant="outline"
                       >
-                        {toggling
-                          ? "..."
-                          : isEn
-                            ? "Cycle"
-                            : "Cambiar"}
+                        {toggling ? "..." : isEn ? "Cycle" : "Cambiar"}
                       </Button>
                     </div>
                   </div>

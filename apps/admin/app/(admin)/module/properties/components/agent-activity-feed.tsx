@@ -36,12 +36,12 @@ function relativeTime(timestamp: string, isEn: boolean): string {
 export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
   const pollInterval = useVisibilityPollingInterval({
     enabled: !!orgId,
-    foregroundMs: 15_000,
+    foregroundMs: 45_000,
     backgroundMs: 60_000,
   });
 
   const { data: approvals = [] } = useQuery<Approval[]>({
-    queryKey: ["agent-activity-feed", orgId],
+    queryKey: ["agent-approvals", orgId],
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/approvals?org_id=${encodeURIComponent(orgId)}`,
@@ -55,7 +55,6 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
     enabled: !!orgId,
     retry: false,
     refetchInterval: pollInterval,
-    refetchOnWindowFocus: true,
   });
 
   if (approvals.length === 0) return null;
@@ -74,8 +73,9 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
           <div
             className={cn(
               "glass-inner rounded-lg p-2.5 transition-all",
-              idx === 0 && "animate-in fade-in slide-in-from-top-1",
-              approval.status === "pending" && "border-[var(--agentic-rose-gold-border)]"
+              idx === 0 && "fade-in slide-in-from-top-1 animate-in",
+              approval.status === "pending" &&
+                "border-[var(--agentic-rose-gold-border)]"
             )}
             key={approval.id}
           >
@@ -85,7 +85,9 @@ export function AgentActivityFeed({ orgId, isEn }: AgentActivityFeedProps) {
               </Badge>
               <span className="text-[10px] text-muted-foreground/70">
                 {approval.status === "pending"
-                  ? isEn ? `wants to ${approval.tool_name.replace(/_/g, " ")}` : `quiere ${approval.tool_name.replace(/_/g, " ")}`
+                  ? isEn
+                    ? `wants to ${approval.tool_name.replace(/_/g, " ")}`
+                    : `quiere ${approval.tool_name.replace(/_/g, " ")}`
                   : approval.tool_name.replace(/_/g, " ")}
               </span>
             </div>

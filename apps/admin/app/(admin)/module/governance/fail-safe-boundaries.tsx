@@ -56,7 +56,9 @@ const CATEGORY_LABELS: Record<string, { en: string; es: string }> = {
 export function FailSafeBoundaries({ orgId, isEn }: FailSafeBoundariesProps) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState<Set<string>>(new Set());
-  const [editingResponse, setEditingResponse] = useState<Record<string, string>>({});
+  const [editingResponse, setEditingResponse] = useState<
+    Record<string, string>
+  >({});
 
   const { data: rules = [], isPending: loading } = useQuery<BoundaryRule[]>({
     queryKey: ["boundary-rules", orgId],
@@ -80,7 +82,10 @@ export function FailSafeBoundaries({ orgId, isEn }: FailSafeBoundariesProps) {
           `/api/agent/boundary-rules/${encodeURIComponent(ruleId)}?org_id=${encodeURIComponent(orgId)}`,
           {
             method: "PUT",
-            headers: { "Content-Type": "application/json", Accept: "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
             body: JSON.stringify({
               is_blocked: blocked,
               custom_response: editingResponse[ruleId] ?? null,
@@ -111,7 +116,7 @@ export function FailSafeBoundaries({ orgId, isEn }: FailSafeBoundariesProps) {
 
   return (
     <Card>
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <CardTitle className="text-base">
           {isEn ? "Fail-Safe Boundaries" : "Limites de Seguridad"}
         </CardTitle>
@@ -129,7 +134,7 @@ export function FailSafeBoundaries({ orgId, isEn }: FailSafeBoundariesProps) {
             ))}
           </div>
         ) : rules.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground/60">
+          <p className="py-8 text-center text-muted-foreground/60 text-sm">
             {isEn
               ? "No boundary rules configured yet."
               : "No se han configurado reglas de limites aún."}
@@ -191,9 +196,7 @@ export function FailSafeBoundaries({ orgId, isEn }: FailSafeBoundariesProps) {
                           : "Respuesta de rechazo personalizada (opcional)..."
                       }
                       value={
-                        editingResponse[rule.id] ??
-                        rule.custom_response ??
-                        ""
+                        editingResponse[rule.id] ?? rule.custom_response ?? ""
                       }
                     />
                     <Button

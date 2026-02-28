@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
@@ -67,7 +67,7 @@ type Message = {
 
 function str(
   obj: Record<string, unknown> | null | undefined,
-  key: string,
+  key: string
 ): string {
   if (!obj) return "";
   const v = obj[key];
@@ -115,7 +115,7 @@ export function GuestDashboard() {
   const { token, headers, apiBase } = useGuest();
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
 
   const [activePanel, setActivePanel] = useState<ActivePanel>("none");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -151,7 +151,9 @@ export function GuestDashboard() {
       const res = await fetch(`${apiBase}/guest/access-codes`, { headers });
       if (!res.ok) return [];
       const json = await res.json();
-      return (Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []) as AccessCode[];
+      return (
+        Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : []
+      ) as AccessCode[];
     },
   });
 
@@ -162,7 +164,11 @@ export function GuestDashboard() {
       const res = await fetch(`${apiBase}/guest/messages`, { headers });
       if (!res.ok) return [];
       const json = await res.json();
-      const items = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+      const items = Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json)
+          ? json
+          : [];
       return (items as Message[]).slice(0, 5);
     },
   });
@@ -189,23 +195,23 @@ export function GuestDashboard() {
   });
 
   /* -- Copy to clipboard -- */
-  const copyCode = useCallback(
-    (code: string) => {
-      navigator.clipboard.writeText(code).then(() => {
-        setCopiedCode(code);
-        setTimeout(() => setCopiedCode(null), 2000);
-      });
-    },
-    [],
-  );
+  const copyCode = useCallback((code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    });
+  }, []);
 
   /* -- Derived values -- */
   const reservation = itinerary?.reservation;
   const guestName = str(itinerary?.guest, "full_name");
-  const propertyName = str(itinerary?.property, "name") || checkin?.property_name || "";
+  const propertyName =
+    str(itinerary?.property, "name") || checkin?.property_name || "";
   const unitName = str(itinerary?.unit, "name") || checkin?.unit_name || "";
-  const checkIn = str(reservation, "check_in_date") || checkin?.check_in_date || "";
-  const checkOut = str(reservation, "check_out_date") || checkin?.check_out_date || "";
+  const checkIn =
+    str(reservation, "check_in_date") || checkin?.check_in_date || "";
+  const checkOut =
+    str(reservation, "check_out_date") || checkin?.check_out_date || "";
   const status = str(reservation, "status") || checkin?.status || "";
   const adults = reservation?.adults ?? 1;
   const children = reservation?.children ?? 0;
@@ -296,9 +302,16 @@ export function GuestDashboard() {
               {isEn ? "Guests" : "Huespedes"}
             </span>
             <p className="mt-0.5 font-medium">
-              {String(adults)} {isEn ? (Number(adults) !== 1 ? "adults" : "adult") : (Number(adults) !== 1 ? "adultos" : "adulto")}
+              {String(adults)}{" "}
+              {isEn
+                ? Number(adults) !== 1
+                  ? "adults"
+                  : "adult"
+                : Number(adults) !== 1
+                  ? "adultos"
+                  : "adulto"}
               {Number(children) > 0
-                ? `, ${String(children)} ${isEn ? (Number(children) !== 1 ? "children" : "child") : (Number(children) !== 1 ? "ninos" : "nino")}`
+                ? `, ${String(children)} ${isEn ? (Number(children) !== 1 ? "children" : "child") : Number(children) !== 1 ? "ninos" : "nino"}`
                 : ""}
             </p>
           </div>
@@ -327,7 +340,7 @@ export function GuestDashboard() {
           <CardContent className="space-y-3">
             {accessCodes.map((ac) => (
               <button
-                className="group flex w-full items-center justify-between rounded-xl border border-dashed border-primary/30 bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10 active:bg-primary/15"
+                className="group flex w-full items-center justify-between rounded-xl border border-primary/30 border-dashed bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10 active:bg-primary/15"
                 key={ac.id}
                 onClick={() => copyCode(ac.code)}
                 type="button"
@@ -338,14 +351,18 @@ export function GuestDashboard() {
                       {ac.label || ac.device_name}
                     </p>
                   )}
-                  <span className="font-mono font-bold text-2xl tracking-[0.15em] text-primary sm:text-3xl">
+                  <span className="font-bold font-mono text-2xl text-primary tracking-[0.15em] sm:text-3xl">
                     {ac.code}
                   </span>
                 </div>
-                <span className="shrink-0 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors group-hover:bg-primary/20">
+                <span className="shrink-0 rounded-lg bg-primary/10 px-2.5 py-1 font-medium text-primary text-xs transition-colors group-hover:bg-primary/20">
                   {copiedCode === ac.code
-                    ? isEn ? "Copied!" : "Copiado!"
-                    : isEn ? "Copy" : "Copiar"}
+                    ? isEn
+                      ? "Copied!"
+                      : "Copiado!"
+                    : isEn
+                      ? "Copy"
+                      : "Copiar"}
                 </span>
               </button>
             ))}
@@ -376,7 +393,7 @@ export function GuestDashboard() {
                   {isEn ? "Password" : "Contrasena"}
                 </span>
                 <button
-                  className="mt-0.5 block cursor-pointer font-medium font-mono text-left transition-colors hover:text-primary"
+                  className="mt-0.5 block cursor-pointer text-left font-medium font-mono transition-colors hover:text-primary"
                   onClick={() => {
                     navigator.clipboard.writeText(checkin.wifi_password!);
                     setCopiedCode("wifi");
@@ -387,8 +404,12 @@ export function GuestDashboard() {
                   {checkin.wifi_password}
                   <span className="ml-2 text-[10px] text-muted-foreground">
                     {copiedCode === "wifi"
-                      ? isEn ? "(Copied!)" : "(Copiado!)"
-                      : isEn ? "(tap to copy)" : "(toca para copiar)"}
+                      ? isEn
+                        ? "(Copied!)"
+                        : "(Copiado!)"
+                      : isEn
+                        ? "(tap to copy)"
+                        : "(toca para copiar)"}
                   </span>
                 </button>
               </div>
@@ -411,7 +432,20 @@ export function GuestDashboard() {
           type="button"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-orange-600"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <svg
+              className="text-orange-600"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
           </span>
           <span className="font-medium text-xs leading-tight">
             {isEn ? "Service Request" : "Solicitud"}
@@ -423,7 +457,20 @@ export function GuestDashboard() {
           href={`/guest/${encodeURIComponent(token)}/messages`}
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <svg
+              className="text-blue-600"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
           </span>
           <span className="font-medium text-xs leading-tight">
             {isEn ? "Messages" : "Mensajes"}
@@ -442,7 +489,20 @@ export function GuestDashboard() {
           type="button"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-100 text-lg">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-violet-600"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            <svg
+              className="text-violet-600"
+              fill="none"
+              height="20"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.5"
+              viewBox="0 0 24 24"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+            </svg>
           </span>
           <span className="font-medium text-xs leading-tight">
             {isEn ? "House Rules" : "Reglas"}
@@ -452,7 +512,7 @@ export function GuestDashboard() {
 
       {/* -- Service request form (expandable) -- */}
       {activePanel === "service" && (
-        <Card className="animate-in fade-in slide-in-from-top-2 border-primary/20 shadow-md duration-200">
+        <Card className="fade-in slide-in-from-top-2 animate-in border-primary/20 shadow-md duration-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {isEn ? "Service Request" : "Solicitud de Servicio"}
@@ -552,7 +612,7 @@ export function GuestDashboard() {
 
       {/* -- House rules panel (expandable) -- */}
       {activePanel === "rules" && (
-        <Card className="animate-in fade-in slide-in-from-top-2 border-violet-200 shadow-md duration-200">
+        <Card className="fade-in slide-in-from-top-2 animate-in border-violet-200 shadow-md duration-200">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {isEn ? "House Rules" : "Reglas de la Casa"}
@@ -572,7 +632,7 @@ export function GuestDashboard() {
             )}
             {checkin?.emergency_contact && (
               <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
-                <p className="font-medium text-xs text-red-800 uppercase tracking-wide">
+                <p className="font-medium text-red-800 text-xs uppercase tracking-wide">
                   {isEn ? "Emergency Contact" : "Contacto de Emergencia"}
                 </p>
                 <p className="mt-1 font-semibold text-red-900 text-sm">
@@ -619,7 +679,7 @@ export function GuestDashboard() {
             </CardDescription>
           </div>
           <Link href={`/guest/${encodeURIComponent(token)}/messages`}>
-            <Button size="sm" variant="ghost" className="text-xs">
+            <Button className="text-xs" size="sm" variant="ghost">
               {isEn ? "View All" : "Ver Todos"}
             </Button>
           </Link>
@@ -698,7 +758,21 @@ export function GuestDashboard() {
         <Link href={`/guest/${encodeURIComponent(token)}/checkin`}>
           <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 transition-all hover:border-primary/40 hover:shadow-sm">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-emerald-600"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <svg
+                className="text-emerald-600"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
             </span>
             <span className="min-w-0">
               <span className="block truncate font-medium text-sm">
@@ -713,7 +787,23 @@ export function GuestDashboard() {
         <Link href={`/guest/${encodeURIComponent(token)}/itinerary`}>
           <div className="flex items-center gap-3 rounded-2xl border border-border/60 bg-card px-4 py-3 transition-all hover:border-primary/40 hover:shadow-sm">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sky-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-sky-600"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <svg
+                className="text-sky-600"
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect height="18" rx="2" ry="2" width="18" x="3" y="4" />
+                <line x1="16" x2="16" y1="2" y2="6" />
+                <line x1="8" x2="8" y1="2" y2="6" />
+                <line x1="3" x2="21" y1="10" y2="10" />
+              </svg>
             </span>
             <span className="min-w-0">
               <span className="block truncate font-medium text-sm">

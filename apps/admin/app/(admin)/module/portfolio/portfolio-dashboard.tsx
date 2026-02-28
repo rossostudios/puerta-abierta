@@ -1,9 +1,8 @@
 "use client";
 
+import { ChartIcon, SparklesIcon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
-import { ChartIcon, SparklesIcon } from "@hugeicons/core-free-icons";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -141,7 +140,7 @@ export function PortfolioDashboard({
     return (
       <div className="relative">
         {/* Skeleton preview layer */}
-        <div className="pointer-events-none select-none" aria-hidden="true">
+        <div aria-hidden="true" className="pointer-events-none select-none">
           <div className="space-y-4 opacity-[0.35] blur-[1px]">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
               {kpiLabels.map((label) => (
@@ -159,23 +158,23 @@ export function PortfolioDashboard({
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="glass-liquid mx-4 max-w-md rounded-2xl border p-8 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Icon
-                className="h-6 w-6 text-primary"
-                icon={ChartIcon}
-              />
+              <Icon className="h-6 w-6 text-primary" icon={ChartIcon} />
             </div>
-            <h3 className="mb-2 text-lg font-semibold">
+            <h3 className="mb-2 font-semibold text-lg">
               {isEn
                 ? "Welcome to your Portfolio Command Center"
                 : "Bienvenido a tu Centro de Control de Portafolio"}
             </h3>
-            <p className="mb-6 text-sm text-muted-foreground">
+            <p className="mb-6 text-muted-foreground text-sm">
               {isEn
                 ? "Get real-time insights, occupancy rates, and revenue analytics across all your units. Add your first property to bring this dashboard to life."
                 : "Obtiene datos en tiempo real, tasas de ocupaci\u00f3n y an\u00e1lisis de ingresos en todas tus unidades. Agrega tu primera propiedad para activar este panel."}
             </p>
             <div className="flex items-center justify-center gap-3">
-              <Button asChild className="!bg-primary !text-primary-foreground shadow-sm">
+              <Button
+                asChild
+                className="!bg-primary !text-primary-foreground shadow-sm"
+              >
                 <Link href="/module/properties">
                   {isEn ? "+ Add First Property" : "+ Agregar Propiedad"}
                 </Link>

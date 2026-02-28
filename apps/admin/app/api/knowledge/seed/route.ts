@@ -33,19 +33,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(
-      `${API_BASE_URL}/knowledge-documents/seed`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        cache: "no-store",
-        body: JSON.stringify({ organization_id: orgId }),
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/knowledge-documents/seed`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      cache: "no-store",
+      body: JSON.stringify({ organization_id: orgId }),
+    });
 
     const text = await response.text().catch(() => "");
     let parsed: unknown = {};

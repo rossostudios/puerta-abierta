@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-
+import { SetupAdvancedSection } from "./setup-advanced-section";
 import {
   wizardCreateIntegration,
   wizardCreateLease,
@@ -19,7 +19,6 @@ import {
   wizardCreateUnit,
   wizardSeedDemoData,
 } from "./setup-api-client";
-import { SetupAdvancedSection } from "./setup-advanced-section";
 import {
   asString,
   CompletionCard,

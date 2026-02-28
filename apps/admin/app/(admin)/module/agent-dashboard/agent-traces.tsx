@@ -27,7 +27,11 @@ type Props = {
   orgId: string;
 };
 
-function estimateCost(model: string | null, prompt: number, completion: number): number {
+function estimateCost(
+  _model: string | null,
+  prompt: number,
+  completion: number
+): number {
   // Rough GPT-5.2 pricing: $5/1M prompt, $15/1M completion
   const promptRate = 5.0 / 1_000_000;
   const completionRate = 15.0 / 1_000_000;
@@ -67,19 +71,33 @@ export function AgentTraces({ orgId }: Props) {
     const totalTokens = filtered.reduce((s, t) => s + t.total_tokens, 0);
     const avgLatency =
       filtered.length > 0
-        ? Math.round(filtered.reduce((s, t) => s + t.latency_ms, 0) / filtered.length)
+        ? Math.round(
+            filtered.reduce((s, t) => s + t.latency_ms, 0) / filtered.length
+          )
         : 0;
     const totalCost = filtered.reduce(
-      (s, t) => s + estimateCost(t.model_used, t.prompt_tokens, t.completion_tokens),
+      (s, t) =>
+        s + estimateCost(t.model_used, t.prompt_tokens, t.completion_tokens),
       0
     );
     const errorCount = filtered.filter((t) => !t.success).length;
     const toolCalls = filtered.reduce((s, t) => s + t.tool_count, 0);
-    return { totalTokens, avgLatency, totalCost, errorCount, toolCalls, count: filtered.length };
+    return {
+      totalTokens,
+      avgLatency,
+      totalCost,
+      errorCount,
+      toolCalls,
+      count: filtered.length,
+    };
   }, [filtered]);
 
   if (isPending) {
-    return <p className="py-6 text-center text-muted-foreground text-sm">Loading traces...</p>;
+    return (
+      <p className="py-6 text-center text-muted-foreground text-sm">
+        Loading traces...
+      </p>
+    );
   }
 
   return (
@@ -98,11 +116,15 @@ export function AgentTraces({ orgId }: Props) {
         </div>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-muted-foreground text-xs">Avg Latency</p>
-          <p className="font-mono font-semibold text-2xl">{stats.avgLatency}ms</p>
+          <p className="font-mono font-semibold text-2xl">
+            {stats.avgLatency}ms
+          </p>
         </div>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-muted-foreground text-xs">Est. Cost</p>
-          <p className="font-mono font-semibold text-2xl">${stats.totalCost.toFixed(4)}</p>
+          <p className="font-mono font-semibold text-2xl">
+            ${stats.totalCost.toFixed(4)}
+          </p>
         </div>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-muted-foreground text-xs">Tool Calls</p>
@@ -110,7 +132,9 @@ export function AgentTraces({ orgId }: Props) {
         </div>
         <div className="rounded-lg border bg-card p-3">
           <p className="text-muted-foreground text-xs">Errors</p>
-          <p className={`font-semibold text-2xl ${stats.errorCount > 0 ? "text-red-600" : ""}`}>
+          <p
+            className={`font-semibold text-2xl ${stats.errorCount > 0 ? "text-red-600" : ""}`}
+          >
             {stats.errorCount}
           </p>
         </div>
@@ -133,7 +157,8 @@ export function AgentTraces({ orgId }: Props) {
       {/* Trace list */}
       {filtered.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
-          No traces recorded yet. Traces are created after each agent interaction.
+          No traces recorded yet. Traces are created after each agent
+          interaction.
         </p>
       ) : (
         <div className="space-y-1">
@@ -146,20 +171,32 @@ export function AgentTraces({ orgId }: Props) {
                 {trace.agent_slug}
               </Badge>
               {trace.model_used && (
-                <span className="font-mono text-muted-foreground">{trace.model_used}</span>
+                <span className="font-mono text-muted-foreground">
+                  {trace.model_used}
+                </span>
               )}
               <span className="text-muted-foreground">
                 {trace.total_tokens.toLocaleString()} tok
               </span>
-              <span className="font-mono text-muted-foreground">{trace.latency_ms}ms</span>
-              <span className="text-muted-foreground">{trace.tool_count} tools</span>
+              <span className="font-mono text-muted-foreground">
+                {trace.latency_ms}ms
+              </span>
+              <span className="text-muted-foreground">
+                {trace.tool_count} tools
+              </span>
               {trace.fallback_used && (
-                <Badge className="text-[9px] bg-amber-500/10 text-amber-600" variant="outline">
+                <Badge
+                  className="bg-amber-500/10 text-[9px] text-amber-600"
+                  variant="outline"
+                >
                   fallback
                 </Badge>
               )}
               {!trace.success && (
-                <Badge className="text-[9px] bg-red-500/10 text-red-600" variant="outline">
+                <Badge
+                  className="bg-red-500/10 text-[9px] text-red-600"
+                  variant="outline"
+                >
                   error
                 </Badge>
               )}

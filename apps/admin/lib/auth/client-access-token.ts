@@ -2,7 +2,9 @@ type ClerkTokenGetter = () => Promise<string | null>;
 
 let clerkTokenGetter: ClerkTokenGetter | null = null;
 
-export function registerClerkClientTokenGetter(getter: ClerkTokenGetter | null) {
+export function registerClerkClientTokenGetter(
+  getter: ClerkTokenGetter | null
+) {
   clerkTokenGetter = getter;
 }
 
@@ -14,4 +16,3 @@ export async function getClerkClientAccessToken(): Promise<string | null> {
     return null;
   }
 }
-

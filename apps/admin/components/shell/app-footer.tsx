@@ -8,7 +8,7 @@ export function AppFooter({ locale }: { locale: Locale }) {
   const isEn = locale === "en-US";
 
   return (
-    <footer className="relative flex h-9 shrink-0 items-center justify-between border-t border-sidebar-border/60 bg-sidebar px-4 text-[11px] text-sidebar-foreground/60">
+    <footer className="relative flex h-9 shrink-0 items-center justify-between border-sidebar-border/60 border-t bg-sidebar px-4 text-[11px] text-sidebar-foreground/60">
       <div className="flex items-center gap-4">
         <Link
           className="transition-colors hover:text-sidebar-foreground"
@@ -41,7 +41,9 @@ export function AppFooter({ locale }: { locale: Locale }) {
           Casaora
         </a>
         <span>·</span>
-        <span>{isEn ? "All rights reserved" : "Todos los derechos reservados"}</span>
+        <span>
+          {isEn ? "All rights reserved" : "Todos los derechos reservados"}
+        </span>
       </div>
     </footer>
   );

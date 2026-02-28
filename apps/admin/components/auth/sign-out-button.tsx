@@ -1,7 +1,7 @@
 "use client";
 
-import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { useClerk } from "@clerk/nextjs";
+import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -36,7 +36,8 @@ export function SignOutButton({
       router.refresh();
       setBusy(false);
     } catch (error) {
-      const description = error instanceof Error ? error.message : String(error);
+      const description =
+        error instanceof Error ? error.message : String(error);
       toast.error(errorMsg, { description });
       setBusy(false);
     }

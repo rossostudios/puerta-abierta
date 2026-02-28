@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Calendar03Icon,
-  CheckmarkCircle02Icon,
-  Loading03Icon,
-} from "@hugeicons/core-free-icons";
+import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -58,7 +54,7 @@ export function PredictiveOutlook({ orgId, isEn }: PredictiveOutlookProps) {
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <div className="flex items-center gap-2">
           <Icon
             className="h-4 w-4 text-[var(--sidebar-primary)]"
@@ -85,7 +81,7 @@ export function PredictiveOutlook({ orgId, isEn }: PredictiveOutlookProps) {
                 {item.title}
               </p>
               <div className="mt-0.5 flex items-center gap-2">
-                <span className="text-[10.5px] capitalize text-muted-foreground/60">
+                <span className="text-[10.5px] text-muted-foreground/60 capitalize">
                   {item.category.replace(/_/g, " ")}
                 </span>
                 <span

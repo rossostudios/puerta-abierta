@@ -16,7 +16,7 @@ async function devProdToken(): Promise<string | null> {
 
   const secret = process.env.DEV_CLERK_PROD_SECRET;
   const sessionId = process.env.DEV_CLERK_PROD_SESSION_ID;
-  if (!secret || !sessionId) return null;
+  if (!(secret && sessionId)) return null;
 
   const now = Date.now();
   if (_devTokenCache && _devTokenCache.expiresAt > now) {

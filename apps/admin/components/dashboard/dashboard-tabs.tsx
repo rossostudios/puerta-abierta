@@ -28,7 +28,7 @@ export function DashboardTabs({
           <button
             aria-current={tab === "overview" ? "page" : undefined}
             className={cn(
-              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              "relative -mb-px whitespace-nowrap border-transparent border-b-2 px-0 py-3 font-medium text-sm transition-colors",
               tab === "overview"
                 ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
                 : "text-muted-foreground hover:text-foreground"
@@ -41,7 +41,7 @@ export function DashboardTabs({
           <button
             aria-current={tab === "financials" ? "page" : undefined}
             className={cn(
-              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              "relative -mb-px whitespace-nowrap border-transparent border-b-2 px-0 py-3 font-medium text-sm transition-colors",
               tab === "financials"
                 ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
                 : "text-muted-foreground hover:text-foreground"
@@ -54,7 +54,7 @@ export function DashboardTabs({
           <button
             aria-current={tab === "operations" ? "page" : undefined}
             className={cn(
-              "relative -mb-px whitespace-nowrap border-b-2 border-transparent px-0 py-3 font-medium text-sm transition-colors",
+              "relative -mb-px whitespace-nowrap border-transparent border-b-2 px-0 py-3 font-medium text-sm transition-colors",
               tab === "operations"
                 ? "border-[var(--sidebar-primary)] text-[var(--sidebar-primary)]"
                 : "text-muted-foreground hover:text-foreground"

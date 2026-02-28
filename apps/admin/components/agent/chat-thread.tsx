@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  PlusSignIcon,
-  SparklesIcon,
-} from "@hugeicons/core-free-icons";
+import { PlusSignIcon, SparklesIcon } from "@hugeicons/core-free-icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1264,7 +1261,9 @@ export function ChatThread({
                           style={{ animationDelay: "300ms" }}
                         />
                       </span>
-                      {isEn ? "Casaora AI is thinking..." : "Casaora AI está pensando..."}
+                      {isEn
+                        ? "Casaora AI is thinking..."
+                        : "Casaora AI está pensando..."}
                     </p>
                   ) : null}
                 </div>

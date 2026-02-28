@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useVisibilityPollingInterval } from "@/lib/hooks/use-visibility-polling";
 import type { Locale } from "@/lib/i18n";
 
 type AgentInboxItem = {
@@ -62,6 +63,11 @@ function priorityVariant(
 
 export function AgentInbox({ orgId, locale }: AgentInboxProps) {
   const isEn = locale === "en-US";
+  const pollInterval = useVisibilityPollingInterval({
+    enabled: !!orgId,
+    foregroundMs: 60_000,
+    backgroundMs: 120_000,
+  });
 
   const inboxQuery = useQuery<AgentInboxItem[], Error>({
     queryKey: ["agent-inbox", orgId],
@@ -86,7 +92,7 @@ export function AgentInbox({ orgId, locale }: AgentInboxProps) {
       }
       return normalizeItems(payload);
     },
-    refetchInterval: 30_000,
+    refetchInterval: pollInterval,
   });
 
   const items = inboxQuery.data ?? [];

@@ -66,7 +66,10 @@ export function ChatToolEventCard({
             </div>
           ) : (
             <div className="flex h-4 w-4 items-center justify-center rounded-full bg-destructive/10">
-              <Icon className="h-2.5 w-2.5 text-destructive" icon={Cancel01Icon} />
+              <Icon
+                className="h-2.5 w-2.5 text-destructive"
+                icon={Cancel01Icon}
+              />
             </div>
           )
         ) : (
@@ -101,7 +104,7 @@ export function ChatToolEventCard({
             <div className="flex flex-wrap gap-1">
               {event.suggested_actions.map((sa) => (
                 <button
-                  className="rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 text-[10px] font-medium text-foreground/70 transition-colors hover:border-[var(--sidebar-primary)]/40 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground"
+                  className="rounded-full border border-border/50 bg-muted/30 px-2.5 py-1 font-medium text-[10px] text-foreground/70 transition-colors hover:border-[var(--sidebar-primary)]/40 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground"
                   key={sa.action}
                   onClick={() => onSuggestedAction?.(sa.action)}
                   type="button"
@@ -138,7 +141,7 @@ export function ChatToolEventStrip({
     <div className="flex flex-col gap-1.5 py-1" style={{ contain: "layout" }}>
       {shouldVirtualize ? (
         <button
-          className="self-start rounded-lg px-2.5 py-1 text-[10.5px] font-medium text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
+          className="self-start rounded-lg px-2.5 py-1 font-medium text-[10.5px] text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground"
           onClick={() => setShowAll(true)}
           type="button"
         >
@@ -195,7 +198,9 @@ export function ToolTraceBadges({
                 icon={Cancel01Icon}
               />
             )}
-            <span className="text-muted-foreground/70">{tool.tool ?? "tool"}</span>
+            <span className="text-muted-foreground/70">
+              {tool.tool ?? "tool"}
+            </span>
           </Badge>
         ))}
       </button>

@@ -5,7 +5,6 @@ import {
   ArrowRight01Icon,
   Calendar03Icon,
   ChartLineData02Icon,
-  Mail01Icon,
   SparklesIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
@@ -100,7 +99,7 @@ export function ChatEmptyState({
   isEn,
   disabled,
   agentName,
-  agentDescription,
+  agentDescription: _agentDescription,
   firstName,
   dailySummary,
 }: {
@@ -121,14 +120,14 @@ export function ChatEmptyState({
       {/* Greeting + Agent identity */}
       <div className="relative mb-8 flex flex-col items-center gap-3">
         {firstName ? (
-          <h1 className="font-sans text-3xl text-foreground/90 tracking-tight animate-[fadeInUp_0.5s_ease-out_both]">
+          <h1 className="animate-[fadeInUp_0.5s_ease-out_both] font-sans text-3xl text-foreground/90 tracking-tight">
             {getGreeting(isEn, firstName)}
           </h1>
         ) : null}
 
         {/* Agent identity badge */}
         <div
-          className="flex items-center gap-2 animate-[fadeInUp_0.5s_ease-out_both]"
+          className="flex animate-[fadeInUp_0.5s_ease-out_both] items-center gap-2"
           style={{ animationDelay: "60ms" }}
         >
           <div className="flex h-5 w-5 items-center justify-center rounded-md bg-casaora-gradient">
@@ -138,7 +137,7 @@ export function ChatEmptyState({
               strokeWidth={2}
             />
           </div>
-          <span className="text-[13px] font-medium text-muted-foreground/70">
+          <span className="font-medium text-[13px] text-muted-foreground/70">
             {agentName || "Casaora AI"}
           </span>
         </div>
@@ -164,7 +163,7 @@ export function ChatEmptyState({
                 icon={AlertCircleIcon}
               />
             ) : null}
-            <p className="text-[13px] leading-relaxed text-foreground/70">
+            <p className="text-[13px] text-foreground/70 leading-relaxed">
               {dailySummary
                 .filter((item) => item.count > 0)
                 .map((item, i, arr) => (
@@ -196,7 +195,7 @@ export function ChatEmptyState({
       {contextualSuggestions && contextualSuggestions.length > 0 ? (
         <div className="relative flex w-full max-w-xl flex-col items-center gap-2.5">
           <p
-            className="mb-1 flex items-center gap-1.5 font-medium text-[11px] text-muted-foreground/60 uppercase tracking-widest animate-[fadeInUp_0.5s_ease-out_both]"
+            className="mb-1 flex animate-[fadeInUp_0.5s_ease-out_both] items-center gap-1.5 font-medium text-[11px] text-muted-foreground/60 uppercase tracking-widest"
             style={{ animationDelay: "200ms" }}
           >
             <Icon
@@ -209,7 +208,7 @@ export function ChatEmptyState({
             {contextualSuggestions.slice(0, 3).map((prompt, i) => (
               <button
                 className={cn(
-                  "group relative w-full cursor-pointer rounded-xl glass-liquid border-l-2 border-l-[var(--sidebar-primary)]/30 px-4 py-3.5 text-left text-[13px] text-foreground/80 leading-snug",
+                  "group glass-liquid relative w-full cursor-pointer rounded-xl border-l-2 border-l-[var(--sidebar-primary)]/30 px-4 py-3.5 text-left text-[13px] text-foreground/80 leading-snug",
                   "transition-all duration-200 ease-out",
                   "hover:border-[var(--sidebar-primary)]/20 hover:border-l-[var(--sidebar-primary)]/50 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground hover:shadow-sm",
                   "active:scale-[0.99]",
@@ -239,7 +238,7 @@ export function ChatEmptyState({
       {quickPrompts.length > 0 ? (
         <div className="relative mt-5 flex w-full max-w-xl flex-col items-center gap-2.5">
           <p
-            className="mb-1 font-medium text-[11px] text-muted-foreground/40 uppercase tracking-widest animate-[fadeInUp_0.5s_ease-out_both]"
+            className="mb-1 animate-[fadeInUp_0.5s_ease-out_both] font-medium text-[11px] text-muted-foreground/40 uppercase tracking-widest"
             style={{ animationDelay: "500ms" }}
           >
             {isEn ? "Try asking" : "Prueba preguntar"}
@@ -251,7 +250,7 @@ export function ChatEmptyState({
               return (
                 <button
                   className={cn(
-                    "group relative flex cursor-pointer items-center gap-1.5 rounded-full glass-liquid py-2 pr-4 pl-3 text-center text-[12.5px] text-muted-foreground/70 leading-snug",
+                    "group glass-liquid relative flex cursor-pointer items-center gap-1.5 rounded-full py-2 pr-4 pl-3 text-center text-[12.5px] text-muted-foreground/70 leading-snug",
                     "transition-all duration-200 ease-out",
                     "hover:border-[var(--sidebar-primary)]/20 hover:bg-[var(--sidebar-primary)]/[0.04] hover:text-foreground/80 hover:shadow-sm",
                     "active:scale-[0.97]",

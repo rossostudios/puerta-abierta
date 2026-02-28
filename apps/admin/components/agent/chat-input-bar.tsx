@@ -304,7 +304,7 @@ export function ChatInputBar({
             {actions.map((action) => (
               <button
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg glass-liquid px-3 py-1.5 text-[11px] text-muted-foreground/60",
+                  "glass-liquid flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] text-muted-foreground/60",
                   "transition-all duration-200 ease-out",
                   "hover:border-[var(--sidebar-primary)]/20 hover:bg-[var(--sidebar-primary)]/[0.04] hover:text-foreground/70",
                   "active:scale-[0.97]",

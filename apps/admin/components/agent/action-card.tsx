@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  CheckmarkCircle02Icon,
-  Cancel01Icon,
   ArrowRight01Icon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,7 @@ const VARIANT_STYLES: Record<string, string> = {
 
 export function ActionCard({
   content,
-  isEn,
+  isEn: _isEn,
   onAction,
   disabled,
 }: ActionCardProps) {
@@ -61,8 +61,8 @@ export function ActionCard({
   return (
     <div className="glass-inner mt-3 overflow-hidden rounded-xl border border-border/40">
       {content.prompt ? (
-        <div className="border-b border-border/30 px-4 py-3">
-          <p className="font-medium text-[13px] leading-relaxed text-foreground/90">
+        <div className="border-border/30 border-b px-4 py-3">
+          <p className="font-medium text-[13px] text-foreground/90 leading-relaxed">
             {content.prompt}
           </p>
         </div>
@@ -72,7 +72,7 @@ export function ActionCard({
         <div className="space-y-1.5 px-4 py-3">
           {Object.entries(params).map(([key, value]) => (
             <div className="flex items-center justify-between gap-3" key={key}>
-              <span className="text-[11.5px] capitalize text-muted-foreground/70">
+              <span className="text-[11.5px] text-muted-foreground/70 capitalize">
                 {key.replace(/_/g, " ")}
               </span>
               <span className="font-medium text-[12px] text-foreground/80">
@@ -84,13 +84,13 @@ export function ActionCard({
       ) : null}
 
       {actions.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 border-t border-border/30 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-border/30 border-t px-4 py-3">
           {actions.map((action) => {
             const variant = action.variant ?? "alternative";
             return (
               <Button
                 className={cn(
-                  "h-8 gap-1.5 rounded-lg border px-3 text-[12px] font-medium transition-all",
+                  "h-8 gap-1.5 rounded-lg border px-3 font-medium text-[12px] transition-all",
                   VARIANT_STYLES[variant] ?? VARIANT_STYLES.alternative,
                   disabled && "pointer-events-none opacity-40"
                 )}

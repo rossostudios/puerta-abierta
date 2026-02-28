@@ -114,6 +114,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Stagger deploy start
+        shell: bash
+        env:
+          APP: ${{ matrix.app }}
+        run: |
+          case "${APP}" in
+            admin) sleep 30 ;;
+            web)   sleep 60 ;;
+          esac
+
       - name: Deploy selected app
         shell: bash
         run: |

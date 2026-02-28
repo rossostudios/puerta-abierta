@@ -44,6 +44,14 @@ pub fn router() -> axum::Router<AppState> {
             "/pricing/recommendations/{recommendation_id}",
             axum::routing::patch(update_pricing_recommendation),
         )
+        .route(
+            "/pricing/strategies",
+            axum::routing::get(list_strategies).post(create_strategy),
+        )
+        .route(
+            "/pricing/strategies/{strategy_id}",
+            axum::routing::patch(update_strategy),
+        )
 }
 
 async fn list_pricing_templates(
@@ -217,10 +225,7 @@ async fn replace_template_lines(
         .bind(template_id)
         .execute(pool)
         .await
-        .map_err(|error| {
-            tracing::error!(error = %error, "Database query failed");
-            AppError::Dependency("External service request failed.".to_string())
-        })?;
+        .map_err(db_error)?;
 
     let normalized = normalize_fee_lines(lines);
     let mut created_lines = Vec::new();
@@ -356,10 +361,7 @@ async fn set_default_template(
     .bind(template_id)
     .execute(pool)
     .await
-    .map_err(|error| {
-        tracing::error!(error = %error, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
-    })?;
+    .map_err(db_error)?;
     Ok(())
 }
 
@@ -413,10 +415,7 @@ async fn list_pricing_recommendations(
     .bind(limit)
     .fetch_all(pool)
     .await
-    .map_err(|error| {
-        tracing::error!(error = %error, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
-    })?;
+    .map_err(db_error)?;
 
     let data: Vec<Value> = rows
         .iter()
@@ -474,10 +473,7 @@ async fn update_pricing_recommendation(
     .bind(&user_id)
     .fetch_optional(pool)
     .await
-    .map_err(|error| {
-        tracing::error!(error = %error, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
-    })?;
+    .map_err(db_error)?;
 
     match result {
         Some(_) => {
@@ -496,6 +492,435 @@ async fn update_pricing_recommendation(
         }
         None => Err(AppError::NotFound("Recommendation not found.".to_string())),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Pricing strategies (wraps pricing_rule_sets)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct StrategiesQuery {
+    org_id: String,
+    limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct StrategyPath {
+    strategy_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateStrategyInput {
+    org_id: String,
+    strategy: String,
+    min_rate: Option<f64>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateStrategyInput {
+    org_id: String,
+    strategy: Option<String>,
+    min_rate: Option<f64>,
+    is_active: Option<bool>,
+}
+
+fn strategy_presets(strategy: &str) -> AppResult<serde_json::Map<String, Value>> {
+    let mut m = serde_json::Map::new();
+    match strategy {
+        "aggressive_growth" => {
+            m.insert("weekend_premium_pct".into(), json!(20.0));
+            m.insert("high_season_premium_pct".into(), json!(25.0));
+            m.insert("low_season_discount_pct".into(), json!(0.0));
+            m.insert("last_minute_discount_pct".into(), json!(5.0));
+            m.insert("long_stay_discount_pct".into(), json!(3.0));
+            m.insert("last_minute_days".into(), json!(2));
+            m.insert("long_stay_threshold_days".into(), json!(14));
+            m.insert("holiday_premium_pct".into(), json!(20.0));
+        }
+        "maximum_occupancy" => {
+            m.insert("weekend_premium_pct".into(), json!(5.0));
+            m.insert("high_season_premium_pct".into(), json!(10.0));
+            m.insert("low_season_discount_pct".into(), json!(15.0));
+            m.insert("last_minute_discount_pct".into(), json!(20.0));
+            m.insert("long_stay_discount_pct".into(), json!(10.0));
+            m.insert("last_minute_days".into(), json!(5));
+            m.insert("long_stay_threshold_days".into(), json!(7));
+            m.insert("holiday_premium_pct".into(), json!(10.0));
+        }
+        "balanced" => {
+            m.insert("weekend_premium_pct".into(), json!(10.0));
+            m.insert("high_season_premium_pct".into(), json!(15.0));
+            m.insert("low_season_discount_pct".into(), json!(5.0));
+            m.insert("last_minute_discount_pct".into(), json!(10.0));
+            m.insert("long_stay_discount_pct".into(), json!(5.0));
+            m.insert("last_minute_days".into(), json!(3));
+            m.insert("long_stay_threshold_days".into(), json!(7));
+            m.insert("holiday_premium_pct".into(), json!(15.0));
+        }
+        _ => {
+            return Err(AppError::BadRequest(
+                "strategy must be one of: aggressive_growth, maximum_occupancy, balanced".to_string(),
+            ));
+        }
+    }
+    Ok(m)
+}
+
+async fn list_strategies(
+    State(state): State<AppState>,
+    Query(query): Query<StrategiesQuery>,
+    headers: HeaderMap,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_member(&state, &user_id, &query.org_id).await?;
+    let pool = db_pool(&state)?;
+
+    let limit = clamp_limit_in_range(query.limit.unwrap_or(50), 1, 100);
+
+    let rows = sqlx::query(
+        "SELECT id, org_id, name, description, is_active,
+                min_rate::float8, max_rate::float8,
+                weekend_premium_pct::float8, holiday_premium_pct::float8,
+                low_season_discount_pct::float8, high_season_premium_pct::float8,
+                last_minute_days, last_minute_discount_pct::float8,
+                long_stay_threshold_days, long_stay_discount_pct::float8,
+                created_at::text, updated_at::text
+         FROM pricing_rule_sets
+         WHERE org_id = $1::uuid
+         ORDER BY created_at DESC
+         LIMIT $2",
+    )
+    .bind(&query.org_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(db_error)?;
+
+    let data: Vec<Value> = rows
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.try_get::<sqlx::types::Uuid, _>("id")
+                    .map(|u| u.to_string()).unwrap_or_default(),
+                "org_id": r.try_get::<sqlx::types::Uuid, _>("org_id")
+                    .map(|u| u.to_string()).unwrap_or_default(),
+                "name": r.try_get::<String, _>("name").unwrap_or_default(),
+                "description": r.try_get::<Option<String>, _>("description").unwrap_or(None),
+                "is_active": r.try_get::<bool, _>("is_active").unwrap_or(false),
+                "min_rate": r.try_get::<Option<f64>, _>("min_rate").unwrap_or(None),
+                "max_rate": r.try_get::<Option<f64>, _>("max_rate").unwrap_or(None),
+                "weekend_premium_pct": r.try_get::<Option<f64>, _>("weekend_premium_pct").unwrap_or(None),
+                "holiday_premium_pct": r.try_get::<Option<f64>, _>("holiday_premium_pct").unwrap_or(None),
+                "low_season_discount_pct": r.try_get::<Option<f64>, _>("low_season_discount_pct").unwrap_or(None),
+                "high_season_premium_pct": r.try_get::<Option<f64>, _>("high_season_premium_pct").unwrap_or(None),
+                "last_minute_days": r.try_get::<Option<i32>, _>("last_minute_days").unwrap_or(None),
+                "last_minute_discount_pct": r.try_get::<Option<f64>, _>("last_minute_discount_pct").unwrap_or(None),
+                "long_stay_threshold_days": r.try_get::<Option<i32>, _>("long_stay_threshold_days").unwrap_or(None),
+                "long_stay_discount_pct": r.try_get::<Option<f64>, _>("long_stay_discount_pct").unwrap_or(None),
+                "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
+                "updated_at": r.try_get::<String, _>("updated_at").unwrap_or_default(),
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({ "data": data })))
+}
+
+async fn create_strategy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<CreateStrategyInput>,
+) -> AppResult<impl IntoResponse> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.org_id, PRICING_EDIT_ROLES).await?;
+    let pool = db_pool(&state)?;
+
+    let presets = strategy_presets(&payload.strategy)?;
+
+    // Deactivate any currently active strategies for the org
+    sqlx::query(
+        "UPDATE pricing_rule_sets SET is_active = FALSE WHERE org_id = $1::uuid AND is_active = TRUE",
+    )
+    .bind(&payload.org_id)
+    .execute(pool)
+    .await
+    .map_err(db_error)?;
+
+    let row = sqlx::query(
+        "INSERT INTO pricing_rule_sets (
+            org_id, name, description, is_active, min_rate,
+            weekend_premium_pct, holiday_premium_pct,
+            low_season_discount_pct, high_season_premium_pct,
+            last_minute_days, last_minute_discount_pct,
+            long_stay_threshold_days, long_stay_discount_pct
+        ) VALUES (
+            $1::uuid, $2, $3, TRUE, $4,
+            $5, $6, $7, $8, $9, $10, $11, $12
+        )
+        RETURNING id, org_id, name, description, is_active,
+                  min_rate::float8, max_rate::float8,
+                  weekend_premium_pct::float8, holiday_premium_pct::float8,
+                  low_season_discount_pct::float8, high_season_premium_pct::float8,
+                  last_minute_days, last_minute_discount_pct::float8,
+                  long_stay_threshold_days, long_stay_discount_pct::float8,
+                  created_at::text, updated_at::text",
+    )
+    .bind(&payload.org_id)
+    .bind(&payload.strategy)
+    .bind(strategy_description(&payload.strategy))
+    .bind(payload.min_rate)
+    .bind(
+        presets
+            .get("weekend_premium_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .bind(
+        presets
+            .get("holiday_premium_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .bind(
+        presets
+            .get("low_season_discount_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .bind(
+        presets
+            .get("high_season_premium_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .bind(
+        presets
+            .get("last_minute_days")
+            .and_then(Value::as_i64)
+            .unwrap_or(3) as i32,
+    )
+    .bind(
+        presets
+            .get("last_minute_discount_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .bind(
+        presets
+            .get("long_stay_threshold_days")
+            .and_then(Value::as_i64)
+            .unwrap_or(7) as i32,
+    )
+    .bind(
+        presets
+            .get("long_stay_discount_pct")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(db_error)?;
+
+    let data = strategy_row_to_json(&row);
+
+    write_audit_log(
+        state.db_pool.as_ref(),
+        Some(&payload.org_id),
+        Some(&user_id),
+        "create",
+        "pricing_rule_sets",
+        data.get("id").and_then(Value::as_str),
+        None,
+        Some(data.clone()),
+    )
+    .await;
+
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(json!({ "data": data })),
+    ))
+}
+
+async fn update_strategy(
+    State(state): State<AppState>,
+    Path(path): Path<StrategyPath>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateStrategyInput>,
+) -> AppResult<Json<Value>> {
+    let user_id = require_user_id(&state, &headers).await?;
+    assert_org_role(&state, &user_id, &payload.org_id, PRICING_EDIT_ROLES).await?;
+    let pool = db_pool(&state)?;
+
+    // Build SET clauses dynamically
+    let mut sets: Vec<String> = vec!["updated_at = now()".to_string()];
+    let mut bind_idx = 3u32; // $1 = strategy_id, $2 = org_id
+
+    let cached_presets = payload
+        .strategy
+        .as_ref()
+        .map(|s| strategy_presets(s))
+        .transpose()?;
+
+    if cached_presets.is_some() {
+        sets.push(format!("name = ${bind_idx}"));
+        bind_idx += 1;
+        sets.push(format!("description = ${bind_idx}"));
+        bind_idx += 1;
+        for key in [
+            "weekend_premium_pct",
+            "holiday_premium_pct",
+            "low_season_discount_pct",
+            "high_season_premium_pct",
+            "last_minute_days",
+            "last_minute_discount_pct",
+            "long_stay_threshold_days",
+            "long_stay_discount_pct",
+        ] {
+            sets.push(format!("{key} = ${bind_idx}"));
+            bind_idx += 1;
+        }
+    }
+    if payload.min_rate.is_some() {
+        sets.push(format!("min_rate = ${bind_idx}"));
+        bind_idx += 1;
+    }
+    if payload.is_active.is_some() {
+        sets.push(format!("is_active = ${bind_idx}"));
+        let _ = bind_idx;
+    }
+
+    let set_clause = sets.join(", ");
+    let sql = format!(
+        "UPDATE pricing_rule_sets SET {set_clause}
+         WHERE id = $1::uuid AND org_id = $2::uuid
+         RETURNING id, org_id, name, description, is_active,
+                   min_rate::float8, max_rate::float8,
+                   weekend_premium_pct::float8, holiday_premium_pct::float8,
+                   low_season_discount_pct::float8, high_season_premium_pct::float8,
+                   last_minute_days, last_minute_discount_pct::float8,
+                   long_stay_threshold_days, long_stay_discount_pct::float8,
+                   created_at::text, updated_at::text"
+    );
+
+    let mut query = sqlx::query(&sql)
+        .bind(&path.strategy_id)
+        .bind(&payload.org_id);
+
+    if let (Some(ref strategy), Some(ref presets)) = (&payload.strategy, &cached_presets) {
+        query = query
+            .bind(strategy.as_str())
+            .bind(strategy_description(strategy));
+        for key in [
+            "weekend_premium_pct",
+            "holiday_premium_pct",
+            "low_season_discount_pct",
+            "high_season_premium_pct",
+        ] {
+            query = query.bind(presets.get(key).and_then(Value::as_f64).unwrap_or(0.0));
+        }
+        query = query.bind(
+            presets
+                .get("last_minute_days")
+                .and_then(Value::as_i64)
+                .unwrap_or(3) as i32,
+        );
+        query = query.bind(
+            presets
+                .get("last_minute_discount_pct")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0),
+        );
+        query = query.bind(
+            presets
+                .get("long_stay_threshold_days")
+                .and_then(Value::as_i64)
+                .unwrap_or(7) as i32,
+        );
+        query = query.bind(
+            presets
+                .get("long_stay_discount_pct")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0),
+        );
+    }
+    if let Some(min_rate) = payload.min_rate {
+        query = query.bind(min_rate);
+    }
+    if let Some(is_active) = payload.is_active {
+        // If activating, deactivate others first
+        if is_active {
+            sqlx::query(
+                "UPDATE pricing_rule_sets SET is_active = FALSE WHERE org_id = $1::uuid AND id <> $2::uuid AND is_active = TRUE",
+            )
+            .bind(&payload.org_id)
+            .bind(&path.strategy_id)
+            .execute(pool)
+            .await
+            .map_err(db_error)?;
+        }
+        query = query.bind(is_active);
+    }
+
+    let row = query.fetch_optional(pool).await.map_err(db_error)?;
+
+    match row {
+        Some(r) => {
+            let data = strategy_row_to_json(&r);
+            write_audit_log(
+                state.db_pool.as_ref(),
+                Some(&payload.org_id),
+                Some(&user_id),
+                "update",
+                "pricing_rule_sets",
+                Some(&path.strategy_id),
+                None,
+                Some(data.clone()),
+            )
+            .await;
+            Ok(Json(json!({ "data": data })))
+        }
+        None => Err(AppError::NotFound("Strategy not found.".to_string())),
+    }
+}
+
+fn strategy_description(strategy: &str) -> &'static str {
+    match strategy {
+        "aggressive_growth" => {
+            "Maximize revenue per booking with higher premiums and minimal discounts"
+        }
+        "maximum_occupancy" => "Fill every unit with generous discounts and moderate premiums",
+        "balanced" => "Optimize revenue and occupancy with moderate adjustments",
+        _ => "",
+    }
+}
+
+fn strategy_row_to_json(r: &sqlx::postgres::PgRow) -> Value {
+    json!({
+        "id": r.try_get::<sqlx::types::Uuid, _>("id")
+            .map(|u| u.to_string()).unwrap_or_default(),
+        "org_id": r.try_get::<sqlx::types::Uuid, _>("org_id")
+            .map(|u| u.to_string()).unwrap_or_default(),
+        "name": r.try_get::<String, _>("name").unwrap_or_default(),
+        "description": r.try_get::<Option<String>, _>("description").unwrap_or(None),
+        "is_active": r.try_get::<bool, _>("is_active").unwrap_or(false),
+        "min_rate": r.try_get::<Option<f64>, _>("min_rate").unwrap_or(None),
+        "max_rate": r.try_get::<Option<f64>, _>("max_rate").unwrap_or(None),
+        "weekend_premium_pct": r.try_get::<Option<f64>, _>("weekend_premium_pct").unwrap_or(None),
+        "holiday_premium_pct": r.try_get::<Option<f64>, _>("holiday_premium_pct").unwrap_or(None),
+        "low_season_discount_pct": r.try_get::<Option<f64>, _>("low_season_discount_pct").unwrap_or(None),
+        "high_season_premium_pct": r.try_get::<Option<f64>, _>("high_season_premium_pct").unwrap_or(None),
+        "last_minute_days": r.try_get::<Option<i32>, _>("last_minute_days").unwrap_or(None),
+        "last_minute_discount_pct": r.try_get::<Option<f64>, _>("last_minute_discount_pct").unwrap_or(None),
+        "long_stay_threshold_days": r.try_get::<Option<i32>, _>("long_stay_threshold_days").unwrap_or(None),
+        "long_stay_discount_pct": r.try_get::<Option<f64>, _>("long_stay_discount_pct").unwrap_or(None),
+        "created_at": r.try_get::<String, _>("created_at").unwrap_or_default(),
+        "updated_at": r.try_get::<String, _>("updated_at").unwrap_or_default(),
+    })
+}
+
+fn db_error(error: sqlx::Error) -> AppError {
+    tracing::error!(error = %error, "Database query failed");
+    AppError::Dependency("External service request failed.".to_string())
 }
 
 fn db_pool(state: &AppState) -> AppResult<&sqlx::PgPool> {

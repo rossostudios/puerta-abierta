@@ -2,12 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { normalizeAgents } from "@/components/agent/chat-thread-types";
 import { DataImportSheet } from "@/components/import/data-import-sheet";
 import { PortfolioSidebar } from "@/components/properties/portfolio-sidebar";
-import { filterPropertyPortfolioRows } from "@/lib/features/properties/analytics";
 import type { AgentDefinition } from "@/lib/api";
-import { normalizeAgents } from "@/components/agent/chat-thread-types";
+import { filterPropertyPortfolioRows } from "@/lib/features/properties/analytics";
 import type {
   PropertyHealthFilter,
   PropertyRecord,
@@ -67,7 +66,7 @@ export function PropertiesManager({
   const [statusFilter, setStatusFilter] = useState<PropertyStatusFilter>("all");
   const [healthFilter, setHealthFilter] = useState<PropertyHealthFilter>("all");
   const isWide = useMediaQuery("(min-width: 1440px)");
-  const isMedium = useMediaQuery("(min-width: 1280px)");
+  const _isMedium = useMediaQuery("(min-width: 1280px)");
   const [userSidebarPref, setUserSidebarPref] = useState<boolean>(false);
   const isSidebarOpen = userSidebarPref;
 
@@ -124,7 +123,11 @@ export function PropertiesManager({
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/agents?org_id=${encodeURIComponent(orgId)}`,
-        { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        }
       );
       if (!res.ok) return [];
       const payload = (await res.json()) as unknown;
@@ -166,59 +169,61 @@ export function PropertiesManager({
     <div className="flex w-full bg-background">
       <div className="min-w-0 flex-1 overflow-hidden">
         <div className="mx-auto max-w-7xl space-y-6">
-            <PropertiesPageHeader
-              description={description}
-              importLabel={isEn ? "Import" : "Importar"}
-              newPropertyLabel={dict.newProperty}
-              onOpenCreate={() => setOpen(true)}
-              onOpenImport={() => setImportOpen(true)}
-              recordCount={filteredRows.length}
-              recordsLabel={
-                filteredRows.length === 1
-                  ? isEn ? "Property" : "Propiedad"
-                  : isEn ? "Properties" : "Propiedades"
-              }
-              title={title}
-            />
+          <PropertiesPageHeader
+            description={description}
+            importLabel={isEn ? "Import" : "Importar"}
+            newPropertyLabel={dict.newProperty}
+            onOpenCreate={() => setOpen(true)}
+            onOpenImport={() => setImportOpen(true)}
+            recordCount={filteredRows.length}
+            recordsLabel={
+              filteredRows.length === 1
+                ? isEn
+                  ? "Property"
+                  : "Propiedad"
+                : isEn
+                  ? "Properties"
+                  : "Propiedades"
+            }
+            title={title}
+          />
 
-            <AiInsightsBanner
-              isEn={isEn}
-              orgId={orgId}
-              propertyCount={filteredRows.length}
-            />
+          <AiInsightsBanner
+            isEn={isEn}
+            orgId={orgId}
+            propertyCount={filteredRows.length}
+          />
 
-            <PropertiesFeedback
-              error={errorLabel ?? ""}
-              errorLabel={common.error}
-              success={successMessage ?? ""}
-              successLabel={common.success}
-            />
+          <PropertiesFeedback
+            error={errorLabel ?? ""}
+            errorLabel={common.error}
+            success={successMessage ?? ""}
+            successLabel={common.success}
+          />
 
-            <PropertiesFilterBar
-              healthFilter={healthFilter}
-              isEn={isEn}
-              isSidebarOpen={isSidebarOpen}
-              onHealthFilterChange={setHealthFilter}
-              onQueryChange={setQuery}
-              onStatusFilterChange={setStatusFilter}
-              onToggleSidebar={() =>
-                setUserSidebarPref((prev) => !prev)
-              }
-              onViewModeChange={handleViewModeChange}
-              query={query}
-              statusFilter={statusFilter}
-              viewMode={viewMode}
-            />
+          <PropertiesFilterBar
+            healthFilter={healthFilter}
+            isEn={isEn}
+            isSidebarOpen={isSidebarOpen}
+            onHealthFilterChange={setHealthFilter}
+            onQueryChange={setQuery}
+            onStatusFilterChange={setStatusFilter}
+            onToggleSidebar={() => setUserSidebarPref((prev) => !prev)}
+            onViewModeChange={handleViewModeChange}
+            query={query}
+            statusFilter={statusFilter}
+            viewMode={viewMode}
+          />
 
-            <PropertiesList
-              agentStatus={agentStatus}
-              isSidebarOpen={isSidebarOpen}
-              locale={locale}
-              propertyAgentStatusMap={propertyAgentStatusMap}
-              rows={filteredRows}
-              summary={summary}
-              viewMode={viewMode}
-            />
+          <PropertiesList
+            agentStatus={agentStatus}
+            isSidebarOpen={isSidebarOpen}
+            locale={locale}
+            propertyAgentStatusMap={propertyAgentStatusMap}
+            rows={filteredRows}
+            summary={summary}
+            viewMode={viewMode}
+          />
         </div>
       </div>
 

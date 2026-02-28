@@ -45,12 +45,12 @@ export function PropertiesList({
             <Icon className="h-6 w-6" icon={SparklesIcon} />
           </div>
           <div className="space-y-1">
-            <h3 className="font-semibold text-lg text-foreground">
+            <h3 className="font-semibold text-foreground text-lg">
               {isEn
                 ? "Your AI-powered portfolio starts here"
                 : "Tu portafolio potenciado por IA comienza aquí"}
             </h3>
-            <p className="max-w-sm text-sm text-muted-foreground">
+            <p className="max-w-sm text-muted-foreground text-sm">
               {isEn
                 ? "Connect your first property and let agents manage it 24/7."
                 : "Conecta tu primera propiedad y deja que los agentes la gestionen 24/7."}
@@ -70,12 +70,14 @@ export function PropertiesList({
           rows={rows}
         />
       ) : viewMode === "grid" ? (
-        <div className={cn(
-          "grid gap-5",
-          isSidebarOpen
-            ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
-            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        )}>
+        <div
+          className={cn(
+            "grid gap-5",
+            isSidebarOpen
+              ? "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3"
+              : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          )}
+        >
           {rows.map((row) => (
             <PropertyCard
               address={row.address || row.city}

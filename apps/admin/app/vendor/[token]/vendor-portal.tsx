@@ -92,18 +92,20 @@ function FilterPill({
 }) {
   return (
     <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium text-xs transition-colors ${
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-card text-muted-foreground hover:bg-muted"
       }`}
+      onClick={onClick}
+      type="button"
     >
       {label}
       <span
-        className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
-          active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+        className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-semibold text-[10px] ${
+          active
+            ? "bg-primary-foreground/20 text-primary-foreground"
+            : "bg-muted text-muted-foreground"
         }`}
       >
         {count}
@@ -277,14 +279,14 @@ export function VendorPortal({ token, vendorName }: Props) {
         <div className="grid grid-cols-3 gap-3">
           <StatCard label="Active Jobs" value={String(stats.active)} />
           <StatCard
+            accent="text-emerald-600"
             label="Completion Rate"
             value={`${stats.completionRate}%`}
-            accent="text-emerald-600"
           />
           <StatCard
+            accent="text-blue-600"
             label="Total Completed"
             value={String(stats.done)}
-            accent="text-blue-600"
           />
         </div>
       )}
@@ -303,27 +305,27 @@ export function VendorPortal({ token, vendorName }: Props) {
           {/* Status filters */}
           <div className="flex flex-wrap gap-2">
             <FilterPill
-              label="All"
               active={filter === "all"}
               count={filterCounts.all}
+              label="All"
               onClick={() => setFilter("all")}
             />
             <FilterPill
-              label="Pending"
               active={filter === "pending"}
               count={filterCounts.pending}
+              label="Pending"
               onClick={() => setFilter("pending")}
             />
             <FilterPill
-              label="In Progress"
               active={filter === "in_progress"}
               count={filterCounts.in_progress}
+              label="In Progress"
               onClick={() => setFilter("in_progress")}
             />
             <FilterPill
-              label="Completed"
               active={filter === "done"}
               count={filterCounts.done}
+              label="Completed"
               onClick={() => setFilter("done")}
             />
           </div>
@@ -353,10 +355,10 @@ export function VendorPortal({ token, vendorName }: Props) {
 
             return (
               <div
-                key={job.id}
                 className={`rounded-xl border transition-all ${
                   isExpanded ? "border-primary/40 shadow-sm" : ""
                 }`}
+                key={job.id}
               >
                 {/* Job header (click to expand) */}
                 <button
@@ -404,10 +406,10 @@ export function VendorPortal({ token, vendorName }: Props) {
                         viewBox="0 0 24 24"
                       >
                         <path
+                          d="M19 9l-7 7-7-7"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M19 9l-7 7-7-7"
                         />
                       </svg>
                     </div>
@@ -416,17 +418,13 @@ export function VendorPortal({ token, vendorName }: Props) {
 
                 {/* Expanded detail */}
                 {isExpanded && (
-                  <div className="border-t px-4 pb-4 pt-3">
-                    {!detail ? (
-                      <p className="animate-pulse py-4 text-center text-muted-foreground text-sm">
-                        Loading details...
-                      </p>
-                    ) : (
+                  <div className="border-t px-4 pt-3 pb-4">
+                    {detail ? (
                       <div className="space-y-4">
                         {/* Description */}
                         {detail.description && (
                           <div>
-                            <p className="mb-1 font-medium text-muted-foreground text-[10px] uppercase tracking-wide">
+                            <p className="mb-1 font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
                               Description
                             </p>
                             <p className="text-sm leading-relaxed">
@@ -438,7 +436,7 @@ export function VendorPortal({ token, vendorName }: Props) {
                         {/* Meta row */}
                         <div className="flex flex-wrap gap-4 text-sm">
                           <div>
-                            <p className="font-medium text-muted-foreground text-[10px] uppercase tracking-wide">
+                            <p className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
                               Priority
                             </p>
                             <Badge
@@ -450,7 +448,7 @@ export function VendorPortal({ token, vendorName }: Props) {
                           </div>
                           {detail.due_at && (
                             <div>
-                              <p className="font-medium text-muted-foreground text-[10px] uppercase tracking-wide">
+                              <p className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
                                 Due Date
                               </p>
                               <p className="mt-1 text-sm">
@@ -460,7 +458,7 @@ export function VendorPortal({ token, vendorName }: Props) {
                           )}
                           {detail.created_at && (
                             <div>
-                              <p className="font-medium text-muted-foreground text-[10px] uppercase tracking-wide">
+                              <p className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
                                 Created
                               </p>
                               <p className="mt-1 text-sm">
@@ -475,9 +473,13 @@ export function VendorPortal({ token, vendorName }: Props) {
                         {/* Checklist */}
                         {detail.items && detail.items.length > 0 && (
                           <div className="space-y-2">
-                            <p className="font-medium text-muted-foreground text-[10px] uppercase tracking-wide">
-                              Checklist ({detail.items.filter((i) => i.is_completed).length}/
-                              {detail.items.length})
+                            <p className="font-medium text-[10px] text-muted-foreground uppercase tracking-wide">
+                              Checklist (
+                              {
+                                detail.items.filter((i) => i.is_completed)
+                                  .length
+                              }
+                              /{detail.items.length})
                             </p>
                             {detail.items
                               .sort((a, b) => a.sort_order - b.sort_order)
@@ -527,7 +529,7 @@ export function VendorPortal({ token, vendorName }: Props) {
                             </Button>
                           )}
                           {detail.status === "done" && (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 font-medium text-emerald-700 text-xs dark:bg-emerald-950 dark:text-emerald-400">
                               <svg
                                 className="h-3.5 w-3.5"
                                 fill="none"
@@ -535,10 +537,10 @@ export function VendorPortal({ token, vendorName }: Props) {
                                 viewBox="0 0 24 24"
                               >
                                 <path
+                                  d="M5 13l4 4L19 7"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
                                   strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
                                 />
                               </svg>
                               Completed
@@ -546,6 +548,10 @@ export function VendorPortal({ token, vendorName }: Props) {
                           )}
                         </div>
                       </div>
+                    ) : (
+                      <p className="animate-pulse py-4 text-center text-muted-foreground text-sm">
+                        Loading details...
+                      </p>
                     )}
                   </div>
                 )}

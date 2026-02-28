@@ -1,11 +1,10 @@
 "use client";
 
-import { useState } from "react";
 import {
-  CheckmarkCircle02Icon,
-  Cancel01Icon,
   ArrowDown01Icon,
+  CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
+import { useState } from "react";
 import {
   ToolTraceBadges,
   type ToolTraceEntry,
@@ -53,7 +52,7 @@ export function ExplainabilityPanel({
             icon={CheckmarkCircle02Icon}
           />
         </div>
-        <p className="text-[12.5px] leading-relaxed text-foreground/75">
+        <p className="text-[12.5px] text-foreground/75 leading-relaxed">
           {explanation.summary}
         </p>
       </div>
@@ -69,7 +68,7 @@ export function ExplainabilityPanel({
             <span className="font-medium text-[11.5px] text-muted-foreground/80">
               {isEn ? "Reasoning chain" : "Cadena de razonamiento"}
               <span className="ml-1.5 text-muted-foreground/50">
-                ({explanation.reasoning_steps!.length}{" "}
+                ({explanation.reasoning_steps?.length}{" "}
                 {isEn ? "steps" : "pasos"})
               </span>
             </span>
@@ -83,8 +82,8 @@ export function ExplainabilityPanel({
           </button>
 
           {reasoningExpanded ? (
-            <div className="space-y-1.5 border-t border-border/30 px-3 py-2.5">
-              {explanation.reasoning_steps!.map((step, idx) => (
+            <div className="space-y-1.5 border-border/30 border-t px-3 py-2.5">
+              {explanation.reasoning_steps?.map((step, idx) => (
                 <div
                   className="flex items-start gap-2 rounded-lg bg-background/60 px-2.5 py-2"
                   key={`reason-${idx}`}

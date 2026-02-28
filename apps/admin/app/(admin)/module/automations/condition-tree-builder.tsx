@@ -38,7 +38,7 @@ export type ConditionNode = LeafCondition | ConditionGroup;
 // ---------------------------------------------------------------------------
 
 function isGroup(node: ConditionNode): node is ConditionGroup {
-  return "op" in node && ("conditions" in node);
+  return "op" in node && "conditions" in node;
 }
 
 const OPERATORS: { value: ConditionOperator; label: string }[] = [
@@ -91,9 +91,7 @@ export function serializeConditions(
 /**
  * Deserialize a JSON object back into ConditionNode tree.
  */
-export function deserializeConditions(
-  raw: unknown
-): ConditionNode | null {
+export function deserializeConditions(raw: unknown): ConditionNode | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
 
@@ -110,7 +108,8 @@ export function deserializeConditions(
     return {
       field: obj.field as string,
       operator: (obj.operator as ConditionOperator) || "equals",
-      value: typeof obj.value === "string" ? obj.value : String(obj.value ?? ""),
+      value:
+        typeof obj.value === "string" ? obj.value : String(obj.value ?? ""),
     };
   }
 
@@ -224,7 +223,7 @@ function GroupEditor({
         "space-y-2 rounded-lg border p-3",
         depth === 0
           ? "border-border bg-muted/20"
-          : "border-dashed border-border/60 bg-muted/10"
+          : "border-border/60 border-dashed bg-muted/10"
       )}
     >
       <div className="flex items-center gap-2">

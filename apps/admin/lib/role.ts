@@ -15,9 +15,7 @@ export async function getActiveRole(
   if (!orgId) return null;
   try {
     const me = await fetchMe();
-    const membership = me.memberships?.find(
-      (m) => m.organization_id === orgId
-    );
+    const membership = me.memberships?.find((m) => m.organization_id === orgId);
     const role = membership?.role?.trim().toLowerCase() as
       | MemberRole
       | undefined;
@@ -25,9 +23,7 @@ export async function getActiveRole(
   } catch {
     // Dev fallback: default to owner_admin when backend is unavailable
     if (process.env.NODE_ENV === "development") {
-      const fallback = (
-        process.env.NEXT_PUBLIC_DEFAULT_ROLE ?? "owner_admin"
-      )
+      const fallback = (process.env.NEXT_PUBLIC_DEFAULT_ROLE ?? "owner_admin")
         .trim()
         .toLowerCase() as MemberRole;
       return VALID_ROLES.has(fallback) ? fallback : "owner_admin";

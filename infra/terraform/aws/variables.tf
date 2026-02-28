@@ -227,7 +227,7 @@ variable "notifications_retention_schedule_expression" {
 variable "process_workflow_jobs_schedule_expression" {
   type        = string
   description = "EventBridge schedule expression for workflow queue processing"
-  default     = "rate(1 minute)"
+  default     = "rate(5 minutes)"
 }
 
 variable "scheduler_workflow_process_limit" {

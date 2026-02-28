@@ -1,6 +1,10 @@
 "use client";
 
-import { Cancel01Icon, Search01Icon, Upload01Icon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  Search01Icon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -255,7 +259,9 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
     } catch (err) {
       console.error("Failed to upload file:", err);
       setUploadProgress(
-        isEn ? "Upload failed. Please try again." : "Error al subir. Intente de nuevo."
+        isEn
+          ? "Upload failed. Please try again."
+          : "Error al subir. Intente de nuevo."
       );
     } finally {
       setIsUploading(false);
@@ -524,7 +530,10 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
           <div className="flex items-center gap-2">
             {isUploading && (
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                <div className="h-full animate-pulse rounded-full bg-primary/60" style={{ width: "60%" }} />
+                <div
+                  className="h-full animate-pulse rounded-full bg-primary/60"
+                  style={{ width: "60%" }}
+                />
               </div>
             )}
             <p
@@ -739,10 +748,16 @@ export function KnowledgeManager({ orgId, initialDocuments, locale }: Props) {
                       {result.document_title}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <Badge className="text-[10px] tabular-nums" variant="outline">
+                      <Badge
+                        className="text-[10px] tabular-nums"
+                        variant="outline"
+                      >
                         vec: {formatScore(result.vector_score)}
                       </Badge>
-                      <Badge className="text-[10px] tabular-nums" variant="outline">
+                      <Badge
+                        className="text-[10px] tabular-nums"
+                        variant="outline"
+                      >
                         fts: {formatScore(result.fts_score)}
                       </Badge>
                       <Badge

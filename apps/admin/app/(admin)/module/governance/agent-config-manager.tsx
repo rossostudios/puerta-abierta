@@ -33,7 +33,9 @@ type Props = {
   locale: string;
 };
 
-function parseGuardrailOverrides(input: string): Record<string, unknown> | null {
+function parseGuardrailOverrides(
+  input: string
+): Record<string, unknown> | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
   const parsed = JSON.parse(trimmed) as unknown;
@@ -70,7 +72,9 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
       .then((res) => {
         if (!cancelled) setAgents(res.data ?? []);
       })
-      .catch(() => {});
+      .catch(() => {
+        /* swallow */
+      });
     return () => {
       cancelled = true;
     };
@@ -125,7 +129,9 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
         : null;
       if (
         parsedMaxSteps !== null &&
-        (!Number.isFinite(parsedMaxSteps) || parsedMaxSteps < 1 || parsedMaxSteps > 24)
+        (!Number.isFinite(parsedMaxSteps) ||
+          parsedMaxSteps < 1 ||
+          parsedMaxSteps > 24)
       ) {
         throw new Error(
           isEn
@@ -211,7 +217,9 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
           JSON.stringify(msgRes, null, 2)
       );
     } catch (err) {
-      setTestResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      setTestResult(
+        `Error: ${err instanceof Error ? err.message : String(err)}`
+      );
     } finally {
       setTesting(false);
     }
@@ -225,15 +233,15 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
         </p>
         {sortedAgents.map((agent) => (
           <button
-            key={agent.slug}
-            type="button"
-            onClick={() => selectAgent(agent.slug)}
             className={cn(
               "w-full rounded-md px-3 py-2 text-left transition-colors",
               selected?.slug === agent.slug
                 ? "bg-muted/60 text-foreground"
                 : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             )}
+            key={agent.slug}
+            onClick={() => selectAgent(agent.slug)}
+            type="button"
           >
             <div className="flex items-center gap-2.5">
               <span
@@ -274,8 +282,12 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
           <div className="space-y-5">
             <div className="flex items-center justify-between gap-4 border-border/50 border-b pb-4">
               <div className="min-w-0">
-                <h3 className="truncate font-semibold text-base">{selected.name}</h3>
-                <p className="text-muted-foreground text-xs">{selected.description}</p>
+                <h3 className="truncate font-semibold text-base">
+                  {selected.name}
+                </h3>
+                <p className="text-muted-foreground text-xs">
+                  {selected.description}
+                </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -298,7 +310,10 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
                   variant="ghost"
                 >
                   <Icon
-                    className={cn("text-muted-foreground", testOpen && "text-foreground")}
+                    className={cn(
+                      "text-muted-foreground",
+                      testOpen && "text-foreground"
+                    )}
                     icon={TestTube01Icon}
                     size={16}
                   />
@@ -317,10 +332,16 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
 
             <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
               <div className="flex items-start gap-2">
-                <Icon className="mt-0.5 text-primary" icon={SparklesIcon} size={14} />
+                <Icon
+                  className="mt-0.5 text-primary"
+                  icon={SparklesIcon}
+                  size={14}
+                />
                 <div className="space-y-1">
                   <p className="font-medium text-sm">
-                    {isEn ? "Code-owned agent contracts" : "Contratos gestionados por código"}
+                    {isEn
+                      ? "Code-owned agent contracts"
+                      : "Contratos gestionados por código"}
                   </p>
                   <p className="text-muted-foreground text-xs leading-relaxed">
                     {isEn
@@ -338,9 +359,9 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
                 </label>
                 <Input
                   id="model-override"
+                  onChange={(e) => setModelOverride(e.target.value)}
                   placeholder={isEn ? "e.g. gpt-5.2-mini" : "ej. gpt-5.2-mini"}
                   value={modelOverride}
-                  onChange={(e) => setModelOverride(e.target.value)}
                 />
                 <p className="text-muted-foreground text-xs">
                   {isEn
@@ -350,15 +371,18 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
               </div>
 
               <div className="space-y-2">
-                <label className="font-medium text-sm" htmlFor="max-steps-override">
+                <label
+                  className="font-medium text-sm"
+                  htmlFor="max-steps-override"
+                >
                   {isEn ? "Max steps override" : "Override de pasos máximos"}
                 </label>
                 <Input
                   id="max-steps-override"
                   inputMode="numeric"
+                  onChange={(e) => setMaxStepsOverride(e.target.value)}
                   placeholder="1-24"
                   value={maxStepsOverride}
-                  onChange={(e) => setMaxStepsOverride(e.target.value)}
                 />
                 <p className="text-muted-foreground text-xs">
                   {isEn
@@ -370,9 +394,15 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
 
             <div className="flex items-center justify-between rounded-lg border border-border/50 px-3 py-2">
               <div className="flex items-center gap-2">
-                <Icon className="text-muted-foreground" icon={Settings02Icon} size={14} />
+                <Icon
+                  className="text-muted-foreground"
+                  icon={Settings02Icon}
+                  size={14}
+                />
                 <span className="font-medium text-sm">
-                  {isEn ? "Allow mutations by default" : "Permitir mutaciones por defecto"}
+                  {isEn
+                    ? "Allow mutations by default"
+                    : "Permitir mutaciones por defecto"}
                 </span>
               </div>
               <Switch
@@ -382,19 +412,25 @@ export function AgentConfigManager({ orgId, initialAgents, locale }: Props) {
             </div>
 
             <div className="space-y-2">
-              <label className="font-medium text-sm" htmlFor="guardrail-overrides">
-                {isEn ? "Guardrail overrides (JSON)" : "Overrides de guardrails (JSON)"}
+              <label
+                className="font-medium text-sm"
+                htmlFor="guardrail-overrides"
+              >
+                {isEn
+                  ? "Guardrail overrides (JSON)"
+                  : "Overrides de guardrails (JSON)"}
               </label>
               <Textarea
-                id="guardrail-overrides"
-                rows={8}
                 className="font-mono text-[13px]"
-                value={guardrailOverrides}
+                id="guardrail-overrides"
                 onChange={(e) => setGuardrailOverrides(e.target.value)}
+                rows={8}
+                value={guardrailOverrides}
               />
               <div className="flex justify-end">
                 <Badge className="text-[10px] tabular-nums" variant="secondary">
-                  {guardrailOverrides.length.toLocaleString()} {isEn ? "chars" : "caracteres"}
+                  {guardrailOverrides.length.toLocaleString()}{" "}
+                  {isEn ? "chars" : "caracteres"}
                 </Badge>
               </div>
             </div>

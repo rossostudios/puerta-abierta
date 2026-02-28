@@ -1,12 +1,11 @@
-import { Fragment } from "react";
 import {
   Calendar02Icon,
   Door01Icon,
   Invoice01Icon,
-  Task01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
+import { Fragment } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { formatCurrency } from "@/lib/format";
@@ -116,12 +115,7 @@ export function PropertyOverviewOperations({
                     aria-hidden="true"
                     className="hidden shrink-0 px-1 text-border sm:inline"
                   >
-                    <svg
-                      fill="none"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      width="16"
-                    >
+                    <svg fill="none" height="16" viewBox="0 0 24 24" width="16">
                       <path
                         d="M10 6l6 6-6 6"
                         stroke="currentColor"
@@ -166,7 +160,7 @@ export function PropertyOverviewOperations({
             {/* Table layout */}
             <div className="overflow-hidden rounded-xl border border-border/40">
               {/* Header */}
-              <div className="flex items-center gap-0 border-b border-border/40 bg-muted/30 px-3.5 py-2">
+              <div className="flex items-center gap-0 border-border/40 border-b bg-muted/30 px-3.5 py-2">
                 <span className="w-16 font-semibold text-[10px] text-muted-foreground/60 uppercase tracking-[0.08em]">
                   {isEn ? "Code" : "Código"}
                 </span>
@@ -194,7 +188,7 @@ export function PropertyOverviewOperations({
                     className={cn(
                       "flex items-center gap-0 px-3.5 py-3 transition-colors hover:bg-muted/20",
                       i < overview.unitCards.length - 1 &&
-                        "border-b border-border/20"
+                        "border-border/20 border-b"
                     )}
                     href={unitHref}
                     key={unit.id}
@@ -202,7 +196,7 @@ export function PropertyOverviewOperations({
                     <span className="w-16 font-semibold text-[13px] tabular-nums">
                       {unit.label}
                     </span>
-                    <span className="flex-1 truncate text-[13px] font-medium">
+                    <span className="flex-1 truncate font-medium text-[13px]">
                       {unit.subtitle}
                     </span>
                     <span className="w-20">
@@ -222,7 +216,7 @@ export function PropertyOverviewOperations({
                     <span className="w-20 truncate text-[13px] text-muted-foreground">
                       {unit.tenantName || "--"}
                     </span>
-                    <span className="w-20 text-right text-[13px] font-medium text-muted-foreground tabular-nums">
+                    <span className="w-20 text-right font-medium text-[13px] text-muted-foreground tabular-nums">
                       {formatCurrency(unit.monthlyRentPyg, "PYG", locale)}
                     </span>
                   </Link>
@@ -235,20 +229,21 @@ export function PropertyOverviewOperations({
               {overview.vacantUnitCount > 0 && (
                 <div className="flex items-center gap-1.5">
                   <div className="h-2 w-2 rounded-sm bg-red-500" />
-                  <span className="font-medium text-muted-foreground text-[11px]">
+                  <span className="font-medium text-[11px] text-muted-foreground">
                     {overview.vacantUnitCount} {isEn ? "Vacant" : "Vacantes"}
                   </span>
                 </div>
               )}
               <div className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-sm bg-emerald-500" />
-                <span className="font-medium text-muted-foreground text-[11px]">
+                <span className="font-medium text-[11px] text-muted-foreground">
                   {overview.unitCount - overview.vacantUnitCount}{" "}
                   {isEn ? "Occupied" : "Ocupadas"}
                 </span>
               </div>
-              <span className="text-muted-foreground/60 text-[11px]">
-                {overview.openTaskCount} {isEn ? "tasks open" : "tareas abiertas"}
+              <span className="text-[11px] text-muted-foreground/60">
+                {overview.openTaskCount}{" "}
+                {isEn ? "tasks open" : "tareas abiertas"}
               </span>
             </div>
 

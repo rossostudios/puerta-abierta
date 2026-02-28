@@ -10,7 +10,12 @@ import { cn } from "@/lib/utils";
 
 type AgentDashboardStats = {
   agents: { total: number; active: number };
-  approvals_24h: { total: number; pending: number; approved: number; rejected: number };
+  approvals_24h: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
   memory_count: number;
 };
 
@@ -22,7 +27,11 @@ type AiInsightsBannerProps = {
 
 const SESSION_KEY = "casaora-ai-banner-dismissed";
 
-export function AiInsightsBanner({ orgId, isEn, propertyCount }: AiInsightsBannerProps) {
+export function AiInsightsBanner({
+  orgId,
+  isEn,
+  propertyCount,
+}: AiInsightsBannerProps) {
   const [dismissed, setDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem(SESSION_KEY) === "1";
@@ -55,7 +64,7 @@ export function AiInsightsBanner({ orgId, isEn, propertyCount }: AiInsightsBanne
   const hasPending = approvals_24h.pending > 0;
 
   return (
-    <div className="animate-in fade-in slide-in-from-top-2 relative overflow-hidden rounded-xl glass-inner transition-all duration-300">
+    <div className="fade-in slide-in-from-top-2 glass-inner relative animate-in overflow-hidden rounded-xl transition-all duration-300">
       {/* Left accent gradient */}
       <div className="absolute top-0 bottom-0 left-0 w-1 bg-casaora-gradient" />
 
@@ -65,7 +74,7 @@ export function AiInsightsBanner({ orgId, isEn, propertyCount }: AiInsightsBanne
         </div>
 
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
+          <span className="font-medium text-foreground text-sm">
             {isEn
               ? `I'm actively managing ${propertyCount} properties`
               : `Estoy gestionando activamente ${propertyCount} propiedades`}
@@ -73,14 +82,15 @@ export function AiInsightsBanner({ orgId, isEn, propertyCount }: AiInsightsBanne
 
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[11px]"
+              className="border-emerald-500/30 bg-emerald-500/10 text-[11px] text-emerald-600"
               variant="outline"
             >
-              {agents.active}/{agents.total} {isEn ? "agents online" : "agentes en línea"}
+              {agents.active}/{agents.total}{" "}
+              {isEn ? "agents online" : "agentes en línea"}
             </Badge>
 
             <Badge
-              className="border-border/40 bg-muted/30 text-muted-foreground text-[11px]"
+              className="border-border/40 bg-muted/30 text-[11px] text-muted-foreground"
               variant="outline"
             >
               {actionsToday} {isEn ? "actions today" : "acciones hoy"}

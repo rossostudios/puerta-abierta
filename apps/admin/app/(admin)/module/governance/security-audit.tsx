@@ -104,7 +104,7 @@ export function SecurityAudit({ orgId, isEn }: SecurityAuditProps) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border/70 pb-4">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 border-border/70 border-b pb-4">
           <div className="space-y-1">
             <CardTitle className="text-base">
               {isEn ? "Security Overview" : "Resumen de Seguridad"}
@@ -139,10 +139,10 @@ export function SecurityAudit({ orgId, isEn }: SecurityAuditProps) {
                   className="rounded-xl border border-border/30 bg-muted/10 px-4 py-3"
                   key={card.labelEn}
                 >
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+                  <p className="font-medium text-[11px] text-muted-foreground/60 uppercase tracking-wider">
                     {isEn ? card.labelEn : card.labelEs}
                   </p>
-                  <p className={cn("mt-1 text-2xl font-semibold", card.color)}>
+                  <p className={cn("mt-1 font-semibold text-2xl", card.color)}>
                     {card.value.toLocaleString()}
                   </p>
                 </div>
@@ -154,7 +154,7 @@ export function SecurityAudit({ orgId, isEn }: SecurityAuditProps) {
 
       {metrics?.timeline && metrics.timeline.length > 0 ? (
         <Card>
-          <CardHeader className="border-b border-border/70 pb-4">
+          <CardHeader className="border-border/70 border-b pb-4">
             <CardTitle className="text-base">
               {isEn ? "Activity Timeline" : "Linea de Tiempo"}
             </CardTitle>
@@ -181,8 +181,7 @@ export function SecurityAudit({ orgId, isEn }: SecurityAuditProps) {
                     ) : null}
                     {day.violations > 0 ? (
                       <span className="text-red-600 dark:text-red-400">
-                        {day.violations}{" "}
-                        {isEn ? "violations" : "violaciones"}
+                        {day.violations} {isEn ? "violations" : "violaciones"}
                       </span>
                     ) : null}
                   </div>

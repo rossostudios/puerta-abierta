@@ -31,7 +31,7 @@ export function PropertyCard({
   address,
   status,
   occupancyRate,
-  revenueMtdPyg,
+  revenueMtdPyg: _revenueMtdPyg,
   unitCount,
   overdueCollectionCount,
   urgentTaskCount,
@@ -73,7 +73,12 @@ export function PropertyCard({
               <span className="text-[10px] text-muted-foreground/80 uppercase tracking-widest">
                 {isEn ? "Occ" : "Ocup"}
               </span>
-              <span className={cn("font-medium text-sm tabular-nums", occupancyTextColor)}>
+              <span
+                className={cn(
+                  "font-medium text-sm tabular-nums",
+                  occupancyTextColor
+                )}
+              >
                 {occupancyRate}%
               </span>
               <Progress
@@ -89,7 +94,7 @@ export function PropertyCard({
               <span className="text-[10px] text-muted-foreground/80 uppercase tracking-widest">
                 {isEn ? "Units" : "Unid"}
               </span>
-              <span className="font-medium text-sm text-foreground tabular-nums">
+              <span className="font-medium text-foreground text-sm tabular-nums">
                 {unitCount}
               </span>
             </div>

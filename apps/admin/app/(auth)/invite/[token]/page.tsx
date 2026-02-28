@@ -1,10 +1,10 @@
+import { currentUser } from "@clerk/nextjs/server";
 import {
   ArrowRight01Icon,
   CheckmarkCircle01Icon,
   Mail01Icon,
   Ticket01Icon,
 } from "@hugeicons/core-free-icons";
-import { currentUser } from "@clerk/nextjs/server";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -63,7 +63,8 @@ export default async function InviteAcceptPage({
 
   let userEmail: string | null = null;
   try {
-    userEmail = (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
+    userEmail =
+      (await currentUser())?.primaryEmailAddress?.emailAddress ?? null;
   } catch {
     userEmail = null;
   }

@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-
 import { ChartIcon, SparklesIcon } from "@hugeicons/core-free-icons";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -180,7 +179,7 @@ export function PortfolioDashboard({
       {!kpis && properties.length === 0 && snapshots.length === 0 && (
         <div className="relative">
           {/* Skeleton preview layer */}
-          <div className="pointer-events-none select-none" aria-hidden="true">
+          <div aria-hidden="true" className="pointer-events-none select-none">
             <div className="space-y-4 opacity-[0.35] blur-[1px]">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {(isEn
@@ -204,18 +203,21 @@ export function PortfolioDashboard({
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                 <Icon className="h-6 w-6 text-primary" icon={ChartIcon} />
               </div>
-              <h3 className="mb-2 text-lg font-semibold">
+              <h3 className="mb-2 font-semibold text-lg">
                 {isEn
                   ? "Welcome to your Portfolio Command Center"
                   : "Bienvenido a tu Centro de Control de Portafolio"}
               </h3>
-              <p className="mb-6 text-sm text-muted-foreground">
+              <p className="mb-6 text-muted-foreground text-sm">
                 {isEn
                   ? "Get real-time insights, occupancy rates, and revenue analytics across all your units. Add your first property to bring this dashboard to life."
                   : "Obtén datos en tiempo real, tasas de ocupación y análisis de ingresos en todas tus unidades. Agrega tu primera propiedad para activar este panel."}
               </p>
               <div className="flex items-center justify-center gap-3">
-                <Button asChild className="!bg-primary !text-primary-foreground shadow-sm">
+                <Button
+                  asChild
+                  className="!bg-primary !text-primary-foreground shadow-sm"
+                >
                   <Link href="/module/properties">
                     {isEn ? "+ Add First Property" : "+ Agregar Propiedad"}
                   </Link>

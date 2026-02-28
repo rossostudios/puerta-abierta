@@ -1,21 +1,24 @@
 "use client";
 
-import { Copy01Icon, Loading03Icon, SparklesIcon } from "@hugeicons/core-free-icons";
+import {
+  Copy01Icon,
+  Loading03Icon,
+  SparklesIcon,
+} from "@hugeicons/core-free-icons";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { ChatInputBar } from "@/components/agent/chat-input-bar";
 import {
   ChatMessage,
   type DisplayMessage,
 } from "@/components/agent/chat-message";
-import { ChatInputBar } from "@/components/agent/chat-input-bar";
+import { normalizeAgents } from "@/components/agent/chat-thread-types";
 import {
   ChatToolEventStrip,
   type StreamToolEvent,
   type ToolTraceEntry,
 } from "@/components/agent/chat-tool-event";
-import { normalizeAgents } from "@/components/agent/chat-thread-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -111,7 +114,7 @@ export function PlaygroundManager({
   const [streamToolEvents, setStreamToolEvents] = useState<StreamToolEvent[]>(
     []
   );
-  const [streamStatus, setStreamStatus] = useState<string | null>(null);
+  const [_streamStatus, setStreamStatus] = useState<string | null>(null);
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
   const [toolInspector, setToolInspector] = useState<ToolInspectorEntry[]>([]);
 
@@ -127,7 +130,11 @@ export function PlaygroundManager({
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/agents?org_id=${encodeURIComponent(orgId)}`,
-        { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        }
       );
       const payload = (await res.json()) as unknown;
       if (!res.ok) return [];
@@ -148,7 +155,11 @@ export function PlaygroundManager({
     queryFn: async () => {
       const res = await fetch(
         `/api/agent/models?org_id=${encodeURIComponent(orgId)}`,
-        { method: "GET", cache: "no-store", headers: { Accept: "application/json" } }
+        {
+          method: "GET",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        }
       );
       const payload = (await res.json()) as unknown;
       if (!res.ok) return [];
@@ -161,7 +172,9 @@ export function PlaygroundManager({
 
   const modelOptions = modelOptionsQuery.data ?? [];
   const primaryModel =
-    modelOptions.find((i) => i.is_primary)?.model ?? modelOptions[0]?.model ?? "";
+    modelOptions.find((i) => i.is_primary)?.model ??
+    modelOptions[0]?.model ??
+    "";
 
   useEffect(() => {
     if (!selectedModel && primaryModel) setSelectedModel(primaryModel);
@@ -174,7 +187,9 @@ export function PlaygroundManager({
     if (!exists) {
       // If a default was provided via URL param, try that first
       if (defaultAgentSlug) {
-        const defaultAgent = activeAgents.find((a) => a.slug === defaultAgentSlug);
+        const defaultAgent = activeAgents.find(
+          (a) => a.slug === defaultAgentSlug
+        );
         if (defaultAgent) {
           setSelectedAgentSlug(defaultAgent.slug);
           return;
@@ -205,7 +220,8 @@ export function PlaygroundManager({
     const payload = (await res.json()) as { id?: string; error?: string };
     if (!(res.ok && payload.id))
       throw new Error(
-        payload.error ?? (isEn ? "Failed to create chat." : "No se pudo crear el chat.")
+        payload.error ??
+          (isEn ? "Failed to create chat." : "No se pudo crear el chat.")
       );
     const nextId = String(payload.id);
     activeChatIdRef.current = nextId;
@@ -272,7 +288,7 @@ export function PlaygroundManager({
         let buffer = "";
         let assistantContent = "";
         let modelUsed: string | null = null;
-        let toolTrace: ToolTraceEntry[] = [];
+        const toolTrace: ToolTraceEntry[] = [];
         const assistantId = `assistant-${Date.now()}`;
         const toolTimings = new Map<string, number>();
 
@@ -320,7 +336,8 @@ export function PlaygroundManager({
                         role: "assistant",
                         content: assistantContent,
                         model_used: modelUsed,
-                        tool_trace: toolTrace.length > 0 ? toolTrace : undefined,
+                        tool_trace:
+                          toolTrace.length > 0 ? toolTrace : undefined,
                         source: "live",
                       },
                     ];
@@ -391,7 +408,8 @@ export function PlaygroundManager({
                         entry.id === toolCallId
                           ? {
                               ...entry,
-                              result: d.preview ?? (d.ok !== false ? "ok" : "error"),
+                              result:
+                                d.preview ?? (d.ok !== false ? "ok" : "error"),
                               ok: d.ok,
                               duration_ms,
                             }
@@ -420,7 +438,7 @@ export function PlaygroundManager({
                     const stepMsg = s.message.trim();
                     setStreamStatus(stepMsg);
                     setThinkingSteps((prev) => {
-                      if (prev[prev.length - 1] === stepMsg) return prev;
+                      if (prev.at(-1) === stepMsg) return prev;
                       return [...prev, stepMsg];
                     });
                   }
@@ -456,7 +474,16 @@ export function PlaygroundManager({
         setThinkingSteps([]);
       }
     },
-    [draft, isSending, isEn, orgId, selectedAgentSlug, selectedModel, hasPropertyContext, propertyName, propertyId]
+    [
+      draft,
+      isSending,
+      isEn,
+      orgId,
+      hasPropertyContext,
+      propertyName,
+      propertyId,
+      ensureChatId,
+    ]
   );
 
   // Stable ref for send
@@ -512,9 +539,12 @@ export function PlaygroundManager({
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_340px]">
       {/* Main chat area */}
-      <Card className="flex flex-col overflow-hidden" style={{ minHeight: "70vh" }}>
+      <Card
+        className="flex flex-col overflow-hidden"
+        style={{ minHeight: "70vh" }}
+      >
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-border/40 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-3 border-border/40 border-b px-4 py-3">
           <Select
             className="w-48"
             onChange={(e) => handleAgentChange(e.target.value)}
@@ -544,11 +574,7 @@ export function PlaygroundManager({
             <span className="hidden text-[10px] text-muted-foreground/50 sm:inline">
               {isEn ? "⌘K focus · ⌘⇧N new" : "⌘K enfocar · ⌘⇧N nueva"}
             </span>
-            <Button
-              onClick={handleNewSession}
-              size="sm"
-              variant="outline"
-            >
+            <Button onClick={handleNewSession} size="sm" variant="outline">
               {isEn ? "New Session" : "Nueva Sesion"}
             </Button>
           </div>
@@ -556,20 +582,20 @@ export function PlaygroundManager({
 
         {/* Property context banner */}
         {hasPropertyContext && (
-          <div className="flex items-center gap-2 border-b border-border/20 bg-primary/5 px-4 py-2">
+          <div className="flex items-center gap-2 border-border/20 border-b bg-primary/5 px-4 py-2">
             <Icon className="h-3.5 w-3.5 text-primary" icon={SparklesIcon} />
-            <span className="text-[11px] font-medium text-primary">
+            <span className="font-medium text-[11px] text-primary">
               {isEn ? "Context:" : "Contexto:"} {propertyName}
             </span>
           </div>
         )}
 
         {/* Prompt template chips */}
-        <div className="flex flex-wrap gap-1.5 border-b border-border/20 px-4 py-2">
+        <div className="flex flex-wrap gap-1.5 border-border/20 border-b px-4 py-2">
           {PROMPT_TEMPLATES.map((tmpl) => (
             <button
               className={cn(
-                "rounded-full border border-border/40 bg-muted/30 px-3 py-1 text-[11px] font-medium text-muted-foreground transition-colors",
+                "rounded-full border border-border/40 bg-muted/30 px-3 py-1 font-medium text-[11px] text-muted-foreground transition-colors",
                 "hover:border-border/60 hover:bg-muted/60 hover:text-foreground",
                 isSending && "pointer-events-none opacity-50"
               )}
@@ -587,7 +613,7 @@ export function PlaygroundManager({
         <Conversation className="flex-1 p-0 pb-48">
           <ConversationContent className="mx-auto flex max-w-3xl flex-col space-y-5 p-4 sm:p-6">
             {error ? (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm">
                 {error}
               </div>
             ) : null}
@@ -597,7 +623,7 @@ export function PlaygroundManager({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-casaora-gradient text-white shadow-casaora">
                   <Icon className="h-5 w-5" icon={SparklesIcon} />
                 </div>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   {isEn
                     ? "Select a prompt template above or type your own message to start testing."
                     : "Selecciona una plantilla arriba o escribe tu propio mensaje para comenzar."}
@@ -611,8 +637,12 @@ export function PlaygroundManager({
                   key={msg.id}
                   message={msg}
                   onCopy={handleCopy}
-                  onEdit={() => {}}
-                  onRetry={() => {}}
+                  onEdit={() => {
+                    /* noop */
+                  }}
+                  onRetry={() => {
+                    /* noop */
+                  }}
                 />
               ))
             )}
@@ -671,10 +701,14 @@ export function PlaygroundManager({
                     ) : null}
 
                     {streamToolEvents.length > 0 ? (
-                      <ChatToolEventStrip events={streamToolEvents} isEn={isEn} />
+                      <ChatToolEventStrip
+                        events={streamToolEvents}
+                        isEn={isEn}
+                      />
                     ) : null}
 
-                    {streamToolEvents.length === 0 && thinkingSteps.length === 0 ? (
+                    {streamToolEvents.length === 0 &&
+                    thinkingSteps.length === 0 ? (
                       <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground/60">
                         <span className="flex gap-1">
                           <span
@@ -713,15 +747,25 @@ export function PlaygroundManager({
             isEn={isEn}
             isListening={false}
             isSending={isSending}
-            onAddFiles={() => {}}
-            onCancelEdit={() => {}}
+            onAddFiles={() => {
+              /* noop */
+            }}
+            onCancelEdit={() => {
+              /* noop */
+            }}
             onDraftChange={setDraft}
-            onRemoveAttachment={() => {}}
+            onRemoveAttachment={() => {
+              /* noop */
+            }}
             onSend={(value) => {
               handleSend(value).catch(() => undefined);
             }}
-            onStop={() => {}}
-            onToggleVoice={() => {}}
+            onStop={() => {
+              /* noop */
+            }}
+            onToggleVoice={() => {
+              /* noop */
+            }}
             voiceModeActive={false}
             voiceSupported={false}
             voiceTranscript=""
@@ -730,8 +774,11 @@ export function PlaygroundManager({
       </Card>
 
       {/* Tool Inspector panel */}
-      <Card className="flex flex-col overflow-hidden" style={{ minHeight: "70vh" }}>
-        <div className="border-b border-border/40 px-4 py-3">
+      <Card
+        className="flex flex-col overflow-hidden"
+        style={{ minHeight: "70vh" }}
+      >
+        <div className="border-border/40 border-b px-4 py-3">
           <h3 className="font-semibold text-sm">
             {isEn ? "Tool Inspector" : "Inspector de Herramientas"}
           </h3>
@@ -745,7 +792,7 @@ export function PlaygroundManager({
         <CardContent className="flex-1 overflow-y-auto p-0">
           {toolInspector.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 p-6 text-center">
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-muted-foreground/60 text-xs">
                 {isEn
                   ? "Tool calls will appear here as the agent processes your request."
                   : "Las llamadas de herramientas apareceran aqui cuando el agente procese tu solicitud."}
@@ -783,9 +830,7 @@ function ToolInspectorCard({
 
   const handleCopyJson = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(
-        JSON.stringify(entry.args, null, 2)
-      );
+      await navigator.clipboard.writeText(JSON.stringify(entry.args, null, 2));
       setCopiedJson(true);
       setTimeout(() => setCopiedJson(false), 1500);
     } catch {
@@ -824,9 +869,12 @@ function ToolInspectorCard({
             )}
           />
         ) : (
-          <Icon className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" icon={Loading03Icon} />
+          <Icon
+            className="h-3 w-3 shrink-0 animate-spin text-muted-foreground"
+            icon={Loading03Icon}
+          />
         )}
-        <span className="flex-1 truncate font-mono text-[11px] font-medium text-foreground/80">
+        <span className="flex-1 truncate font-medium font-mono text-[11px] text-foreground/80">
           {entry.tool_name.replace(/_/g, " ")}
         </span>
         {isMutation ? (
@@ -845,12 +893,12 @@ function ToolInspectorCard({
         <div className="mt-2 space-y-2">
           <div>
             <div className="mb-1 flex items-center gap-2">
-              <p className="text-[10px] font-medium text-muted-foreground">
+              <p className="font-medium text-[10px] text-muted-foreground">
                 {isEn ? "Arguments" : "Argumentos"}
               </p>
               <button
                 className={cn(
-                  "flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors",
+                  "flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-[9px] transition-colors",
                   copiedJson
                     ? "text-emerald-500"
                     : "text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground"
@@ -859,15 +907,11 @@ function ToolInspectorCard({
                 type="button"
               >
                 <Icon className="h-2.5 w-2.5" icon={Copy01Icon} />
-                {copiedJson
-                  ? isEn
-                    ? "Copied!"
-                    : "Copiado!"
-                  : "JSON"}
+                {copiedJson ? (isEn ? "Copied!" : "Copiado!") : "JSON"}
               </button>
               <button
                 className={cn(
-                  "flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors",
+                  "flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-[9px] transition-colors",
                   copiedCurl
                     ? "text-emerald-500"
                     : "text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground"
@@ -876,11 +920,7 @@ function ToolInspectorCard({
                 type="button"
               >
                 <Icon className="h-2.5 w-2.5" icon={Copy01Icon} />
-                {copiedCurl
-                  ? isEn
-                    ? "Copied!"
-                    : "Copiado!"
-                  : "cURL"}
+                {copiedCurl ? (isEn ? "Copied!" : "Copiado!") : "cURL"}
               </button>
             </div>
             <pre className="max-h-40 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[10px] text-foreground/70">
@@ -889,7 +929,7 @@ function ToolInspectorCard({
           </div>
           {entry.result ? (
             <div>
-              <p className="mb-1 text-[10px] font-medium text-muted-foreground">
+              <p className="mb-1 font-medium text-[10px] text-muted-foreground">
                 {isEn ? "Result" : "Resultado"}
               </p>
               <pre className="max-h-40 overflow-auto rounded-md bg-muted/40 p-2 font-mono text-[10px] text-foreground/70">

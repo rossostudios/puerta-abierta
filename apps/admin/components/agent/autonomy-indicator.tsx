@@ -10,7 +10,15 @@ type AutonomyIndicatorProps = {
 
 const LEVEL_CONFIG: Record<
   AutonomyLevel,
-  { bg: string; text: string; dot: string; labelEn: string; labelEs: string; tooltipEn: string; tooltipEs: string }
+  {
+    bg: string;
+    text: string;
+    dot: string;
+    labelEn: string;
+    labelEs: string;
+    tooltipEn: string;
+    tooltipEs: string;
+  }
 > = {
   copilot: {
     bg: "bg-blue-500/10 border-blue-500/30",
@@ -19,7 +27,8 @@ const LEVEL_CONFIG: Record<
     labelEn: "Copilot",
     labelEs: "Copiloto",
     tooltipEn: "All mutations require your approval before execution",
-    tooltipEs: "Todas las mutaciones requieren tu aprobación antes de ejecutarse",
+    tooltipEs:
+      "Todas las mutaciones requieren tu aprobación antes de ejecutarse",
   },
   collaborator: {
     bg: "bg-amber-500/10 border-amber-500/30",
@@ -28,7 +37,8 @@ const LEVEL_CONFIG: Record<
     labelEn: "Collaborator",
     labelEs: "Colaborador",
     tooltipEn: "Some actions run automatically, others require approval",
-    tooltipEs: "Algunas acciones se ejecutan automáticamente, otras requieren aprobación",
+    tooltipEs:
+      "Algunas acciones se ejecutan automáticamente, otras requieren aprobación",
   },
   autonomous: {
     bg: "bg-emerald-500/10 border-emerald-500/30",
@@ -37,7 +47,8 @@ const LEVEL_CONFIG: Record<
     labelEn: "Autonomous",
     labelEs: "Autónomo",
     tooltipEn: "Most actions are auto-approved and executed immediately",
-    tooltipEs: "La mayoría de las acciones se aprueban y ejecutan automáticamente",
+    tooltipEs:
+      "La mayoría de las acciones se aprueban y ejecutan automáticamente",
   },
 };
 

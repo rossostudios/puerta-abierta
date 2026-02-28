@@ -60,7 +60,7 @@ export function DashboardQueryBar({ isEn }: DashboardQueryBarProps) {
             <Icon className="h-4 w-4" icon={SparklesIcon} />
           </span>
           <input
-            className="w-full min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none md:text-[15px]"
+            className="w-full min-w-0 bg-transparent text-foreground text-sm placeholder:text-muted-foreground/70 focus:outline-none md:text-[15px]"
             onChange={(e) => setQuery(e.target.value)}
             placeholder={
               isEn
@@ -100,7 +100,7 @@ export function DashboardQueryBar({ isEn }: DashboardQueryBarProps) {
         {suggestions.map((suggestion) => (
           <button
             className={cn(
-              "rounded-full glass-liquid px-3 py-1.5 text-xs text-muted-foreground",
+              "glass-liquid rounded-full px-3 py-1.5 text-muted-foreground text-xs",
               "transition-colors hover:border-[var(--sidebar-primary)]/25 hover:text-foreground"
             )}
             key={suggestion}

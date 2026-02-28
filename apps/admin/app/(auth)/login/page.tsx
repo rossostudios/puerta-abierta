@@ -1,7 +1,7 @@
 "use client";
 
-import { Building01Icon } from "@hugeicons/core-free-icons";
 import { SignIn, useAuth } from "@clerk/nextjs";
+import { Building01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/icon";
 import { useActiveLocale } from "@/lib/i18n/client";
 
 function safeNextPath(value: string | null): string {
-  if (!(value && value.startsWith("/"))) return "/app";
+  if (!value?.startsWith("/")) return "/app";
   return value;
 }
 

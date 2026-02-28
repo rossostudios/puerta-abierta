@@ -95,7 +95,7 @@ export function PropertyOverviewFinancial({
             <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
               {isEn ? "Income" : "Ingreso"}
             </p>
-            <p className="font-bold text-lg tabular-nums tracking-tight text-[var(--status-success-fg)]">
+            <p className="font-bold text-[var(--status-success-fg)] text-lg tabular-nums tracking-tight">
               {formatCurrency(overview.monthIncomePyg, "PYG", locale)}
             </p>
           </div>
@@ -112,17 +112,13 @@ export function PropertyOverviewFinancial({
         {/* Collected / Overdue row */}
         {(overview.collectedThisMonthPyg > 0 ||
           overview.overdueCollectionAmountPyg > 0) && (
-          <div className="grid grid-cols-2 gap-3 border-t border-border/40 pt-3">
+          <div className="grid grid-cols-2 gap-3 border-border/40 border-t pt-3">
             <div className="space-y-0.5">
               <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
                 {isEn ? "Collected" : "Cobrado"}
               </p>
-              <p className="font-semibold text-sm tabular-nums text-[var(--status-success-fg)]">
-                {formatCurrency(
-                  overview.collectedThisMonthPyg,
-                  "PYG",
-                  locale
-                )}
+              <p className="font-semibold text-[var(--status-success-fg)] text-sm tabular-nums">
+                {formatCurrency(overview.collectedThisMonthPyg, "PYG", locale)}
               </p>
             </div>
             <div className="space-y-0.5">
@@ -176,7 +172,7 @@ export function PropertyOverviewFinancial({
               {occupancyValue}%
             </span>
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-border/40 px-3.5 py-2.5">
+          <div className="flex items-center justify-between gap-3 border-border/40 border-t px-3.5 py-2.5">
             <span className="text-[13px] text-muted-foreground">
               {isEn ? "Expense ratio" : "Ratio de gasto"}
             </span>
@@ -188,7 +184,7 @@ export function PropertyOverviewFinancial({
 
         {/* Expense breakdown */}
         {overview.expenseCategoryBreakdown.length ? (
-          <div className="space-y-2 border-t border-border/40 pt-3">
+          <div className="space-y-2 border-border/40 border-t pt-3">
             <h4 className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
               {isEn ? "Expense breakdown" : "Desglose de gastos"}
             </h4>
@@ -203,7 +199,7 @@ export function PropertyOverviewFinancial({
                     className={cn(
                       "flex items-center justify-between gap-3 px-3.5 py-2.5",
                       i < overview.expenseCategoryBreakdown.length - 1 &&
-                        "border-b border-border/20"
+                        "border-border/20 border-b"
                     )}
                     key={row.category}
                   >
@@ -211,7 +207,7 @@ export function PropertyOverviewFinancial({
                       {humanizeKey(row.category)}
                     </span>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-muted-foreground text-[11px] tabular-nums">
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
                         {categoryShare}%
                       </span>
                       <span className="font-medium text-[13px] tabular-nums">
@@ -236,7 +232,7 @@ export function PropertyOverviewFinancial({
 
         {/* Latest statement */}
         {overview.latestStatement ? (
-          <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3">
+          <div className="flex items-center justify-between gap-3 border-border/40 border-t pt-3">
             <div className="min-w-0">
               <p className="font-semibold text-[10px] text-muted-foreground/70 uppercase tracking-[0.1em]">
                 {isEn
@@ -293,7 +289,7 @@ export function PropertyOverviewFinancial({
               return (
                 <article
                   className={cn(
-                    "rounded-lg border-l-2 bg-muted/20 py-2.5 pl-3 pr-3",
+                    "rounded-lg border-l-2 bg-muted/20 py-2.5 pr-3 pl-3",
                     borderColor
                   )}
                   key={item.id}
@@ -351,7 +347,7 @@ export function PropertyOverviewFinancial({
                   className={cn(
                     "flex items-center justify-between gap-3 px-3.5 py-2.5",
                     i < overview.leasesExpiringSoon.length - 1 &&
-                      "border-b border-border/20"
+                      "border-border/20 border-b"
                   )}
                   key={lease.leaseId}
                 >

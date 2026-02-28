@@ -93,7 +93,8 @@ export function AgentAnalytics({ orgId, locale }: Props) {
           <Button
             className={cn(
               "h-6 px-2.5 text-[11px]",
-              period === d && "bg-primary text-primary-foreground hover:bg-primary/90"
+              period === d &&
+                "bg-primary text-primary-foreground hover:bg-primary/90"
             )}
             key={d}
             onClick={() => handlePeriodChange(d)}
@@ -111,7 +112,7 @@ export function AgentAnalytics({ orgId, locale }: Props) {
         </p>
       )}
 
-      {!loading && !data && (
+      {!(loading || data) && (
         <p className="py-6 text-center text-muted-foreground text-sm">
           {isEn
             ? "No analytics data available."
@@ -186,7 +187,9 @@ export function AgentAnalytics({ orgId, locale }: Props) {
                                       ? "bg-amber-500"
                                       : "bg-red-500"
                                 )}
-                                style={{ width: `${Math.min(agent.success_rate, 100)}%` }}
+                                style={{
+                                  width: `${Math.min(agent.success_rate, 100)}%`,
+                                }}
                               />
                             </div>
                             <span className="text-xs tabular-nums">
@@ -219,11 +222,10 @@ export function AgentAnalytics({ orgId, locale }: Props) {
               </h4>
               <div className="space-y-1.5">
                 {data.top_tools.slice(0, 10).map((tool) => (
-                  <div
-                    className="flex items-center gap-3"
-                    key={tool.name}
-                  >
-                    <span className="w-40 truncate text-xs">{tool.name.replace(/_/g, " ")}</span>
+                  <div className="flex items-center gap-3" key={tool.name}>
+                    <span className="w-40 truncate text-xs">
+                      {tool.name.replace(/_/g, " ")}
+                    </span>
                     <div className="relative h-4 flex-1 overflow-hidden rounded bg-muted/50">
                       <div
                         className="absolute inset-y-0 left-0 rounded bg-primary/30"
@@ -232,7 +234,8 @@ export function AgentAnalytics({ orgId, locale }: Props) {
                         }}
                       />
                       <span className="relative z-10 flex h-full items-center px-2 text-[10px] tabular-nums">
-                        {tool.calls} {isEn ? "calls" : "llamadas"} · {tool.success_rate.toFixed(0)}%
+                        {tool.calls} {isEn ? "calls" : "llamadas"} ·{" "}
+                        {tool.success_rate.toFixed(0)}%
                       </span>
                     </div>
                   </div>
@@ -268,7 +271,7 @@ export function AgentAnalytics({ orgId, locale }: Props) {
               </div>
               <div className="flex justify-between text-[10px] text-muted-foreground">
                 <span>{data.cost_trend[0]?.date}</span>
-                <span>{data.cost_trend[data.cost_trend.length - 1]?.date}</span>
+                <span>{data.cost_trend.at(-1)?.date}</span>
               </div>
             </div>
           )}

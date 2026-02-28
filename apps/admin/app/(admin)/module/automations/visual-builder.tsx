@@ -1,23 +1,23 @@
 "use client";
 
 import {
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
   type Connection,
   type Edge,
+  Handle,
+  MarkerType,
   type Node,
   type NodeProps,
   type OnConnect,
   type OnEdgesChange,
   type OnNodesChange,
-  type XYPosition,
-  Handle,
-  MarkerType,
   Position,
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
   useReactFlow,
+  type XYPosition,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -112,7 +112,7 @@ function TriggerNode({ data, selected }: NodeProps<Node<TriggerNodeData>>) {
           : "border-emerald-300 dark:border-emerald-700"
       )}
     >
-      <div className="mb-1 font-semibold text-emerald-700 text-[10px] uppercase tracking-wider dark:text-emerald-400">
+      <div className="mb-1 font-semibold text-[10px] text-emerald-700 uppercase tracking-wider dark:text-emerald-400">
         Trigger
       </div>
       <div className="font-medium text-sm">{data.label}</div>
@@ -141,12 +141,12 @@ function ConditionNode({ data, selected }: NodeProps<Node<ConditionNodeData>>) {
         position={Position.Top}
         type="target"
       />
-      <div className="mb-1 font-semibold text-amber-700 text-[10px] uppercase tracking-wider dark:text-amber-400">
+      <div className="mb-1 font-semibold text-[10px] text-amber-700 uppercase tracking-wider dark:text-amber-400">
         Condition
       </div>
       <div className="font-medium text-sm">{data.label}</div>
       {count > 0 && (
-        <div className="mt-1 text-amber-600 text-[10px] dark:text-amber-400">
+        <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400">
           {count} rule{count !== 1 ? "s" : ""}
         </div>
       )}
@@ -174,12 +174,12 @@ function ActionNode({ data, selected }: NodeProps<Node<ActionNodeData>>) {
         position={Position.Top}
         type="target"
       />
-      <div className="mb-1 font-semibold text-blue-700 text-[10px] uppercase tracking-wider dark:text-blue-400">
+      <div className="mb-1 font-semibold text-[10px] text-blue-700 uppercase tracking-wider dark:text-blue-400">
         Action
       </div>
       <div className="font-medium text-sm">{data.label}</div>
       {data.delayMinutes > 0 && (
-        <div className="mt-1 text-blue-600 text-[10px] dark:text-blue-400">
+        <div className="mt-1 text-[10px] text-blue-600 dark:text-blue-400">
           delay: {data.delayMinutes}m
         </div>
       )}
@@ -343,11 +343,7 @@ function NodeConfigPanel({
         if (!v) onClose();
       }}
       open={open}
-      title={
-        isEn
-          ? `Configure: ${data.label}`
-          : `Configurar: ${data.label}`
-      }
+      title={isEn ? `Configure: ${data.label}` : `Configurar: ${data.label}`}
     >
       <div className="space-y-4">
         {/* Label */}
@@ -356,7 +352,11 @@ function NodeConfigPanel({
             {isEn ? "Node label" : "Etiqueta"}
           </span>
           <Input
-            onChange={(e) => onUpdate(node.id, { label: e.target.value } as Partial<FlowNodeData>)}
+            onChange={(e) =>
+              onUpdate(node.id, {
+                label: e.target.value,
+              } as Partial<FlowNodeData>)
+            }
             value={data.label}
           />
         </label>
@@ -584,8 +584,7 @@ function deserializeRule(
 
   const triggerId = `trigger-${ruleId}`;
   const triggerLabel =
-    TRIGGER_EVENTS.find((t) => t.value === triggerEvent)?.label ??
-    triggerEvent;
+    TRIGGER_EVENTS.find((t) => t.value === triggerEvent)?.label ?? triggerEvent;
 
   nodes.push({
     id: triggerId,
@@ -736,20 +735,19 @@ function VisualBuilderCanvas({
   );
 
   // Click node to open config
-  const onNodeClick = useCallback(
-    (_: React.MouseEvent, node: FlowNode) => {
-      setSelectedNode(node);
-      setConfigOpen(true);
-    },
-    []
-  );
+  const onNodeClick = useCallback((_: React.MouseEvent, node: FlowNode) => {
+    setSelectedNode(node);
+    setConfigOpen(true);
+  }, []);
 
   // Update node data from config panel
   const handleUpdateNodeData = useCallback(
     (id: string, partial: Partial<FlowNodeData>) => {
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === id ? { ...n, data: { ...n.data, ...partial } as FlowNodeData } : n
+          n.id === id
+            ? { ...n, data: { ...n.data, ...partial } as FlowNodeData }
+            : n
         )
       );
       // Also update selected node reference
@@ -882,8 +880,7 @@ function VisualBuilderCanvas({
         toast.success(isEn ? "Rule created" : "Regla creada");
       }
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to save rule";
+      const msg = err instanceof Error ? err.message : "Failed to save rule";
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -910,7 +907,7 @@ function VisualBuilderCanvas({
     setNodes((nds) => nds.filter((n) => !selectedIds.has(n.id)));
     setEdges((eds) =>
       eds.filter(
-        (e) => !selectedIds.has(e.source) && !selectedIds.has(e.target)
+        (e) => !(selectedIds.has(e.source) || selectedIds.has(e.target))
       )
     );
     setSelectedNode(null);
@@ -918,21 +915,15 @@ function VisualBuilderCanvas({
   }, [nodes]);
 
   // Load existing rule for editing
-  const handleLoadRule = useCallback(
-    (rule: Record<string, unknown>) => {
-      const { nodes: ruleNodes, edges: ruleEdges } = deserializeRule(
-        rule,
-        50
-      );
-      setNodes(ruleNodes);
-      setEdges(ruleEdges);
-      setRuleName(String(rule.name ?? ""));
-      setEditingRuleId(String(rule.id ?? ""));
-      setSelectedNode(null);
-      setConfigOpen(false);
-    },
-    []
-  );
+  const handleLoadRule = useCallback((rule: Record<string, unknown>) => {
+    const { nodes: ruleNodes, edges: ruleEdges } = deserializeRule(rule, 50);
+    setNodes(ruleNodes);
+    setEdges(ruleEdges);
+    setRuleName(String(rule.name ?? ""));
+    setEditingRuleId(String(rule.id ?? ""));
+    setSelectedNode(null);
+    setConfigOpen(false);
+  }, []);
 
   return (
     <div className="flex h-[600px] flex-col overflow-hidden rounded-xl border">
@@ -944,12 +935,7 @@ function VisualBuilderCanvas({
           placeholder={isEn ? "Rule name..." : "Nombre de la regla..."}
           value={ruleName}
         />
-        <Button
-          disabled={saving}
-          onClick={handleSave}
-          size="sm"
-          type="button"
-        >
+        <Button disabled={saving} onClick={handleSave} size="sm" type="button">
           {saving
             ? isEn
               ? "Saving..."
@@ -970,12 +956,7 @@ function VisualBuilderCanvas({
         >
           {isEn ? "Delete Selected" : "Eliminar Seleccionado"}
         </Button>
-        <Button
-          onClick={handleClear}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
+        <Button onClick={handleClear} size="sm" type="button" variant="ghost">
           {isEn ? "Clear Canvas" : "Limpiar Canvas"}
         </Button>
 
@@ -1001,9 +982,7 @@ function VisualBuilderCanvas({
               }}
               value=""
             >
-              <option value="">
-                {isEn ? "Select..." : "Seleccionar..."}
-              </option>
+              <option value="">{isEn ? "Select..." : "Seleccionar..."}</option>
               {initialRules.map((r) => (
                 <option key={String(r.id)} value={String(r.id)}>
                   {String(r.name ?? r.id)}
@@ -1027,8 +1006,8 @@ function VisualBuilderCanvas({
           <ReactFlow<FlowNode, FlowEdge>
             edges={edges}
             fitView
-            nodeTypes={nodeTypes}
             nodes={nodes}
+            nodeTypes={nodeTypes}
             onConnect={onConnect}
             onDragOver={onDragOver}
             onDrop={onDrop}
@@ -1038,8 +1017,7 @@ function VisualBuilderCanvas({
             proOptions={{ hideAttribution: true }}
             snapGrid={[16, 16]}
             snapToGrid
-          >
-          </ReactFlow>
+          />
         </div>
       </div>
 

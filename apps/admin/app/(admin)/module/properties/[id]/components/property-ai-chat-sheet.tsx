@@ -34,7 +34,7 @@ export function PropertyAiChatSheet({
   open,
   onOpenChange,
   orgId,
-  propertyId,
+  propertyId: _propertyId,
   propertyName,
   propertyCode,
   propertyAddress,
@@ -83,7 +83,8 @@ export function PropertyAiChatSheet({
     const payload = (await res.json()) as { id?: string; error?: string };
     if (!(res.ok && payload.id)) {
       throw new Error(
-        payload.error ?? (isEn ? "Failed to create chat." : "No se pudo crear el chat.")
+        payload.error ??
+          (isEn ? "Failed to create chat." : "No se pudo crear el chat.")
       );
     }
     const nextId = String(payload.id);
@@ -210,7 +211,7 @@ export function PropertyAiChatSheet({
         setIsSending(false);
       }
     },
-    [draft, isSending, isEn, orgId, buildContextPrefix]
+    [draft, isSending, isEn, orgId, buildContextPrefix, ensureChatId]
   );
 
   const handleCopy = useCallback(async (content: string) => {
@@ -238,11 +239,11 @@ export function PropertyAiChatSheet({
         </span>
       }
     >
-      <div className="flex h-full flex-col -mx-6 -my-5">
+      <div className="-mx-6 -my-5 flex h-full flex-col">
         <Conversation className="flex-1 p-0">
           <ConversationContent className="flex flex-col space-y-4 p-4">
             {error && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-destructive text-sm">
                 {error}
               </div>
             )}
@@ -252,7 +253,7 @@ export function PropertyAiChatSheet({
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-casaora-gradient text-white shadow-casaora">
                   <Icon className="h-4 w-4" icon={SparklesIcon} />
                 </div>
-                <p className="max-w-[240px] text-xs text-muted-foreground">
+                <p className="max-w-[240px] text-muted-foreground text-xs">
                   {isEn
                     ? `Ask anything about ${propertyName}. The AI has your property context.`
                     : `Pregunta lo que sea sobre ${propertyName}. La IA tiene el contexto de tu propiedad.`}
@@ -267,8 +268,12 @@ export function PropertyAiChatSheet({
                 key={msg.id}
                 message={msg}
                 onCopy={handleCopy}
-                onEdit={() => {}}
-                onRetry={() => {}}
+                onEdit={() => {
+                  /* noop */
+                }}
+                onRetry={() => {
+                  /* noop */
+                }}
               />
             ))}
 
@@ -276,15 +281,27 @@ export function PropertyAiChatSheet({
               <Message className="items-start py-3" from="assistant">
                 <div className="relative mt-0.5">
                   <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-[10px] bg-casaora-gradient text-white shadow-casaora">
-                    <Icon className="h-3.5 w-3.5 animate-spin" icon={Loading03Icon} />
+                    <Icon
+                      className="h-3.5 w-3.5 animate-spin"
+                      icon={Loading03Icon}
+                    />
                   </div>
                 </div>
                 <MessageContent variant="flat">
                   <p className="flex items-center gap-2.5 text-[13px] text-muted-foreground/60">
                     <span className="flex gap-1">
-                      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "0ms" }} />
-                      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "150ms" }} />
-                      <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60" style={{ animationDelay: "300ms" }} />
+                      <span
+                        className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <span
+                        className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sidebar-primary)]/60"
+                        style={{ animationDelay: "300ms" }}
+                      />
                     </span>
                     {isEn ? "Thinking" : "Pensando"}
                   </p>
@@ -295,7 +312,7 @@ export function PropertyAiChatSheet({
           <ConversationScrollButton />
         </Conversation>
 
-        <div className="border-t border-border/40 px-2 py-2">
+        <div className="border-border/40 border-t px-2 py-2">
           <ChatInputBar
             agentName={isEn ? "AI Assistant" : "Asistente IA"}
             attachments={[]}
@@ -306,15 +323,25 @@ export function PropertyAiChatSheet({
             isEn={isEn}
             isListening={false}
             isSending={isSending}
-            onAddFiles={() => {}}
-            onCancelEdit={() => {}}
+            onAddFiles={() => {
+              /* noop */
+            }}
+            onCancelEdit={() => {
+              /* noop */
+            }}
             onDraftChange={setDraft}
-            onRemoveAttachment={() => {}}
+            onRemoveAttachment={() => {
+              /* noop */
+            }}
             onSend={(value) => {
               handleSend(value).catch(() => undefined);
             }}
-            onStop={() => {}}
-            onToggleVoice={() => {}}
+            onStop={() => {
+              /* noop */
+            }}
+            onToggleVoice={() => {
+              /* noop */
+            }}
             voiceModeActive={false}
             voiceSupported={false}
             voiceTranscript=""

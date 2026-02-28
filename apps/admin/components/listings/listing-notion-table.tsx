@@ -4,7 +4,6 @@
 import {
   Bathtub01Icon,
   BedDoubleIcon,
-  Cancel01Icon,
   CheckmarkCircle02Icon,
   City01Icon,
   DollarCircleIcon,
@@ -17,6 +16,7 @@ import {
   RepairIcon,
   Rocket01Icon,
   RulerIcon,
+  SparklesIcon,
   Task01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
@@ -40,11 +40,12 @@ import { toast } from "sonner";
 
 import type { ListingRow } from "@/app/(admin)/module/listings/listings-manager";
 import {
+  type BulkAiActionId,
   type ListingReadinessFilter,
   type ListingStatusFilter,
   ListingsFilterBar,
 } from "@/components/listings/listings-filter-bar";
-import { ReadinessRing } from "@/components/listings/readiness-ring";
+import { ReadinessPopover } from "@/components/listings/readiness-popover";
 import { EditableCell } from "@/components/properties/editable-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -68,15 +69,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   type ColumnVisibilityMap,
   readColumnVisibility,
   writeColumnVisibility,
 } from "@/lib/features/listings/column-visibility";
+import { readinessLevel } from "@/lib/features/listings/readiness-utils";
 import type { SavedView } from "@/lib/features/listings/saved-views";
 import { PROPERTY_TYPES } from "@/lib/features/marketplace/constants";
 import { formatCurrency } from "@/lib/format";
@@ -112,77 +109,6 @@ function propertyTypeLabel(value: string | null, isEn: boolean): string {
   return isEn ? found.labelEn : found.labelEs;
 }
 
-const READINESS_DIMENSIONS: {
-  field: string;
-  label: string;
-  labelEs: string;
-  weight: number;
-  critical: boolean;
-}[] = [
-  {
-    field: "cover_image",
-    label: "Cover Image",
-    labelEs: "Imagen de portada",
-    weight: 25,
-    critical: true,
-  },
-  {
-    field: "fee_lines",
-    label: "Fee Breakdown",
-    labelEs: "Desglose de cuotas",
-    weight: 25,
-    critical: true,
-  },
-  {
-    field: "amenities",
-    label: "Amenities",
-    labelEs: "Amenidades",
-    weight: 15,
-    critical: false,
-  },
-  {
-    field: "bedrooms",
-    label: "Bedrooms",
-    labelEs: "Habitaciones",
-    weight: 10,
-    critical: false,
-  },
-  {
-    field: "square_meters",
-    label: "Area (m²)",
-    labelEs: "Área (m²)",
-    weight: 10,
-    critical: false,
-  },
-  {
-    field: "available_from",
-    label: "Available From",
-    labelEs: "Disponible desde",
-    weight: 5,
-    critical: false,
-  },
-  {
-    field: "minimum_lease",
-    label: "Minimum Lease",
-    labelEs: "Contrato mínimo",
-    weight: 5,
-    critical: false,
-  },
-  {
-    field: "description",
-    label: "Description",
-    labelEs: "Descripción",
-    weight: 5,
-    critical: false,
-  },
-];
-
-function readinessLevel(score: number): "green" | "yellow" | "red" {
-  if (score >= 80) return "green";
-  if (score >= 50) return "yellow";
-  return "red";
-}
-
 /* ---------- types ---------- */
 
 type OptimisticAction = {
@@ -208,6 +134,12 @@ type Props = {
     field: string,
     value: string
   ) => Promise<{ ok: boolean; error?: string }>;
+  onFixReadinessField: (listingId: string, field: string) => void;
+  onAiGenerate?: (listingId: string, field: string) => Promise<void>;
+  onBulkAiAction?: (
+    action: BulkAiActionId,
+    listingIds: string[]
+  ) => Promise<void>;
   /* server-side state */
   sorting: SortingState;
   onSortingChange: React.Dispatch<React.SetStateAction<SortingState>>;
@@ -241,6 +173,9 @@ export function ListingNotionTable({
   onUnpublish,
   onPreview,
   onCommitEdit,
+  onFixReadinessField,
+  onAiGenerate,
+  onBulkAiAction,
   sorting,
   onSortingChange,
   pagination,
@@ -302,6 +237,12 @@ export function ListingNotionTable({
       return level === "red";
     });
   }, [optimisticRows, readinessFilter]);
+
+  /* --- memoized selected rows for AI actions --- */
+  const selectedRowsForAi = useMemo(
+    () => filteredData.filter((r) => selectedIds.has(r.id)),
+    [filteredData, selectedIds]
+  );
 
   /* --- user column visibility (persisted) --- */
   const [userColumnPrefs, setUserColumnPrefs] = useState<ColumnVisibilityMap>(
@@ -413,8 +354,8 @@ export function ListingNotionTable({
       },
       {
         accessorKey: "is_published",
-        size: 110,
-        minSize: 90,
+        size: 130,
+        minSize: 100,
         header: () => (
           <ColHeader
             icon={CheckmarkCircle02Icon}
@@ -422,12 +363,44 @@ export function ListingNotionTable({
           />
         ),
         cell: ({ row }) => {
-          return row.original.is_published ? (
-            <Badge variant="secondary">
-              {isEn ? "Published" : "Publicado"}
-            </Badge>
-          ) : (
-            <Badge variant="outline">{isEn ? "Draft" : "Borrador"}</Badge>
+          const d = row.original;
+          const hasBlocking = d.readiness_blocking.length > 0;
+          let agentLabel: string;
+          let agentColor: string;
+          if (d.is_published) {
+            agentLabel = isEn ? "Pricing sync active" : "Precio sincronizado";
+            agentColor = "text-emerald-600 dark:text-emerald-400";
+          } else if (hasBlocking) {
+            agentLabel = isEn ? "Awaiting your review" : "Revisión pendiente";
+            agentColor = "text-amber-600 dark:text-amber-400";
+          } else {
+            agentLabel = isEn ? "Ready to publish" : "Listo para publicar";
+            agentColor = "text-blue-600 dark:text-blue-400";
+          }
+
+          return (
+            <div className="flex flex-col gap-0.5">
+              {d.is_published ? (
+                <Badge variant="secondary">
+                  {isEn ? "Published" : "Publicado"}
+                </Badge>
+              ) : (
+                <Badge variant="outline">{isEn ? "Draft" : "Borrador"}</Badge>
+              )}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 text-[10px] leading-tight",
+                  agentColor
+                )}
+              >
+                <Icon
+                  className="ai-sparkle shrink-0"
+                  icon={SparklesIcon}
+                  size={9}
+                />
+                <span className="truncate">{agentLabel}</span>
+              </span>
+            </div>
           );
         },
       },
@@ -443,57 +416,16 @@ export function ListingNotionTable({
           />
         ),
         cell: ({ row }) => {
-          const { readiness_score, readiness_blocking } = row.original;
-          const blockingSet = new Set(readiness_blocking);
-
+          const d = row.original;
           return (
-            <Tooltip>
-              <TooltipTrigger>
-                <div className="inline-flex cursor-default items-center gap-1.5">
-                  <ReadinessRing score={readiness_score} />
-                  <span className="font-medium text-xs tabular-nums">
-                    {readiness_score}%
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[220px] p-2.5" side="left">
-                <ul className="space-y-1">
-                  {READINESS_DIMENSIONS.map((dim) => {
-                    const satisfied = !blockingSet.has(dim.field);
-                    return (
-                      <li
-                        className="flex items-center gap-1.5 text-[11px]"
-                        key={dim.field}
-                      >
-                        <Icon
-                          className={
-                            satisfied
-                              ? "text-emerald-500"
-                              : "text-muted-foreground/50"
-                          }
-                          icon={
-                            satisfied ? CheckmarkCircle02Icon : Cancel01Icon
-                          }
-                          size={12}
-                        />
-                        <span
-                          className={
-                            satisfied
-                              ? "text-foreground"
-                              : "text-muted-foreground"
-                          }
-                        >
-                          {isEn ? dim.label : dim.labelEs}
-                        </span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">
-                          {dim.weight}pt
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </TooltipContent>
-            </Tooltip>
+            <ReadinessPopover
+              isEn={isEn}
+              listingId={d.id}
+              onAiGenerate={onAiGenerate}
+              onFixField={(field) => onFixReadinessField(d.id, field)}
+              readinessBlocking={d.readiness_blocking}
+              readinessScore={d.readiness_score}
+            />
           );
         },
       },
@@ -717,6 +649,8 @@ export function ListingNotionTable({
       onPublish,
       onUnpublish,
       onPreview,
+      onFixReadinessField,
+      onAiGenerate,
     ]
   );
 
@@ -743,6 +677,7 @@ export function ListingNotionTable({
         globalFilter={globalFilter}
         isEn={isEn}
         onApplyView={onApplyView}
+        onBulkAiAction={onBulkAiAction}
         onGlobalFilterChange={onGlobalFilterChange}
         onReadinessFilterChange={(v) =>
           onReadinessFilterChange(v as ListingReadinessFilter)
@@ -753,6 +688,7 @@ export function ListingNotionTable({
         onToggleColumn={toggleColumnPref}
         readinessFilter={readinessFilter as ListingReadinessFilter}
         responsiveDefaults={responsiveDefaults}
+        selectedRows={selectedRowsForAi}
         sorting={sorting}
         statusFilter={statusFilter as ListingStatusFilter}
       />

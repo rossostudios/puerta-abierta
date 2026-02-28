@@ -16,10 +16,14 @@ function ChatsEmptyPanel({ isEn }: { isEn: boolean }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6">
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-casaora-gradient">
-        <Icon className="h-6 w-6 text-white" icon={SparklesIcon} strokeWidth={2} />
+        <Icon
+          className="h-6 w-6 text-white"
+          icon={SparklesIcon}
+          strokeWidth={2}
+        />
       </div>
       <div className="space-y-1 text-center">
-        <p className="text-[14px] font-medium text-foreground/70">
+        <p className="font-medium text-[14px] text-foreground/70">
           {isEn
             ? "Select a conversation or start a new one"
             : "Selecciona una conversación o inicia una nueva"}
@@ -62,7 +66,7 @@ export function ChatsWorkspace({
       {/* Left panel — chat list */}
       <div
         className={cn(
-          "shrink-0 border-r border-border/30 bg-background",
+          "shrink-0 border-border/30 border-r bg-background",
           // Desktop: fixed width, always visible
           "lg:block lg:w-[400px]",
           // Mobile: full-width when no selection, hidden when viewing a thread
@@ -90,7 +94,7 @@ export function ChatsWorkspace({
             {/* Mobile back button */}
             <div className="absolute top-3 left-3 z-10 lg:hidden">
               <button
-                className="flex h-8 items-center gap-1.5 rounded-lg bg-background/80 px-2.5 text-[13px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground"
+                className="flex h-8 items-center gap-1.5 rounded-lg bg-background/80 px-2.5 font-medium text-[13px] text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground"
                 onClick={() => setSelectedChatId(null)}
                 type="button"
               >

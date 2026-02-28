@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -11,9 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { authedFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -152,22 +152,22 @@ export function GuardrailConfig({ orgId, isEn }: GuardrailConfigProps) {
 
   // -- Fetch guardrail entries -----------------------------------------------
 
-  const { data: entries = [], isPending: loading } = useQuery<
-    GuardrailEntry[]
-  >({
-    queryKey: ["guardrail-config", orgId],
-    queryFn: async () => {
-      try {
-        const payload = await authedFetch<{ data?: GuardrailEntry[] }>(
-          `/agent/guardrail-config?org_id=${encodeURIComponent(orgId)}`
-        );
-        return payload.data ?? [];
-      } catch {
-        return [];
-      }
-    },
-    staleTime: 60_000,
-  });
+  const { data: entries = [], isPending: loading } = useQuery<GuardrailEntry[]>(
+    {
+      queryKey: ["guardrail-config", orgId],
+      queryFn: async () => {
+        try {
+          const payload = await authedFetch<{ data?: GuardrailEntry[] }>(
+            `/agent/guardrail-config?org_id=${encodeURIComponent(orgId)}`
+          );
+          return payload.data ?? [];
+        } catch {
+          return [];
+        }
+      },
+      staleTime: 60_000,
+    }
+  );
 
   // -- Build lookup map -------------------------------------------------------
 
@@ -235,7 +235,7 @@ export function GuardrailConfig({ orgId, isEn }: GuardrailConfigProps) {
 
   return (
     <Card>
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <CardTitle className="text-base">
           {isEn ? "Guardrail Configuration" : "Configuracion de Guardarrailes"}
         </CardTitle>
@@ -272,7 +272,7 @@ export function GuardrailConfig({ orgId, isEn }: GuardrailConfigProps) {
                       {isEn ? def.descriptionEn : def.descriptionEs}
                     </p>
                   </div>
-                  {!isEditing ? (
+                  {isEditing ? null : (
                     <Button
                       className="shrink-0"
                       onClick={() => startEditing(def)}
@@ -281,7 +281,7 @@ export function GuardrailConfig({ orgId, isEn }: GuardrailConfigProps) {
                     >
                       {isEn ? "Edit" : "Editar"}
                     </Button>
-                  ) : null}
+                  )}
                 </div>
 
                 {isEditing ? (
@@ -332,11 +332,7 @@ export function GuardrailConfig({ orgId, isEn }: GuardrailConfigProps) {
                         size="sm"
                         variant="outline"
                       >
-                        {saving
-                          ? "..."
-                          : isEn
-                            ? "Save"
-                            : "Guardar"}
+                        {saving ? "..." : isEn ? "Save" : "Guardar"}
                       </Button>
                       <Button
                         disabled={saving}

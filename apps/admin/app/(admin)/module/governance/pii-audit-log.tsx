@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -8,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +26,11 @@ type PiiAuditLogProps = {
 };
 
 const ACTION_STYLES: Record<string, string> = {
-  redacted: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  redacted:
+    "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   blocked: "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
-  allowed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  allowed:
+    "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 };
 
 export function PiiAuditLog({ orgId, isEn }: PiiAuditLogProps) {
@@ -50,7 +52,7 @@ export function PiiAuditLog({ orgId, isEn }: PiiAuditLogProps) {
 
   return (
     <Card>
-      <CardHeader className="space-y-1 border-b border-border/70 pb-4">
+      <CardHeader className="space-y-1 border-border/70 border-b pb-4">
         <CardTitle className="text-base">
           {isEn ? "Data Privacy" : "Privacidad de Datos"}
         </CardTitle>
@@ -86,7 +88,7 @@ export function PiiAuditLog({ orgId, isEn }: PiiAuditLogProps) {
             ))}
           </div>
         ) : intercepts.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground/60">
+          <p className="py-8 text-center text-muted-foreground/60 text-sm">
             {isEn
               ? "No PII intercepts recorded yet."
               : "No se han registrado intercepciones de PII aún."}
@@ -100,7 +102,7 @@ export function PiiAuditLog({ orgId, isEn }: PiiAuditLogProps) {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-[13px] capitalize text-foreground/90">
+                    <span className="font-medium text-[13px] text-foreground/90 capitalize">
                       {item.pii_type.replace(/_/g, " ")}
                     </span>
                     <Badge

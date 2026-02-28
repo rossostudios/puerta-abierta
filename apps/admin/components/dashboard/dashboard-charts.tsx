@@ -1,6 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import {
+  LazyOccupancyForecast,
+  LazyOperationsHealthCard,
+  LazyRevenueSnapshotCard,
+  LazyRevenueTrend,
+  LazyTaskStatusCard,
+} from "@/components/dashboard/lazy";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -9,13 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  LazyOccupancyForecast,
-  LazyOperationsHealthCard,
-  LazyRevenueSnapshotCard,
-  LazyRevenueTrend,
-  LazyTaskStatusCard,
-} from "@/components/dashboard/lazy";
 import type {
   OccupancyForecastResponse,
   RevenueTrendResponse,
@@ -134,25 +134,25 @@ function PaymentsHealthCard({
       <CardContent className="space-y-4 pt-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
-            <p className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
               {isEn ? "Paid" : "Pagadas"}
             </p>
             <p className="mt-1 font-semibold text-xl tabular-nums">{paid}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
-            <p className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
               {isEn ? "Pending" : "Pendientes"}
             </p>
             <p className="mt-1 font-semibold text-xl tabular-nums">{pending}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
-            <p className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
               {isEn ? "Overdue" : "Vencidas"}
             </p>
             <p className="mt-1 font-semibold text-xl tabular-nums">{overdue}</p>
           </div>
           <div className="rounded-xl border border-border/60 bg-muted/15 p-3">
-            <p className="text-muted-foreground text-[11px] uppercase tracking-[0.12em]">
+            <p className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">
               {isEn ? "Avg days late" : "Prom días tarde"}
             </p>
             <p className="mt-1 font-semibold text-xl tabular-nums">

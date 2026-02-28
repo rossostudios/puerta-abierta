@@ -23,14 +23,14 @@ export function useNewBookingToast({
   const seenReservationIdsRef = useRef<Set<string>>(new Set());
   const pollInterval = useVisibilityPollingInterval({
     enabled: enabled && !!orgId,
-    foregroundMs: 15_000,
+    foregroundMs: 60_000,
     backgroundMs: 60_000,
   });
 
   useEffect(() => {
     initializedRef.current = false;
     seenReservationIdsRef.current = new Set();
-  }, [orgId]);
+  }, []);
 
   const { data: recentDirectBookings = [] } = useQuery<
     Record<string, unknown>[]
@@ -56,12 +56,11 @@ export function useNewBookingToast({
     },
     staleTime: 10_000,
     retry: false,
-    refetchOnWindowFocus: true,
     refetchInterval: pollInterval,
   });
 
   useEffect(() => {
-    if (!enabled || !orgId) return;
+    if (!(enabled && orgId)) return;
     if (recentDirectBookings.length === 0) return;
 
     const normalized = recentDirectBookings
@@ -70,10 +69,8 @@ export function useNewBookingToast({
         if (!id) return null;
         return {
           id,
-          createdAt:
-            typeof row.created_at === "string" ? row.created_at : "",
-          guestName:
-            typeof row.guest_name === "string" ? row.guest_name : "",
+          createdAt: typeof row.created_at === "string" ? row.created_at : "",
+          guestName: typeof row.guest_name === "string" ? row.guest_name : "",
           unitName: typeof row.unit_name === "string" ? row.unit_name : "",
         };
       })
@@ -88,7 +85,7 @@ export function useNewBookingToast({
         } => Boolean(row)
       )
       .sort((a, b) => {
-        if (!a.createdAt && !b.createdAt) return 0;
+        if (!(a.createdAt || b.createdAt)) return 0;
         if (!a.createdAt) return 1;
         if (!b.createdAt) return -1;
         return a.createdAt.localeCompare(b.createdAt);

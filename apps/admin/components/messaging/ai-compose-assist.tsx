@@ -80,19 +80,19 @@ export function AiComposeAssist({
       const result = await authedFetch<{
         assistant_message?: { content?: string };
         reply?: string;
-      }>(`/agent/chats/${encodeURIComponent(chatId)}/messages?org_id=${encodeURIComponent(orgId)}`, {
-        method: "POST",
-        body: JSON.stringify({
-          message: runtimeMessage,
-          allow_mutations: false,
-          confirm_write: false,
-        }),
-      });
+      }>(
+        `/agent/chats/${encodeURIComponent(chatId)}/messages?org_id=${encodeURIComponent(orgId)}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            message: runtimeMessage,
+            allow_mutations: false,
+            confirm_write: false,
+          }),
+        }
+      );
 
-      const text =
-        result.assistant_message?.content ??
-        result.reply ??
-        "";
+      const text = result.assistant_message?.content ?? result.reply ?? "";
       if (text) {
         setDraft(text);
       } else {
@@ -109,7 +109,9 @@ export function AiComposeAssist({
         authedFetch(
           `/agent/chats/${encodeURIComponent(chatId)}/archive?org_id=${encodeURIComponent(orgId)}`,
           { method: "POST" }
-        ).catch(() => {});
+        ).catch(() => {
+          /* swallow */
+        });
       }
       setLoading(false);
     }

@@ -11,6 +11,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { motion } from "motion/react";
 import Link from "next/link";
+import { useMemo } from "react";
 
 import { Icon } from "@/components/ui/icon";
 import type { AgentApproval } from "@/lib/api";
@@ -19,7 +20,7 @@ import type {
   PropertyNotificationItem,
   PropertyPortfolioRow,
 } from "@/lib/features/properties/types";
-import { formatCompactCurrency } from "@/lib/format";
+import { formatCompactCurrency, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const EASING = [0.22, 1, 0.36, 1] as const;
@@ -43,18 +44,6 @@ type AgenticSidebarProps = {
 };
 
 /* ── helpers ── */
-
-function relativeTimeLabel(timestamp: Date | string, isEn: boolean): string {
-  const time = typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-  const deltaMs = Date.now() - time.getTime();
-  const minutes = Math.max(1, Math.floor(deltaMs / (1000 * 60)));
-
-  if (minutes < 60) return isEn ? `${minutes}m ago` : `${minutes}m atrás`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return isEn ? `${hours}h ago` : `hace ${hours}h`;
-  const days = Math.floor(hours / 24);
-  return isEn ? `${days}d ago` : `hace ${days}d`;
-}
 
 function occupancyColor(rate: number): string {
   if (rate >= 90) return "text-[var(--agentic-lavender)]";
@@ -95,7 +84,7 @@ function buildWorkLog(
     entries.push({
       id: item.id,
       text,
-      time: relativeTimeLabel(item.timestamp, isEn),
+      time: formatRelativeTime(item.timestamp, isEn),
       type: "activity",
       timestamp: item.timestamp.getTime(),
     });
@@ -110,8 +99,12 @@ function buildWorkLog(
     const args = approval.tool_args;
     const pid =
       (typeof args?.property_id === "string" && args.property_id) ||
-      ((args?.data as Record<string, unknown> | undefined)?.property_id as string | undefined) ||
-      (args?.table === "properties" && typeof args.id === "string" ? args.id : null);
+      ((args?.data as Record<string, unknown> | undefined)?.property_id as
+        | string
+        | undefined) ||
+      (args?.table === "properties" && typeof args.id === "string"
+        ? args.id
+        : null);
     const propName = pid ? propertyNameMap.get(pid) : undefined;
     const propSuffix = propName ? ` · ${propName}` : "";
 
@@ -128,7 +121,7 @@ function buildWorkLog(
     entries.push({
       id: `approval-${approval.id}`,
       text,
-      time: relativeTimeLabel(ts, isEn),
+      time: formatRelativeTime(ts, isEn),
       type: isPending ? "approval-pending" : "approval-executed",
       timestamp: new Date(ts).getTime(),
     });
@@ -158,7 +151,10 @@ export function AgenticSidebar({
   agentOnline,
 }: AgenticSidebarProps) {
   const hasAlerts = totalOverdueCollections > 0 || totalVacantUnits > 0;
-  const workLog = buildWorkLog(recentActivity, approvals, propertyRows, isEn);
+  const workLog = useMemo(
+    () => buildWorkLog(recentActivity, approvals, propertyRows, isEn),
+    [recentActivity, approvals, propertyRows, isEn]
+  );
 
   return (
     <div className="glass-panel rounded-2xl p-5">
@@ -172,10 +168,10 @@ export function AgenticSidebar({
             <span className="gentle-pulse inline-block h-1.5 w-1.5 rounded-full bg-[var(--agentic-cyan)]" />
           )}
         </div>
-        <div className="font-bold text-3xl tracking-tight text-foreground">
+        <div className="font-bold text-3xl text-foreground tracking-tight">
           {formatCompactCurrency(totalValuePyg, "PYG", formatLocale)}
         </div>
-        <div className="text-xs text-muted-foreground/70">
+        <div className="text-muted-foreground/70 text-xs">
           {isEn ? "Total asset value" : "Valor total de activos"}
         </div>
       </div>
@@ -188,7 +184,7 @@ export function AgenticSidebar({
           <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
             {isEn ? "Revenue MTD" : "Ingresos Mes"}
           </div>
-          <div className="mt-1 font-semibold text-sm text-foreground">
+          <div className="mt-1 font-semibold text-foreground text-sm">
             {formatCompactCurrency(totalRevenueMtdPyg, "PYG", formatLocale)}
           </div>
         </div>
@@ -196,7 +192,12 @@ export function AgenticSidebar({
           <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
             {isEn ? "Occupancy" : "Ocupación"}
           </div>
-          <div className={cn("mt-1 font-semibold text-sm", occupancyColor(occupancyRate))}>
+          <div
+            className={cn(
+              "mt-1 font-semibold text-sm",
+              occupancyColor(occupancyRate)
+            )}
+          >
             {Math.round(occupancyRate)}%
           </div>
         </div>
@@ -204,7 +205,7 @@ export function AgenticSidebar({
           <div className="font-bold text-[10px] text-muted-foreground/70 uppercase tracking-wider">
             {isEn ? "Avg. Rent" : "Alq. Prom."}
           </div>
-          <div className="mt-1 font-semibold text-sm text-foreground">
+          <div className="mt-1 font-semibold text-foreground text-sm">
             {formatCompactCurrency(avgRentPyg, "PYG", formatLocale)}
           </div>
         </div>
@@ -221,7 +222,7 @@ export function AgenticSidebar({
             </h3>
 
             {totalOverdueCollections > 0 && (
-              <div className="glass-inner attention-glow rounded-xl p-3.5 space-y-2">
+              <div className="glass-inner attention-glow space-y-2 rounded-xl p-3.5">
                 <div className="flex items-start gap-2.5">
                   <Icon
                     className="mt-0.5 shrink-0 text-[var(--agentic-rose-gold)]"
@@ -229,14 +230,18 @@ export function AgenticSidebar({
                     size={15}
                   />
                   <div className="min-w-0 space-y-1.5">
-                    <p className="text-xs font-medium text-foreground leading-snug">
+                    <p className="font-medium text-foreground text-xs leading-snug">
                       {isEn
                         ? `I found ${totalOverdueCollections} overdue collections. I can draft follow-up reminders.`
                         : `Encontré ${totalOverdueCollections} cobros vencidos. Puedo redactar recordatorios.`}
                     </p>
                     <Link
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--agentic-rose-gold)] hover:underline"
-                      href={orgId ? `/module/agent-playground?agent=collections` : "#"}
+                      className="inline-flex items-center gap-1 font-semibold text-[11px] text-[var(--agentic-rose-gold)] hover:underline"
+                      href={
+                        orgId
+                          ? "/module/agent-playground?agent=collections"
+                          : "#"
+                      }
                     >
                       <Icon icon={SparklesIcon} size={10} />
                       {isEn ? "Let me handle it" : "Déjame gestionarlo"}
@@ -247,7 +252,7 @@ export function AgenticSidebar({
             )}
 
             {totalVacantUnits > 0 && (
-              <div className="glass-inner attention-glow rounded-xl p-3.5 space-y-2">
+              <div className="glass-inner attention-glow space-y-2 rounded-xl p-3.5">
                 <div className="flex items-start gap-2.5">
                   <Icon
                     className="mt-0.5 shrink-0 text-[var(--agentic-rose-gold)]"
@@ -255,14 +260,18 @@ export function AgenticSidebar({
                     size={15}
                   />
                   <div className="min-w-0 space-y-1.5">
-                    <p className="text-xs font-medium text-foreground leading-snug">
+                    <p className="font-medium text-foreground text-xs leading-snug">
                       {isEn
                         ? `${totalVacantUnits} vacant units (~${formatCompactCurrency(vacancyCostPyg, "PYG", formatLocale)}/mo). I can adjust pricing and refresh the listing.`
                         : `${totalVacantUnits} unidades vacantes (~${formatCompactCurrency(vacancyCostPyg, "PYG", formatLocale)}/mes). Puedo ajustar precios y renovar el anuncio.`}
                     </p>
                     <Link
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--agentic-rose-gold)] hover:underline"
-                      href={orgId ? `/module/agent-playground?agent=dynamic-pricing` : "#"}
+                      className="inline-flex items-center gap-1 font-semibold text-[11px] text-[var(--agentic-rose-gold)] hover:underline"
+                      href={
+                        orgId
+                          ? "/module/agent-playground?agent=dynamic-pricing"
+                          : "#"
+                      }
                     >
                       <Icon icon={SparklesIcon} size={10} />
                       {isEn ? "Review strategy" : "Revisar estrategia"}
@@ -285,8 +294,12 @@ export function AgenticSidebar({
 
         {workLog.length === 0 ? (
           <div className="py-4 text-center">
-            <Icon className="mx-auto mb-2.5 text-[var(--agentic-cyan)]/50" icon={AiVoiceGeneratorIcon} size={20} />
-            <p className="text-xs text-muted-foreground italic leading-relaxed">
+            <Icon
+              className="mx-auto mb-2.5 text-[var(--agentic-cyan)]/50"
+              icon={AiVoiceGeneratorIcon}
+              size={20}
+            />
+            <p className="text-muted-foreground text-xs italic leading-relaxed">
               {isEn
                 ? "I'm monitoring your portfolio. I'll update you when I take action."
                 : "Estoy monitoreando tu portafolio. Te avisaré cuando tome acción."}
@@ -306,7 +319,8 @@ export function AgenticSidebar({
               <motion.div
                 className={cn(
                   "glass-inner rounded-lg p-2.5 text-xs",
-                  entry.type === "approval-pending" && "border-[var(--agentic-rose-gold-border)]"
+                  entry.type === "approval-pending" &&
+                    "border-[var(--agentic-rose-gold-border)]"
                 )}
                 key={entry.id}
                 variants={{
@@ -342,13 +356,18 @@ export function AgenticSidebar({
                     size={13}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className={cn(
-                      "font-medium leading-snug",
-                      entry.type === "approval-pending" && "text-[var(--agentic-rose-gold)]"
-                    )}>
+                    <p
+                      className={cn(
+                        "font-medium leading-snug",
+                        entry.type === "approval-pending" &&
+                          "text-[var(--agentic-rose-gold)]"
+                      )}
+                    >
                       {entry.text}
                     </p>
-                    <span className="text-[10px] text-muted-foreground/50">{entry.time}</span>
+                    <span className="text-[10px] text-muted-foreground/50">
+                      {entry.time}
+                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -364,21 +383,29 @@ export function AgenticSidebar({
 
           <div className="flex flex-wrap gap-2.5 pt-5">
             <Link
-              className="glass-inner rounded-full px-3.5 py-2 text-[11px] font-semibold text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
+              className="glass-inner rounded-full px-3.5 py-2 font-semibold text-[11px] text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
               href="/module/agent-playground?agent=portfolio-advisor"
             >
-              <Icon className="mr-1.5 inline" icon={AiVoiceGeneratorIcon} size={11} />
+              <Icon
+                className="mr-1.5 inline"
+                icon={AiVoiceGeneratorIcon}
+                size={11}
+              />
               {isEn ? "Ask about vacancies" : "Preguntar vacantes"}
             </Link>
             <Link
-              className="glass-inner rounded-full px-3.5 py-2 text-[11px] font-semibold text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
+              className="glass-inner rounded-full px-3.5 py-2 font-semibold text-[11px] text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
               href="/module/agent-playground?agent=dynamic-pricing"
             >
-              <Icon className="mr-1.5 inline" icon={DollarCircleIcon} size={11} />
+              <Icon
+                className="mr-1.5 inline"
+                icon={DollarCircleIcon}
+                size={11}
+              />
               {isEn ? "Run pricing analysis" : "Análisis de precios"}
             </Link>
             <Link
-              className="glass-inner rounded-full px-3.5 py-2 text-[11px] font-semibold text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
+              className="glass-inner rounded-full px-3.5 py-2 font-semibold text-[11px] text-foreground transition-transform hover:-translate-y-0.5 hover:shadow-sm"
               href="/module/agent-playground?agent=maintenance-coordinator"
             >
               <Icon className="mr-1.5 inline" icon={Task01Icon} size={11} />

@@ -44,7 +44,7 @@ export function DashboardHeader({
               <Link
                 className={cn(
                   "group inline-flex min-h-14 items-center gap-2.5 rounded-2xl border border-border/60 bg-background/60 px-4 py-2.5",
-                  "shadow-sm shadow-black/5 transition-colors hover:border-[var(--sidebar-primary)]/20 hover:bg-background/80"
+                  "shadow-black/5 shadow-sm transition-colors hover:border-[var(--sidebar-primary)]/20 hover:bg-background/80"
                 )}
                 href={action.href}
                 key={action.href}

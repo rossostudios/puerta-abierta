@@ -201,7 +201,7 @@ export function DetailsPanel({
         {/* Related workflows */}
         {links.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.14em]">
               {isEn ? "Related workflows" : "Flujos relacionados"}
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -230,7 +230,7 @@ export function DetailsPanel({
 
           return (
             <div key={groupKey}>
-              <p className="mb-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="mb-1 text-[10px] text-muted-foreground uppercase tracking-[0.14em]">
                 {heading}
               </p>
               <div>
@@ -278,7 +278,7 @@ export function DetailsPanel({
                       className={cn(
                         "grid gap-1 md:grid-cols-12",
                         isSystem ? "px-0 py-2" : "px-0 py-3",
-                        !isLast && "border-b border-border/30"
+                        !isLast && "border-border/30 border-b"
                       )}
                       key={key}
                     >
@@ -297,7 +297,7 @@ export function DetailsPanel({
                             className={cn(
                               "text-foreground",
                               isSystem
-                                ? "text-xs text-muted-foreground"
+                                ? "text-muted-foreground text-xs"
                                 : "text-sm"
                             )}
                             title={String(value)}
@@ -354,12 +354,12 @@ export function DetailsPanel({
                           <p
                             className={cn(
                               isNameOrTitle
-                                ? "text-base font-semibold text-foreground"
+                                ? "font-semibold text-base text-foreground"
                                 : isSystem && showMonospace
-                                  ? "break-all font-mono text-xs text-muted-foreground"
+                                  ? "break-all font-mono text-muted-foreground text-xs"
                                   : showMonospace
-                                    ? "break-all font-mono text-xs text-foreground"
-                                    : "break-words text-sm text-foreground"
+                                    ? "break-all font-mono text-foreground text-xs"
+                                    : "break-words text-foreground text-sm"
                             )}
                           >
                             {toLabel(value)}

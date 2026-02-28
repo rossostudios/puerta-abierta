@@ -80,7 +80,7 @@ export function PropertyOverviewAgents({
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-casaora-gradient text-white shadow-casaora">
             <Icon className="h-3.5 w-3.5" icon={SparklesIcon} />
           </div>
-          <h3 className="font-semibold text-sm text-foreground">
+          <h3 className="font-semibold text-foreground text-sm">
             {isEn ? "AI Agents" : "Agentes IA"}
           </h3>
         </div>
@@ -89,7 +89,7 @@ export function PropertyOverviewAgents({
           {QUICK_ACTIONS.map((action) => (
             <Link
               className={cn(
-                "rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors",
+                "rounded-full border border-border/40 bg-muted/30 px-3 py-1.5 font-medium text-[11px] text-muted-foreground transition-colors",
                 "hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
               )}
               href={`/module/agent-playground?property_id=${encodeURIComponent(propertyId)}&property_name=${encodeURIComponent(propertyName)}&agent=${action.agent}`}
@@ -101,9 +101,9 @@ export function PropertyOverviewAgents({
         </div>
 
         {stats && (
-          <div className="flex items-center gap-3 border-t border-border/30 pt-3">
+          <div className="flex items-center gap-3 border-border/30 border-t pt-3">
             <Badge
-              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 text-[10px]"
+              className="border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600"
               variant="outline"
             >
               {stats.agents.active} {isEn ? "active" : "activos"}

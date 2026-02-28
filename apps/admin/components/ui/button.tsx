@@ -13,8 +13,7 @@ const buttonVariants = cva(
           "glass-liquid bg-primary/80 text-primary-foreground hover:bg-primary/90",
         destructive:
           "glass-liquid bg-destructive/80 text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
-        outline:
-          "glass-liquid hover:bg-accent/15 hover:text-accent-foreground",
+        outline: "glass-liquid hover:bg-accent/15 hover:text-accent-foreground",
         secondary:
           "glass-liquid bg-secondary/50 text-secondary-foreground hover:bg-secondary/60",
         ghost:

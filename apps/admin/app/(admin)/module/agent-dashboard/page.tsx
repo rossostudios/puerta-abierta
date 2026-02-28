@@ -113,9 +113,7 @@ export default async function AgentDashboardPage(_props: PageProps) {
           <div className="flex items-center gap-2">
             <Badge variant="outline">Analytics</Badge>
             <CardTitle className="text-lg">
-              {isEn
-                ? "Agent Analytics"
-                : "Analíticas de Agentes"}
+              {isEn ? "Agent Analytics" : "Analíticas de Agentes"}
             </CardTitle>
           </div>
           <CardDescription>
@@ -126,7 +124,7 @@ export default async function AgentDashboardPage(_props: PageProps) {
         </CardHeader>
         <CardContent>
           <Suspense fallback={null}>
-            <AgentAnalytics orgId={orgId} locale={locale} />
+            <AgentAnalytics locale={locale} orgId={orgId} />
           </Suspense>
         </CardContent>
       </Card>

@@ -49,8 +49,8 @@ function RevenueBarChart({
   return (
     <svg
       className="w-full"
-      viewBox={`0 0 ${totalWidth} ${totalHeight}`}
       preserveAspectRatio="xMidYMid meet"
+      viewBox={`0 0 ${totalWidth} ${totalHeight}`}
     >
       {last6.map((r, i) => {
         const amount = asNumber(r.amount);
@@ -63,30 +63,30 @@ function RevenueBarChart({
           <g key={asString(r.month) || i}>
             {/* Value label */}
             <text
-              x={x + barWidth / 2}
-              y={y - 6}
-              textAnchor="middle"
               className="fill-muted-foreground"
               fontSize="9"
+              textAnchor="middle"
+              x={x + barWidth / 2}
+              y={y - 6}
             >
               {formatCurrency(amount, currency, locale)}
             </text>
             {/* Bar */}
             <rect
-              x={x}
-              y={y}
-              width={barWidth}
+              className="fill-primary/80"
               height={barH}
               rx={4}
-              className="fill-primary/80"
+              width={barWidth}
+              x={x}
+              y={y}
             />
             {/* Month label */}
             <text
-              x={x + barWidth / 2}
-              y={topPad + chartHeight + 16}
-              textAnchor="middle"
               className="fill-muted-foreground"
               fontSize="10"
+              textAnchor="middle"
+              x={x + barWidth / 2}
+              y={topPad + chartHeight + 16}
             >
               {monthLabel}
             </text>
@@ -95,12 +95,12 @@ function RevenueBarChart({
       })}
       {/* Baseline */}
       <line
-        x1={12}
-        y1={topPad + chartHeight}
-        x2={totalWidth - 12}
-        y2={topPad + chartHeight}
         className="stroke-border"
         strokeWidth={1}
+        x1={12}
+        x2={totalWidth - 12}
+        y1={topPad + chartHeight}
+        y2={topPad + chartHeight}
       />
     </svg>
   );
@@ -127,9 +127,7 @@ function PropertyCard({
   const occupancy = asNumber(
     property.occupancy_rate ?? property.occupancy ?? 0
   );
-  const revenue = asNumber(
-    property.revenue_this_month ?? property.amount ?? 0
-  );
+  const revenue = asNumber(property.revenue_this_month ?? property.amount ?? 0);
   const maintenance = asNumber(
     property.active_maintenance ?? property.pending_maintenance ?? 0
   );
@@ -145,23 +143,23 @@ function PropertyCard({
       <CardContent className="flex items-start gap-4 p-4">
         {/* Occupancy ring */}
         <div className="flex shrink-0 flex-col items-center">
-          <svg width={48} height={48} className="-rotate-90">
+          <svg className="-rotate-90" height={48} width={48}>
             <circle
+              className="fill-none stroke-muted"
               cx={24}
               cy={24}
               r={r}
-              className="fill-none stroke-muted"
               strokeWidth={4}
             />
             <circle
+              className="fill-none stroke-primary"
               cx={24}
               cy={24}
               r={r}
-              className="fill-none stroke-primary"
-              strokeWidth={4}
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
               strokeLinecap="round"
+              strokeWidth={4}
             />
           </svg>
           <span className="mt-0.5 font-semibold text-xs">
@@ -174,7 +172,7 @@ function PropertyCard({
           <p className="truncate font-semibold text-sm">{name}</p>
           <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1">
             <div>
-              <p className="text-muted-foreground text-[10px] uppercase">
+              <p className="text-[10px] text-muted-foreground uppercase">
                 {isEn ? "Revenue" : "Ingresos"}
               </p>
               <p className="font-medium text-sm">
@@ -182,7 +180,7 @@ function PropertyCard({
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground text-[10px] uppercase">
+              <p className="text-[10px] text-muted-foreground uppercase">
                 {isEn ? "Maintenance" : "Mantenimiento"}
               </p>
               <p className="font-medium text-sm">{maintenance}</p>
@@ -310,7 +308,9 @@ export function OwnerDashboard({ locale }: { locale: string }) {
   >[];
   const currency = asString(org.default_currency) || "PYG";
 
-  const totalRevenue = asNumber(summary.total_collected ?? summary.total_revenue ?? 0);
+  const totalRevenue = asNumber(
+    summary.total_collected ?? summary.total_revenue ?? 0
+  );
   const occupancyRate = asNumber(summary.occupancy_rate ?? 0);
   const pendingMaintenance = asNumber(
     summary.pending_maintenance ?? summary.open_maintenance ?? 0
@@ -434,13 +434,15 @@ export function OwnerDashboard({ locale }: { locale: string }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">
-              {isEn ? "Revenue Trend (Last 6 Months)" : "Tendencia de Ingresos (Ultimos 6 Meses)"}
+              {isEn
+                ? "Revenue Trend (Last 6 Months)"
+                : "Tendencia de Ingresos (Ultimos 6 Meses)"}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <RevenueBarChart
-              data={revenueByMonth}
               currency={currency}
+              data={revenueByMonth}
               locale={locale}
             />
           </CardContent>
@@ -456,15 +458,15 @@ export function OwnerDashboard({ locale }: { locale: string }) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {propertyPerf.map((prop) => (
               <PropertyCard
+                currency={currency}
+                isEn={isEn}
                 key={
                   asString(prop.property_id) ||
                   asString(prop.id) ||
                   asString(prop.property_name)
                 }
-                property={prop}
-                currency={currency}
                 locale={locale}
-                isEn={isEn}
+                property={prop}
               />
             ))}
           </div>
@@ -482,10 +484,7 @@ export function OwnerDashboard({ locale }: { locale: string }) {
           <CardContent className="space-y-3">
             {revenueByProperty.map((r) => {
               const amount = asNumber(r.amount);
-              const widthPct = Math.max(
-                (amount / maxPropertyRevenue) * 100,
-                4
-              );
+              const widthPct = Math.max((amount / maxPropertyRevenue) * 100, 4);
               return (
                 <div key={asString(r.property_id)}>
                   <div className="flex items-center justify-between text-sm">
@@ -519,8 +518,8 @@ export function OwnerDashboard({ locale }: { locale: string }) {
                 {isEn ? "Upcoming Reservations" : "Proximas Reservas"}
               </CardTitle>
               <Link
-                href="/owner/reservations"
                 className="text-primary text-xs hover:underline"
+                href="/owner/reservations"
               >
                 {isEn ? "View all" : "Ver todas"}
               </Link>
@@ -604,11 +603,7 @@ export function OwnerDashboard({ locale }: { locale: string }) {
             href="/owner/statements"
             icon="📄"
             label={isEn ? "Statements" : "Estados de Cuenta"}
-            subtitle={
-              isEn
-                ? "View payouts & reports"
-                : "Ver pagos e informes"
-            }
+            subtitle={isEn ? "View payouts & reports" : "Ver pagos e informes"}
           />
           <QuickLink
             href="/owner/reservations"

@@ -1,30 +1,30 @@
 "use client";
 
-import { useState } from "react";
 import {
-  DashboardSquare01Icon,
-  TaskEdit01Icon,
   AiBrain01Icon,
   AlertDiamondIcon,
-  Audit01Icon,
-  Settings02Icon,
   ArrowLeft01Icon,
+  Audit01Icon,
+  DashboardSquare01Icon,
+  Settings02Icon,
+  TaskEdit01Icon,
 } from "@hugeicons/core-free-icons";
-import { Icon } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
-import type { Locale } from "@/lib/i18n";
-import { StatusDashboard } from "./status-dashboard";
-import { PermissionsTab } from "./permissions-tab";
+import { useState } from "react";
 import { ApprovalQueue } from "@/components/agent/approval-queue";
-import { MemoryGovernance } from "./memory-governance";
-import { PiiAuditLog } from "./pii-audit-log";
-import { FailSafeBoundaries } from "./fail-safe-boundaries";
-import { SecurityAudit } from "./security-audit";
-import { GuardrailConfig } from "./guardrail-config";
-import { RateLimitsSection } from "./rate-limits-section";
-import { ApprovalPolicies } from "./approval-policies";
+import { Icon } from "@/components/ui/icon";
+import type { Locale } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import { AgentConfigManager } from "./agent-config-manager";
+import { ApprovalPolicies } from "./approval-policies";
 import { EscalationThresholds } from "./escalation-thresholds";
+import { FailSafeBoundaries } from "./fail-safe-boundaries";
+import { GuardrailConfig } from "./guardrail-config";
+import { MemoryGovernance } from "./memory-governance";
+import { PermissionsTab } from "./permissions-tab";
+import { PiiAuditLog } from "./pii-audit-log";
+import { RateLimitsSection } from "./rate-limits-section";
+import { SecurityAudit } from "./security-audit";
+import { StatusDashboard } from "./status-dashboard";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -119,12 +119,12 @@ export default function GovernanceManager({
       {/* ── Secondary sidebar ────────────────────────────────────────── */}
       <aside
         className={cn(
-          "flex shrink-0 flex-col border-r border-sidebar-border/60 bg-sidebar/50 transition-[width] duration-200 ease-in-out overflow-hidden",
+          "flex shrink-0 flex-col overflow-hidden border-sidebar-border/60 border-r bg-sidebar/50 transition-[width] duration-200 ease-in-out",
           sidebarOpen ? "w-[220px]" : "w-0 border-r-0"
         )}
       >
         {/* Header */}
-        <div className="flex w-[220px] items-center gap-2 border-b border-sidebar-border/40 px-4 py-3.5">
+        <div className="flex w-[220px] items-center gap-2 border-sidebar-border/40 border-b px-4 py-3.5">
           <button
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sidebar-accent transition-colors hover:bg-sidebar-primary/20"
             onClick={() => setSidebarOpen(false)}
@@ -132,12 +132,12 @@ export default function GovernanceManager({
             type="button"
           >
             <Icon
+              className="text-sidebar-foreground/60"
               icon={ArrowLeft01Icon}
               size={14}
-              className="text-sidebar-foreground/60"
             />
           </button>
-          <h2 className="font-semibold text-[13px] text-sidebar-foreground tracking-tight whitespace-nowrap">
+          <h2 className="whitespace-nowrap font-semibold text-[13px] text-sidebar-foreground tracking-tight">
             {isEn ? "AI Settings" : "Config. IA"}
           </h2>
         </div>
@@ -149,7 +149,7 @@ export default function GovernanceManager({
             return (
               <div key={section.key}>
                 {section.dividerBefore && (
-                  <div className="mx-2 my-2 border-t border-sidebar-border/30" />
+                  <div className="mx-2 my-2 border-sidebar-border/30 border-t" />
                 )}
                 <button
                   className={cn(
@@ -162,16 +162,16 @@ export default function GovernanceManager({
                   type="button"
                 >
                   <Icon
-                    icon={section.icon}
-                    size={15}
                     className={cn(
                       "shrink-0 transition-colors",
                       active
                         ? "text-sidebar-primary"
                         : "text-sidebar-foreground/40 group-hover:text-sidebar-foreground/60"
                     )}
+                    icon={section.icon}
+                    size={15}
                   />
-                  <span className="truncate text-[12.5px] font-medium">
+                  <span className="truncate font-medium text-[12.5px]">
                     {isEn ? section.labelEn : section.labelEs}
                   </span>
                 </button>
@@ -186,15 +186,11 @@ export default function GovernanceManager({
         <div className="mx-auto max-w-3xl px-6 py-5">
           {!sidebarOpen && (
             <button
-              className="mb-4 flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-muted-foreground/60 transition-colors hover:bg-foreground/[0.04] hover:text-foreground/80"
+              className="mb-4 flex items-center gap-1.5 rounded-lg px-2 py-1 font-medium text-[12px] text-muted-foreground/60 transition-colors hover:bg-foreground/[0.04] hover:text-foreground/80"
               onClick={() => setSidebarOpen(true)}
               type="button"
             >
-              <Icon
-                icon={ArrowLeft01Icon}
-                size={13}
-                className="rotate-180"
-              />
+              <Icon className="rotate-180" icon={ArrowLeft01Icon} size={13} />
               {isEn ? "Show sidebar" : "Mostrar barra lateral"}
             </button>
           )}
@@ -249,13 +245,7 @@ function SectionContent({
 // Overview
 // ---------------------------------------------------------------------------
 
-function OverviewSection({
-  isEn,
-  orgId,
-}: {
-  isEn: boolean;
-  orgId: string;
-}) {
+function OverviewSection({ isEn, orgId }: { isEn: boolean; orgId: string }) {
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -293,7 +283,7 @@ function AgentsSection({
         titleEs="Config. de Agentes"
       />
       <AgentConfigManager locale={locale} orgId={orgId} />
-      <EscalationThresholds orgId={orgId} locale={locale} />
+      <EscalationThresholds locale={locale} orgId={orgId} />
     </div>
   );
 }
@@ -323,7 +313,7 @@ function ApprovalsSection({
       <PermissionsTab isEn={isEn} orgId={orgId} />
 
       <div className="pt-2">
-        <h3 className="mb-3 font-semibold text-sm text-foreground/80">
+        <h3 className="mb-3 font-semibold text-foreground/80 text-sm">
           {isEn ? "Pending Approval Queue" : "Cola de aprobaciones pendientes"}
         </h3>
         <ApprovalQueue locale={locale} orgId={orgId} />
@@ -336,13 +326,7 @@ function ApprovalsSection({
 // Guardrails & Memory
 // ---------------------------------------------------------------------------
 
-function GuardrailsSection({
-  isEn,
-  orgId,
-}: {
-  isEn: boolean;
-  orgId: string;
-}) {
+function GuardrailsSection({ isEn, orgId }: { isEn: boolean; orgId: string }) {
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -362,13 +346,7 @@ function GuardrailsSection({
 // Fail-Safe Boundaries
 // ---------------------------------------------------------------------------
 
-function BoundariesSection({
-  isEn,
-  orgId,
-}: {
-  isEn: boolean;
-  orgId: string;
-}) {
+function BoundariesSection({ isEn, orgId }: { isEn: boolean; orgId: string }) {
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -387,13 +365,7 @@ function BoundariesSection({
 // Privacy & Audits
 // ---------------------------------------------------------------------------
 
-function PrivacySection({
-  isEn,
-  orgId,
-}: {
-  isEn: boolean;
-  orgId: string;
-}) {
+function PrivacySection({ isEn, orgId }: { isEn: boolean; orgId: string }) {
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -413,13 +385,7 @@ function PrivacySection({
 // Advanced
 // ---------------------------------------------------------------------------
 
-function AdvancedSection({
-  isEn,
-  orgId,
-}: {
-  isEn: boolean;
-  orgId: string;
-}) {
+function AdvancedSection({ isEn, orgId }: { isEn: boolean; orgId: string }) {
   return (
     <div className="space-y-5">
       <SectionHeader
@@ -454,7 +420,7 @@ function SectionHeader({
 }) {
   return (
     <header>
-      <h1 className="font-semibold text-xl tracking-tight text-foreground/95">
+      <h1 className="font-semibold text-foreground/95 text-xl tracking-tight">
         {isEn ? titleEn : titleEs}
       </h1>
       <p className="mt-1 text-[13px] text-muted-foreground/70">

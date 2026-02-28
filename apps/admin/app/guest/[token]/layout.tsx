@@ -3,14 +3,16 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 
 import { CasaoraLogo } from "@/components/ui/casaora-logo";
-import {
-  LOCALE_STORAGE_KEY,
-  type Locale,
-  normalizeLocale,
-} from "@/lib/i18n";
+import { LOCALE_STORAGE_KEY, type Locale } from "@/lib/i18n";
 import { dispatchLocaleChange, useActiveLocale } from "@/lib/i18n/client";
 
 const API_BASE =
@@ -49,11 +51,15 @@ function GuestLangToggle() {
 
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     try {
       document.documentElement.lang = next;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
     dispatchLocaleChange(next);
 
@@ -62,10 +68,15 @@ function GuestLangToggle() {
         method: "POST",
         cache: "no-store",
         credentials: "same-origin",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({ locale: next }),
       });
-    } catch { /* best-effort */ }
+    } catch {
+      /* best-effort */
+    }
 
     router.refresh();
     setSwitching(false);
@@ -73,12 +84,26 @@ function GuestLangToggle() {
 
   return (
     <button
-      className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-card px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+      className="inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-card px-3 font-medium text-muted-foreground text-xs transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-50"
       disabled={switching}
       onClick={toggle}
       type="button"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <svg
+        fill="none"
+        height="14"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+        viewBox="0 0 24 24"
+        width="14"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="2" x2="22" y1="12" y2="12" />
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
       <span>{locale === "en-US" ? "ES" : "EN"}</span>
     </button>
   );
@@ -95,13 +120,25 @@ function GuestNav({ token }: { token: string }) {
 
   const tabs = [
     { href: base, label: isEn ? "Home" : "Inicio", exact: true },
-    { href: `${base}/itinerary`, label: isEn ? "Itinerary" : "Itinerario", exact: false },
-    { href: `${base}/checkin`, label: isEn ? "Check-in" : "Entrada", exact: false },
-    { href: `${base}/messages`, label: isEn ? "Messages" : "Mensajes", exact: false },
+    {
+      href: `${base}/itinerary`,
+      label: isEn ? "Itinerary" : "Itinerario",
+      exact: false,
+    },
+    {
+      href: `${base}/checkin`,
+      label: isEn ? "Check-in" : "Entrada",
+      exact: false,
+    },
+    {
+      href: `${base}/messages`,
+      label: isEn ? "Messages" : "Mensajes",
+      exact: false,
+    },
   ];
 
   return (
-    <nav className="flex gap-1 overflow-x-auto px-4 pb-2 scrollbar-none sm:px-6">
+    <nav className="scrollbar-none flex gap-1 overflow-x-auto px-4 pb-2 sm:px-6">
       {tabs.map((tab) => {
         const active = tab.exact
           ? pathname === tab.href
@@ -109,7 +146,7 @@ function GuestNav({ token }: { token: string }) {
 
         return (
           <Link
-            className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+            className={`shrink-0 rounded-full px-3.5 py-1.5 font-medium text-xs transition-colors ${
               active
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -196,7 +233,7 @@ export default function GuestTokenLayout({
     <GuestContext.Provider value={ctx}>
       <div className="flex min-h-dvh flex-col bg-gradient-to-b from-background to-muted/20">
         {/* -- Branded header -- */}
-        <header className="sticky top-0 z-40 border-b border-border/40 bg-background/95 backdrop-blur-md">
+        <header className="sticky top-0 z-40 border-border/40 border-b bg-background/95 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-2xl items-center justify-between px-4 py-3 sm:px-6">
             <Link
               className="inline-flex items-center gap-2 transition-opacity hover:opacity-80"
@@ -207,7 +244,7 @@ export default function GuestTokenLayout({
 
             <div className="flex items-center gap-3">
               {ctx.guestName && (
-                <span className="hidden text-sm text-muted-foreground sm:block">
+                <span className="hidden text-muted-foreground text-sm sm:block">
                   {ctx.guestName}
                 </span>
               )}
@@ -225,7 +262,7 @@ export default function GuestTokenLayout({
         </main>
 
         {/* -- Minimal footer -- */}
-        <footer className="border-t border-border/30 py-6 text-center">
+        <footer className="border-border/30 border-t py-6 text-center">
           <p className="text-muted-foreground text-xs">
             &copy; {new Date().getFullYear()} Casaora
           </p>

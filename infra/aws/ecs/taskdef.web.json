@@ -6,8 +6,8 @@
     "operatingSystemFamily": "LINUX",
     "cpuArchitecture": "ARM64"
   },
-  "cpu": "512",
-  "memory": "1024",
+  "cpu": "256",
+  "memory": "512",
   "executionRoleArn": "arn:aws:iam::341112583495:role/casaora-web-task-execution-role",
   "taskRoleArn": "arn:aws:iam::341112583495:role/casaora-web-task-role",
   "containerDefinitions": [

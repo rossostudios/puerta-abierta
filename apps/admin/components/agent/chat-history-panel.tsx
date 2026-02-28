@@ -157,25 +157,20 @@ function ChatListItem({
     <button
       className={cn(
         "group/item relative flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition-colors",
-        isSelected
-          ? "glass-inner"
-          : "hover:bg-muted/40"
+        isSelected ? "glass-inner" : "hover:bg-muted/40"
       )}
       onClick={onSelect}
       type="button"
     >
       {/* Status dot */}
       <span
-        className={cn(
-          "mt-[7px] h-2 w-2 shrink-0 rounded-full",
-          statusColor
-        )}
+        className={cn("mt-[7px] h-2 w-2 shrink-0 rounded-full", statusColor)}
       />
 
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] font-medium text-foreground/90">
+          <span className="truncate font-medium text-[13px] text-foreground/90">
             {chat.title}
           </span>
           <Badge
@@ -198,9 +193,7 @@ function ChatListItem({
       <div
         className={cn(
           "shrink-0 opacity-0 transition-opacity",
-          isSelected
-            ? "opacity-100"
-            : "group-hover/item:opacity-100"
+          isSelected ? "opacity-100" : "group-hover/item:opacity-100"
         )}
       >
         <DropdownMenu>
@@ -400,7 +393,7 @@ export function ChatHistoryPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Sticky header */}
-      <div className="shrink-0 space-y-3 border-b border-border/30 p-4 pb-3">
+      <div className="shrink-0 space-y-3 border-border/30 border-b p-4 pb-3">
         {/* Title row */}
         <div className="flex items-center">
           <h2 className="font-semibold text-base text-foreground/90">
@@ -445,7 +438,7 @@ export function ChatHistoryPanel({
           <div className="flex flex-wrap gap-1.5">
             <button
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                "rounded-full px-2.5 py-0.5 font-medium text-[11px] transition-colors",
                 agentFilter === "all"
                   ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground/60 hover:text-foreground"
@@ -458,7 +451,7 @@ export function ChatHistoryPanel({
             {uniqueAgents.map((a) => (
               <button
                 className={cn(
-                  "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  "rounded-full px-2.5 py-0.5 font-medium text-[11px] transition-colors",
                   agentFilter === a.slug
                     ? "bg-foreground/10 text-foreground"
                     : "text-muted-foreground/60 hover:text-foreground"
@@ -477,7 +470,7 @@ export function ChatHistoryPanel({
       </div>
 
       {/* Error banner */}
-      {(error || mutationError) ? (
+      {error || mutationError ? (
         <div className="shrink-0 px-4 pt-3">
           <div className="flex items-center justify-between gap-2 rounded-lg bg-destructive/10 px-3 py-2">
             <p className="text-[12px] text-destructive">
@@ -491,7 +484,7 @@ export function ChatHistoryPanel({
             </p>
             {error ? (
               <button
-                className="shrink-0 text-[12px] font-medium text-destructive underline underline-offset-2 transition-opacity hover:opacity-70"
+                className="shrink-0 font-medium text-[12px] text-destructive underline underline-offset-2 transition-opacity hover:opacity-70"
                 onClick={() => chatsQuery.refetch()}
                 type="button"
               >
@@ -522,7 +515,7 @@ export function ChatHistoryPanel({
               />
             </div>
             <div className="space-y-1">
-              <p className="text-[13px] font-medium text-muted-foreground/60">
+              <p className="font-medium text-[13px] text-muted-foreground/60">
                 {searchQuery.trim()
                   ? isEn
                     ? "No matching chats"
@@ -586,7 +579,7 @@ export function ChatHistoryPanel({
 
       {/* Mobile back button (visible when a chat is selected on < lg) */}
       {selectedChatId ? (
-        <div className="shrink-0 border-t border-border/30 p-3 lg:hidden">
+        <div className="shrink-0 border-border/30 border-t p-3 lg:hidden">
           <Button
             className="w-full gap-2"
             onClick={() => onSelectChat(null)}

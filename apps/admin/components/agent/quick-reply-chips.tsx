@@ -32,7 +32,7 @@ export function QuickReplyChips({
             <button
               className={cn(
                 "shrink-0 rounded-full border border-border/50 bg-muted/30 px-3 py-1.5",
-                "text-[11.5px] font-medium text-foreground/70",
+                "font-medium text-[11.5px] text-foreground/70",
                 "transition-all duration-150",
                 "hover:border-[var(--sidebar-primary)]/40 hover:bg-[var(--sidebar-primary)]/[0.06] hover:text-foreground",
                 "active:scale-[0.97]",

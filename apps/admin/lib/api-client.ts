@@ -120,12 +120,19 @@ export async function authedFetch<T>(
       ...init?.headers,
     },
   };
-  const res = await fetchWithTransientRetry(`${AUTHED_API_BASE}${path}`, requestInit);
+  const res = await fetchWithTransientRetry(
+    `${AUTHED_API_BASE}${path}`,
+    requestInit
+  );
 
   if (!res.ok) {
     const parsed = await parseApiErrorResponse(res);
     const message = parsed.message ?? `API ${res.status}`;
-    if (!options?.suppressErrorEvent && res.status !== 401 && typeof window !== "undefined") {
+    if (
+      !options?.suppressErrorEvent &&
+      res.status !== 401 &&
+      typeof window !== "undefined"
+    ) {
       dispatchApiError({
         status: res.status,
         path,
@@ -166,7 +173,9 @@ async function fetchWithTransientRetry(
   return response;
 }
 
-async function parseApiErrorResponse(response: Response): Promise<ParsedApiError> {
+async function parseApiErrorResponse(
+  response: Response
+): Promise<ParsedApiError> {
   const requestId = response.headers.get("x-request-id") ?? undefined;
   const retryAfter = response.headers.get("retry-after");
 
@@ -177,8 +186,7 @@ async function parseApiErrorResponse(response: Response): Promise<ParsedApiError
     rawText = "";
   }
 
-  let message =
-    rawText.trim() || `Request failed (${response.status})`;
+  let message = rawText.trim() || `Request failed (${response.status})`;
   let code: string | undefined;
   let retryable: boolean | undefined =
     TRANSIENT_STATUS_CODES.has(response.status) || retryAfter !== null;
@@ -193,8 +201,7 @@ async function parseApiErrorResponse(response: Response): Promise<ParsedApiError
         retryable?: unknown;
         request_id?: unknown;
       };
-      const detail =
-        body.detail ?? body.error ?? body.message ?? undefined;
+      const detail = body.detail ?? body.error ?? body.message ?? undefined;
       if (typeof detail === "string" && detail.trim()) {
         message = detail.trim();
       }

@@ -19,10 +19,10 @@ import { SidebarNew } from "@/components/shell/sidebar-new";
 import { TabBar } from "@/components/shell/tab-bar";
 import { Topbar } from "@/components/shell/topbar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { onApiError } from "@/lib/api-client";
 import { useGlobalHotkeys } from "@/lib/hotkeys/use-global-hotkeys";
 import { useNavigationHotkeys } from "@/lib/hotkeys/use-navigation-hotkeys";
 import type { Locale } from "@/lib/i18n";
-import { onApiError } from "@/lib/api-client";
 import { TabProvider } from "@/lib/tabs/tab-context";
 import { cn } from "@/lib/utils";
 
@@ -199,7 +199,10 @@ function AdminShellV2({
   useEffect(() => {
     return onApiError(({ status, message, retryable, requestId }) => {
       const isTransient =
-        retryable === true || status === 502 || status === 503 || status === 504;
+        retryable === true ||
+        status === 502 ||
+        status === 503 ||
+        status === 504;
       if (!isTransient) return;
 
       setBackendDegraded({

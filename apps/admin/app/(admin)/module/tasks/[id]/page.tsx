@@ -21,8 +21,8 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { getApiBaseUrl } from "@/lib/api";
-import { getServerCurrentAppUserId } from "@/lib/auth/server-app-user";
 import { getServerAccessToken } from "@/lib/auth/server-access-token";
+import { getServerCurrentAppUserId } from "@/lib/auth/server-app-user";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import {
   asBoolean,

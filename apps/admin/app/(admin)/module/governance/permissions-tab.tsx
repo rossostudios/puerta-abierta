@@ -1,18 +1,15 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search01Icon } from "@hugeicons/core-free-icons";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { authedFetch } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,26 +84,72 @@ const CATEGORIES: CategoryDef[] = [
     descriptionEn: "Sending messages and access codes to guests",
     descriptionEs: "Enviar mensajes y códigos de acceso a huéspedes",
     tools: [
-      { name: "send_message", labelEn: "Send message", labelEs: "Enviar mensaje" },
-      { name: "send_access_code", labelEn: "Send access code", labelEs: "Enviar código de acceso" },
+      {
+        name: "send_message",
+        labelEn: "Send message",
+        labelEs: "Enviar mensaje",
+      },
+      {
+        name: "send_access_code",
+        labelEn: "Send access code",
+        labelEs: "Enviar código de acceso",
+      },
     ],
   },
   {
     key: "maintenance",
     labelEn: "Maintenance & Operations",
     labelEs: "Mantenimiento y operaciones",
-    descriptionEn: "Creating tasks, assigning vendors, and managing maintenance workflows",
-    descriptionEs: "Crear tareas, asignar proveedores y gestionar flujos de mantenimiento",
+    descriptionEn:
+      "Creating tasks, assigning vendors, and managing maintenance workflows",
+    descriptionEs:
+      "Crear tareas, asignar proveedores y gestionar flujos de mantenimiento",
     tools: [
-      { name: "create_maintenance_task", labelEn: "Create task", labelEs: "Crear tarea" },
-      { name: "auto_assign_maintenance", labelEn: "Auto-assign task", labelEs: "Auto-asignar tarea" },
-      { name: "escalate_maintenance", labelEn: "Escalate task", labelEs: "Escalar tarea" },
-      { name: "dispatch_to_vendor", labelEn: "Dispatch to vendor", labelEs: "Enviar a proveedor" },
-      { name: "verify_completion", labelEn: "Verify completion", labelEs: "Verificar finalización" },
-      { name: "request_vendor_quote", labelEn: "Request vendor quote", labelEs: "Solicitar cotización" },
-      { name: "select_vendor", labelEn: "Select vendor", labelEs: "Seleccionar proveedor" },
-      { name: "create_defect_tickets", labelEn: "Create defect tickets", labelEs: "Crear tickets de defecto" },
-      { name: "voice_create_maintenance_request", labelEn: "Voice maintenance request", labelEs: "Solicitud de mantenimiento por voz" },
+      {
+        name: "create_maintenance_task",
+        labelEn: "Create task",
+        labelEs: "Crear tarea",
+      },
+      {
+        name: "auto_assign_maintenance",
+        labelEn: "Auto-assign task",
+        labelEs: "Auto-asignar tarea",
+      },
+      {
+        name: "escalate_maintenance",
+        labelEn: "Escalate task",
+        labelEs: "Escalar tarea",
+      },
+      {
+        name: "dispatch_to_vendor",
+        labelEn: "Dispatch to vendor",
+        labelEs: "Enviar a proveedor",
+      },
+      {
+        name: "verify_completion",
+        labelEn: "Verify completion",
+        labelEs: "Verificar finalización",
+      },
+      {
+        name: "request_vendor_quote",
+        labelEn: "Request vendor quote",
+        labelEs: "Solicitar cotización",
+      },
+      {
+        name: "select_vendor",
+        labelEn: "Select vendor",
+        labelEs: "Seleccionar proveedor",
+      },
+      {
+        name: "create_defect_tickets",
+        labelEn: "Create defect tickets",
+        labelEs: "Crear tickets de defecto",
+      },
+      {
+        name: "voice_create_maintenance_request",
+        labelEn: "Voice maintenance request",
+        labelEs: "Solicitud de mantenimiento por voz",
+      },
     ],
   },
   {
@@ -114,25 +157,60 @@ const CATEGORIES: CategoryDef[] = [
     labelEn: "Financial Actions",
     labelEs: "Acciones financieras",
     descriptionEn: "Pricing changes, bank transactions, and payment processing",
-    descriptionEs: "Cambios de precios, transacciones bancarias y procesamiento de pagos",
+    descriptionEs:
+      "Cambios de precios, transacciones bancarias y procesamiento de pagos",
     tools: [
-      { name: "apply_pricing_recommendation", labelEn: "Apply pricing", labelEs: "Aplicar precios" },
-      { name: "import_bank_transactions", labelEn: "Import transactions", labelEs: "Importar transacciones" },
-      { name: "auto_reconcile_batch", labelEn: "Auto-reconcile", labelEs: "Auto-conciliar" },
-      { name: "handle_split_payment", labelEn: "Split payment", labelEs: "Pago dividido" },
-      { name: "auto_populate_lease_charges", labelEn: "Populate lease charges", labelEs: "Cargar cobros de contrato" },
+      {
+        name: "apply_pricing_recommendation",
+        labelEn: "Apply pricing",
+        labelEs: "Aplicar precios",
+      },
+      {
+        name: "import_bank_transactions",
+        labelEn: "Import transactions",
+        labelEs: "Importar transacciones",
+      },
+      {
+        name: "auto_reconcile_batch",
+        labelEn: "Auto-reconcile",
+        labelEs: "Auto-conciliar",
+      },
+      {
+        name: "handle_split_payment",
+        labelEn: "Split payment",
+        labelEs: "Pago dividido",
+      },
+      {
+        name: "auto_populate_lease_charges",
+        labelEn: "Populate lease charges",
+        labelEs: "Cargar cobros de contrato",
+      },
     ],
   },
   {
     key: "access_security",
     labelEn: "Access & Security",
     labelEs: "Acceso y seguridad",
-    descriptionEn: "Managing access codes and processing security sensor events",
-    descriptionEs: "Gestionar códigos de acceso y procesar eventos de sensores de seguridad",
+    descriptionEn:
+      "Managing access codes and processing security sensor events",
+    descriptionEs:
+      "Gestionar códigos de acceso y procesar eventos de sensores de seguridad",
     tools: [
-      { name: "generate_access_code", labelEn: "Generate access code", labelEs: "Generar código de acceso" },
-      { name: "revoke_access_code", labelEn: "Revoke access code", labelEs: "Revocar código de acceso" },
-      { name: "process_sensor_event", labelEn: "Process sensor event", labelEs: "Procesar evento de sensor" },
+      {
+        name: "generate_access_code",
+        labelEn: "Generate access code",
+        labelEs: "Generar código de acceso",
+      },
+      {
+        name: "revoke_access_code",
+        labelEn: "Revoke access code",
+        labelEs: "Revocar código de acceso",
+      },
+      {
+        name: "process_sensor_event",
+        labelEn: "Process sensor event",
+        labelEs: "Procesar evento de sensor",
+      },
     ],
   },
   {
@@ -142,21 +220,47 @@ const CATEGORIES: CategoryDef[] = [
     descriptionEn: "Creating, updating, and deleting records in the system",
     descriptionEs: "Crear, actualizar y eliminar registros en el sistema",
     tools: [
-      { name: "create_row", labelEn: "Create record", labelEs: "Crear registro" },
-      { name: "update_row", labelEn: "Update record", labelEs: "Actualizar registro" },
-      { name: "delete_row", labelEn: "Delete record", labelEs: "Eliminar registro" },
+      {
+        name: "create_row",
+        labelEn: "Create record",
+        labelEs: "Crear registro",
+      },
+      {
+        name: "update_row",
+        labelEn: "Update record",
+        labelEs: "Actualizar registro",
+      },
+      {
+        name: "delete_row",
+        labelEn: "Delete record",
+        labelEs: "Eliminar registro",
+      },
     ],
   },
   {
     key: "automation",
     labelEn: "Automation & AI",
     labelEs: "Automatización e IA",
-    descriptionEn: "Application scoring, task delegation, and playbook execution",
-    descriptionEs: "Puntaje de solicitudes, delegación de tareas y ejecución de playbooks",
+    descriptionEn:
+      "Application scoring, task delegation, and playbook execution",
+    descriptionEs:
+      "Puntaje de solicitudes, delegación de tareas y ejecución de playbooks",
     tools: [
-      { name: "score_application", labelEn: "Score application", labelEs: "Puntuar solicitud" },
-      { name: "classify_and_delegate", labelEn: "Classify & delegate", labelEs: "Clasificar y delegar" },
-      { name: "execute_playbook", labelEn: "Execute playbook", labelEs: "Ejecutar playbook" },
+      {
+        name: "score_application",
+        labelEn: "Score application",
+        labelEs: "Puntuar solicitud",
+      },
+      {
+        name: "classify_and_delegate",
+        labelEn: "Classify & delegate",
+        labelEs: "Clasificar y delegar",
+      },
+      {
+        name: "execute_playbook",
+        labelEn: "Execute playbook",
+        labelEs: "Ejecutar playbook",
+      },
     ],
   },
 ];
@@ -168,38 +272,49 @@ const BOUNDARY_LABELS: Record<
   financial_advice: {
     en: "Financial advice",
     es: "Asesoría financiera",
-    descEn: "When blocked, the AI will decline and suggest contacting a professional",
-    descEs: "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
+    descEn:
+      "When blocked, the AI will decline and suggest contacting a professional",
+    descEs:
+      "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
   },
   legal_interpretation: {
     en: "Legal interpretation",
     es: "Interpretación legal",
-    descEn: "When blocked, the AI will decline and suggest contacting a professional",
-    descEs: "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
+    descEn:
+      "When blocked, the AI will decline and suggest contacting a professional",
+    descEs:
+      "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
   },
   medical_guidance: {
     en: "Medical guidance",
     es: "Orientación médica",
-    descEn: "When blocked, the AI will decline and suggest contacting a professional",
-    descEs: "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
+    descEn:
+      "When blocked, the AI will decline and suggest contacting a professional",
+    descEs:
+      "Cuando está bloqueado, la IA declinará y sugerirá contactar a un profesional",
   },
   personal_data_sharing: {
     en: "Personal data sharing",
     es: "Compartir datos personales",
-    descEn: "When blocked, the AI will not share personal information with third parties",
-    descEs: "Cuando está bloqueado, la IA no compartirá información personal con terceros",
+    descEn:
+      "When blocked, the AI will not share personal information with third parties",
+    descEs:
+      "Cuando está bloqueado, la IA no compartirá información personal con terceros",
   },
   contract_signing: {
     en: "Contract signing authority",
     es: "Autoridad para firmar contratos",
     descEn: "When blocked, the AI will decline and require human authorization",
-    descEs: "Cuando está bloqueado, la IA declinará y requerirá autorización humana",
+    descEs:
+      "Cuando está bloqueado, la IA declinará y requerirá autorización humana",
   },
   payment_authorization: {
     en: "Payment authorization",
     es: "Autorización de pagos",
-    descEn: "When blocked, the AI will not authorize payments without human approval",
-    descEs: "Cuando está bloqueado, la IA no autorizará pagos sin aprobación humana",
+    descEn:
+      "When blocked, the AI will not authorize payments without human approval",
+    descEs:
+      "Cuando está bloqueado, la IA no autorizará pagos sin aprobación humana",
   },
 };
 
@@ -476,9 +591,11 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
 
   // -- Helpers ---------------------------------------------------------------
 
-  function getCategoryModesSummary(
-    tools: ToolDef[]
-  ): { required: number; auto: number; disabled: number } {
+  function getCategoryModesSummary(tools: ToolDef[]): {
+    required: number;
+    auto: number;
+    disabled: number;
+  } {
     const counts = { required: 0, auto: 0, disabled: 0 };
     for (const tool of tools) {
       const mode = policyMap.get(tool.name)?.mode ?? "required";
@@ -495,16 +612,14 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Icon
+            className="absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground/50"
             icon={Search01Icon}
             size={14}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50"
           />
           <input
-            className="h-9 w-full rounded-lg border border-border/40 bg-muted/10 pl-9 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10"
+            className="h-9 w-full rounded-lg border border-border/40 bg-muted/10 pr-3 pl-9 text-[13px] text-foreground placeholder:text-muted-foreground/40 focus:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-foreground/10"
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              isEn ? "Search tools..." : "Buscar herramientas..."
-            }
+            placeholder={isEn ? "Search tools..." : "Buscar herramientas..."}
             type="text"
             value={searchQuery}
           />
@@ -532,7 +647,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           className={cn(
-            "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
+            "rounded-full px-2.5 py-1 font-medium text-[11px] transition-colors",
             activeFilter === null
               ? "bg-foreground/10 text-foreground"
               : "bg-muted/20 text-muted-foreground/60 hover:bg-muted/30 hover:text-muted-foreground/80"
@@ -545,7 +660,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
         {CATEGORIES.map((cat) => (
           <button
             className={cn(
-              "rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors",
+              "rounded-full px-2.5 py-1 font-medium text-[11px] transition-colors",
               activeFilter === cat.key
                 ? "bg-foreground/10 text-foreground"
                 : "bg-muted/20 text-muted-foreground/60 hover:bg-muted/30 hover:text-muted-foreground/80"
@@ -564,7 +679,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
       {/* Bulk action bar */}
       {bulkMode && selectedTools.size > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-border/40 bg-muted/20 px-3 py-2">
-          <span className="text-[12px] font-medium text-foreground/70">
+          <span className="font-medium text-[12px] text-foreground/70">
             {selectedTools.size} {isEn ? "selected" : "seleccionados"}
           </span>
           <span className="text-border/50">|</span>
@@ -606,7 +721,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
 
       {/* Tool permission categories */}
       <div>
-        <h2 className="mb-3 font-semibold text-sm text-foreground/90">
+        <h2 className="mb-3 font-semibold text-foreground/90 text-sm">
           {isEn ? "What the AI can do" : "Lo que la IA puede hacer"}
         </h2>
 
@@ -619,7 +734,9 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
         ) : filteredCategories.length === 0 ? (
           <div className="rounded-xl border border-border/20 py-8 text-center">
             <p className="text-[13px] text-muted-foreground/50">
-              {isEn ? "No tools match your search." : "Ninguna herramienta coincide con tu búsqueda."}
+              {isEn
+                ? "No tools match your search."
+                : "Ninguna herramienta coincide con tu búsqueda."}
             </p>
           </div>
         ) : (
@@ -629,10 +746,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
               const summary = getCategoryModesSummary(cat.tools);
 
               return (
-                <Card
-                  className="overflow-hidden"
-                  key={cat.key}
-                >
+                <Card className="overflow-hidden" key={cat.key}>
                   <button
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/20"
                     onClick={() => toggleCategory(cat.key)}
@@ -649,7 +763,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-[13px] text-foreground/90">
                         {isEn ? cat.labelEn : cat.labelEs}
-                        <span className="ml-1.5 text-[11px] font-normal text-muted-foreground/50">
+                        <span className="ml-1.5 font-normal text-[11px] text-muted-foreground/50">
                           ({cat.tools.length})
                         </span>
                       </p>
@@ -659,17 +773,17 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {summary.required > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-medium text-[9px] text-amber-700 dark:text-amber-400">
                           {summary.required}
                         </span>
                       )}
                       {summary.auto > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-400">
+                        <span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-medium text-[9px] text-emerald-700 dark:text-emerald-400">
                           {summary.auto}
                         </span>
                       )}
                       {summary.disabled > 0 && (
-                        <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[9px] font-medium text-red-700 dark:text-red-400">
+                        <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 font-medium text-[9px] text-red-700 dark:text-red-400">
                           {summary.disabled}
                         </span>
                       )}
@@ -677,12 +791,11 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                   </button>
 
                   {expanded && (
-                    <div className="border-t border-border/30 px-4 py-2">
+                    <div className="border-border/30 border-t px-4 py-2">
                       <div className="space-y-1">
                         {cat.tools.map((tool) => {
                           const policy = policyMap.get(tool.name);
-                          const mode: ApprovalMode =
-                            policy?.mode ?? "required";
+                          const mode: ApprovalMode = policy?.mode ?? "required";
                           const toggling = togglingIds.has(
                             policy?.id ?? tool.name
                           );
@@ -715,7 +828,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                               <div className="flex items-center gap-2">
                                 <Badge
                                   className={cn(
-                                    "text-[10px] whitespace-nowrap",
+                                    "whitespace-nowrap text-[10px]",
                                     MODE_STYLES[mode]
                                   )}
                                   variant="outline"
@@ -759,10 +872,8 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
 
       {/* Safety boundaries */}
       <div>
-        <h2 className="mb-3 font-semibold text-sm text-foreground/90">
-          {isEn
-            ? "Topics the AI should avoid"
-            : "Temas que la IA debe evitar"}
+        <h2 className="mb-3 font-semibold text-foreground/90 text-sm">
+          {isEn ? "Topics the AI should avoid" : "Temas que la IA debe evitar"}
         </h2>
 
         {loadingBoundaries ? (
@@ -774,7 +885,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
         ) : boundaryRules.length === 0 ? (
           <Card>
             <CardContent className="py-6">
-              <p className="text-center text-sm text-muted-foreground/60">
+              <p className="text-center text-muted-foreground/60 text-sm">
                 {isEn
                   ? "No safety boundaries configured yet."
                   : "No se han configurado limites de seguridad aún."}
@@ -800,11 +911,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                           : rule.category.replace(/_/g, " ")}
                       </p>
                       <p className="text-[11px] text-muted-foreground/50">
-                        {labels
-                          ? isEn
-                            ? labels.descEn
-                            : labels.descEs
-                          : ""}
+                        {labels ? (isEn ? labels.descEn : labels.descEs) : ""}
                       </p>
                     </div>
                     <button
@@ -825,9 +932,7 @@ export function PermissionsTab({ orgId, isEn }: PermissionsTabProps) {
                       <span
                         className={cn(
                           "pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out",
-                          rule.is_blocked
-                            ? "translate-x-5"
-                            : "translate-x-0"
+                          rule.is_blocked ? "translate-x-5" : "translate-x-0"
                         )}
                       />
                     </button>

@@ -16,7 +16,8 @@ export function ApiErrorToaster() {
         toast.error("Access denied", { description: message });
       } else if (retryable) {
         toast.error("Backend temporarily unavailable", {
-          description: "Please retry in a moment. We are automatically backing off.",
+          description:
+            "Please retry in a moment. We are automatically backing off.",
         });
       } else if (status >= 500) {
         toast.error("Server error", {
