@@ -24,6 +24,7 @@ use middleware::request_id::inject_request_id;
 use middleware::security::enforce_trusted_hosts;
 use state::AppState;
 use tower_governor::governor::GovernorConfigBuilder;
+use tower_governor::key_extractor::SmartIpKeyExtractor;
 use tower_governor::GovernorLayer;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
@@ -77,6 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if state.config.rate_limit_enabled_runtime() {
         let governor_config = GovernorConfigBuilder::default()
+            .key_extractor(SmartIpKeyExtractor)
             .per_second(state.config.rate_limit_per_second)
             .burst_size(state.config.rate_limit_burst_size)
             .finish()
