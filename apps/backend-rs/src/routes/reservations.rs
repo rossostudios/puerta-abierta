@@ -180,7 +180,7 @@ async fn list_reservations(
         true,
     )
     .await?;
-    let enriched = enrich_reservations(&state, pool, rows, &query.org_id).await?;
+    let enriched = enrich_reservations(pool, rows, &query.org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -245,7 +245,7 @@ async fn get_reservation(
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
 
-    let mut enriched = enrich_reservations(&state, pool, vec![record], &org_id).await?;
+    let mut enriched = enrich_reservations(pool, vec![record], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))
