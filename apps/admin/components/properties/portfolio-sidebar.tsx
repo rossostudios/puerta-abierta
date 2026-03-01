@@ -4,7 +4,6 @@ import { AgenticSidebar } from "@/app/(admin)/module/properties/components/agent
 import type { AgentApproval } from "@/lib/api";
 import type {
   PropertyActivityItem,
-  PropertyNotificationItem,
   PropertyPortfolioRow,
 } from "@/lib/features/properties/types";
 
@@ -17,7 +16,6 @@ type PortfolioStatsProps = {
   totalVacantUnits: number;
   vacancyCostPyg: number;
   recentActivity: PropertyActivityItem[];
-  notifications: PropertyNotificationItem[];
   isEn: boolean;
   formatLocale: "en-US" | "es-PY";
   orgId?: string;
@@ -35,7 +33,6 @@ export function PortfolioSidebar({
   totalVacantUnits,
   vacancyCostPyg,
   recentActivity,
-  notifications,
   isEn,
   formatLocale,
   orgId,
@@ -50,7 +47,6 @@ export function PortfolioSidebar({
       avgRentPyg={avgRentPyg}
       formatLocale={formatLocale}
       isEn={isEn}
-      notifications={notifications}
       occupancyRate={occupancyRate}
       orgId={orgId}
       propertyRows={propertyRows}

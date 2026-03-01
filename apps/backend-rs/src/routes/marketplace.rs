@@ -11,6 +11,7 @@ use sqlx::{Postgres, QueryBuilder, Row};
 
 use crate::{
     auth::require_user_id,
+    cache_invalidation,
     error::{AppError, AppResult},
     repository::table_service::{count_rows, create_row, get_row, list_rows, update_row},
     schemas::{
@@ -119,6 +120,9 @@ async fn list_listings(
     }
     if let Some(integration_id) = non_empty_opt(query.integration_id.as_deref()) {
         filters.insert("integration_id".to_string(), Value::String(integration_id));
+    }
+    if let Some(property_id) = non_empty_opt(query.property_id.as_deref()) {
+        filters.insert("property_id".to_string(), Value::String(property_id));
     }
     if let Some(unit_id) = non_empty_opt(query.unit_id.as_deref()) {
         filters.insert("unit_id".to_string(), Value::String(unit_id));
@@ -331,6 +335,15 @@ async fn create_listing(
     )
     .await;
     state.public_listings_cache.clear().await;
+    cache_invalidation::notify(
+        pool,
+        &cache_invalidation::InvalidationEvent {
+            cache: "public_listings".to_string(),
+            key: String::new(),
+            prefix: String::new(),
+        },
+    )
+    .await;
 
     let mut rows = attach_fee_lines(pool, vec![created]).await?;
     let item = rows.pop().unwrap_or_else(|| Value::Object(Map::new()));
@@ -482,6 +495,15 @@ async fn update_listing(
     )
     .await;
     state.public_listings_cache.clear().await;
+    cache_invalidation::notify(
+        pool,
+        &cache_invalidation::InvalidationEvent {
+            cache: "public_listings".to_string(),
+            key: String::new(),
+            prefix: String::new(),
+        },
+    )
+    .await;
 
     if bool_value(updated.get("is_published")) {
         sync_linked_listing(pool, &updated, true).await;
@@ -527,6 +549,15 @@ async fn publish_listing(
     )
     .await;
     state.public_listings_cache.clear().await;
+    cache_invalidation::notify(
+        pool,
+        &cache_invalidation::InvalidationEvent {
+            cache: "public_listings".to_string(),
+            key: String::new(),
+            prefix: String::new(),
+        },
+    )
+    .await;
 
     let mut rows = attach_fee_lines(pool, vec![updated]).await?;
     Ok(Json(
@@ -540,29 +571,20 @@ async fn list_public_listings(
 ) -> AppResult<Json<Value>> {
     ensure_marketplace_public_enabled(&state)?;
     let cache_key = public_listings_cache_key(&query);
-    if let Some(cached) = state.public_listings_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
 
-    let key_lock = state.public_listings_cache.key_lock(&cache_key).await;
-    let _guard = key_lock.lock().await;
-
-    if let Some(cached) = state.public_listings_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
-
-    let pool = db_pool(&state)?;
-    let rows = list_public_listing_rows(pool, &query).await?;
-
-    let shaped = rows
-        .iter()
-        .map(|row| public_shape(&state, row))
-        .collect::<Vec<_>>();
-    let response = json!({ "data": shaped });
-    state
+    let response = state
         .public_listings_cache
-        .put(cache_key, response.clone())
-        .await;
+        .get_or_try_init(&cache_key, || async {
+            let pool = db_pool(&state)?;
+            let rows = list_public_listing_rows(pool, &query).await?;
+            let shaped = rows
+                .iter()
+                .map(|row| public_shape(&state, row))
+                .collect::<Vec<_>>();
+            Ok(json!({ "data": shaped }))
+        })
+        .await?;
+
     Ok(Json(response))
 }
 

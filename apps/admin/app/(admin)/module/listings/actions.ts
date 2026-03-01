@@ -62,8 +62,6 @@ export async function publishListingAction(formData: FormData) {
   }
 }
 
-const LISTING_FIELD_TO_API_KEY: Record<string, string> = {};
-
 const NUMERIC_FIELDS = new Set(["bedrooms", "bathrooms", "square_meters"]);
 
 export async function updateListingInlineAction({
@@ -75,11 +73,10 @@ export async function updateListingInlineAction({
   field: string;
   value: string | number;
 }): Promise<{ ok: boolean; error?: string }> {
-  const apiField = LISTING_FIELD_TO_API_KEY[field] ?? field;
-  const apiValue = NUMERIC_FIELDS.has(apiField) ? Number(value) || 0 : value;
+  const apiValue = NUMERIC_FIELDS.has(field) ? Number(value) || 0 : value;
   try {
     await patchJson(`/listings/${encodeURIComponent(listingId)}`, {
-      [apiField]: apiValue,
+      [field]: apiValue,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

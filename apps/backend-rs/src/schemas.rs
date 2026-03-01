@@ -863,6 +863,7 @@ pub struct MarkCollectionPaidInput {
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct ReservationsQuery {
     pub org_id: String,
+    pub property_id: Option<String>,
     pub unit_id: Option<String>,
     pub integration_id: Option<String>,
     pub guest_id: Option<String>,
@@ -1237,6 +1238,7 @@ fn default_sort_order_desc() -> String {
 #[derive(Debug, Clone, Deserialize, serde::Serialize)]
 pub struct ListingsQuery {
     pub org_id: String,
+    pub property_id: Option<String>,
     pub is_published: Option<bool>,
     pub integration_id: Option<String>,
     pub unit_id: Option<String>,
