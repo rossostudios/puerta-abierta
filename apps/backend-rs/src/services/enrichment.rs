@@ -31,8 +31,7 @@ async fn cached_org_map(
                 "organization_id".to_string(),
                 Value::String(org_id.to_string()),
             );
-            let rows = list_rows(pool, table, Some(&filters), 1000, 0, "created_at", false)
-                .await?;
+            let rows = list_rows(pool, table, Some(&filters), 1000, 0, "created_at", false).await?;
             let map = mapper(&rows);
             Ok(serde_json::to_value(&map).unwrap_or_default())
         })
@@ -46,9 +45,14 @@ pub async fn cached_property_names(
     pool: &PgPool,
     org_id: &str,
 ) -> AppResult<std::collections::HashMap<String, String>> {
-    cached_org_map(state, pool, org_id, "property_names", "properties", |rows| {
-        map_by_id_string_field(rows, "name")
-    })
+    cached_org_map(
+        state,
+        pool,
+        org_id,
+        "property_names",
+        "properties",
+        |rows| map_by_id_string_field(rows, "name"),
+    )
     .await
 }
 
@@ -72,8 +76,8 @@ pub async fn cached_unit_maps(
                 "organization_id".to_string(),
                 Value::String(org_id.to_string()),
             );
-            let units = list_rows(pool, "units", Some(&filters), 1000, 0, "created_at", false)
-                .await?;
+            let units =
+                list_rows(pool, "units", Some(&filters), 1000, 0, "created_at", false).await?;
             let names = map_by_id_string_field(&units, "name");
             let property_map = map_unit_property(&units);
             Ok(serde_json::json!({ "names": names, "property_map": property_map }))
@@ -81,8 +85,7 @@ pub async fn cached_unit_maps(
         .await?;
 
     let names: std::collections::HashMap<String, String> =
-        serde_json::from_value(value.get("names").cloned().unwrap_or_default())
-            .unwrap_or_default();
+        serde_json::from_value(value.get("names").cloned().unwrap_or_default()).unwrap_or_default();
     let property_map: std::collections::HashMap<String, String> =
         serde_json::from_value(value.get("property_map").cloned().unwrap_or_default())
             .unwrap_or_default();

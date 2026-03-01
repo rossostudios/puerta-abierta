@@ -791,7 +791,9 @@ async fn dashboard_stats(
         .collect();
 
     let statements_count = statements_ready_row.try_get::<i64, _>("count").unwrap_or(0);
-    let statements_total_payout = statements_ready_row.try_get::<i64, _>("total_payout").unwrap_or(0);
+    let statements_total_payout = statements_ready_row
+        .try_get::<i64, _>("total_payout")
+        .unwrap_or(0);
 
     let todays_tasks: Vec<Value> = todays_tasks_rows
         .iter()
@@ -807,10 +809,18 @@ async fn dashboard_stats(
         })
         .collect();
 
-    let onb_properties = onboarding_row.try_get::<i64, _>("has_properties").unwrap_or(0);
-    let onb_integrations = onboarding_row.try_get::<i64, _>("has_integrations").unwrap_or(0);
-    let onb_tenants = onboarding_row.try_get::<i64, _>("has_tenants_or_guests").unwrap_or(0);
-    let onb_ai = onboarding_row.try_get::<i64, _>("has_ai_config").unwrap_or(0);
+    let onb_properties = onboarding_row
+        .try_get::<i64, _>("has_properties")
+        .unwrap_or(0);
+    let onb_integrations = onboarding_row
+        .try_get::<i64, _>("has_integrations")
+        .unwrap_or(0);
+    let onb_tenants = onboarding_row
+        .try_get::<i64, _>("has_tenants_or_guests")
+        .unwrap_or(0);
+    let onb_ai = onboarding_row
+        .try_get::<i64, _>("has_ai_config")
+        .unwrap_or(0);
 
     let agent_statuses: Vec<Value> = agent_status_rows
         .iter()
