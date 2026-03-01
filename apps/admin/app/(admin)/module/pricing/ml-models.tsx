@@ -2,11 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { authedFetch } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 
 type MlModel = {
   id: string;
@@ -42,12 +40,16 @@ export function MlModels({ orgId, locale }: Props) {
   const fetchData = useCallback(async () => {
     try {
       const [modelsRes, outcomesRes] = await Promise.all([
-        fetch(
-          `${API_BASE}/ml-models?org_id=${encodeURIComponent(orgId)}&limit=20`
-        ).then((r) => (r.ok ? r.json() : { data: [] })),
-        fetch(
-          `${API_BASE}/ml-outcomes?org_id=${encodeURIComponent(orgId)}&limit=50`
-        ).then((r) => (r.ok ? r.json() : { data: [] })),
+        authedFetch<{ data: MlModel[] }>(
+          `/ml-models?org_id=${encodeURIComponent(orgId)}&limit=20`,
+          undefined,
+          { suppressErrorEvent: true }
+        ).catch(() => ({ data: [] as MlModel[] })),
+        authedFetch<{ data: MlOutcome[] }>(
+          `/ml-outcomes?org_id=${encodeURIComponent(orgId)}&limit=50`,
+          undefined,
+          { suppressErrorEvent: true }
+        ).catch(() => ({ data: [] as MlOutcome[] })),
       ]);
       setModels(Array.isArray(modelsRes.data) ? modelsRes.data : []);
       setOutcomes(Array.isArray(outcomesRes.data) ? outcomesRes.data : []);
@@ -65,17 +67,14 @@ export function MlModels({ orgId, locale }: Props) {
   const handleRetrain = useCallback(async () => {
     setTraining(true);
     try {
-      await fetch(`${API_BASE}/ml-models/retrain`, {
+      await authedFetch("/ml-models/retrain", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ org_id: orgId }),
       });
-      // Refresh after short delay to allow training to complete
-      setTimeout(() => {
-        fetchData();
-        setTraining(false);
-      }, 2000);
+      await fetchData();
     } catch {
+      // Error already dispatched by authedFetch
+    } finally {
       setTraining(false);
     }
   }, [orgId, fetchData]);
