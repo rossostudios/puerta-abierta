@@ -53,6 +53,7 @@ Optional overrides:
 - `SMOKE_BASE_URL=https://app.casaora.co`
 - `NEXT_PUBLIC_SITE_URL=https://app.casaora.co`
 - `NEXT_PUBLIC_API_BASE_URL=https://api.casaora.co/v1`
+- `INTERNAL_API_BASE_URL=http://backend.casaora.internal:8000/v1` (for server-side admin calls via Cloud Map)
 
 ## Cloudflare Cutover (Admin)
 
@@ -67,4 +68,3 @@ If you later choose CloudFront/Lambda for frontend instead of ECS:
 - Add `OpenNext` build/deploy pipeline in a separate workflow
 - Keep the same Cloudflare hostname strategy
 - Re-evaluate image/file upload and runtime env handling
-

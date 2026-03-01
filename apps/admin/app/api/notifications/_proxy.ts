@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { getServerAccessToken } from "@/lib/auth/server-access-token";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+import { SERVER_API_BASE_URL } from "@/lib/server-api-base";
+
+const API_BASE_URL = SERVER_API_BASE_URL;
 
 export async function forwardNotificationsRequest(
   path: string,

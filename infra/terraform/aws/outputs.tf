@@ -68,3 +68,27 @@ output "scheduler_job_runner_task_definition_arn" {
 output "eventbridge_scheduler_invoke_role_arn" {
   value = try(aws_iam_role.eventbridge_ecs_run_task[0].arn, null)
 }
+
+output "cloud_map_namespace_id" {
+  value = try(aws_service_discovery_private_dns_namespace.main[0].id, null)
+}
+
+output "cloud_map_namespace_name" {
+  value = try(
+    aws_service_discovery_private_dns_namespace.main[0].name,
+    null
+  )
+}
+
+output "cloud_map_backend_service_arn" {
+  value = try(aws_service_discovery_service.backend[0].arn, null)
+}
+
+output "cloud_map_backend_internal_base_url" {
+  value = var.enable_cloud_map ? format(
+    "http://%s.%s:%d/v1",
+    var.cloud_map_backend_service_name,
+    var.cloud_map_namespace_name,
+    var.backend_port
+  ) : null
+}

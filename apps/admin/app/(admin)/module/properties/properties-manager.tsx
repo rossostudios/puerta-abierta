@@ -57,54 +57,7 @@ export function PropertiesManager({
     collections,
   });
 
-  const previousSidebarRef = useRef(isSidebarOpen);
-
-  const handleViewModeChange = useCallback(
-    (next: PropertyViewMode) => {
-      if (next === "map") {
-        previousSidebarRef.current = isSidebarOpen;
-        setUserSidebarPref(false);
-      } else if (viewMode === "map") {
-        setUserSidebarPref(previousSidebarRef.current);
-      }
-      setViewMode(next);
-    },
-    [isSidebarOpen, viewMode]
-  );
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setOpen(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("new");
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
-  }, []);
-
-  const { rows, summary, recentActivity } = usePropertyPortfolio(
-    {
-      locale,
-      properties,
-      units,
-      leases,
-      tasks,
-      collections,
-    }
-  );
-
-  // Agent status for AI column
+  // Agent status
   const agentsQuery = useQuery<AgentDefinition[], Error>({
     queryKey: ["agents-property-status", orgId],
     queryFn: async () => {
@@ -192,61 +145,11 @@ export function PropertiesManager({
         )}
       </div>
 
-      <aside
-        className={cn(
-          "shrink-0 transition-all duration-300 ease-in-out",
-          isSidebarOpen
-            ? isWide
-              ? "w-[376px]"
-              : "w-[336px]"
-            : "w-0 overflow-hidden"
-        )}
-      >
-        <div
-          className={cn(
-            "sticky top-0 max-h-[calc(100dvh-8rem)] overflow-y-auto py-6",
-            isWide ? "px-5" : "px-4"
-          )}
-        >
-          <PortfolioSidebar
-            agentOnline={agentStatus === "active"}
-            approvals={approvals}
-            avgRentPyg={summary.averageRentPyg}
-            formatLocale={formatLocale}
-            isEn={isEn}
-            occupancyRate={summary.averageOccupancy}
-            orgId={orgId}
-            propertyRows={rows}
-            recentActivity={recentActivity}
-            totalOverdueCollections={summary.totalOverdueCollections}
-            totalRevenueMtdPyg={summary.totalRevenueMtdPyg}
-            totalVacantUnits={summary.totalVacantUnits}
-            totalValuePyg={summary.totalAssetValuePyg}
-            vacancyCostPyg={summary.vacancyCostPyg}
-          />
-        </div>
-      </aside>
-
-      <CreatePropertySheet
-        cancelLabel={common.cancel}
-        codeLabel={dict.code}
-        createLabel={common.create}
-        description={dict.description}
-        isEn={isEn}
-        nameLabel={dict.name}
-        onOpenChange={setOpen}
-        open={open}
-        orgId={orgId}
-        title={dict.newProperty}
-      />
-
-      <DataImportSheet
-        isEn={isEn}
-        mode="properties"
-        onOpenChange={setImportOpen}
-        open={importOpen}
-        orgId={orgId}
-      />
+      {/* Push chat to bottom */}
+      <div className="mt-auto space-y-4 pt-12">
+        <PropertyChatInput isEn={isEn} />
+        <PortfolioChips isEn={isEn} />
+      </div>
     </div>
   );
 }

@@ -20,6 +20,7 @@ SMOKE_BASE_URL="${SMOKE_BASE_URL:-https://app.casaora.co}"
 SMOKE_PATH="${SMOKE_PATH:-/login}"
 
 NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-https://api.casaora.co/v1}"
+INTERNAL_API_BASE_URL="${INTERNAL_API_BASE_URL:-http://backend.casaora.internal:8000/v1}"
 NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL:-https://app.casaora.co}"
 CLERK_DOMAIN="${CLERK_DOMAIN:-clerk.casaora.co}"
 CLERK_JS_URL="${CLERK_JS_URL:-https://${CLERK_DOMAIN}/npm/@clerk/clerk-js@5/dist/clerk.browser.js}"
@@ -256,6 +257,7 @@ tmp_taskdef="$(mktemp)"
 jq \
   --arg image_uri "${image_uri}" \
   --arg api_base_url "${NEXT_PUBLIC_API_BASE_URL}" \
+  --arg internal_api_base_url "${INTERNAL_API_BASE_URL}" \
   --arg site_url "${NEXT_PUBLIC_SITE_URL}" \
   --arg clerk_domain "${CLERK_DOMAIN}" \
   --arg clerk_js_url "${CLERK_JS_URL}" \
@@ -265,6 +267,7 @@ jq \
     .containerDefinitions[0].image = $image_uri
     | .containerDefinitions[0].environment |= map(
         if .name == "NEXT_PUBLIC_API_BASE_URL" then .value = $api_base_url
+        elif .name == "INTERNAL_API_BASE_URL" then .value = $internal_api_base_url
         elif .name == "NEXT_PUBLIC_SITE_URL" then .value = $site_url
         elif .name == "NEXT_PUBLIC_CLERK_DOMAIN" then .value = $clerk_domain
         elif .name == "NEXT_PUBLIC_CLERK_JS_URL" then .value = $clerk_js_url

@@ -63,7 +63,10 @@
         {
           "name": "STORAGE_PRESIGN_TTL_SECONDS",
           "value": "900"
-        }
+        },
+        { "name": "RATE_LIMIT_PER_SECOND", "value": "200" },
+        { "name": "RATE_LIMIT_BURST_SIZE", "value": "2000" },
+        { "name": "DB_POOL_MAX_CONNECTIONS", "value": "40" }
       ],
       "secrets": [
         { "name": "DATABASE_URL", "valueFrom": "REPLACE_ME_DATABASE_URL_SECRET_ARN" },
@@ -80,6 +83,13 @@
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/v1/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 10
       }
     }
   ]

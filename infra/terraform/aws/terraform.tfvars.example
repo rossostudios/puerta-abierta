@@ -9,6 +9,11 @@ web_alb_certificate_arn = "arn:aws:acm:us-east-1:341112583495:certificate/REPLAC
 enable_admin_alb_rule = true
 admin_hostnames       = ["app.casaora.co"]
 
+# Internal service discovery for admin/server traffic to backend (bypasses Cloudflare).
+enable_cloud_map             = true
+cloud_map_namespace_name     = "casaora.internal"
+cloud_map_backend_service_name = "backend"
+
 # Production baseline (public web is live on AWS ECS + ALB).
 enable_web_alb_rule = true
 web_hostnames       = ["casaora.co", "www.casaora.co"]

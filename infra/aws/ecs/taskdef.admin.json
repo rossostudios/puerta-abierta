@@ -26,6 +26,7 @@
         { "name": "NODE_ENV", "value": "production" },
         { "name": "PORT", "value": "3000" },
         { "name": "HOSTNAME", "value": "0.0.0.0" },
+        { "name": "INTERNAL_API_BASE_URL", "value": "http://backend.casaora.internal:8000/v1" },
         { "name": "NEXT_PUBLIC_API_BASE_URL", "value": "https://api.casaora.co/v1" },
         { "name": "NEXT_PUBLIC_SITE_URL", "value": "https://app.casaora.co" },
         { "name": "NEXT_PUBLIC_CLERK_DOMAIN", "value": "clerk.casaora.co" },
