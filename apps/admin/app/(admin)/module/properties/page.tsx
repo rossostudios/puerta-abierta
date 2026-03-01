@@ -10,6 +10,7 @@ import { fetchList, getApiBaseUrl } from "@/lib/api";
 import type { components } from "@/lib/api/types";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveDictionary } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
 import { PropertiesManager } from "./properties-manager";
 
@@ -19,14 +20,6 @@ type RelationRow = Record<string, unknown>;
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 export default async function PropertiesModulePage({
   searchParams,

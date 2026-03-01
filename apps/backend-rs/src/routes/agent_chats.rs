@@ -939,38 +939,6 @@ async fn get_contextual_prompts(
 }
 
 // ---------------------------------------------------------------------------
-// Approval Policies (S14.2)
-// ---------------------------------------------------------------------------
-
-#[allow(dead_code)]
-async fn get_approval_policies(
-    State(state): State<AppState>,
-    Query(query): Query<AgentOrgQuery>,
-    headers: HeaderMap,
-) -> AppResult<Json<Value>> {
-    let user_id = require_user_id(&state, &headers).await?;
-    assert_org_member(&state, &user_id, &query.org_id).await?;
-
-    let pool = state
-        .db_pool
-        .as_ref()
-        .ok_or_else(|| AppError::Dependency("Database not configured.".into()))?;
-
-    let rows: Vec<Value> = sqlx::query(
-        "SELECT row_to_json(t) AS row FROM agent_approval_policies t WHERE organization_id = $1::uuid",
-    )
-    .bind(&query.org_id)
-    .fetch_all(pool)
-    .await
-    .unwrap_or_default()
-    .into_iter()
-    .filter_map(|row| row.try_get::<Value, _>("row").ok())
-    .collect();
-
-    Ok(Json(serde_json::json!({ "data": rows })))
-}
-
-// ---------------------------------------------------------------------------
 // Governance endpoints (S15.4)
 // ---------------------------------------------------------------------------
 

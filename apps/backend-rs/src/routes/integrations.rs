@@ -105,7 +105,7 @@ async fn list_integrations(
         false,
     )
     .await?;
-    let enriched = enrich_integrations(pool, rows, &query.org_id).await?;
+    let enriched = enrich_integrations(&state, pool, rows, &query.org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -144,7 +144,7 @@ async fn get_integration(
     let record = get_row(pool, "integrations", &path.integration_id, "id").await?;
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
-    let mut enriched = enrich_integrations(pool, vec![record], &org_id).await?;
+    let mut enriched = enrich_integrations(&state, pool, vec![record], &org_id).await?;
     let first = enriched.pop().unwrap_or_else(|| Value::Object(Map::new()));
     Ok(Json(first))
 }
@@ -173,7 +173,7 @@ async fn update_integration(
         Some(updated.clone()),
     )
     .await;
-    let mut enriched = enrich_integrations(pool, vec![updated], &org_id).await?;
+    let mut enriched = enrich_integrations(&state, pool, vec![updated], &org_id).await?;
     let first = enriched.pop().unwrap_or_else(|| Value::Object(Map::new()));
     Ok(Json(first))
 }

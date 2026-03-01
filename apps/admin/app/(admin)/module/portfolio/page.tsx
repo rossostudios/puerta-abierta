@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -24,15 +25,10 @@ export default async function PortfolioPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["portfolio data", "datos del portafolio"]}
+      />
     );
   }
 
@@ -60,19 +56,7 @@ export default async function PortfolioPage() {
     if (isOrgMembershipError(message))
       return <OrgAccessChanged orgId={orgId} />;
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>{message}</CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          <code>{getApiBaseUrl()}</code>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

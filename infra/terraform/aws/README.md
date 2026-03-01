@@ -66,5 +66,5 @@ This writes a local `backend.hcl` (gitignored) and runs `terraform init -migrate
 - `enable_admin_alb_rule` defaults to `true` because `app.casaora.co` now routes through the shared ALB.
 - `enable_web_alb_rule` defaults to `true` because `casaora.co` and `www.casaora.co` now route through the shared ALB.
 - `enable_storage_buckets` defaults to `true` because the public media bucket is part of the imported production baseline.
-- `enable_scheduler_jobs` defaults to `true` because Railway schedulers were replaced by EventBridge + ECS RunTask and imported into Terraform state.
+- `enable_scheduler_jobs` defaults to `true` because EventBridge + ECS RunTask schedules are part of the imported production baseline.
 - The RDS instance is exposed via `data.aws_db_instance.prod` outputs; move it to a managed resource in a dedicated follow-up after secrets/password handling is standardized.

@@ -9,6 +9,7 @@ use sqlx::Row;
 
 use crate::{
     auth::require_user_id,
+    cache::org_key,
     error::{AppError, AppResult},
     services::agent_specs::default_max_steps_for_slug,
     state::AppState,
@@ -339,6 +340,12 @@ async fn update_agent(
         return Err(AppError::NotFound("Agent not found.".to_string()));
     }
 
+    // Invalidate stale agent config cache for this org+slug
+    state
+        .agent_config_cache
+        .invalidate(&org_key(&payload.org_id, &path.agent_slug))
+        .await;
+
     Ok(Json(json!({
         "ok": true,
         "slug": path.agent_slug,
@@ -355,8 +362,9 @@ async fn dashboard_stats(
     assert_org_member(&state, &user_id, &query.org_id).await?;
     let pool = db_pool(&state)?;
 
-    // Active agents count — filter to agents that have activity in the requesting org
-    let agents_row = sqlx::query(
+    // Define all independent query futures — run concurrently via try_join!
+
+    let agents_query = sqlx::query(
         "SELECT COUNT(DISTINCT a.slug)::bigint AS total,
                 COUNT(DISTINCT a.slug) FILTER (WHERE a.is_active)::bigint AS active
          FROM ai_agents a
@@ -367,18 +375,9 @@ async fn dashboard_stats(
          )",
     )
     .bind(&query.org_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!(error = %e, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
-    })?;
+    .fetch_one(pool);
 
-    let total_agents = agents_row.try_get::<i64, _>("total").unwrap_or(0);
-    let active_agents = agents_row.try_get::<i64, _>("active").unwrap_or(0);
-
-    // Approvals stats (last 24h)
-    let approvals_row = sqlx::query(
+    let approvals_query = sqlx::query(
         "SELECT
            COUNT(*)::bigint AS total,
            COUNT(*) FILTER (WHERE status = 'pending')::bigint AS pending,
@@ -389,15 +388,9 @@ async fn dashboard_stats(
            AND created_at >= now() - interval '24 hours'",
     )
     .bind(&query.org_id)
-    .fetch_one(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!(error = %e, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
-    })?;
+    .fetch_one(pool);
 
-    // Recent activity
-    let recent_rows = sqlx::query(
+    let recent_query = sqlx::query(
         "SELECT agent_slug, tool_name, status, created_at::text, review_note
          FROM agent_approvals
          WHERE organization_id = $1::uuid
@@ -405,12 +398,278 @@ async fn dashboard_stats(
          LIMIT 20",
     )
     .bind(&query.org_id)
-    .fetch_all(pool)
-    .await
+    .fetch_all(pool);
+
+    // Combined ops stats — portfolio, front desk, maintenance in one round-trip
+    let ops_query = sqlx::query(
+        "SELECT
+           (SELECT COUNT(*)::bigint FROM properties
+            WHERE organization_id = $1::uuid) AS total_properties,
+           (SELECT COUNT(*)::bigint FROM units
+            WHERE organization_id = $1::uuid AND is_active = true) AS total_units,
+           (SELECT COUNT(DISTINCT u.id)::bigint FROM units u
+            WHERE u.organization_id = $1::uuid AND u.is_active = true
+              AND (EXISTS (SELECT 1 FROM leases l WHERE l.unit_id = u.id
+                    AND l.organization_id = u.organization_id
+                    AND l.lease_status IN ('active', 'delinquent'))
+                OR EXISTS (SELECT 1 FROM reservations r WHERE r.unit_id = u.id
+                    AND r.organization_id = u.organization_id
+                    AND r.status = 'checked_in'))
+           ) AS occupied_units,
+           ((SELECT COALESCE(SUM(amount), 0) FROM collection_records
+            WHERE organization_id = $1::uuid AND status = 'paid'
+              AND paid_at >= DATE_TRUNC('month', CURRENT_DATE)
+           ) + (SELECT COALESCE(SUM(total_amount), 0) FROM reservations
+            WHERE organization_id = $1::uuid AND status = 'checked_out'
+              AND check_out_date >= DATE_TRUNC('month', CURRENT_DATE)::date
+           ))::bigint AS revenue_mtd,
+           ((SELECT COALESCE(SUM(amount), 0) FROM collection_records
+            WHERE organization_id = $1::uuid AND status = 'paid'
+              AND paid_at >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'
+              AND paid_at < DATE_TRUNC('month', CURRENT_DATE)
+           ) + (SELECT COALESCE(SUM(total_amount), 0) FROM reservations
+            WHERE organization_id = $1::uuid AND status = 'checked_out'
+              AND check_out_date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+              AND check_out_date < DATE_TRUNC('month', CURRENT_DATE)::date
+           ))::bigint AS prev_month_revenue,
+           (SELECT COUNT(*)::bigint FROM reservations
+            WHERE organization_id = $1::uuid
+              AND check_in_date = CURRENT_DATE
+              AND status IN ('pending', 'confirmed')) AS arrivals_today,
+           (SELECT COUNT(*)::bigint FROM reservations
+            WHERE organization_id = $1::uuid
+              AND check_out_date = CURRENT_DATE
+              AND status = 'checked_in') AS departures_today,
+           (SELECT COUNT(*)::bigint FROM reservations
+            WHERE organization_id = $1::uuid
+              AND status = 'checked_in') AS in_house,
+           (SELECT COUNT(*)::bigint FROM maintenance_requests
+            WHERE organization_id = $1::uuid
+              AND status IN ('submitted', 'acknowledged', 'scheduled', 'in_progress')) AS open_tickets,
+           (SELECT COUNT(*)::bigint FROM maintenance_requests
+            WHERE organization_id = $1::uuid
+              AND status IN ('scheduled', 'in_progress')) AS dispatched,
+           (SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600.0)
+              FILTER (WHERE completed_at >= CURRENT_DATE - INTERVAL '30 days'), 0)::float8
+            FROM maintenance_requests
+            WHERE organization_id = $1::uuid
+              AND status IN ('completed', 'closed')
+              AND completed_at IS NOT NULL) AS avg_resolution_hrs",
+    )
+    .bind(&query.org_id)
+    .fetch_one(pool);
+
+    // Today's arrivals detail — guest names + unit codes + property names for front desk
+    let arrivals_detail_query = sqlx::query(
+        "SELECT g.full_name AS guest_name, u.code AS unit_code,
+                u.check_in_time::text AS check_in_time,
+                p.name AS property_name
+         FROM reservations r
+         JOIN units u ON u.id = r.unit_id
+         LEFT JOIN properties p ON p.id = u.property_id
+         LEFT JOIN guests g ON g.id = r.guest_id
+         WHERE r.organization_id = $1::uuid
+           AND r.check_in_date = CURRENT_DATE
+           AND r.status IN ('pending', 'confirmed')
+         ORDER BY u.check_in_time, g.full_name
+         LIMIT 10",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Today's departures detail
+    let departures_detail_query = sqlx::query(
+        "SELECT g.full_name AS guest_name, u.code AS unit_code,
+                u.check_out_time::text AS check_out_time,
+                p.name AS property_name
+         FROM reservations r
+         JOIN units u ON u.id = r.unit_id
+         LEFT JOIN properties p ON p.id = u.property_id
+         LEFT JOIN guests g ON g.id = r.guest_id
+         WHERE r.organization_id = $1::uuid
+           AND r.check_out_date = CURRENT_DATE
+           AND r.status = 'checked_in'
+         ORDER BY u.check_out_time, g.full_name
+         LIMIT 10",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Per-property revenue breakdown for portfolio snapshot
+    let property_revenue_query = sqlx::query(
+        "SELECT p.id, p.name, p.property_type,
+                COALESCE(ltr.amount, 0)::bigint AS ltr_revenue,
+                COALESCE(str.amount, 0)::bigint AS str_revenue,
+                (SELECT COUNT(*) FROM units u WHERE u.property_id = p.id AND u.is_active = true)::bigint AS unit_count,
+                (SELECT COUNT(*) FROM units ou
+                 LEFT JOIN leases ol ON ol.unit_id = ou.id
+                   AND ol.organization_id = p.organization_id
+                   AND ol.lease_status IN ('active','delinquent')
+                 LEFT JOIN reservations orr ON orr.unit_id = ou.id
+                   AND orr.organization_id = p.organization_id
+                   AND orr.status = 'checked_in'
+                 WHERE ou.property_id = p.id AND ou.is_active = true
+                   AND (ol.id IS NOT NULL OR orr.id IS NOT NULL)
+                )::bigint AS occupied_units
+         FROM properties p
+         LEFT JOIN LATERAL (
+           SELECT SUM(cr.amount) AS amount
+           FROM collection_records cr
+           JOIN leases l ON l.id = cr.lease_id
+           WHERE l.property_id = p.id AND l.organization_id = p.organization_id
+             AND cr.status = 'paid'
+             AND cr.paid_at >= DATE_TRUNC('month', CURRENT_DATE)
+         ) ltr ON true
+         LEFT JOIN LATERAL (
+           SELECT SUM(r.total_amount) AS amount
+           FROM reservations r
+           JOIN units u ON u.id = r.unit_id
+           WHERE u.property_id = p.id AND r.organization_id = p.organization_id
+             AND r.status = 'checked_out'
+             AND r.check_out_date >= DATE_TRUNC('month', CURRENT_DATE)::date
+         ) str ON true
+         WHERE p.organization_id = $1::uuid
+         ORDER BY (COALESCE(ltr.amount, 0) + COALESCE(str.amount, 0)) DESC
+         LIMIT 10",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Maintenance items needing attention (top 3 open tickets with details)
+    let maintenance_items_query = sqlx::query(
+        "SELECT mr.title, mr.category::text, mr.urgency::text,
+                p.name AS property_name, u.code AS unit_code
+         FROM maintenance_requests mr
+         LEFT JOIN properties p ON p.id = mr.property_id
+         LEFT JOIN units u ON u.id = mr.unit_id
+         WHERE mr.organization_id = $1::uuid
+           AND mr.status IN ('submitted', 'acknowledged')
+         ORDER BY
+           CASE mr.urgency WHEN 'emergency' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+           mr.created_at ASC
+         LIMIT 3",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Lease renewals due within 30 days
+    let lease_renewals_query = sqlx::query(
+        "SELECT l.tenant_full_name, l.ends_on::text,
+                p.name AS property_name, u.code AS unit_code
+         FROM leases l
+         LEFT JOIN properties p ON p.id = l.property_id
+         LEFT JOIN units u ON u.id = l.unit_id
+         WHERE l.organization_id = $1::uuid
+           AND l.lease_status = 'active'
+           AND l.ends_on IS NOT NULL
+           AND l.ends_on BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
+         ORDER BY l.ends_on ASC
+         LIMIT 3",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Owner statements ready to send (finalized but not yet sent)
+    let statements_ready_query = sqlx::query(
+        "SELECT COUNT(*)::bigint AS count,
+                COALESCE(SUM(net_payout), 0)::bigint AS total_payout
+         FROM owner_statements
+         WHERE organization_id = $1::uuid
+           AND status = 'finalized'
+           AND sent_at IS NULL",
+    )
+    .bind(&query.org_id)
+    .fetch_one(pool);
+
+    // Today's tasks (cleaning, turnovers, inspections) for schedule enrichment
+    let todays_tasks_query = sqlx::query(
+        "SELECT t.title, t.type::text, t.status::text, t.due_at::text,
+                p.name AS property_name, u.code AS unit_code
+         FROM tasks t
+         LEFT JOIN properties p ON p.id = t.property_id
+         LEFT JOIN units u ON u.id = t.unit_id
+         WHERE t.organization_id = $1::uuid
+           AND t.due_at::date = CURRENT_DATE
+           AND t.status != 'cancelled'
+         ORDER BY t.due_at ASC
+         LIMIT 10",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    // Onboarding progress detection
+    let onboarding_query = sqlx::query(
+        "SELECT
+           (SELECT COUNT(*)::bigint FROM properties WHERE organization_id = $1::uuid) AS has_properties,
+           (SELECT COUNT(*)::bigint FROM integrations WHERE organization_id = $1::uuid AND is_active = true) AS has_integrations,
+           (SELECT COUNT(*)::bigint FROM leases WHERE organization_id = $1::uuid AND lease_status IN ('active','delinquent'))
+             + (SELECT COUNT(*)::bigint FROM guests WHERE organization_id = $1::uuid) AS has_tenants_or_guests,
+           (SELECT COUNT(*)::bigint FROM agent_runtime_overrides WHERE organization_id = $1::uuid) AS has_ai_config",
+    )
+    .bind(&query.org_id)
+    .fetch_one(pool);
+
+    // Per-agent live status (idle/active/error) for network visualization
+    let agent_status_query = sqlx::query(
+        "SELECT a.slug AS agent_slug,
+                CASE
+                  WHEN t.last_trace_at IS NULL THEN 'idle'
+                  WHEN t.last_trace_at > now() - INTERVAL '5 minutes' THEN 'active'
+                  WHEN t.success = false THEN 'error'
+                  ELSE 'idle'
+                END AS status,
+                t.last_trace_at::text AS last_active_at
+         FROM ai_agents a
+         LEFT JOIN LATERAL (
+           SELECT created_at AS last_trace_at, success
+           FROM agent_traces
+           WHERE agent_slug = a.slug AND organization_id = $1::uuid
+           ORDER BY created_at DESC LIMIT 1
+         ) t ON true
+         WHERE EXISTS (
+           SELECT 1 FROM ai_chats c
+           WHERE c.agent_id = a.id AND c.organization_id = $1::uuid
+         )",
+    )
+    .bind(&query.org_id)
+    .fetch_all(pool);
+
+    let (
+        agents_row,
+        approvals_row,
+        recent_rows,
+        ops_row,
+        arrival_rows,
+        departure_rows,
+        property_revenue_rows,
+        agent_status_rows,
+        maintenance_items_rows,
+        lease_renewal_rows,
+        statements_ready_row,
+        todays_tasks_rows,
+        onboarding_row,
+    ) = tokio::try_join!(
+        agents_query,
+        approvals_query,
+        recent_query,
+        ops_query,
+        arrivals_detail_query,
+        departures_detail_query,
+        property_revenue_query,
+        agent_status_query,
+        maintenance_items_query,
+        lease_renewals_query,
+        statements_ready_query,
+        todays_tasks_query,
+        onboarding_query
+    )
     .map_err(|e| {
-        tracing::error!(error = %e, "Database query failed");
-        AppError::Dependency("External service request failed.".to_string())
+        tracing::error!(error = %e, "Dashboard stats query failed");
+        AppError::Dependency("Failed to load dashboard stats.".to_string())
     })?;
+
+    let total_agents = agents_row.try_get::<i64, _>("total").unwrap_or(0);
+    let active_agents = agents_row.try_get::<i64, _>("active").unwrap_or(0);
 
     let recent_activity: Vec<Value> = recent_rows
         .iter()
@@ -425,7 +684,55 @@ async fn dashboard_stats(
         })
         .collect();
 
-    // Agent memory count
+    // Extract ops fields
+    let total_properties = ops_row.try_get::<i64, _>("total_properties").unwrap_or(0);
+    let total_units = ops_row.try_get::<i64, _>("total_units").unwrap_or(0);
+    let occupied_units = ops_row.try_get::<i64, _>("occupied_units").unwrap_or(0);
+    let blended_occupancy = if total_units > 0 {
+        (occupied_units * 100) / total_units
+    } else {
+        0
+    };
+    let revenue_mtd = ops_row.try_get::<i64, _>("revenue_mtd").unwrap_or(0);
+    let prev_month_revenue = ops_row.try_get::<i64, _>("prev_month_revenue").unwrap_or(0);
+    let arrivals_today = ops_row.try_get::<i64, _>("arrivals_today").unwrap_or(0);
+    let departures_today = ops_row.try_get::<i64, _>("departures_today").unwrap_or(0);
+    let in_house = ops_row.try_get::<i64, _>("in_house").unwrap_or(0);
+    let open_tickets = ops_row.try_get::<i64, _>("open_tickets").unwrap_or(0);
+    let dispatched = ops_row.try_get::<i64, _>("dispatched").unwrap_or(0);
+    let avg_resolution_hrs = ops_row
+        .try_get::<f64, _>("avg_resolution_hrs")
+        .unwrap_or(0.0)
+        .round() as i64;
+
+    // Build arrivals/departures detail arrays
+    let todays_arrivals: Vec<Value> = arrival_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "guest_name": r.try_get::<Option<String>, _>("guest_name")
+                    .unwrap_or(None).unwrap_or_else(|| "Guest".to_string()),
+                "unit_code": r.try_get::<String, _>("unit_code").unwrap_or_default(),
+                "check_in_time": r.try_get::<Option<String>, _>("check_in_time").unwrap_or(None),
+                "property_name": r.try_get::<Option<String>, _>("property_name").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    let todays_departures: Vec<Value> = departure_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "guest_name": r.try_get::<Option<String>, _>("guest_name")
+                    .unwrap_or(None).unwrap_or_else(|| "Guest".to_string()),
+                "unit_code": r.try_get::<String, _>("unit_code").unwrap_or_default(),
+                "check_out_time": r.try_get::<Option<String>, _>("check_out_time").unwrap_or(None),
+                "property_name": r.try_get::<Option<String>, _>("property_name").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    // Agent memory count — log errors but don't fail the whole response
     let memory_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*)::bigint FROM agent_memory
          WHERE organization_id = $1::uuid AND (expires_at IS NULL OR expires_at > now())",
@@ -433,7 +740,88 @@ async fn dashboard_stats(
     .bind(&query.org_id)
     .fetch_one(pool)
     .await
-    .unwrap_or(0);
+    .unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "agent_memory query failed");
+        0
+    });
+
+    let property_revenue: Vec<Value> = property_revenue_rows
+        .iter()
+        .map(|r| {
+            let ltr = r.try_get::<i64, _>("ltr_revenue").unwrap_or(0);
+            let str_rev = r.try_get::<i64, _>("str_revenue").unwrap_or(0);
+            let rev_type = if ltr > str_rev { "ltr" } else { "str" };
+            let units = r.try_get::<i64, _>("unit_count").unwrap_or(0);
+            let occ = r.try_get::<i64, _>("occupied_units").unwrap_or(0);
+            json!({
+                "name": r.try_get::<String, _>("name").unwrap_or_default(),
+                "type": rev_type,
+                "revenue": ltr + str_rev,
+                "units": units,
+                "occupied_units": occ,
+                "occupancy": if units > 0 { (occ * 100) / units } else { 0 },
+            })
+        })
+        .collect();
+
+    // Build new response fields
+    let maintenance_items: Vec<Value> = maintenance_items_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "title": r.try_get::<String, _>("title").unwrap_or_default(),
+                "category": r.try_get::<String, _>("category").unwrap_or_default(),
+                "urgency": r.try_get::<String, _>("urgency").unwrap_or_default(),
+                "property_name": r.try_get::<Option<String>, _>("property_name").unwrap_or(None),
+                "unit_code": r.try_get::<Option<String>, _>("unit_code").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    let lease_renewals: Vec<Value> = lease_renewal_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "tenant_name": r.try_get::<String, _>("tenant_full_name").unwrap_or_default(),
+                "ends_on": r.try_get::<String, _>("ends_on").unwrap_or_default(),
+                "property_name": r.try_get::<Option<String>, _>("property_name").unwrap_or(None),
+                "unit_code": r.try_get::<Option<String>, _>("unit_code").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    let statements_count = statements_ready_row.try_get::<i64, _>("count").unwrap_or(0);
+    let statements_total_payout = statements_ready_row.try_get::<i64, _>("total_payout").unwrap_or(0);
+
+    let todays_tasks: Vec<Value> = todays_tasks_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "title": r.try_get::<String, _>("title").unwrap_or_default(),
+                "type": r.try_get::<String, _>("type").unwrap_or_default(),
+                "status": r.try_get::<String, _>("status").unwrap_or_default(),
+                "due_at": r.try_get::<Option<String>, _>("due_at").unwrap_or(None),
+                "property_name": r.try_get::<Option<String>, _>("property_name").unwrap_or(None),
+                "unit_code": r.try_get::<Option<String>, _>("unit_code").unwrap_or(None),
+            })
+        })
+        .collect();
+
+    let onb_properties = onboarding_row.try_get::<i64, _>("has_properties").unwrap_or(0);
+    let onb_integrations = onboarding_row.try_get::<i64, _>("has_integrations").unwrap_or(0);
+    let onb_tenants = onboarding_row.try_get::<i64, _>("has_tenants_or_guests").unwrap_or(0);
+    let onb_ai = onboarding_row.try_get::<i64, _>("has_ai_config").unwrap_or(0);
+
+    let agent_statuses: Vec<Value> = agent_status_rows
+        .iter()
+        .map(|r| {
+            json!({
+                "slug": r.try_get::<String, _>("agent_slug").unwrap_or_default(),
+                "status": r.try_get::<String, _>("status").unwrap_or("idle".to_string()),
+                "last_active_at": r.try_get::<Option<String>, _>("last_active_at").unwrap_or(None),
+            })
+        })
+        .collect();
 
     Ok(Json(json!({
         "agents": {
@@ -448,6 +836,35 @@ async fn dashboard_stats(
         },
         "memory_count": memory_count,
         "recent_activity": recent_activity,
+        "agent_statuses": agent_statuses,
+        "total_properties": total_properties,
+        "total_units": total_units,
+        "occupied_units": occupied_units,
+        "blended_occupancy": blended_occupancy,
+        "revenue_mtd": revenue_mtd,
+        "prev_month_revenue": prev_month_revenue,
+        "arrivals_today": arrivals_today,
+        "departures_today": departures_today,
+        "in_house": in_house,
+        "todays_arrivals": todays_arrivals,
+        "todays_departures": todays_departures,
+        "open_tickets": open_tickets,
+        "dispatched": dispatched,
+        "avg_resolution_hrs": avg_resolution_hrs,
+        "property_revenue": property_revenue,
+        "maintenance_items": maintenance_items,
+        "lease_renewals": lease_renewals,
+        "statements_ready": {
+            "count": statements_count,
+            "total_payout": statements_total_payout,
+        },
+        "todays_tasks": todays_tasks,
+        "onboarding": {
+            "has_properties": onb_properties > 0,
+            "has_integrations": onb_integrations > 0,
+            "has_tenants_or_guests": onb_tenants > 0,
+            "has_ai_config": onb_ai > 0,
+        },
     })))
 }
 

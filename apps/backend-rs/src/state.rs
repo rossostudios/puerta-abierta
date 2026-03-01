@@ -1,17 +1,12 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
+use std::{sync::Arc, time::Duration};
 
 use reqwest::Client;
 use serde::Serialize;
-use serde_json::Value;
 use sqlx::{PgPool, Row};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::{
-    config::AppConfig, db::create_pool, db::probe_pool, error::AppResult,
+    cache::CacheLayer, config::AppConfig, db::create_pool, db::probe_pool, error::AppResult,
     services::llm_client::LlmClient,
 };
 
@@ -73,9 +68,12 @@ pub struct AppState {
     pub http_client: Client,
     pub llm_client: LlmClient,
     pub clerk_jwks_cache: Option<JwksCache>,
-    pub org_membership_cache: OrgMembershipCache,
-    pub public_listings_cache: PublicListingsCache,
-    pub report_response_cache: ReportResponseCache,
+    pub org_membership_cache: CacheLayer,
+    pub public_listings_cache: CacheLayer,
+    pub report_response_cache: CacheLayer,
+    pub enrichment_cache: CacheLayer,
+    pub agent_config_cache: CacheLayer,
+    pub fx_cache: CacheLayer,
 }
 
 impl AppState {
@@ -93,17 +91,35 @@ impl AppState {
             .as_ref()
             .map(|url| JwksCache::new(url.clone(), http_client.clone()));
 
-        let org_membership_cache = OrgMembershipCache::new(
-            config.org_membership_cache_ttl_seconds,
-            config.org_membership_cache_max_entries,
+        let org_membership_cache = CacheLayer::new(
+            "org_membership",
+            config.org_membership_cache_max_entries as u64,
+            Duration::from_secs(config.org_membership_cache_ttl_seconds.max(1)),
         );
-        let public_listings_cache = PublicListingsCache::new(
-            config.public_listings_cache_ttl_seconds,
-            config.public_listings_cache_max_entries,
+        let public_listings_cache = CacheLayer::new(
+            "public_listings",
+            config.public_listings_cache_max_entries as u64,
+            Duration::from_secs(config.public_listings_cache_ttl_seconds.max(1)),
         );
-        let report_response_cache = ReportResponseCache::new(
-            config.report_response_cache_ttl_seconds,
-            config.report_response_cache_max_entries,
+        let report_response_cache = CacheLayer::new(
+            "reports",
+            config.report_response_cache_max_entries as u64,
+            Duration::from_secs(config.report_response_cache_ttl_seconds.max(1)),
+        );
+        let enrichment_cache = CacheLayer::new(
+            "enrichment",
+            config.enrichment_cache_max_entries as u64,
+            Duration::from_secs(config.enrichment_cache_ttl_seconds.max(1)),
+        );
+        let agent_config_cache = CacheLayer::new(
+            "agent_config",
+            config.agent_config_cache_max_entries as u64,
+            Duration::from_secs(config.agent_config_cache_ttl_seconds.max(1)),
+        );
+        let fx_cache = CacheLayer::new(
+            "fx",
+            config.fx_cache_max_entries as u64,
+            Duration::from_secs(config.fx_cache_ttl_seconds.max(1)),
         );
 
         let config = Arc::new(config);
@@ -118,6 +134,9 @@ impl AppState {
             org_membership_cache,
             public_listings_cache,
             report_response_cache,
+            enrichment_cache,
+            agent_config_cache,
+            fx_cache,
         })
     }
 
@@ -170,237 +189,6 @@ impl AppState {
             retryable: false,
             missing_columns: Vec::new(),
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct OrgMembershipCache {
-    ttl: Duration,
-    max_entries: usize,
-    entries: Arc<RwLock<HashMap<String, CachedOrgMembership>>>,
-    key_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
-}
-
-#[derive(Clone)]
-struct CachedOrgMembership {
-    value: Option<Value>,
-    expires_at: Instant,
-}
-
-#[derive(Clone)]
-pub struct PublicListingsCache {
-    ttl: Duration,
-    max_entries: usize,
-    entries: Arc<RwLock<HashMap<String, CachedPublicListings>>>,
-    key_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
-}
-
-#[derive(Clone)]
-struct CachedPublicListings {
-    value: Value,
-    expires_at: Instant,
-}
-
-#[derive(Clone)]
-pub struct ReportResponseCache {
-    ttl: Duration,
-    max_entries: usize,
-    entries: Arc<RwLock<HashMap<String, CachedReportResponse>>>,
-    key_locks: Arc<Mutex<HashMap<String, Arc<Mutex<()>>>>>,
-}
-
-#[derive(Clone)]
-struct CachedReportResponse {
-    value: Value,
-    expires_at: Instant,
-}
-
-impl OrgMembershipCache {
-    pub fn new(ttl_seconds: u64, max_entries: usize) -> Self {
-        Self {
-            ttl: Duration::from_secs(ttl_seconds.max(1)),
-            max_entries: max_entries.max(100),
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            key_locks: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    fn key(user_id: &str, org_id: &str) -> String {
-        format!("{org_id}:{user_id}")
-    }
-
-    pub async fn get(&self, user_id: &str, org_id: &str) -> Option<Option<Value>> {
-        let key = Self::key(user_id, org_id);
-        let now = Instant::now();
-        let entry = {
-            let entries = self.entries.read().await;
-            entries.get(&key).cloned()
-        };
-
-        match entry {
-            Some(cached) if cached.expires_at > now => Some(cached.value),
-            Some(_) => {
-                self.entries.write().await.remove(&key);
-                None
-            }
-            None => None,
-        }
-    }
-
-    pub async fn put(&self, user_id: &str, org_id: &str, value: Option<Value>) {
-        let key = Self::key(user_id, org_id);
-        let mut entries = self.entries.write().await;
-        if entries.len() >= self.max_entries {
-            let now = Instant::now();
-            entries.retain(|_, cached| cached.expires_at > now);
-            if entries.len() >= self.max_entries {
-                entries.clear();
-            }
-        }
-        entries.insert(
-            key,
-            CachedOrgMembership {
-                value,
-                expires_at: Instant::now() + self.ttl,
-            },
-        );
-    }
-
-    pub async fn invalidate(&self, user_id: &str, org_id: &str) {
-        let key = Self::key(user_id, org_id);
-        self.entries.write().await.remove(&key);
-    }
-
-    pub async fn key_lock(&self, user_id: &str, org_id: &str) -> Arc<Mutex<()>> {
-        let key = Self::key(user_id, org_id);
-        let mut locks = self.key_locks.lock().await;
-        if locks.len() >= self.max_entries {
-            locks.clear();
-        }
-        locks
-            .entry(key)
-            .or_insert_with(|| Arc::new(Mutex::new(())))
-            .clone()
-    }
-}
-
-impl PublicListingsCache {
-    pub fn new(ttl_seconds: u64, max_entries: usize) -> Self {
-        Self {
-            ttl: Duration::from_secs(ttl_seconds.max(1)),
-            max_entries: max_entries.max(100),
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            key_locks: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub async fn get(&self, key: &str) -> Option<Value> {
-        let now = Instant::now();
-        let entry = {
-            let entries = self.entries.read().await;
-            entries.get(key).cloned()
-        };
-
-        match entry {
-            Some(cached) if cached.expires_at > now => Some(cached.value),
-            Some(_) => {
-                self.entries.write().await.remove(key);
-                None
-            }
-            None => None,
-        }
-    }
-
-    pub async fn put(&self, key: String, value: Value) {
-        let mut entries = self.entries.write().await;
-        if entries.len() >= self.max_entries {
-            let now = Instant::now();
-            entries.retain(|_, cached| cached.expires_at > now);
-            if entries.len() >= self.max_entries {
-                entries.clear();
-            }
-        }
-
-        entries.insert(
-            key,
-            CachedPublicListings {
-                value,
-                expires_at: Instant::now() + self.ttl,
-            },
-        );
-    }
-
-    pub async fn clear(&self) {
-        self.entries.write().await.clear();
-    }
-
-    pub async fn key_lock(&self, key: &str) -> Arc<Mutex<()>> {
-        let mut locks = self.key_locks.lock().await;
-        if locks.len() >= self.max_entries {
-            locks.clear();
-        }
-        locks
-            .entry(key.to_string())
-            .or_insert_with(|| Arc::new(Mutex::new(())))
-            .clone()
-    }
-}
-
-impl ReportResponseCache {
-    pub fn new(ttl_seconds: u64, max_entries: usize) -> Self {
-        Self {
-            ttl: Duration::from_secs(ttl_seconds.max(1)),
-            max_entries: max_entries.max(100),
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            key_locks: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
-
-    pub async fn get(&self, key: &str) -> Option<Value> {
-        let now = Instant::now();
-        let entry = {
-            let entries = self.entries.read().await;
-            entries.get(key).cloned()
-        };
-
-        match entry {
-            Some(cached) if cached.expires_at > now => Some(cached.value),
-            Some(_) => {
-                self.entries.write().await.remove(key);
-                None
-            }
-            None => None,
-        }
-    }
-
-    pub async fn put(&self, key: String, value: Value) {
-        let mut entries = self.entries.write().await;
-        if entries.len() >= self.max_entries {
-            let now = Instant::now();
-            entries.retain(|_, cached| cached.expires_at > now);
-            if entries.len() >= self.max_entries {
-                entries.clear();
-            }
-        }
-
-        entries.insert(
-            key,
-            CachedReportResponse {
-                value,
-                expires_at: Instant::now() + self.ttl,
-            },
-        );
-    }
-
-    pub async fn key_lock(&self, key: &str) -> Arc<Mutex<()>> {
-        let mut locks = self.key_locks.lock().await;
-        if locks.len() >= self.max_entries {
-            locks.clear();
-        }
-        locks
-            .entry(key.to_string())
-            .or_insert_with(|| Arc::new(Mutex::new(())))
-            .clone()
     }
 }
 

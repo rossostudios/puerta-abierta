@@ -83,11 +83,6 @@ async fn owner_summary_report(
     if let Some(cached) = state.report_response_cache.get(&cache_key).await {
         return Ok(Json(cached));
     }
-    let key_lock = state.report_response_cache.key_lock(&cache_key).await;
-    let _guard = key_lock.lock().await;
-    if let Some(cached) = state.report_response_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
 
     let pool = db_pool(&state)?;
 
@@ -222,7 +217,7 @@ async fn owner_summary_report(
 
     state
         .report_response_cache
-        .put(cache_key, response.clone())
+        .insert(cache_key, response.clone())
         .await;
     Ok(Json(response))
 }
@@ -242,11 +237,6 @@ async fn operations_summary_report(
     let now_utc = Utc::now();
 
     let cache_key = report_cache_key("operations_summary", &query);
-    if let Some(cached) = state.report_response_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
-    let key_lock = state.report_response_cache.key_lock(&cache_key).await;
-    let _guard = key_lock.lock().await;
     if let Some(cached) = state.report_response_cache.get(&cache_key).await {
         return Ok(Json(cached));
     }
@@ -365,7 +355,7 @@ async fn operations_summary_report(
 
     state
         .report_response_cache
-        .put(cache_key, response.clone())
+        .insert(cache_key, response.clone())
         .await;
     Ok(Json(response))
 }
@@ -796,11 +786,6 @@ async fn kpi_dashboard(
     if let Some(cached) = state.report_response_cache.get(&cache_key).await {
         return Ok(Json(cached));
     }
-    let key_lock = state.report_response_cache.key_lock(&cache_key).await;
-    let _guard = key_lock.lock().await;
-    if let Some(cached) = state.report_response_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
 
     let pool = db_pool(&state)?;
 
@@ -991,7 +976,7 @@ async fn kpi_dashboard(
 
     state
         .report_response_cache
-        .put(cache_key, response.clone())
+        .insert(cache_key, response.clone())
         .await;
     Ok(Json(response))
 }

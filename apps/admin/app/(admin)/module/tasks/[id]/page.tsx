@@ -35,6 +35,7 @@ import {
   taskStatusActions,
 } from "@/lib/features/tasks/helpers";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
@@ -86,14 +87,6 @@ class ApiRequestError extends Error {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
-  }
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
   }
 }
 

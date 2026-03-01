@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { fetchMe } from "@/lib/api";
 import { buildDocumentationSnapshot } from "@/lib/documentation/wiki";
+import { NoOrgCard } from "@/lib/page-helpers";
 import type { Locale } from "@/lib/i18n";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -72,20 +73,10 @@ export default async function DocumentationPage({
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to access the documentation workspace."
-              : "Selecciona una organización para acceder al espacio de documentación."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["the documentation workspace", "el espacio de documentación"]}
+      />
     );
   }
 

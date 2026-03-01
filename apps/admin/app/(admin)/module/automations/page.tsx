@@ -18,6 +18,7 @@ import {
 } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
 import { cn } from "@/lib/utils";
 
@@ -31,14 +32,6 @@ type AutomationsTab = "rules" | "sequences" | "visual-builder";
 type PageProps = {
   searchParams: Promise<{ tab?: string; success?: string; error?: string }>;
 };
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 function normalizeTab(value: string | undefined): AutomationsTab {
   if (value === "sequences") return "sequences";

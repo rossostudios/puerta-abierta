@@ -51,14 +51,6 @@ export type StepDef = {
   active: boolean;
 };
 
-export function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
 export function asString(value: unknown): string {
   if (typeof value === "string") return value;
   if (value === null || value === undefined) return "";

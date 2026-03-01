@@ -1,16 +1,7 @@
-import { redirect } from "next/navigation";
-import {
-  buildRedirectPath,
-  type LegacyRouteSearchParams,
-} from "@/lib/module-redirect";
+import { getActiveLocale } from "@/lib/i18n/server";
+import { ChannelsManager } from "./channels-manager";
 
-type PageProps = {
-  searchParams: Promise<LegacyRouteSearchParams>;
-};
-
-export default async function LegacyChannelsModulePage({
-  searchParams,
-}: PageProps) {
-  const params = await searchParams;
-  redirect(buildRedirectPath("/module/integrations", params, {}));
+export default async function ChannelsPage() {
+  const locale = await getActiveLocale();
+  return <ChannelsManager locale={locale} />;
 }

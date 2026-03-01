@@ -1,16 +1,9 @@
 import type { StatusTone } from "@/components/ui/status-badge";
+import { asNumber, asString } from "@/lib/module-helpers";
 import { RESPONSE_SLA_TARGET_MINUTES } from "./constants";
 import type { ApplicationRow } from "./types";
 
-export function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
-}
-
-export function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
+export { asNumber, asString };
 
 export function asBoolean(value: unknown): boolean {
   return value === true;

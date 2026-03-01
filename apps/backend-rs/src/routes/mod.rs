@@ -54,7 +54,7 @@ pub mod voice_agent;
 pub mod workflows;
 
 async fn public_fx_rate(State(state): State<AppState>) -> Json<Value> {
-    let rate = crate::services::fx::get_cached_usd_pyg_rate(&state.http_client).await;
+    let rate = crate::services::fx::get_cached_usd_pyg_rate(&state).await;
     Json(json!({ "usd_pyg": rate }))
 }
 
@@ -63,6 +63,7 @@ pub fn v1_router() -> Router<AppState> {
         .route("/live", get(health::live))
         .route("/ready", get(health::ready))
         .route("/health", get(health::health))
+        .route("/health/cache-stats", get(health::cache_stats))
         .route("/me", get(identity::me))
         .route("/public/fx/usd-pyg", get(public_fx_rate))
         .merge(agent_chats::router())

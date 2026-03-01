@@ -10,7 +10,7 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 57
     threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
-    subscriber_email_addresses = ["chrisrossonyc@gmail.com"]
+    subscriber_email_addresses = [var.budget_notification_email]
   }
 
   notification {
@@ -18,7 +18,7 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 80
     threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
-    subscriber_email_addresses = ["chrisrossonyc@gmail.com"]
+    subscriber_email_addresses = [var.budget_notification_email]
   }
 
   notification {
@@ -26,7 +26,7 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 100
     threshold_type             = "PERCENTAGE"
     notification_type          = "ACTUAL"
-    subscriber_email_addresses = ["chrisrossonyc@gmail.com"]
+    subscriber_email_addresses = [var.budget_notification_email]
   }
 
   notification {
@@ -34,6 +34,6 @@ resource "aws_budgets_budget" "monthly" {
     threshold                  = 85
     threshold_type             = "PERCENTAGE"
     notification_type          = "FORECASTED"
-    subscriber_email_addresses = ["chrisrossonyc@gmail.com"]
+    subscriber_email_addresses = [var.budget_notification_email]
   }
 }

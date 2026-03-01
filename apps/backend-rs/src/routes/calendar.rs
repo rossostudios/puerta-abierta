@@ -54,19 +54,35 @@ async fn calendar_availability(
 
     let mut unavailable: Vec<(String, String)> = Vec::new();
 
-    let reservations = list_rows(
-        pool,
-        "reservations",
-        Some(&json_map(&[
-            ("organization_id", Value::String(query.org_id.clone())),
-            ("unit_id", Value::String(query.unit_id.clone())),
-        ])),
-        1000,
-        0,
-        "created_at",
-        false,
-    )
-    .await?;
+    // Fetch reservations and calendar blocks in parallel
+    let res_filters = json_map(&[
+        ("organization_id", Value::String(query.org_id.clone())),
+        ("unit_id", Value::String(query.unit_id.clone())),
+    ]);
+    let block_filters = json_map(&[
+        ("organization_id", Value::String(query.org_id.clone())),
+        ("unit_id", Value::String(query.unit_id.clone())),
+    ]);
+    let (reservations, blocks) = tokio::try_join!(
+        list_rows(
+            pool,
+            "reservations",
+            Some(&res_filters),
+            1000,
+            0,
+            "created_at",
+            false
+        ),
+        list_rows(
+            pool,
+            "calendar_blocks",
+            Some(&block_filters),
+            1000,
+            0,
+            "created_at",
+            false
+        ),
+    )?;
 
     for reservation in reservations {
         let Some(obj) = reservation.as_object() else {
@@ -93,20 +109,6 @@ async fn calendar_availability(
             unavailable.push((check_in_raw, check_out_raw));
         }
     }
-
-    let blocks = list_rows(
-        pool,
-        "calendar_blocks",
-        Some(&json_map(&[
-            ("organization_id", Value::String(query.org_id.clone())),
-            ("unit_id", Value::String(query.unit_id.clone())),
-        ])),
-        1000,
-        0,
-        "created_at",
-        false,
-    )
-    .await?;
 
     for block in blocks {
         let Some(obj) = block.as_object() else {
@@ -172,7 +174,7 @@ async fn list_calendar_blocks(
         true,
     )
     .await?;
-    let enriched = enrich_calendar_blocks(pool, rows, &query.org_id).await?;
+    let enriched = enrich_calendar_blocks(&state, pool, rows, &query.org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -270,7 +272,7 @@ async fn get_calendar_block(
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
 
-    let mut enriched = enrich_calendar_blocks(pool, vec![record], &org_id).await?;
+    let mut enriched = enrich_calendar_blocks(&state, pool, vec![record], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))
@@ -291,7 +293,7 @@ async fn update_calendar_block(
 
     let patch = remove_nulls(serialize_to_map(&payload));
     if patch.is_empty() {
-        let mut enriched = enrich_calendar_blocks(pool, vec![record], &org_id).await?;
+        let mut enriched = enrich_calendar_blocks(&state, pool, vec![record], &org_id).await?;
         return Ok(Json(
             enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
         ));
@@ -334,7 +336,7 @@ async fn update_calendar_block(
     )
     .await;
 
-    let mut enriched = enrich_calendar_blocks(pool, vec![updated], &org_id).await?;
+    let mut enriched = enrich_calendar_blocks(&state, pool, vec![updated], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))

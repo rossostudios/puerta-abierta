@@ -1,9 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
+import { EASING } from "@/lib/module-helpers";
 import { cn } from "@/lib/utils";
-
-const EASING = [0.22, 1, 0.36, 1] as const;
 
 export function AnimatedNavList({
   children,

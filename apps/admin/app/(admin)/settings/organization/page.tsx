@@ -7,7 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchJson, getApiBaseUrl } from "@/lib/api";
+import { fetchJson } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -44,31 +45,14 @@ export default async function OrganizationSettingsPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to configure settings."
-              : "Selecciona una organización para configurar."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["organization settings", "la configuración de organización"]}
+      />
     );
   }
 
   let org: OrgRecord | null = null;
-  const orgApiFailTitle = isEn
-    ? "API connection failed"
-    : "Fallo de conexión a la API";
-  const orgApiFailDesc = isEn
-    ? "Could not load organization details."
-    : "No se pudieron cargar los datos de la organización.";
-  const orgBackendLabel = isEn ? "Backend base URL" : "URL base del backend";
 
   try {
     const raw = await fetchJson<Record<string, unknown>>(
@@ -107,23 +91,7 @@ export default async function OrganizationSettingsPage() {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{orgApiFailTitle}</CardTitle>
-          <CardDescription>{orgApiFailDesc}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {orgBackendLabel}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

@@ -9,7 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import {
   type Conversation,
@@ -72,33 +73,7 @@ export default async function MessagingModulePage({ searchParams }: PageProps) {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load the inbox."
-              : "Selecciona una organización para cargar la bandeja."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          {isEn ? (
-            <>
-              Select an organization from the top bar, or create one in{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          ) : (
-            <>
-              Selecciona una organización desde la barra superior o crea una en{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <NoOrgCard isEn={isEn} resource={["the inbox", "la bandeja"]} />
     );
   }
 
@@ -130,29 +105,7 @@ export default async function MessagingModulePage({ searchParams }: PageProps) {
   }
 
   if (fetchError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load message logs from the backend."
-              : "No se pudieron cargar los registros de mensajes desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{fetchError}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={fetchError} />;
   }
 
   const templates = templateRows.map(toMessageTemplate);

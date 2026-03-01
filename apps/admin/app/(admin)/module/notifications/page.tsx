@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { getActiveOrgId } from "@/lib/org";
 
 import { NotificationsManager } from "./notifications-manager";
@@ -26,20 +27,10 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load notifications."
-              : "Selecciona una organización para cargar las notificaciones."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["notifications", "las notificaciones"]}
+      />
     );
   }
 

@@ -1,12 +1,12 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { ChatThread } from "@/components/agent/chat-thread";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchJson } from "@/lib/api";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 type PageProps = {
-  searchParams: Promise<{ new?: string; agent?: string }>;
+  searchParams: Promise<{ new?: string; agent?: string; prompt?: string }>;
 };
 
 export default async function AgentsPage({ searchParams }: PageProps) {
@@ -20,27 +20,7 @@ export default async function AgentsPage({ searchParams }: PageProps) {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="warning">
-            <AlertTitle>
-              {isEn ? "Select an organization" : "Selecciona una organización"}
-            </AlertTitle>
-            <AlertDescription>
-              {isEn
-                ? "Agents require an active organization to operate on scoped data."
-                : "Los agentes requieren una organización activa para operar sobre datos con alcance."}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <NoOrgCard isEn={isEn} resource={["agents", "agentes"]} />
     );
   }
 
@@ -49,12 +29,28 @@ export default async function AgentsPage({ searchParams }: PageProps) {
       ? params.agent.trim()
       : "supervisor";
 
+  let dashboardStats: Record<string, unknown> = {};
+  try {
+    dashboardStats = await fetchJson<Record<string, unknown>>(
+      "/ai-agents/dashboard/stats",
+      { org_id: orgId }
+    );
+  } catch {
+    // Stats are non-critical — CommandCenter gracefully handles empty data
+  }
+
   return (
     <div className="-m-3 h-[calc(100vh-3.5rem)] sm:-m-4 lg:-m-5 xl:-m-7">
       <ChatThread
+        dashboardStats={dashboardStats}
         defaultAgentSlug={initialAgentSlug}
         firstName={user?.firstName ?? undefined}
         freshKey={typeof params.new === "string" ? params.new : undefined}
+        initialPrompt={
+          typeof params.prompt === "string" && params.prompt.trim()
+            ? params.prompt.trim()
+            : undefined
+        }
         locale={locale}
         mode="hero"
         orgId={orgId}

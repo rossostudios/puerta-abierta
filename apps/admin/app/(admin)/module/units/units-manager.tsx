@@ -1,33 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createUnitFromUnitsModuleAction } from "@/app/(admin)/module/units/actions";
-import { UnitsFilterBar } from "@/app/(admin)/module/units/components/units-filter-bar";
-import { DataImportSheet } from "@/components/import/data-import-sheet";
-import { PageHeader } from "@/components/shared/page-header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Form } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Sheet } from "@/components/ui/sheet";
-import {
-  UnitNotionTable,
-  type UnitRow,
-} from "@/components/units/unit-notion-table";
-import type {
-  UnitBedroomFilter,
-  UnitStatusFilter,
-  UnitViewMode,
-} from "@/lib/features/units/types";
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { AnimatePresence, motion } from "motion/react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { SectionLabel } from "@/components/agent/briefing/helpers";
+import { Icon } from "@/components/ui/icon";
+import type { UnitRow } from "@/components/units/unit-notion-table";
 import { useActiveLocale } from "@/lib/i18n/client";
+import { bold, EASING } from "@/lib/module-helpers";
+import { cn } from "@/lib/utils";
 
-type PropertyRow = {
-  id: string;
-  name?: string | null;
-  code?: string | null;
-};
+/* ------------------------------------------------------------------ */
+/* Types                                                              */
+/* ------------------------------------------------------------------ */
 
 type InternalUnitRow = {
   id: string;
@@ -42,61 +29,23 @@ type InternalUnitRow = {
   is_active?: boolean | null;
 };
 
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v : v ? String(v) : "";
 }
 
-function asNumber(value: unknown): number | null {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+function asNum(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
 }
 
-const UNIT_CODE_SUFFIX_RE = /^(.*?)(\d+)$/;
-
-function normalizeCode(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-function suggestNextUnitCode(
-  code: string,
-  existingCodes: Iterable<string>
-): string {
-  const normalizedExisting = new Set(
-    Array.from(existingCodes)
-      .map((item) => normalizeCode(item))
-      .filter(Boolean)
-  );
-  const base = code.trim();
-  if (!base) return "A1";
-  if (!normalizedExisting.has(normalizeCode(base))) return base;
-
-  const suffixMatch = UNIT_CODE_SUFFIX_RE.exec(base);
-  if (suffixMatch) {
-    const [, prefix, digits] = suffixMatch;
-    const width = digits.length;
-    const start = Number.parseInt(digits, 10);
-    for (
-      let nextValue = start + 1;
-      nextValue < start + 10_000;
-      nextValue += 1
-    ) {
-      const candidate = `${prefix}${String(nextValue).padStart(width, "0")}`;
-      if (!normalizedExisting.has(normalizeCode(candidate))) {
-        return candidate;
-      }
-    }
-  }
-
-  for (let suffix = 2; suffix < 10_000; suffix += 1) {
-    const candidate = `${base}-${suffix}`;
-    if (!normalizedExisting.has(normalizeCode(candidate))) {
-      return candidate;
-    }
-  }
-
-  return `${base}-${normalizedExisting.size + 1}`;
-}
+/* ------------------------------------------------------------------ */
+/* UnitsManager                                                       */
+/* ------------------------------------------------------------------ */
 
 export function UnitsManager({
   orgId,
@@ -113,466 +62,376 @@ export function UnitsManager({
 }) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
-  const [open, setOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setOpen(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("new");
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
-  }, []);
+  const propertyCount = properties.filter((p) => asStr(p.id).trim()).length;
 
-  /* --- filter state --- */
-  const [query, setQuery] = useState("");
-  const [propertyFilter, setPropertyFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState<UnitStatusFilter>("all");
-  const [bedroomFilter, setBedroomFilter] = useState<UnitBedroomFilter>("all");
-  const [viewMode, setViewMode] = useState<UnitViewMode>("table");
+  const rows = useMemo<UnitRow[]>(
+    () =>
+      (units as InternalUnitRow[]).map((r) => ({
+        id: asStr(r.id).trim(),
+        property_id: asStr(r.property_id).trim() || null,
+        property_name: asStr(r.property_name).trim() || null,
+        code: asStr(r.code).trim() || null,
+        name: asStr(r.name).trim() || null,
+        max_guests: asNum(r.max_guests),
+        bedrooms: asNum(r.bedrooms),
+        bathrooms: asNum(r.bathrooms),
+        currency: asStr(r.currency).trim() || null,
+        is_active: typeof r.is_active === "boolean" ? r.is_active : Boolean(r.is_active),
+      })),
+    [units],
+  );
 
-  /* --- create sheet state --- */
-  const [createPropertyId, setCreatePropertyId] = useState("");
-  const [draftCode, setDraftCode] = useState("");
+  const occupied = rows.filter((r) => r.is_active).length;
+  const occupancyPct = rows.length > 0 ? Math.round((occupied / rows.length) * 100) : 0;
 
-  const propertyOptions = useMemo(() => {
-    return (properties as PropertyRow[])
-      .map((property) => {
-        const id = asString(property.id).trim();
-        if (!id) return null;
-        const name = asString(property.name).trim();
-        const code = asString(property.code).trim();
-        const label = [name, code].filter(Boolean).join(" · ");
-        return { id, label: label || id };
-      })
-      .filter((item): item is { id: string; label: string } => Boolean(item))
-      .sort((left, right) => left.label.localeCompare(right.label));
-  }, [properties]);
+  const metrics = [
+    { label: isEn ? "Revenue MTD" : "Ingresos del mes", value: "\u20B20", tone: "default" as const },
+    {
+      label: isEn ? "Avg Occupancy" : "Ocupaci\u00F3n prom.",
+      value: `${occupancyPct}%`,
+      tone: occupancyPct >= 80 ? ("success" as const) : occupancyPct >= 50 ? ("warning" as const) : ("danger" as const),
+    },
+    { label: isEn ? "Units Occupied" : "Unidades ocupadas", value: `${occupied}/${rows.length}`, tone: "default" as const },
+    { label: isEn ? "Open Tickets" : "Tickets abiertos", value: "0", tone: "default" as const },
+  ];
 
-  /* --- all rows (unfiltered) --- */
-  const allRows = useMemo<UnitRow[]>(() => {
-    return (units as InternalUnitRow[]).map((row) => ({
-      id: asString(row.id).trim(),
-      property_id: asString(row.property_id).trim() || null,
-      property_name: asString(row.property_name).trim() || null,
-      code: asString(row.code).trim() || null,
-      name: asString(row.name).trim() || null,
-      max_guests: asNumber(row.max_guests),
-      bedrooms: asNumber(row.bedrooms),
-      bathrooms: asNumber(row.bathrooms),
-      currency: asString(row.currency).trim() || null,
-      is_active:
-        typeof row.is_active === "boolean"
-          ? row.is_active
-          : Boolean(row.is_active),
-    }));
-  }, [units]);
+  return (
+    <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl flex-col px-4 py-8 sm:px-6">
+      <div className="space-y-8">
+        {/* Alex overview */}
+        <AlexOverview isEn={isEn} rows={rows} propertyCount={propertyCount} />
 
-  /* --- bedroom options derived from all rows --- */
-  const bedroomOptions = useMemo(() => {
-    return Array.from(
-      new Set(
-        allRows
-          .map((r) => r.bedrooms)
-          .filter((b): b is number => b !== null && b !== undefined)
-      )
-    ).sort((a, b) => a - b);
-  }, [allRows]);
+        {/* Metric cards */}
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+          initial={{ opacity: 0, y: 8 }}
+          transition={{ delay: 0.1, duration: 0.35, ease: EASING }}
+        >
+          {metrics.map((m, i) => (
+            <motion.div
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass-inner rounded-xl p-4"
+              initial={{ opacity: 0, scale: 0.97 }}
+              key={m.label}
+              transition={{ delay: 0.15 + i * 0.05, duration: 0.3, ease: EASING }}
+            >
+              <p
+                className={cn(
+                  "font-semibold text-xl tabular-nums tracking-tight",
+                  m.tone === "success" && "text-emerald-600 dark:text-emerald-400",
+                  m.tone === "warning" && "text-amber-600 dark:text-amber-400",
+                  m.tone === "danger" && "text-red-600 dark:text-red-400",
+                  m.tone === "default" && "text-foreground",
+                )}
+              >
+                {m.value}
+              </p>
+              <p className="mt-1 text-muted-foreground/70 text-xs">{m.label}</p>
+            </motion.div>
+          ))}
+        </motion.div>
 
-  /* --- filtered rows --- */
-  const filteredRows = useMemo<UnitRow[]>(() => {
-    const lowerQuery = query.toLowerCase().trim();
-    return allRows.filter((row) => {
-      if (propertyFilter !== "all" && row.property_id !== propertyFilter)
-        return false;
-      if (statusFilter === "active" && !row.is_active) return false;
-      if (statusFilter === "inactive" && row.is_active) return false;
-      if (bedroomFilter !== "all" && row.bedrooms !== bedroomFilter)
-        return false;
-      if (
-        lowerQuery &&
-        !(
-          (row.name ?? "").toLowerCase().includes(lowerQuery) ||
-          (row.code ?? "").toLowerCase().includes(lowerQuery) ||
-          (row.property_name ?? "").toLowerCase().includes(lowerQuery)
-        )
-      )
-        return false;
-      return true;
-    });
-  }, [allRows, query, propertyFilter, statusFilter, bedroomFilter]);
+        {/* Feedback */}
+        {errorLabel ? (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-red-600 text-sm dark:text-red-400">
+            {errorLabel}
+          </div>
+        ) : null}
+        {successMessage ? (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-emerald-600 text-sm dark:text-emerald-400">
+            {successMessage}
+          </div>
+        ) : null}
 
-  /* --- create sheet helpers --- */
-  const unitCodesByProperty = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const row of units as InternalUnitRow[]) {
-      const propertyId = asString(row.property_id).trim();
-      const code = asString(row.code).trim();
-      if (!(propertyId && code)) continue;
-      if (!map.has(propertyId)) {
-        map.set(propertyId, new Set<string>());
+        {/* Section label */}
+        <SectionLabel>{isEn ? "YOUR UNITS" : "TUS UNIDADES"}</SectionLabel>
+
+        {/* Unit cards */}
+        {rows.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <UnitCard isEn={isEn} key={row.id} row={row} />
+            ))}
+            <AddUnitCard isEn={isEn} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <AddUnitCard isEn={isEn} />
+          </div>
+        )}
+      </div>
+
+      {/* Chat + chips pinned to bottom */}
+      <div className="mt-auto space-y-4 pt-12">
+        <ChatInput isEn={isEn} placeholder={isEn ? "Ask about your units..." : "Pregunta sobre tus unidades..."} />
+        <Chips isEn={isEn} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AlexOverview                                                       */
+/* ------------------------------------------------------------------ */
+
+function AlexOverview({ isEn, rows, propertyCount }: { isEn: boolean; rows: UnitRow[]; propertyCount: number }) {
+  const total = rows.length;
+  const occupied = rows.filter((r) => r.is_active).length;
+
+  let text: string;
+  if (total === 0) {
+    text = isEn
+      ? "No units yet. Tell me about your property and I\u2019ll help you set up units."
+      : "Sin unidades a\u00FAn. Cu\u00E9ntame sobre tu propiedad y te ayudo a configurar unidades.";
+  } else {
+    const firstName = rows.find((r) => r.name)?.name;
+    if (isEn) {
+      const parts = [`Here are your units \u2014 **${total} ${total === 1 ? "unit" : "units"}**, **${occupied} occupied**.`];
+      if (firstName && total <= 3) {
+        const unlistedCount = rows.filter((r) => !r.is_active).length;
+        if (unlistedCount > 0) {
+          parts.push(` ${firstName} is set up but not yet listed.`);
+        }
       }
-      map.get(propertyId)?.add(code);
+      parts.push(" Tap to expand, or add a new unit below.");
+      text = parts.join("");
+    } else {
+      const parts = [`Estas son tus unidades \u2014 **${total} ${total === 1 ? "unidad" : "unidades"}**, **${occupied} ${occupied === 1 ? "ocupada" : "ocupadas"}**.`];
+      if (firstName && total <= 3) {
+        const unlistedCount = rows.filter((r) => !r.is_active).length;
+        if (unlistedCount > 0) {
+          parts.push(` ${firstName} est\u00E1 configurada pero a\u00FAn no listada.`);
+        }
+      }
+      parts.push(" Toca para expandir, o agrega una nueva unidad abajo.");
+      text = parts.join("");
     }
-    return map;
-  }, [units]);
+  }
 
-  const validatedCreatePropertyId =
-    createPropertyId &&
-    propertyOptions.some((row) => row.id === createPropertyId)
-      ? createPropertyId
-      : "";
+  return (
+    <div className="space-y-1">
+      <p className="font-semibold text-foreground text-sm">Alex</p>
+      <p className="text-muted-foreground text-sm leading-relaxed">{bold(text)}</p>
+    </div>
+  );
+}
 
-  const duplicateDraftCode = useMemo(() => {
-    if (!(validatedCreatePropertyId && draftCode.trim())) return null;
-    const existingCodes = unitCodesByProperty.get(validatedCreatePropertyId);
-    if (!existingCodes || existingCodes.size === 0) return null;
+/* ------------------------------------------------------------------ */
+/* UnitCard                                                           */
+/* ------------------------------------------------------------------ */
 
-    const normalizedDraft = normalizeCode(draftCode);
-    const hasDuplicate = Array.from(existingCodes).some(
-      (code) => normalizeCode(code) === normalizedDraft
-    );
-    if (!hasDuplicate) return null;
+function UnitCard({ row, isEn }: { row: UnitRow; isEn: boolean }) {
+  const [expanded, setExpanded] = useState(false);
 
-    return {
-      suggestion: suggestNextUnitCode(draftCode, existingCodes),
-    };
-  }, [validatedCreatePropertyId, draftCode, unitCodesByProperty]);
+  const capacity = [
+    row.bedrooms != null ? `${row.bedrooms} bed` : null,
+    row.bathrooms != null ? `${row.bathrooms} bath` : null,
+    row.max_guests != null ? `${row.max_guests} guests` : null,
+  ]
+    .filter(Boolean)
+    .join(" \u00B7 ");
 
-  const selectedPropertyLabel = useMemo(() => {
-    if (!validatedCreatePropertyId) return null;
-    return propertyOptions.find(
-      (property) => property.id === validatedCreatePropertyId
-    )?.label;
-  }, [validatedCreatePropertyId, propertyOptions]);
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-inner overflow-hidden rounded-2xl transition-shadow hover:shadow-[var(--shadow-soft)]"
+      initial={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.3, ease: EASING }}
+    >
+      <button
+        className="flex w-full items-start gap-3 p-4 text-left sm:p-5"
+        onClick={() => setExpanded((p) => !p)}
+        type="button"
+      >
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-lg">
+          {"\uD83C\uDFE2"}
+        </span>
 
-  const existingUnitsInSelectedProperty = useMemo(() => {
-    if (!validatedCreatePropertyId) return 0;
-    return (units as InternalUnitRow[]).filter(
-      (row) => asString(row.property_id).trim() === validatedCreatePropertyId
-    ).length;
-  }, [validatedCreatePropertyId, units]);
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate font-medium text-foreground text-sm tracking-tight">
+              {row.name ?? row.code ?? "Unit"}
+            </h3>
+            {!row.is_active && (
+              <span className="ml-auto h-2 w-2 shrink-0 rounded-full bg-red-500" />
+            )}
+          </div>
 
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      setCreatePropertyId("");
-      setDraftCode("");
-    }
-    setOpen(next);
+          <p className="mt-0.5 truncate text-muted-foreground/60 text-xs">
+            {row.property_name ?? (isEn ? "No property" : "Sin propiedad")}
+          </p>
+
+          {capacity && (
+            <p className="mt-2.5 text-muted-foreground text-xs">{capacity}</p>
+          )}
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            animate={{ height: "auto", opacity: 1 }}
+            className="overflow-hidden"
+            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: EASING }}
+          >
+            <div className="border-border/40 border-t px-4 py-4 sm:px-5">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <Stat label={isEn ? "Status" : "Estado"} value={row.is_active ? (isEn ? "Active" : "Activa") : (isEn ? "Vacant" : "Vacante")} tone={row.is_active ? undefined : "danger"} />
+                <Stat label={isEn ? "Occupancy" : "Ocupaci\u00F3n"} value={row.is_active ? "100%" : "0%"} tone={row.is_active ? "success" : "danger"} />
+                <Stat label={isEn ? "Revenue MTD" : "Ingresos del mes"} value="\u20B20" />
+                <Stat label={isEn ? "Open Tickets" : "Tickets"} value="0" />
+              </div>
+
+              <Link
+                className="mt-3 inline-block text-primary text-xs hover:underline"
+                href={`/module/units/${row.id}`}
+              >
+                {isEn ? "View details \u2192" : "Ver detalles \u2192"}
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" | "danger" }) {
+  return (
+    <div>
+      <p className="text-muted-foreground/60">{label}</p>
+      <p
+        className={cn(
+          "font-medium tabular-nums",
+          tone === "success" && "text-emerald-600 dark:text-emerald-400",
+          tone === "warning" && "text-amber-600 dark:text-amber-400",
+          tone === "danger" && "text-red-600 dark:text-red-400",
+          !tone && "text-foreground",
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AddUnitCard — dashed CTA                                           */
+/* ------------------------------------------------------------------ */
+
+function AddUnitCard({ isEn }: { isEn: boolean }) {
+  const router = useRouter();
+
+  return (
+    <button
+      className="group flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/40 p-6 transition-colors hover:border-border/70 hover:bg-muted/10"
+      onClick={() =>
+        router.push(
+          `/app/agents?prompt=${encodeURIComponent(isEn ? "Add a new unit" : "Agregar una nueva unidad")}`,
+        )
+      }
+      type="button"
+    >
+      <span className="text-muted-foreground/40 text-xl transition-colors group-hover:text-muted-foreground/60">+</span>
+      <span className="font-medium text-muted-foreground/50 text-sm transition-colors group-hover:text-muted-foreground/70">
+        {isEn ? "Add another unit" : "Agregar otra unidad"}
+      </span>
+      <span className="text-muted-foreground/30 text-xs transition-colors group-hover:text-muted-foreground/50">
+        {isEn ? "Tell Alex about it or click to start" : "Cu\u00E9ntale a Alex o haz clic para comenzar"}
+      </span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ChatInput                                                          */
+/* ------------------------------------------------------------------ */
+
+function ChatInput({ isEn, placeholder }: { isEn: boolean; placeholder: string }) {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    router.push(`/app/agents?prompt=${encodeURIComponent(trimmed)}`);
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        description={
-          isEn
-            ? "Define rentable units with occupancy and capacity settings."
-            : "Define unidades rentables con configuración de capacidad y ocupación."
-        }
-        onPrimaryAction={() => setOpen(true)}
-        onSecondaryAction={() => setImportOpen(true)}
-        primaryActionDisabled={propertyOptions.length === 0}
-        primaryActionLabel={isEn ? "New unit" : "Nueva unidad"}
-        recordCount={filteredRows.length}
-        recordsLabel={
-          isEn
-            ? filteredRows.length === 1
-              ? "record"
-              : "records"
-            : filteredRows.length === 1
-              ? "registro"
-              : "registros"
-        }
-        secondaryActionDisabled={propertyOptions.length === 0}
-        secondaryActionLabel={isEn ? "Import" : "Importar"}
-        title={isEn ? "Units" : "Unidades"}
+    <form className="relative" onSubmit={handleSubmit}>
+      <input
+        className={cn(
+          "h-12 w-full rounded-full border border-border/50 bg-background pr-12 pl-5 text-sm",
+          "placeholder:text-muted-foreground/40",
+          "focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20",
+          "transition-colors",
+        )}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        type="text"
+        value={value}
       />
-
-      {propertyOptions.length === 0 ? (
-        <Alert variant="warning">
-          <AlertTitle>
-            {isEn ? "Create a property first" : "Crea una propiedad primero"}
-          </AlertTitle>
-          <AlertDescription>
-            {isEn
-              ? "Units require a property. Create at least one property before adding units."
-              : "Las unidades requieren una propiedad. Crea al menos una propiedad antes de agregar unidades."}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {errorLabel ? (
-        <Alert variant="destructive">
-          <AlertTitle>
-            {isEn
-              ? "Could not complete request"
-              : "No se pudo completar la solicitud"}
-          </AlertTitle>
-          <AlertDescription>{errorLabel}</AlertDescription>
-        </Alert>
-      ) : null}
-      {successMessage ? (
-        <Alert variant="success">
-          <AlertTitle>
-            {isEn ? "Success" : "Éxito"}: {successMessage}
-          </AlertTitle>
-        </Alert>
-      ) : null}
-
-      <UnitsFilterBar
-        bedroomFilter={bedroomFilter}
-        bedroomOptions={bedroomOptions}
-        isEn={isEn}
-        onBedroomFilterChange={setBedroomFilter}
-        onPropertyFilterChange={setPropertyFilter}
-        onQueryChange={setQuery}
-        onStatusFilterChange={setStatusFilter}
-        onViewModeChange={setViewMode}
-        propertyFilter={propertyFilter}
-        propertyOptions={propertyOptions}
-        query={query}
-        statusFilter={statusFilter}
-        viewMode={viewMode}
-      />
-
-      <UnitNotionTable
-        isEn={isEn}
-        rows={filteredRows}
-        totalRowCount={allRows.length}
-      />
-
-      <Sheet
-        description={
-          isEn
-            ? "Create a unit under an existing property."
-            : "Crea una unidad dentro de una propiedad existente."
-        }
-        onOpenChange={handleOpenChange}
-        open={open}
-        title={isEn ? "New unit" : "Nueva unidad"}
+      <button
+        className={cn(
+          "absolute top-1/2 right-1.5 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full",
+          "bg-foreground text-background transition-opacity",
+          value.trim() ? "opacity-100" : "opacity-30",
+        )}
+        disabled={!value.trim()}
+        type="submit"
       >
-        <Form
-          action={createUnitFromUnitsModuleAction}
-          className="space-y-5"
-          onSubmit={(event) => {
-            if (duplicateDraftCode) {
-              event.preventDefault();
-            }
-          }}
+        <Icon icon={ArrowRight01Icon} size={16} />
+      </button>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips                                                              */
+/* ------------------------------------------------------------------ */
+
+const CHIPS_EN = [
+  "What should I focus on today?",
+  "How do I add a new unit?",
+  "Set up pricing for my unit",
+  "Create a listing for my unit",
+];
+const CHIPS_ES = [
+  "\u00BFEn qu\u00E9 deber\u00EDa enfocarme hoy?",
+  "\u00BFC\u00F3mo agrego una nueva unidad?",
+  "Configurar precios para mi unidad",
+  "Crear un listado para mi unidad",
+];
+
+function Chips({ isEn }: { isEn: boolean }) {
+  const chips = isEn ? CHIPS_EN : CHIPS_ES;
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-wrap gap-2"
+      initial={{ opacity: 0, y: 8 }}
+      transition={{ delay: 0.3, duration: 0.4, ease: EASING }}
+    >
+      {chips.map((chip, i) => (
+        <motion.div
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          key={chip}
+          transition={{ delay: 0.35 + i * 0.04, duration: 0.25, ease: EASING }}
         >
-          <input name="organization_id" type="hidden" value={orgId} />
-
-          <div className="grid gap-2 rounded-2xl border border-border/70 bg-muted/20 p-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
-              <p className="text-muted-foreground text-xs">
-                {isEn ? "Property" : "Propiedad"}
-              </p>
-              <p className="truncate font-medium text-sm">
-                {selectedPropertyLabel ??
-                  (isEn ? "Select a property" : "Selecciona una propiedad")}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
-              <p className="text-muted-foreground text-xs">
-                {isEn ? "Existing units" : "Unidades existentes"}
-              </p>
-              <p className="font-medium text-sm tabular-nums">
-                {existingUnitsInSelectedProperty}
-              </p>
-            </div>
-            <div className="rounded-xl border border-border/70 bg-background/75 p-3 shadow-sm">
-              <p className="text-muted-foreground text-xs">
-                {isEn ? "Suggested code" : "Código sugerido"}
-              </p>
-              <p className="font-medium text-sm">
-                {duplicateDraftCode?.suggestion ?? "A1"}
-              </p>
-            </div>
-          </div>
-
-          <Card className="rounded-3xl border-border/70 bg-muted/20 shadow-sm">
-            <CardContent className="space-y-3 p-4">
-              <div className="space-y-0.5">
-                <p className="font-medium text-sm">
-                  {isEn ? "Identity" : "Identidad"}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {isEn
-                    ? "Choose where this unit lives and how it will appear in operations."
-                    : "Define dónde vive esta unidad y cómo aparecerá en operaciones."}
-                </p>
-              </div>
-
-              <label className="grid gap-1">
-                <span className="font-medium text-muted-foreground text-xs">
-                  {isEn ? "Property" : "Propiedad"}
-                </span>
-                <Select
-                  name="property_id"
-                  onChange={(event) => setCreatePropertyId(event.target.value)}
-                  required
-                  value={validatedCreatePropertyId}
-                >
-                  <option disabled value="">
-                    {isEn ? "Select a property" : "Selecciona una propiedad"}
-                  </option>
-                  {propertyOptions.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.label}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Code" : "Código"}
-                  </span>
-                  <Input
-                    name="code"
-                    onChange={(event) => setDraftCode(event.target.value)}
-                    placeholder="A1"
-                    required
-                    value={draftCode}
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Name" : "Nombre"}
-                  </span>
-                  <Input name="name" placeholder="Apto 1A" required />
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {duplicateDraftCode ? (
-            <Alert variant="warning">
-              <AlertTitle>
-                {isEn
-                  ? "This code is already used in this property"
-                  : "Este código ya está en uso en esta propiedad"}
-              </AlertTitle>
-              <AlertDescription className="space-y-2">
-                <p>
-                  {isEn
-                    ? "Choose another code before creating the unit."
-                    : "Elige otro código antes de crear la unidad."}
-                </p>
-                {duplicateDraftCode.suggestion &&
-                normalizeCode(duplicateDraftCode.suggestion) !==
-                  normalizeCode(draftCode) ? (
-                  <Button
-                    onClick={() => setDraftCode(duplicateDraftCode.suggestion)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    {isEn
-                      ? `Use ${duplicateDraftCode.suggestion}`
-                      : `Usar ${duplicateDraftCode.suggestion}`}
-                  </Button>
-                ) : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <Card className="rounded-3xl border-border/70 bg-muted/20 shadow-sm">
-            <CardContent className="space-y-3 p-4">
-              <div className="space-y-0.5">
-                <p className="font-medium text-sm">
-                  {isEn ? "Capacity profile" : "Perfil de capacidad"}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {isEn
-                    ? "These defaults are used by leasing and occupancy workflows."
-                    : "Estos valores se usan por defecto en leasing y ocupación."}
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-4">
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Guests" : "Huéspedes"}
-                  </span>
-                  <Input
-                    defaultValue={2}
-                    min={1}
-                    name="max_guests"
-                    type="number"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Bedrooms" : "Dormitorios"}
-                  </span>
-                  <Input
-                    defaultValue={1}
-                    min={0}
-                    name="bedrooms"
-                    type="number"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Bathrooms" : "Baños"}
-                  </span>
-                  <Input
-                    defaultValue={1}
-                    min={0}
-                    name="bathrooms"
-                    step="0.5"
-                    type="number"
-                  />
-                </label>
-                <label className="grid gap-1">
-                  <span className="font-medium text-muted-foreground text-xs">
-                    {isEn ? "Currency" : "Moneda"}
-                  </span>
-                  <Select defaultValue="PYG" name="currency">
-                    <option value="PYG">PYG</option>
-                    <option value="USD">USD</option>
-                  </Select>
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-2">
-            <Button
-              onClick={() => setOpen(false)}
-              type="button"
-              variant="outline"
-            >
-              {isEn ? "Cancel" : "Cancelar"}
-            </Button>
-            <Button
-              disabled={Boolean(duplicateDraftCode)}
-              type="submit"
-              variant="secondary"
-            >
-              {duplicateDraftCode
-                ? isEn
-                  ? "Resolve duplicate"
-                  : "Corrige el duplicado"
-                : isEn
-                  ? "Create"
-                  : "Crear"}
-            </Button>
-          </div>
-        </Form>
-      </Sheet>
-
-      <DataImportSheet
-        isEn={isEn}
-        mode="units"
-        onOpenChange={setImportOpen}
-        open={importOpen}
-        orgId={orgId}
-        properties={propertyOptions.map((p) => ({ id: p.id, name: p.label }))}
-      />
-    </div>
+          <Link
+            className="glass-inner inline-block rounded-full px-3.5 py-2 text-[12.5px] text-muted-foreground/70 transition-all hover:text-foreground hover:shadow-sm"
+            href={`/app/agents?prompt=${encodeURIComponent(chip)}`}
+          >
+            {chip}
+          </Link>
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }

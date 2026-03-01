@@ -96,7 +96,7 @@ async fn list_tasks(
         flagged.push(flag_sla_breach(pool, row, engine_mode).await);
     }
 
-    let enriched = enrich_tasks(pool, flagged, &query.org_id).await?;
+    let enriched = enrich_tasks(&state, pool, flagged, &query.org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -147,7 +147,7 @@ async fn get_task(
     assert_org_member(&state, &user_id, &org_id).await?;
 
     let flagged = flag_sla_breach(pool, record, state.config.workflow_engine_mode).await;
-    let mut enriched = enrich_tasks(pool, vec![flagged], &org_id).await?;
+    let mut enriched = enrich_tasks(&state, pool, vec![flagged], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))

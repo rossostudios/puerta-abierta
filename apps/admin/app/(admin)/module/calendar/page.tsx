@@ -8,10 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 
 import { CalendarManager } from "./calendar-manager";
 
@@ -24,14 +26,6 @@ type PageProps = {
   }>;
 };
 
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
 export default async function CalendarModulePage({ searchParams }: PageProps) {
   const locale = await getActiveLocale();
   const isEn = locale === "en-US";
@@ -43,22 +37,7 @@ export default async function CalendarModulePage({ searchParams }: PageProps) {
   const errorLabel = error ? safeDecode(error) : "";
 
   if (!orgId) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load the calendar."
-              : "Selecciona una organización para cargar el calendario."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <NoOrgCard isEn={isEn} resource={["the calendar", "el calendario"]} />;
   }
 
   let reservations: Record<string, unknown>[] = [];
@@ -80,29 +59,7 @@ export default async function CalendarModulePage({ searchParams }: PageProps) {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load calendar data from the backend."
-              : "No se pudieron cargar datos del calendario."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

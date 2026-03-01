@@ -1,6 +1,4 @@
 import { PortfolioDashboard } from "@/components/portfolio/portfolio-dashboard";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   fetchPortfolioComparison,
   fetchPortfolioKpis,
@@ -10,6 +8,7 @@ import {
   type PortfolioSnapshot,
 } from "@/lib/api";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { getActiveOrgId } from "@/lib/org";
 
 export default async function PortfolioPage() {
@@ -19,27 +18,7 @@ export default async function PortfolioPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="warning">
-            <AlertTitle>
-              {isEn ? "Select an organization" : "Selecciona una organización"}
-            </AlertTitle>
-            <AlertDescription>
-              {isEn
-                ? "Portfolio requires an active organization."
-                : "El portafolio requiere una organización activa."}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <NoOrgCard isEn={isEn} resource={["portfolio", "el portafolio"]} />
     );
   }
 

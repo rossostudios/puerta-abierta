@@ -19,9 +19,11 @@ public_media_bucket_name        = "casaora-prod-public-media-341112583495"
 create_private_documents_bucket = false
 private_documents_bucket_name   = "casaora-prod-private-documents-341112583495"
 
-# Production baseline (Railway schedulers replaced by EventBridge + ECS RunTask).
+# Production baseline (EventBridge + ECS RunTask scheduled jobs).
 enable_scheduler_jobs = true
 # Leave true to actually run schedules; set false for codification-only.
 enable_scheduler_rules = true
 scheduler_api_base_url = "https://api.casaora.co"
 scheduler_internal_api_key_secret_name = "casaora/backend/INTERNAL_API_KEY"
+
+budget_notification_email = "your-email@example.com"

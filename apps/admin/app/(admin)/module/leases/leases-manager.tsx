@@ -1,1247 +1,739 @@
 "use client";
 
-import { Edit02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
-import type { ColumnDef } from "@tanstack/react-table";
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { AnimatePresence, motion } from "motion/react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useOptimistic,
-  useRef,
-  useState,
-} from "react";
-
-import {
-  acceptRenewalAction,
-  createLeaseAction,
-  generateCollectionsAction,
-  renewLeaseAction,
-  sendRenewalOfferAction,
-  setLeaseStatusAction,
-  updateLeaseAction,
-} from "@/app/(admin)/module/leases/actions";
-import {
-  generateLeaseContractPdf,
-  type LeaseContractData,
-} from "@/components/reports/lease-contract-pdf";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import type { DataTableRow } from "@/components/ui/data-table";
-import { DatePicker } from "@/components/ui/date-picker";
-import { Form } from "@/components/ui/form";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { SectionLabel } from "@/components/agent/briefing/helpers";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { NotionDataTable } from "@/components/ui/notion-data-table";
-import { Select } from "@/components/ui/select";
-import { Sheet } from "@/components/ui/sheet";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Textarea } from "@/components/ui/textarea";
-import { authedFetch } from "@/lib/api-client";
-import { formatCurrency } from "@/lib/format";
 import { useActiveLocale } from "@/lib/i18n/client";
+import { EASING, bold, daysRemaining, fmtPyg, initials } from "@/lib/module-helpers";
 import { cn } from "@/lib/utils";
+import {
+  asNumber,
+  asString,
+  type LeaseRow,
+  statusLabel,
+} from "./lease-types";
 
-// ---------------------------------------------------------------------------
-// Paraguay IVA rate for residential rentals
-// ---------------------------------------------------------------------------
-const PY_RESIDENTIAL_IVA_RATE = 0.05;
-
-// ---------------------------------------------------------------------------
-// Guest type for tenant picker
-// ---------------------------------------------------------------------------
-type GuestResult = {
-  id: string;
-  full_name: string;
-  email?: string | null;
-  phone_e164?: string | null;
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  draft: "bg-muted text-muted-foreground",
+  delinquent: "bg-red-500/15 text-red-700 dark:text-red-400",
+  terminated: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  completed: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
 };
 
-function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
+function toRow(r: Record<string, unknown>, isEn: boolean): LeaseRow {
+  const status = asString(r.lease_status).trim();
+  return {
+    id: asString(r.id).trim(),
+    tenant_full_name: asString(r.tenant_full_name).trim(),
+    tenant_email: asString(r.tenant_email).trim() || null,
+    tenant_phone_e164: asString(r.tenant_phone_e164).trim() || null,
+    lease_status: status,
+    lease_status_label: statusLabel(status, isEn),
+    renewal_status: asString(r.renewal_status).trim(),
+    property_id: asString(r.property_id).trim() || null,
+    unit_id: asString(r.unit_id).trim() || null,
+    starts_on: asString(r.starts_on).trim(),
+    ends_on: asString(r.ends_on).trim() || null,
+    currency: asString(r.currency).trim().toUpperCase() || "PYG",
+    monthly_rent: asNumber(r.monthly_rent),
+    service_fee_flat: asNumber(r.service_fee_flat),
+    security_deposit: asNumber(r.security_deposit),
+    guarantee_option_fee: asNumber(r.guarantee_option_fee),
+    tax_iva: asNumber(r.tax_iva),
+    platform_fee: asNumber(r.platform_fee),
+    notes: asString(r.notes).trim() || null,
+  };
 }
 
-function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function canActivate(status: string): boolean {
-  return status.trim().toLowerCase() === "draft";
-}
-
-function canTerminate(status: string): boolean {
-  return ["active", "delinquent"].includes(status.trim().toLowerCase());
-}
-
-function canComplete(status: string): boolean {
-  return status.trim().toLowerCase() === "terminated";
-}
-
-function statusLabel(value: string, isEn: boolean): string {
-  const normalized = value.trim().toLowerCase();
-  if (isEn) return normalized || "unknown";
-
-  if (normalized === "draft") return "Borrador";
-  if (normalized === "active") return "Activo";
-  if (normalized === "delinquent") return "Moroso";
-  if (normalized === "terminated") return "Terminado";
-  if (normalized === "completed") return "Completado";
-
-  return normalized || "desconocido";
-}
-
-type LeaseRow = DataTableRow & {
-  id: string;
-  lease_status: string;
-  lease_status_label: string;
-  renewal_status: string;
-  tenant_full_name: string;
-  tenant_email: string | null;
-  tenant_phone_e164: string | null;
-  property_id: string | null;
-  unit_id: string | null;
-  starts_on: string;
-  ends_on: string | null;
-  currency: string;
-  monthly_rent: number;
-  service_fee_flat: number;
-  security_deposit: number;
-  guarantee_option_fee: number;
-  tax_iva: number;
-  platform_fee: number;
-  notes: string | null;
-};
+/* ------------------------------------------------------------------ */
+/* LeasesManager                                                       */
+/* ------------------------------------------------------------------ */
 
 export function LeasesManager({
   orgId,
   leases,
   properties,
   units,
+  error: errorLabel,
+  success: successMessage,
 }: {
   orgId: string;
   leases: Record<string, unknown>[];
   properties: Record<string, unknown>[];
   units: Record<string, unknown>[];
-}) {
-  return (
-    <Suspense fallback={null}>
-      <LeasesManagerInner
-        leases={leases}
-        orgId={orgId}
-        properties={properties}
-        units={units}
-      />
-    </Suspense>
-  );
-}
-
-function LeasesManagerInner({
-  orgId,
-  leases,
-  properties,
-  units,
-}: {
-  orgId: string;
-  leases: Record<string, unknown>[];
-  properties: Record<string, unknown>[];
-  units: Record<string, unknown>[];
+  error?: string;
+  success?: string;
 }) {
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
+  const fmtLocale = isEn ? "en-US" : "es-PY";
 
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const nextPath = useMemo(() => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("new");
-    const suffix = params.toString();
-    return suffix ? `${pathname}?${suffix}` : pathname;
-  }, [pathname, searchParams]);
-
-  const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState<LeaseRow | null>(null);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-
-  const [generatingFor, setGeneratingFor] = useState<LeaseRow | null>(null);
-  const [renewingFrom, setRenewingFrom] = useState<LeaseRow | null>(null);
-
-  // ── Tenant picker state ──
-  const [tenantName, setTenantName] = useState("");
-  const [tenantEmail, setTenantEmail] = useState("");
-  const [tenantPhone, setTenantPhone] = useState("");
-  const [guestResults, setGuestResults] = useState<GuestResult[]>([]);
-  const [showGuestDropdown, setShowGuestDropdown] = useState(false);
-  const [saveAsGuest, setSaveAsGuest] = useState(false);
-  const guestSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
-
-  const resetTenantFields = useCallback((row: LeaseRow | null) => {
-    setTenantName(row?.tenant_full_name ?? "");
-    setTenantEmail(row?.tenant_email ?? "");
-    setTenantPhone(row?.tenant_phone_e164 ?? "");
-    setSaveAsGuest(false);
-    setGuestResults([]);
-    setShowGuestDropdown(false);
-  }, []);
-
-  const openCreate = useCallback(() => {
-    setEditing(null);
-    resetTenantFields(null);
-    setOpen(true);
-  }, [resetTenantFields]);
-
-  useEffect(() => {
-    if (searchParams.get("new") !== "1") return;
-    openCreate();
-    const url = new URL(window.location.href);
-    url.searchParams.delete("new");
-    window.history.replaceState(
-      {},
-      "",
-      `${url.pathname}${url.search}${url.hash}`
-    );
-  }, [openCreate, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const openEdit = useCallback(
-    (row: LeaseRow) => {
-      setEditing(row);
-      resetTenantFields(row);
-      setOpen(true);
-    },
-    [resetTenantFields]
+  const rows = useMemo<LeaseRow[]>(
+    () => leases.map((r) => toRow(r, isEn)),
+    [leases, isEn],
   );
 
-  const searchGuests = useCallback(
-    (query: string) => {
-      if (guestSearchTimer.current) clearTimeout(guestSearchTimer.current);
-      if (query.length < 2) {
-        setGuestResults([]);
-        setShowGuestDropdown(false);
-        return;
-      }
-      guestSearchTimer.current = setTimeout(async () => {
-        try {
-          const params = new URLSearchParams({
-            organization_id: orgId,
-            q: query,
-          });
-          const data = await authedFetch<GuestResult[]>(
-            `/guests?${params.toString()}`
-          );
-          let results: GuestResult[];
-          if (data != null) {
-            results = data;
-          } else {
-            results = [];
-          }
-          setGuestResults(results);
-          setShowGuestDropdown(results.length > 0);
-        } catch {
-          setGuestResults([]);
-          setShowGuestDropdown(false);
-        }
-      }, 300);
-    },
-    [orgId]
-  );
-
-  const selectGuest = useCallback((guest: GuestResult) => {
-    setTenantName(guest.full_name);
-    setTenantEmail(guest.email ?? "");
-    setTenantPhone(guest.phone_e164 ?? "");
-    setShowGuestDropdown(false);
-    setSaveAsGuest(false);
-  }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowGuestDropdown(false);
-      }
+  // Build property/unit lookup maps
+  const propertyMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of properties) {
+      const id = asString(p.id).trim();
+      if (id) m.set(id, asString(p.name).trim() || id);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // ── IVA auto-calc ref ──
-  const rentInputRef = useRef<HTMLInputElement | null>(null);
-  const ivaInputRef = useRef<HTMLInputElement | null>(null);
-
-  const autoCalcIva = useCallback(() => {
-    const rentValue = rentInputRef.current?.value;
-    const rent = Number(rentValue);
-    if (Number.isFinite(rent) && rent > 0 && ivaInputRef.current) {
-      const iva = Math.round(rent * PY_RESIDENTIAL_IVA_RATE * 100) / 100;
-      ivaInputRef.current.value = String(iva);
-      // Trigger React's onChange for controlled components
-      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value"
-      )?.set;
-      nativeInputValueSetter?.call(ivaInputRef.current, String(iva));
-      ivaInputRef.current.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  }, []);
-
-  function canRenew(status: string): boolean {
-    return ["active", "completed"].includes(status.trim().toLowerCase());
-  }
-
-  const rows = useMemo<LeaseRow[]>(() => {
-    return leases.map((row) => {
-      const status = asString(row.lease_status).trim();
-      return {
-        id: asString(row.id).trim(),
-        tenant_full_name: asString(row.tenant_full_name).trim(),
-        tenant_email: asString(row.tenant_email).trim() || null,
-        tenant_phone_e164: asString(row.tenant_phone_e164).trim() || null,
-        lease_status: status,
-        lease_status_label: statusLabel(status, isEn),
-        renewal_status: asString(row.renewal_status).trim(),
-        property_id: asString(row.property_id).trim() || null,
-        property_name: asString(row.property_name).trim() || null,
-        unit_id: asString(row.unit_id).trim() || null,
-        unit_name: asString(row.unit_name).trim() || null,
-        starts_on: asString(row.starts_on).trim(),
-        ends_on: asString(row.ends_on).trim() || null,
-        currency: asString(row.currency).trim().toUpperCase() || "PYG",
-        monthly_rent: asNumber(row.monthly_rent),
-        service_fee_flat: asNumber(row.service_fee_flat),
-        security_deposit: asNumber(row.security_deposit),
-        guarantee_option_fee: asNumber(row.guarantee_option_fee),
-        tax_iva: asNumber(row.tax_iva),
-        platform_fee: asNumber(row.platform_fee),
-        total_move_in: asNumber(row.total_move_in),
-        monthly_recurring_total: asNumber(row.monthly_recurring_total),
-        collection_count: asNumber(row.collection_count),
-        collection_paid_count: asNumber(row.collection_paid_count),
-        notes: asString(row.notes).trim() || null,
-      } satisfies LeaseRow;
-    });
-  }, [leases, isEn]);
-
-  const [optimisticRows, queueOptimisticRowUpdate] = useOptimistic(
-    rows,
-    (
-      currentRows,
-      action: { type: "set-status"; leaseId: string; nextStatus: string }
-    ) => {
-      return currentRows.map((row) => {
-        if (row.id !== action.leaseId) return row;
-        return {
-          ...row,
-          lease_status: action.nextStatus,
-          lease_status_label: statusLabel(action.nextStatus, isEn),
-        };
-      });
-    }
-  );
-
-  const columns = useMemo<ColumnDef<DataTableRow>[]>(() => {
-    return [
-      {
-        accessorKey: "tenant_full_name",
-        header: isEn ? "Tenant" : "Inquilino",
-        cell: ({ row, getValue }) => {
-          const name = asString(getValue());
-          const email = asString(row.original.tenant_email).trim();
-          const phone = asString(row.original.tenant_phone_e164).trim();
-          return (
-            <div className="space-y-1">
-              <p className="font-medium">{name}</p>
-              {email ? (
-                <p className="text-muted-foreground text-xs">{email}</p>
-              ) : null}
-              {phone ? (
-                <p className="text-muted-foreground text-xs">{phone}</p>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: "lease_status_label",
-        header: isEn ? "Status" : "Estado",
-        cell: ({ row, getValue }) => (
-          <StatusBadge
-            label={asString(getValue())}
-            value={asString(row.original.lease_status)}
-          />
-        ),
-      },
-      {
-        accessorKey: "property_name",
-        header: isEn ? "Property / Unit" : "Propiedad / Unidad",
-        cell: ({ row }) => {
-          const property = asString(row.original.property_name).trim();
-          const unit = asString(row.original.unit_name).trim();
-          return (
-            <p className="text-sm">
-              {[property, unit].filter(Boolean).join(" · ") || "-"}
-            </p>
-          );
-        },
-      },
-      {
-        accessorKey: "starts_on",
-        header: isEn ? "Start" : "Inicio",
-      },
-      {
-        accessorKey: "monthly_recurring_total",
-        header: isEn ? "Monthly recurring" : "Mensual recurrente",
-        cell: ({ row, getValue }) =>
-          formatCurrency(
-            asNumber(getValue()),
-            asString(row.original.currency),
-            locale
-          ),
-      },
-      {
-        accessorKey: "collection_paid_count",
-        header: isEn ? "Collections paid" : "Cobros pagados",
-        cell: ({ row, getValue }) => {
-          const paid = asNumber(getValue());
-          const total = asNumber(row.original.collection_count);
-          return `${paid}/${total}`;
-        },
-      },
-    ];
-  }, [isEn, locale]);
-
-  const propertyOptions = useMemo(() => {
-    return properties
-      .map((row) => {
-        const id = asString(row.id).trim();
-        if (!id) return null;
-        return {
-          id,
-          label: asString(row.name).trim() || id,
-        };
-      })
-      .filter((row): row is { id: string; label: string } => Boolean(row));
+    return m;
   }, [properties]);
 
-  const unitOptions = useMemo(() => {
-    return units
-      .map((row) => {
-        const id = asString(row.id).trim();
-        if (!id) return null;
-        const unitName = asString(row.name).trim();
-        const propertyName = asString(row.property_name).trim();
-        return {
-          id,
-          label: [propertyName, unitName || id].filter(Boolean).join(" · "),
-        };
-      })
-      .filter((row): row is { id: string; label: string } => Boolean(row));
+  const unitMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const u of units) {
+      const id = asString(u.id).trim();
+      if (id) m.set(id, asString(u.name).trim() || asString(u.code).trim() || id);
+    }
+    return m;
   }, [units]);
 
+  // Computed stats
+  const active = rows.filter((r) => r.lease_status === "active" || r.lease_status === "delinquent");
+  const totalDue = active.reduce((s, r) => s + r.monthly_rent, 0);
+  const delinquent = rows.filter((r) => r.lease_status === "delinquent");
+  const expired = rows.filter((r) => {
+    const d = daysRemaining(r.ends_on);
+    return d !== null && d <= 0 && r.lease_status === "active";
+  });
+  const expiringSoon = rows.filter((r) => {
+    const d = daysRemaining(r.ends_on);
+    return d !== null && d > 0 && d <= 60 && r.lease_status === "active";
+  });
+  const totalUnits = units.length;
+  const leasedUnitIds = new Set(active.map((r) => r.unit_id).filter(Boolean));
+  const vacantCount = totalUnits - leasedUnitIds.size;
+
+  // Attention items
+  const attentionItems: { key: string; emoji: string; text: string; actions: { label: string; prompt: string }[] }[] = [];
+  for (const lease of expired) {
+    attentionItems.push({
+      key: `expired-${lease.id}`,
+      emoji: "⚠️",
+      text: isEn
+        ? `${lease.tenant_full_name}'s lease expired`
+        : `El contrato de ${lease.tenant_full_name} venció`,
+      actions: [
+        {
+          label: isEn ? "Send renewal" : "Enviar renovación",
+          prompt: isEn
+            ? `Send a renewal offer to ${lease.tenant_full_name}`
+            : `Enviar oferta de renovación a ${lease.tenant_full_name}`,
+        },
+        {
+          label: isEn ? "Convert to month-to-month" : "Convertir a mes a mes",
+          prompt: isEn
+            ? `Convert ${lease.tenant_full_name}'s lease to month-to-month`
+            : `Convertir contrato de ${lease.tenant_full_name} a mes a mes`,
+        },
+      ],
+    });
+  }
+  for (const lease of expiringSoon) {
+    const d = daysRemaining(lease.ends_on);
+    attentionItems.push({
+      key: `expiring-${lease.id}`,
+      emoji: "📅",
+      text: isEn
+        ? `${lease.tenant_full_name}'s lease expires in ${d} days`
+        : `El contrato de ${lease.tenant_full_name} vence en ${d} días`,
+      actions: [
+        {
+          label: isEn ? "Set reminder" : "Poner recordatorio",
+          prompt: isEn
+            ? `Set a renewal reminder for ${lease.tenant_full_name}'s lease`
+            : `Poner recordatorio de renovación para ${lease.tenant_full_name}`,
+        },
+      ],
+    });
+  }
+  for (const lease of delinquent) {
+    attentionItems.push({
+      key: `delinquent-${lease.id}`,
+      emoji: "🔴",
+      text: isEn
+        ? `${lease.tenant_full_name} is behind on rent`
+        : `${lease.tenant_full_name} está atrasado en el pago`,
+      actions: [
+        {
+          label: isEn ? "Send reminder" : "Enviar recordatorio",
+          prompt: isEn
+            ? `Send a payment reminder to ${lease.tenant_full_name}`
+            : `Enviar recordatorio de pago a ${lease.tenant_full_name}`,
+        },
+      ],
+    });
+  }
+  if (vacantCount > 0) {
+    attentionItems.push({
+      key: "vacant",
+      emoji: "🏠",
+      text: isEn
+        ? `${vacantCount} vacant ${vacantCount === 1 ? "unit" : "units"}`
+        : `${vacantCount} ${vacantCount === 1 ? "unidad vacante" : "unidades vacantes"}`,
+      actions: [
+        {
+          label: isEn ? "View listings" : "Ver listados",
+          prompt: isEn ? "Show me my vacant units and listings" : "Muéstrame mis unidades vacantes y listados",
+        },
+      ],
+    });
+  }
+
+  // Collection progress (simple estimate: active = paid, delinquent = overdue)
+  const paidOnTime = active.length - delinquent.length;
+  const paidAmount = paidOnTime > 0 ? active.filter((r) => r.lease_status === "active").reduce((s, r) => s + r.monthly_rent, 0) : 0;
+  const progressPct = totalDue > 0 ? Math.round((paidAmount / totalDue) * 100) : 0;
+
+  // Month name
+  const monthName = new Date().toLocaleString(isEn ? "en-US" : "es-PY", { month: "long" }).toUpperCase();
+
+  // Chips
+  const firstTenant = rows[0]?.tenant_full_name;
+  const chips = isEn
+    ? [
+        firstTenant ? `Send a renewal offer to ${firstTenant}` : "Send a renewal offer",
+        "Draft a lease for a new tenant",
+        "Show me rent collection history",
+        "Which leases expire soon?",
+      ]
+    : [
+        firstTenant ? `Enviar oferta de renovación a ${firstTenant}` : "Enviar oferta de renovación",
+        "Redactar contrato para nuevo inquilino",
+        "Mostrar historial de cobros de alquiler",
+        "¿Qué contratos vencen pronto?",
+      ];
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-muted-foreground text-sm">
-          {optimisticRows.length} {isEn ? "leases" : "contratos"}
-        </p>
-        <Button onClick={openCreate} type="button">
-          <Icon icon={PlusSignIcon} size={16} />
-          {isEn ? "New lease" : "Nuevo contrato"}
-        </Button>
+    <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl flex-col px-4 py-8 sm:px-6">
+      <div className="space-y-8">
+        {/* Alex overview */}
+        <AlexOverview
+          activeCount={active.length}
+          delinquentCount={delinquent.length}
+          expiredLeases={expired}
+          isEn={isEn}
+          totalUnits={totalUnits}
+        />
+
+        {/* Rent Collection Metrics */}
+        <motion.div
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-inner overflow-hidden rounded-2xl"
+          initial={{ opacity: 0, y: 8 }}
+          transition={{ delay: 0.1, duration: 0.35, ease: EASING }}
+        >
+          <div className="p-5">
+            <p className="text-muted-foreground/70 text-xs font-medium tracking-wider uppercase">
+              {monthName} {isEn ? "RENT COLLECTION" : "COBRO DE ALQUILER"}
+            </p>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="font-semibold text-2xl tabular-nums tracking-tight text-foreground">
+                {fmtPyg(paidAmount, fmtLocale)}
+              </span>
+              <span className="text-muted-foreground/60 text-sm">
+                {isEn ? "of" : "de"} {fmtPyg(totalDue, fmtLocale)} {isEn ? "due" : "esperado"}
+              </span>
+            </div>
+            {/* Progress bar */}
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted/60">
+              <motion.div
+                animate={{ width: `${progressPct}%` }}
+                className={cn(
+                  "h-full rounded-full",
+                  progressPct >= 80 ? "bg-emerald-500" : progressPct >= 50 ? "bg-amber-500" : "bg-red-500",
+                )}
+                initial={{ width: 0 }}
+                transition={{ delay: 0.3, duration: 0.6, ease: EASING }}
+              />
+            </div>
+            {/* Stats row */}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MiniStat label={isEn ? "Paid on time" : "Pagados a tiempo"} value={String(paidOnTime)} tone="success" />
+              <MiniStat label={isEn ? "Late" : "Atrasados"} value="0" />
+              <MiniStat label={isEn ? "Overdue" : "Morosos"} value={String(delinquent.length)} tone={delinquent.length > 0 ? "danger" : undefined} />
+              <MiniStat label={isEn ? "Vacant" : "Vacantes"} value={String(vacantCount)} tone={vacantCount > 0 ? "warning" : undefined} />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Feedback */}
+        {errorLabel ? (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-red-600 text-sm dark:text-red-400">
+            {errorLabel}
+          </div>
+        ) : null}
+        {successMessage ? (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-emerald-600 text-sm dark:text-emerald-400">
+            {successMessage}
+          </div>
+        ) : null}
+
+        {/* Needs Attention */}
+        {attentionItems.length > 0 && (
+          <>
+            <SectionLabel>{isEn ? "NEEDS ATTENTION" : "REQUIERE ATENCIÓN"}</SectionLabel>
+            <div className="space-y-3">
+              {attentionItems.map((item) => (
+                <AttentionCard item={item} key={item.key} />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Active Leases */}
+        <SectionLabel>{isEn ? "ACTIVE LEASES" : "CONTRATOS ACTIVOS"}</SectionLabel>
+
+        {rows.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <LeaseCard
+                fmtLocale={fmtLocale}
+                isEn={isEn}
+                key={row.id}
+                propertyName={row.property_id ? propertyMap.get(row.property_id) : undefined}
+                row={row}
+                unitName={row.unit_id ? unitMap.get(row.unit_id) : undefined}
+              />
+            ))}
+            <AddLeaseCard isEn={isEn} />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <AddLeaseCard isEn={isEn} />
+          </div>
+        )}
       </div>
 
-      <NotionDataTable
-        columns={columns}
-        data={optimisticRows}
-        hideSearch
-        isEn={isEn}
-        renderRowActions={(row) => {
-          const id = asString(row.id);
-          const status = asString(row.lease_status);
+      {/* Chat + chips pinned to bottom */}
+      <div className="mt-auto space-y-4 pt-12">
+        <ChatInput isEn={isEn} placeholder={isEn ? "Ask about your leases..." : "Pregunta sobre tus contratos..."} />
+        <Chips chips={chips} />
+      </div>
+    </div>
+  );
+}
 
-          const handleDownloadContract = async () => {
-            const unitId = asString(row.unit_id);
-            const unit = units.find((u) => asString(u.id) === unitId);
-            const propId = asString(unit?.property_id ?? row.property_id);
-            const prop = properties.find((p) => asString(p.id) === propId);
+/* ------------------------------------------------------------------ */
+/* AlexOverview                                                        */
+/* ------------------------------------------------------------------ */
 
-            const contractData: LeaseContractData = {
-              tenantName: asString(row.tenant_full_name),
-              tenantEmail: asString(row.tenant_email),
-              tenantPhone: asString(row.tenant_phone_e164),
-              propertyName: asString(prop?.name),
-              unitName: asString(unit?.name ?? unit?.code),
-              startsOn: asString(row.starts_on),
-              endsOn: asString(row.ends_on),
-              monthlyRent: asNumber(row.monthly_rent),
-              serviceFee: asNumber(row.service_fee_flat),
-              securityDeposit: asNumber(row.security_deposit),
-              guaranteeFee: asNumber(row.guarantee_option_fee),
-              taxIva: asNumber(row.tax_iva),
-              totalMoveIn: asNumber(row.total_move_in),
-              monthlyTotal: asNumber(row.monthly_recurring_total),
-              currency: asString(row.currency) || "PYG",
-              notes: asString(row.notes),
-              orgName: "Casaora",
-            };
-            await generateLeaseContractPdf(contractData, isEn);
-          };
+function AlexOverview({
+  activeCount,
+  delinquentCount,
+  expiredLeases,
+  totalUnits,
+  isEn,
+}: {
+  activeCount: number;
+  delinquentCount: number;
+  expiredLeases: LeaseRow[];
+  totalUnits: number;
+  isEn: boolean;
+}) {
+  let text: string;
+  if (activeCount === 0 && totalUnits === 0) {
+    text = isEn
+      ? "No leases yet. Tell me about a tenant and I\u2019ll help you draft a lease."
+      : "Sin contratos a\u00FAn. Cu\u00E9ntame sobre un inquilino y te ayudo a redactar un contrato.";
+  } else if (activeCount === 0) {
+    text = isEn
+      ? `You have **${totalUnits} ${totalUnits === 1 ? "unit" : "units"}** but no active leases. Let me help you draft one.`
+      : `Tienes **${totalUnits} ${totalUnits === 1 ? "unidad" : "unidades"}** pero sin contratos activos. Te ayudo a crear uno.`;
+  } else {
+    const parts: string[] = [];
+    if (isEn) {
+      parts.push(`You have **${activeCount} active ${activeCount === 1 ? "lease" : "leases"}**`);
+      if (delinquentCount === 0) {
+        parts.push(" \u2014 all tenants are current on rent.");
+      } else {
+        parts.push(`. **${delinquentCount} ${delinquentCount === 1 ? "tenant is" : "tenants are"} behind** on payments.`);
+      }
+      if (expiredLeases.length > 0) {
+        const name = expiredLeases[0].tenant_full_name;
+        parts.push(` ${name}\u2019s lease has expired \u2014 consider sending a renewal.`);
+      }
+    } else {
+      parts.push(`Tienes **${activeCount} ${activeCount === 1 ? "contrato activo" : "contratos activos"}**`);
+      if (delinquentCount === 0) {
+        parts.push(" \u2014 todos los inquilinos est\u00E1n al d\u00EDa.");
+      } else {
+        parts.push(`. **${delinquentCount} ${delinquentCount === 1 ? "inquilino est\u00E1 atrasado" : "inquilinos est\u00E1n atrasados"}** en pagos.`);
+      }
+      if (expiredLeases.length > 0) {
+        const name = expiredLeases[0].tenant_full_name;
+        parts.push(` El contrato de ${name} ha vencido \u2014 considera enviar una renovaci\u00F3n.`);
+      }
+    }
+    text = parts.join("");
+  }
 
-          return (
-            <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                onClick={() => openEdit(row as unknown as LeaseRow)}
-                size="sm"
-                variant="ghost"
-              >
-                <Icon icon={Edit02Icon} size={14} />
-                {isEn ? "Edit" : "Editar"}
-              </Button>
-              <Button
-                onClick={handleDownloadContract}
-                size="sm"
-                variant="ghost"
-              >
-                {isEn ? "Contract" : "Contrato"}
-              </Button>
-              <Link
-                className={cn(buttonVariants({ size: "sm", variant: "ghost" }))}
-                href="/module/collections"
-              >
-                {isEn ? "Collections" : "Cobros"}
-              </Link>
-              <Button
-                onClick={() => setGeneratingFor(row as unknown as LeaseRow)}
-                size="sm"
-                variant="ghost"
-              >
-                {isEn ? "Generate" : "Generar"}
-              </Button>
+  return (
+    <div className="space-y-1">
+      <p className="font-semibold text-foreground text-sm">Alex</p>
+      <p className="text-muted-foreground text-sm leading-relaxed">{bold(text)}</p>
+    </div>
+  );
+}
 
-              {canRenew(status) &&
-              !(row as unknown as LeaseRow).renewal_status ? (
-                <Button
-                  onClick={() => setRenewingFrom(row as unknown as LeaseRow)}
-                  size="sm"
-                  variant="ghost"
-                >
-                  {isEn ? "Renew" : "Renovar"}
-                </Button>
-              ) : null}
+/* ------------------------------------------------------------------ */
+/* MiniStat                                                            */
+/* ------------------------------------------------------------------ */
 
-              {canRenew(status) &&
-              !(row as unknown as LeaseRow).renewal_status ? (
-                <Form action={sendRenewalOfferAction}>
-                  <input name="lease_id" type="hidden" value={id} />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="outline">
-                    {isEn ? "Send Offer" : "Enviar Oferta"}
-                  </Button>
-                </Form>
-              ) : null}
-
-              {(row as unknown as LeaseRow).renewal_status === "offered" ||
-              (row as unknown as LeaseRow).renewal_status === "pending" ? (
-                <Form action={acceptRenewalAction}>
-                  <input name="lease_id" type="hidden" value={id} />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="secondary">
-                    {isEn ? "Accept Renewal" : "Aceptar Renovación"}
-                  </Button>
-                </Form>
-              ) : null}
-
-              {canActivate(status) ? (
-                <Form
-                  action={setLeaseStatusAction}
-                  onSubmit={() =>
-                    queueOptimisticRowUpdate({
-                      type: "set-status",
-                      leaseId: id,
-                      nextStatus: "active",
-                    })
-                  }
-                >
-                  <input name="lease_id" type="hidden" value={id} />
-                  <input name="lease_status" type="hidden" value="active" />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="outline">
-                    {isEn ? "Activate" : "Activar"}
-                  </Button>
-                </Form>
-              ) : null}
-
-              {canTerminate(status) ? (
-                <Form
-                  action={setLeaseStatusAction}
-                  onSubmit={() =>
-                    queueOptimisticRowUpdate({
-                      type: "set-status",
-                      leaseId: id,
-                      nextStatus: "terminated",
-                    })
-                  }
-                >
-                  <input name="lease_id" type="hidden" value={id} />
-                  <input name="lease_status" type="hidden" value="terminated" />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="outline">
-                    {isEn ? "Terminate" : "Terminar"}
-                  </Button>
-                </Form>
-              ) : null}
-
-              {canComplete(status) ? (
-                <Form
-                  action={setLeaseStatusAction}
-                  onSubmit={() =>
-                    queueOptimisticRowUpdate({
-                      type: "set-status",
-                      leaseId: id,
-                      nextStatus: "completed",
-                    })
-                  }
-                >
-                  <input name="lease_id" type="hidden" value={id} />
-                  <input name="lease_status" type="hidden" value="completed" />
-                  <input name="next" type="hidden" value={nextPath} />
-                  <Button size="sm" type="submit" variant="secondary">
-                    {isEn ? "Complete" : "Completar"}
-                  </Button>
-                </Form>
-              ) : null}
-            </div>
-          );
-        }}
-      />
-
-      <Sheet
-        contentClassName="max-w-2xl"
-        description={
-          editing
-            ? isEn
-              ? "Edit lease details. Status changes use the separate action buttons."
-              : "Edita los detalles del contrato. Los cambios de estado usan los botones de acción."
-            : isEn
-              ? "Create a lease and optionally generate the first collection record."
-              : "Crea un contrato y opcionalmente genera el primer registro de cobro."
-        }
-        onOpenChange={setOpen}
-        open={open}
-        title={
-          editing
-            ? isEn
-              ? "Edit lease"
-              : "Editar contrato"
-            : isEn
-              ? "New lease"
-              : "Nuevo contrato"
-        }
+function MiniStat({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" | "danger" }) {
+  return (
+    <div>
+      <p
+        className={cn(
+          "font-semibold text-lg tabular-nums",
+          tone === "success" && "text-emerald-600 dark:text-emerald-400",
+          tone === "warning" && "text-amber-600 dark:text-amber-400",
+          tone === "danger" && "text-red-600 dark:text-red-400",
+          !tone && "text-foreground",
+        )}
       >
-        <Form
-          action={editing ? updateLeaseAction : createLeaseAction}
-          className="space-y-4"
-          key={editing?.id ?? "create"}
-        >
-          {editing ? (
-            <input name="lease_id" type="hidden" value={editing.id} />
-          ) : (
-            <input name="organization_id" type="hidden" value={orgId} />
-          )}
-          <input name="next" type="hidden" value={nextPath} />
+        {value}
+      </p>
+      <p className="text-muted-foreground/60 text-xs">{label}</p>
+    </div>
+  );
+}
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div
-              className="relative space-y-1 text-sm md:col-span-2"
-              ref={dropdownRef}
+/* ------------------------------------------------------------------ */
+/* AttentionCard                                                       */
+/* ------------------------------------------------------------------ */
+
+function AttentionCard({
+  item,
+}: {
+  item: { emoji: string; text: string; actions: { label: string; prompt: string }[] };
+}) {
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-inner flex items-start gap-3 rounded-xl p-4"
+      initial={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.3, ease: EASING }}
+    >
+      <span className="mt-0.5 text-base">{item.emoji}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-foreground text-sm">{item.text}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {item.actions.map((a) => (
+            <Link
+              className="rounded-full border border-border/50 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+              href={`/app/agents?prompt=${encodeURIComponent(a.prompt)}`}
+              key={a.label}
             >
-              <span>{isEn ? "Tenant full name" : "Nombre completo"}</span>
-              <Input
-                autoComplete="off"
-                name="tenant_full_name"
-                onChange={(e) => {
-                  setTenantName(e.target.value);
-                  searchGuests(e.target.value);
-                }}
-                onFocus={() => {
-                  if (guestResults.length > 0) setShowGuestDropdown(true);
-                }}
-                required
-                value={tenantName}
-              />
-              {showGuestDropdown && guestResults.length > 0 && (
-                <div className="absolute top-full right-0 left-0 z-50 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md">
-                  {guestResults.map((guest) => (
-                    <button
-                      className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-accent"
-                      key={guest.id}
-                      onClick={() => selectGuest(guest)}
-                      type="button"
-                    >
-                      <span className="font-medium">{guest.full_name}</span>
-                      {(guest.email || guest.phone_e164) && (
-                        <span className="text-muted-foreground text-xs">
-                          {[guest.email, guest.phone_e164]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+              {a.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* LeaseCard                                                           */
+/* ------------------------------------------------------------------ */
+
+function LeaseCard({
+  row,
+  isEn,
+  fmtLocale,
+  propertyName,
+  unitName,
+}: {
+  row: LeaseRow;
+  isEn: boolean;
+  fmtLocale: string;
+  propertyName?: string;
+  unitName?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const days = daysRemaining(row.ends_on);
+  const status = row.lease_status.toLowerCase();
+  const colorClass = STATUS_COLORS[status] ?? STATUS_COLORS.draft;
+
+  const location = [propertyName, unitName].filter(Boolean).join(" · ");
+
+  let daysLabel: string;
+  if (days === null) {
+    daysLabel = isEn ? "No end date" : "Sin fecha de fin";
+  } else if (days < 0) {
+    daysLabel = isEn ? `Expired ${Math.abs(days)}d ago` : `Venció hace ${Math.abs(days)}d`;
+  } else if (days === 0) {
+    daysLabel = isEn ? "Expires today" : "Vence hoy";
+  } else {
+    daysLabel = isEn ? `${days}d remaining` : `${days}d restantes`;
+  }
+
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="glass-inner overflow-hidden rounded-2xl transition-shadow hover:shadow-[var(--shadow-soft)]"
+      initial={{ opacity: 0, y: 6 }}
+      transition={{ duration: 0.3, ease: EASING }}
+    >
+      <button
+        className="flex w-full items-start gap-3 p-4 text-left sm:p-5"
+        onClick={() => setExpanded((p) => !p)}
+        type="button"
+      >
+        {/* Initials avatar */}
+        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/60 font-medium text-foreground/70 text-xs">
+          {initials(row.tenant_full_name)}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate font-medium text-foreground text-sm tracking-tight">
+              {row.tenant_full_name}
+            </h3>
+            <span className={cn("ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide", colorClass)}>
+              {row.lease_status_label}
+            </span>
+          </div>
+
+          <p className="mt-0.5 truncate text-muted-foreground/60 text-xs">
+            {location || (isEn ? "No unit assigned" : "Sin unidad asignada")}
+          </p>
+
+          <div className="mt-2.5 flex items-center gap-3 text-xs">
+            <span className="font-medium tabular-nums text-foreground">
+              {fmtPyg(row.monthly_rent, fmtLocale)}<span className="text-muted-foreground/50">/mo</span>
+            </span>
+            <span className="text-muted-foreground/50">·</span>
+            <span className={cn(
+              "tabular-nums",
+              days !== null && days <= 0 ? "text-red-600 dark:text-red-400" : days !== null && days <= 30 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
+            )}>
+              {daysLabel}
+            </span>
+          </div>
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            animate={{ height: "auto", opacity: 1 }}
+            className="overflow-hidden"
+            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: EASING }}
+          >
+            <div className="border-border/40 border-t px-4 py-4 sm:px-5">
+              {/* Lease terms grid */}
+              <p className="mb-2 text-muted-foreground/50 text-[10px] font-medium tracking-wider uppercase">
+                {isEn ? "LEASE TERMS" : "TÉRMINOS DEL CONTRATO"}
+              </p>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <Stat label={isEn ? "Start" : "Inicio"} value={row.starts_on || "—"} />
+                <Stat label={isEn ? "End" : "Fin"} value={row.ends_on || "—"} />
+                <Stat label={isEn ? "Monthly rent" : "Alquiler mensual"} value={fmtPyg(row.monthly_rent, fmtLocale)} />
+                <Stat label={isEn ? "Security deposit" : "Depósito"} value={fmtPyg(row.security_deposit, fmtLocale)} />
+                <Stat label={isEn ? "IVA" : "IVA"} value={fmtPyg(row.tax_iva, fmtLocale)} />
+                <Stat label={isEn ? "Service fee" : "Tarifa de servicio"} value={fmtPyg(row.service_fee_flat, fmtLocale)} />
+              </div>
+
+              {/* Tenant contact */}
+              {(row.tenant_email || row.tenant_phone_e164) && (
+                <div className="mt-4">
+                  <p className="mb-2 text-muted-foreground/50 text-[10px] font-medium tracking-wider uppercase">
+                    {isEn ? "TENANT CONTACT" : "CONTACTO DEL INQUILINO"}
+                  </p>
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    {row.tenant_email && <p>{row.tenant_email}</p>}
+                    {row.tenant_phone_e164 && <p>{row.tenant_phone_e164}</p>}
+                  </div>
                 </div>
               )}
-            </div>
 
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Email" : "Correo"}</span>
-              <Input
-                name="tenant_email"
-                onChange={(e) => setTenantEmail(e.target.value)}
-                type="email"
-                value={tenantEmail}
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Phone" : "Teléfono"}</span>
-              <Input
-                name="tenant_phone_e164"
-                onChange={(e) => setTenantPhone(e.target.value)}
-                placeholder="+595..."
-                value={tenantPhone}
-              />
-            </label>
-
-            {!editing && (
-              <label className="flex items-center gap-2 text-sm md:col-span-2">
-                <Checkbox
-                  checked={saveAsGuest}
-                  onCheckedChange={(checked) =>
-                    setSaveAsGuest(checked === true)
-                  }
-                />
-                <input
-                  name="save_as_guest"
-                  type="hidden"
-                  value={saveAsGuest ? "1" : "0"}
-                />
-                <span className="text-muted-foreground">
-                  {isEn
-                    ? "Also save tenant as a guest in the database"
-                    : "También guardar inquilino como huésped en la base de datos"}
-                </span>
-              </label>
-            )}
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Start date" : "Fecha de inicio"}</span>
-              <DatePicker
-                defaultValue={editing?.starts_on ?? today}
-                locale={locale}
-                name="starts_on"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "End date" : "Fecha de término"}</span>
-              <DatePicker
-                defaultValue={editing?.ends_on ?? ""}
-                locale={locale}
-                name="ends_on"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Property" : "Propiedad"}</span>
-              <Select
-                defaultValue={editing?.property_id ?? ""}
-                name="property_id"
-              >
-                <option value="">
-                  {isEn ? "Select property" : "Seleccionar"}
-                </option>
-                {propertyOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Unit" : "Unidad"}</span>
-              <Select defaultValue={editing?.unit_id ?? ""} name="unit_id">
-                <option value="">{isEn ? "Select unit" : "Seleccionar"}</option>
-                {unitOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Currency" : "Moneda"}</span>
-              <Select defaultValue={editing?.currency ?? "PYG"} name="currency">
-                <option value="PYG">PYG</option>
-                <option value="USD">USD</option>
-              </Select>
-            </label>
-
-            {editing ? null : (
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Lease status" : "Estado del contrato"}</span>
-                <Select defaultValue="active" name="lease_status">
-                  <option value="draft">{isEn ? "Draft" : "Borrador"}</option>
-                  <option value="active">{isEn ? "Active" : "Activo"}</option>
-                </Select>
-              </label>
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Monthly rent" : "Alquiler mensual"}</span>
-              <Input
-                defaultValue={editing?.monthly_rent ?? ""}
-                min={0}
-                name="monthly_rent"
-                ref={rentInputRef}
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-
-            <div className="space-y-1 text-sm">
-              <div className="flex items-center gap-2">
-                <span>IVA</span>
-                <button
-                  className="rounded border border-input px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  onClick={autoCalcIva}
-                  title={
-                    isEn
-                      ? "Auto-calculate 5% IVA (residential rental rate)"
-                      : "Auto-calcular IVA 5% (tasa alquiler residencial)"
-                  }
-                  type="button"
-                >
-                  5%
-                </button>
-              </div>
-              <Input
-                defaultValue={editing?.tax_iva ?? ""}
-                min={0}
-                name="tax_iva"
-                ref={ivaInputRef}
-                step="0.01"
-                type="number"
-              />
-            </div>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>
-              <Input
-                defaultValue={editing?.service_fee_flat ?? ""}
-                min={0}
-                name="service_fee_flat"
-                step="0.01"
-                type="number"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Security deposit" : "Depósito de garantía"}</span>
-              <Input
-                defaultValue={editing?.security_deposit ?? ""}
-                min={0}
-                name="security_deposit"
-                step="0.01"
-                type="number"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Guarantee option fee" : "Costo de garantía"}</span>
-              <Input
-                defaultValue={editing?.guarantee_option_fee ?? ""}
-                min={0}
-                name="guarantee_option_fee"
-                step="0.01"
-                type="number"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Platform fee" : "Tarifa plataforma"}</span>
-              <Input
-                defaultValue={editing?.platform_fee ?? ""}
-                min={0}
-                name="platform_fee"
-                step="0.01"
-                type="number"
-              />
-            </label>
-          </div>
-
-          {editing ? null : (
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-sm">
-                <span>
-                  {isEn ? "Generate first collection" : "Generar primer cobro"}
-                </span>
-                <Select defaultValue="1" name="generate_first_collection">
-                  <option value="1">{isEn ? "Yes" : "Sí"}</option>
-                  <option value="0">{isEn ? "No" : "No"}</option>
-                </Select>
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>
-                  {isEn ? "First collection due" : "Vencimiento primer cobro"}
-                </span>
-                <DatePicker
-                  defaultValue={today}
-                  locale={locale}
-                  name="first_collection_due_date"
-                />
-              </label>
-            </div>
-          )}
-
-          <label className="space-y-1 text-sm">
-            <span>{isEn ? "Notes" : "Notas"}</span>
-            <Textarea
-              defaultValue={editing?.notes ?? ""}
-              name="notes"
-              rows={3}
-            />
-          </label>
-
-          <div className="flex justify-end">
-            <Button type="submit">
-              {editing
-                ? isEn
-                  ? "Save changes"
-                  : "Guardar cambios"
-                : isEn
-                  ? "Create lease"
-                  : "Crear contrato"}
-            </Button>
-          </div>
-        </Form>
-      </Sheet>
-
-      <Sheet
-        contentClassName="max-w-md"
-        description={
-          isEn
-            ? `Generate monthly collection records for ${generatingFor?.tenant_full_name ?? "this lease"}.`
-            : `Genera registros de cobro mensual para ${generatingFor?.tenant_full_name ?? "este contrato"}.`
-        }
-        onOpenChange={(v) => {
-          if (!v) setGeneratingFor(null);
-        }}
-        open={!!generatingFor}
-        title={isEn ? "Generate collections" : "Generar cobros"}
-      >
-        {generatingFor ? (
-          <Form
-            action={generateCollectionsAction}
-            className="space-y-4"
-            key={generatingFor.id}
-          >
-            <input name="organization_id" type="hidden" value={orgId} />
-            <input name="lease_id" type="hidden" value={generatingFor.id} />
-            <input
-              name="currency"
-              type="hidden"
-              value={generatingFor.currency}
-            />
-            <input name="next" type="hidden" value={nextPath} />
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Number of months" : "Cantidad de meses"}</span>
-              <Input
-                defaultValue={12}
-                max={36}
-                min={1}
-                name="count"
-                required
-                type="number"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Starting from" : "A partir de"}</span>
-              <DatePicker
-                defaultValue={today}
-                locale={locale}
-                name="start_date"
-              />
-            </label>
-
-            <label className="space-y-1 text-sm">
-              <span>
-                {isEn ? "Amount per month" : "Monto mensual"} (
-                {generatingFor.currency})
-              </span>
-              <Input
-                defaultValue={
-                  asNumber(generatingFor.monthly_recurring_total) ||
-                  generatingFor.monthly_rent ||
-                  0
-                }
-                min={0}
-                name="amount"
-                required
-                step="0.01"
-                type="number"
-              />
-            </label>
-
-            <div className="flex justify-end">
-              <Button type="submit">{isEn ? "Generate" : "Generar"}</Button>
-            </div>
-          </Form>
-        ) : null}
-      </Sheet>
-
-      <Sheet
-        contentClassName="max-w-2xl"
-        description={
-          isEn
-            ? `Renew lease for ${renewingFrom?.tenant_full_name ?? "tenant"}. A new active lease will be created and the current one marked as completed.`
-            : `Renovar contrato para ${renewingFrom?.tenant_full_name ?? "inquilino"}. Se creará un nuevo contrato activo y el actual se marcará como completado.`
-        }
-        onOpenChange={(v) => {
-          if (!v) setRenewingFrom(null);
-        }}
-        open={!!renewingFrom}
-        title={isEn ? "Renew lease" : "Renovar contrato"}
-      >
-        {renewingFrom ? (
-          <Form
-            action={renewLeaseAction}
-            className="space-y-4"
-            key={`renew-${renewingFrom.id}`}
-          >
-            <input name="old_lease_id" type="hidden" value={renewingFrom.id} />
-            <input name="organization_id" type="hidden" value={orgId} />
-            <input name="next" type="hidden" value={nextPath} />
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="space-y-1 text-sm md:col-span-2">
-                <span>{isEn ? "Tenant full name" : "Nombre completo"}</span>
-                <Input
-                  defaultValue={renewingFrom.tenant_full_name}
-                  name="tenant_full_name"
-                  required
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Email" : "Correo"}</span>
-                <Input
-                  defaultValue={renewingFrom.tenant_email ?? ""}
-                  name="tenant_email"
-                  type="email"
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Phone" : "Teléfono"}</span>
-                <Input
-                  defaultValue={renewingFrom.tenant_phone_e164 ?? ""}
-                  name="tenant_phone_e164"
-                  placeholder="+595..."
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "New start date" : "Nueva fecha inicio"}</span>
-                <DatePicker
-                  defaultValue={renewingFrom.ends_on ?? today}
-                  locale={locale}
-                  name="starts_on"
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "New end date" : "Nueva fecha término"}</span>
-                <DatePicker locale={locale} name="ends_on" />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Property" : "Propiedad"}</span>
-                <Select
-                  defaultValue={renewingFrom.property_id ?? ""}
-                  name="property_id"
-                >
-                  <option value="">
-                    {isEn ? "Select property" : "Seleccionar"}
-                  </option>
-                  {propertyOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Unit" : "Unidad"}</span>
-                <Select
-                  defaultValue={renewingFrom.unit_id ?? ""}
-                  name="unit_id"
-                >
-                  <option value="">
-                    {isEn ? "Select unit" : "Seleccionar"}
-                  </option>
-                  {unitOptions.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Currency" : "Moneda"}</span>
-                <Select defaultValue={renewingFrom.currency} name="currency">
-                  <option value="PYG">PYG</option>
-                  <option value="USD">USD</option>
-                </Select>
-              </label>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Monthly rent" : "Alquiler mensual"}</span>
-                <Input
-                  defaultValue={renewingFrom.monthly_rent}
-                  min={0}
-                  name="monthly_rent"
-                  required
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-2">
-                  <span>IVA</span>
-                  <button
-                    className="rounded border border-input px-1.5 py-0.5 font-medium text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={(e) => {
-                      const form = (e.target as HTMLElement).closest("form");
-                      if (!form) return;
-                      const rentEl = form.querySelector<HTMLInputElement>(
-                        'input[name="monthly_rent"]'
-                      );
-                      const ivaEl = form.querySelector<HTMLInputElement>(
-                        'input[name="tax_iva"]'
-                      );
-                      if (rentEl && ivaEl) {
-                        const rent = Number(rentEl.value);
-                        if (Number.isFinite(rent) && rent > 0) {
-                          const iva =
-                            Math.round(rent * PY_RESIDENTIAL_IVA_RATE * 100) /
-                            100;
-                          ivaEl.value = String(iva);
-                          ivaEl.dispatchEvent(
-                            new Event("input", { bubbles: true })
-                          );
-                        }
-                      }
-                    }}
-                    title={
-                      isEn
-                        ? "Auto-calculate 5% IVA (residential rental rate)"
-                        : "Auto-calcular IVA 5% (tasa alquiler residencial)"
-                    }
-                    type="button"
-                  >
-                    5%
-                  </button>
+              {/* Notes */}
+              {row.notes && (
+                <div className="mt-4">
+                  <p className="mb-2 text-muted-foreground/50 text-[10px] font-medium tracking-wider uppercase">
+                    {isEn ? "NOTES" : "NOTAS"}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-relaxed">{row.notes}</p>
                 </div>
-                <Input
-                  defaultValue={renewingFrom.tax_iva}
-                  min={0}
-                  name="tax_iva"
-                  step="0.01"
-                  type="number"
+              )}
+
+              {/* Action buttons */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <ActionChip
+                  label={isEn ? "Send renewal offer" : "Enviar renovación"}
+                  prompt={isEn ? `Send a renewal offer to ${row.tenant_full_name}` : `Enviar oferta de renovación a ${row.tenant_full_name}`}
+                />
+                <ActionChip
+                  label={isEn ? "Message tenant" : "Enviar mensaje"}
+                  prompt={isEn ? `Send a message to ${row.tenant_full_name}` : `Enviar mensaje a ${row.tenant_full_name}`}
+                />
+                <ActionChip
+                  label={isEn ? "Record payment" : "Registrar pago"}
+                  prompt={isEn ? `Record a rent payment for ${row.tenant_full_name}` : `Registrar pago de alquiler de ${row.tenant_full_name}`}
+                />
+                <ActionChip
+                  label={isEn ? "Generate document" : "Generar documento"}
+                  prompt={isEn ? `Generate a lease document for ${row.tenant_full_name}` : `Generar documento de contrato para ${row.tenant_full_name}`}
                 />
               </div>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Service fee" : "Tarifa de servicio"}</span>
-                <Input
-                  defaultValue={renewingFrom.service_fee_flat}
-                  min={0}
-                  name="service_fee_flat"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>
-                  {isEn ? "Security deposit" : "Depósito de garantía"}
-                </span>
-                <Input
-                  defaultValue={renewingFrom.security_deposit}
-                  min={0}
-                  name="security_deposit"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>
-                  {isEn ? "Guarantee option fee" : "Costo de garantía"}
-                </span>
-                <Input
-                  defaultValue={renewingFrom.guarantee_option_fee}
-                  min={0}
-                  name="guarantee_option_fee"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-
-              <label className="space-y-1 text-sm">
-                <span>{isEn ? "Platform fee" : "Tarifa plataforma"}</span>
-                <Input
-                  defaultValue={renewingFrom.platform_fee}
-                  min={0}
-                  name="platform_fee"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
 
-            <label className="space-y-1 text-sm">
-              <span>{isEn ? "Notes" : "Notas"}</span>
-              <Textarea name="notes" rows={3} />
-            </label>
+/* ------------------------------------------------------------------ */
+/* Stat                                                                */
+/* ------------------------------------------------------------------ */
 
-            <div className="flex justify-end">
-              <Button type="submit">
-                {isEn ? "Renew lease" : "Renovar contrato"}
-              </Button>
-            </div>
-          </Form>
-        ) : null}
-      </Sheet>
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "success" | "warning" | "danger" }) {
+  return (
+    <div>
+      <p className="text-muted-foreground/60">{label}</p>
+      <p
+        className={cn(
+          "font-medium tabular-nums",
+          tone === "success" && "text-emerald-600 dark:text-emerald-400",
+          tone === "warning" && "text-amber-600 dark:text-amber-400",
+          tone === "danger" && "text-red-600 dark:text-red-400",
+          !tone && "text-foreground",
+        )}
+      >
+        {value}
+      </p>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ActionChip                                                          */
+/* ------------------------------------------------------------------ */
+
+function ActionChip({ label, prompt }: { label: string; prompt: string }) {
+  return (
+    <Link
+      className="rounded-full border border-border/50 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+      href={`/app/agents?prompt=${encodeURIComponent(prompt)}`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* AddLeaseCard                                                        */
+/* ------------------------------------------------------------------ */
+
+function AddLeaseCard({ isEn }: { isEn: boolean }) {
+  const router = useRouter();
+
+  return (
+    <button
+      className="group flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/40 p-6 transition-colors hover:border-border/70 hover:bg-muted/10"
+      onClick={() =>
+        router.push(
+          `/app/agents?prompt=${encodeURIComponent(isEn ? "Draft a lease for a new tenant" : "Redactar un contrato para nuevo inquilino")}`,
+        )
+      }
+      type="button"
+    >
+      <span className="text-muted-foreground/40 text-xl transition-colors group-hover:text-muted-foreground/60">+</span>
+      <span className="font-medium text-muted-foreground/50 text-sm transition-colors group-hover:text-muted-foreground/70">
+        {isEn ? "Create a new lease" : "Crear un nuevo contrato"}
+      </span>
+      <span className="text-muted-foreground/30 text-xs transition-colors group-hover:text-muted-foreground/50">
+        {isEn ? "Tell Alex about your tenant" : "Cuéntale a Alex sobre tu inquilino"}
+      </span>
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ChatInput                                                           */
+/* ------------------------------------------------------------------ */
+
+function ChatInput({ isEn, placeholder }: { isEn: boolean; placeholder: string }) {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    router.push(`/app/agents?prompt=${encodeURIComponent(trimmed)}`);
+  };
+
+  return (
+    <form className="relative" onSubmit={handleSubmit}>
+      <input
+        className={cn(
+          "h-12 w-full rounded-full border border-border/50 bg-background pr-12 pl-5 text-sm",
+          "placeholder:text-muted-foreground/40",
+          "focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20",
+          "transition-colors",
+        )}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={placeholder}
+        type="text"
+        value={value}
+      />
+      <button
+        className={cn(
+          "absolute top-1/2 right-1.5 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full",
+          "bg-foreground text-background transition-opacity",
+          value.trim() ? "opacity-100" : "opacity-30",
+        )}
+        disabled={!value.trim()}
+        type="submit"
+      >
+        <Icon icon={ArrowRight01Icon} size={16} />
+      </button>
+    </form>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Chips                                                               */
+/* ------------------------------------------------------------------ */
+
+function Chips({ chips }: { chips: string[] }) {
+  return (
+    <motion.div
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-wrap gap-2"
+      initial={{ opacity: 0, y: 8 }}
+      transition={{ delay: 0.3, duration: 0.4, ease: EASING }}
+    >
+      {chips.map((chip, i) => (
+        <motion.div
+          animate={{ opacity: 1, scale: 1 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          key={chip}
+          transition={{ delay: 0.35 + i * 0.04, duration: 0.25, ease: EASING }}
+        >
+          <Link
+            className="glass-inner inline-block rounded-full px-3.5 py-2 text-[12.5px] text-muted-foreground/70 transition-all hover:text-foreground hover:shadow-sm"
+            href={`/app/agents?prompt=${encodeURIComponent(chip)}`}
+          >
+            {chip}
+          </Link>
+        </motion.div>
+      ))}
+    </motion.div>
   );
 }

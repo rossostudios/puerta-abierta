@@ -241,3 +241,9 @@ variable "scheduler_notifications_retention_days" {
   description = "Retention window used by /v1/internal/notifications-retention"
   default     = 180
 }
+
+variable "budget_notification_email" {
+  type        = string
+  description = "Email address for AWS budget alert notifications"
+  sensitive   = true
+}

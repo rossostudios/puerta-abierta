@@ -4239,7 +4239,27 @@ async fn tool_delete_row(
 }
 
 async fn tool_get_org_snapshot(state: &AppState, org_id: &str) -> AppResult<Value> {
-    let tracked_tables = [
+    let pool = db_pool(state)?;
+
+    // Single query with subselects instead of 8 sequential round-trips.
+    let row = sqlx::query(
+        "SELECT
+            (SELECT COUNT(*)::bigint FROM properties WHERE organization_id = $1::uuid) AS properties,
+            (SELECT COUNT(*)::bigint FROM units WHERE organization_id = $1::uuid) AS units,
+            (SELECT COUNT(*)::bigint FROM reservations WHERE organization_id = $1::uuid) AS reservations,
+            (SELECT COUNT(*)::bigint FROM tasks WHERE organization_id = $1::uuid) AS tasks,
+            (SELECT COUNT(*)::bigint FROM application_submissions WHERE organization_id = $1::uuid) AS application_submissions,
+            (SELECT COUNT(*)::bigint FROM leases WHERE organization_id = $1::uuid) AS leases,
+            (SELECT COUNT(*)::bigint FROM collection_records WHERE organization_id = $1::uuid) AS collection_records,
+            (SELECT COUNT(*)::bigint FROM listings WHERE organization_id = $1::uuid) AS listings",
+    )
+    .bind(org_id)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| db_error(state, &error))?;
+
+    let mut summary = Map::new();
+    for table in [
         "properties",
         "units",
         "reservations",
@@ -4248,27 +4268,8 @@ async fn tool_get_org_snapshot(state: &AppState, org_id: &str) -> AppResult<Valu
         "leases",
         "collection_records",
         "listings",
-    ];
-
-    let pool = db_pool(state)?;
-    let mut summary = Map::new();
-
-    for table in tracked_tables {
-        let cfg = table_config(table)?;
-        let table_name = validate_identifier(table)?;
-
-        let row = QueryBuilder::<Postgres>::new("SELECT COUNT(*)::bigint AS count FROM ")
-            .push(table_name)
-            .push(" t WHERE (to_jsonb(t) ->> ")
-            .push_bind(cfg.org_column)
-            .push(") = ")
-            .push_bind(org_id)
-            .build()
-            .fetch_one(pool)
-            .await
-            .map_err(|error| db_error(state, &error))?;
-
-        let count = row.try_get::<i64, _>("count").unwrap_or(0);
+    ] {
+        let count = row.try_get::<i64, _>(table).unwrap_or(0);
         summary.insert(table.to_string(), Value::from(count));
     }
 
@@ -7493,10 +7494,7 @@ mod tests {
         run_ai_agent_chat_streaming, AgentStreamEvent, RunAiAgentChatParams,
         AI_AGENT_DISABLED_MESSAGE,
     };
-    use crate::{
-        config::AppConfig,
-        state::{AppState, OrgMembershipCache, PublicListingsCache, ReportResponseCache},
-    };
+    use crate::{cache::CacheLayer, config::AppConfig, state::AppState};
 
     fn disabled_ai_state() -> AppState {
         let mut config = AppConfig::from_env();
@@ -7513,9 +7511,32 @@ mod tests {
             http_client,
             llm_client,
             clerk_jwks_cache: None,
-            org_membership_cache: OrgMembershipCache::new(30, 1000),
-            public_listings_cache: PublicListingsCache::new(15, 500),
-            report_response_cache: ReportResponseCache::new(20, 500),
+            org_membership_cache: CacheLayer::new(
+                "org_membership",
+                1000,
+                std::time::Duration::from_secs(30),
+            ),
+            public_listings_cache: CacheLayer::new(
+                "public_listings",
+                500,
+                std::time::Duration::from_secs(15),
+            ),
+            report_response_cache: CacheLayer::new(
+                "reports",
+                500,
+                std::time::Duration::from_secs(20),
+            ),
+            enrichment_cache: CacheLayer::new(
+                "enrichment",
+                5000,
+                std::time::Duration::from_secs(120),
+            ),
+            agent_config_cache: CacheLayer::new(
+                "agent_config",
+                2000,
+                std::time::Duration::from_secs(60),
+            ),
+            fx_cache: CacheLayer::new("fx", 10, std::time::Duration::from_secs(3600)),
         }
     }
 

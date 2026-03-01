@@ -168,9 +168,8 @@ function AdminShellV2({
   children,
 }: AdminShellProps) {
   const pathname = usePathname();
-  const [viewportMode, setViewportMode] = useState<ViewportMode>(() =>
-    getViewportMode()
-  );
+  // Always start as "desktop" to match SSR output, then sync on mount
+  const [viewportMode, setViewportMode] = useState<ViewportMode>("desktop");
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [backendDegraded, setBackendDegraded] = useState<{
@@ -182,6 +181,8 @@ function AdminShellV2({
   const { overlays } = useShellHotkeys(locale);
 
   useEffect(() => {
+    setViewportMode(getViewportMode());
+
     const desktopMedia = window.matchMedia(DESKTOP_QUERY);
     const tabletMedia = window.matchMedia(TABLET_QUERY);
 

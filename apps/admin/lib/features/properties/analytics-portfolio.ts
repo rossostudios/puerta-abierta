@@ -234,6 +234,13 @@ export function buildPropertyPortfolioRows(params: {
         ? assetValueSource
         : Math.max(revenueDisplayPyg * 96, 0);
 
+    const propertyType =
+      activeLeaseCount > 0 && occupiedUnitCount < unitCount
+        ? "mixed"
+        : activeLeaseCount > 0
+          ? "ltr"
+          : "str";
+
     rows.push({
       id,
       code,
@@ -251,6 +258,7 @@ export function buildPropertyPortfolioRows(params: {
       overdueCollectionCount,
       health,
       assetValuePyg,
+      propertyType,
     });
   }
 

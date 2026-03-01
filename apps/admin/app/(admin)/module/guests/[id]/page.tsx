@@ -23,6 +23,7 @@ import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableCard } from "@/components/ui/table-card";
 import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { getServerAccessToken } from "@/lib/auth/server-access-token";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/format";
@@ -250,33 +251,10 @@ export default async function GuestProfilePage({ params }: PageProps) {
 
   if (!activeOrgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load the guest profile."
-              : "Selecciona una organización para cargar el perfil del huésped."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          {isEn ? (
-            <>
-              Select an organization from the top bar, or create one in{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          ) : (
-            <>
-              Selecciona una organización desde la barra superior o crea una en{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["the guest profile", "el perfil del huésped"]}
+      />
     );
   }
 
@@ -309,34 +287,7 @@ export default async function GuestProfilePage({ params }: PageProps) {
       );
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load the guest profile from the backend."
-              : "No se pudo cargar el perfil del huésped desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-          <p>
-            {isEn
-              ? "Make sure the backend is running (`cd apps/backend-rs && cargo run`)"
-              : "Asegúrate de que el backend esté ejecutándose (`cd apps/backend-rs && cargo run`)"}
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   const todayIso = new Date().toISOString().slice(0, 10);

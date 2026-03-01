@@ -111,7 +111,7 @@ Notes:
 - Browser apps (`apps/admin`, `apps/web`) use Clerk session tokens.
 - Backend validates Clerk JWTs via JWKS and issuer configuration.
 - Internal application users are linked via `app_users.clerk_user_id`.
-- Supabase auth is no longer used for `web`, `admin`, or backend runtime.
+- Authentication is handled exclusively by Clerk.
 
 ## Database
 
@@ -119,11 +119,6 @@ Notes:
 
 - AWS RDS PostgreSQL (Multi-AZ)
 - Backend uses `DATABASE_URL` as the canonical connection string
-
-### Local / Compatibility
-
-- `DATABASE_URL` (preferred)
-- `SUPABASE_DB_URL` remains a legacy alias in backend config parsing for local compatibility only
 
 ### Migrations
 
@@ -253,7 +248,7 @@ Deployment scripts fail fast on missing ECR permissions and emit ECS diagnostics
 - `casaora-admin`
 - `casaora-web`
 
-### Scheduled Jobs (Railway replacement)
+### Scheduled Jobs
 
 AWS EventBridge schedules trigger ECS RunTask jobs (job runner task family):
 

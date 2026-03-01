@@ -6,6 +6,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { getActiveOrgId } from "@/lib/org";
 import { getActiveRole } from "@/lib/role";
 import GovernanceManager from "./governance-manager";
@@ -17,25 +18,10 @@ export default async function GovernancePage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to access AI Settings."
-              : "Selecciona una organización para acceder a la configuración de IA."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          {isEn
-            ? "Use the organization switcher in the top bar."
-            : "Usa el selector de organización en la barra superior."}
-        </CardContent>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["AI Settings", "la configuración de IA"]}
+      />
     );
   }
 

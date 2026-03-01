@@ -9,6 +9,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     auth::require_user_id,
+    cache_invalidation,
     error::{AppError, AppResult},
     repository::table_service::{
         count_rows, create_row, delete_row, get_row, list_rows, update_row,
@@ -138,6 +139,7 @@ async fn create_property(
         Some(created.clone()),
     )
     .await;
+    invalidate_enrichment_cache(&state, &payload.organization_id).await;
     Ok((axum::http::StatusCode::CREATED, Json(created)))
 }
 
@@ -171,37 +173,36 @@ async fn get_property_hierarchy(
         ("property_id", Value::String(path.property_id.clone())),
     ]);
 
-    let floors = list_rows(
-        pool,
-        "property_floors",
-        Some(&filters),
-        5_000,
-        0,
-        "created_at",
-        true,
-    )
-    .await?;
-    let units = list_rows(pool, "units", Some(&filters), 10_000, 0, "created_at", true).await?;
-    let spaces = list_rows(
-        pool,
-        "unit_spaces",
-        Some(&filters),
-        20_000,
-        0,
-        "created_at",
-        true,
-    )
-    .await?;
-    let beds = list_rows(
-        pool,
-        "unit_beds",
-        Some(&filters),
-        30_000,
-        0,
-        "created_at",
-        true,
-    )
-    .await?;
+    let (floors, units, spaces, beds) = tokio::try_join!(
+        list_rows(
+            pool,
+            "property_floors",
+            Some(&filters),
+            5_000,
+            0,
+            "created_at",
+            true
+        ),
+        list_rows(pool, "units", Some(&filters), 10_000, 0, "created_at", true),
+        list_rows(
+            pool,
+            "unit_spaces",
+            Some(&filters),
+            20_000,
+            0,
+            "created_at",
+            true
+        ),
+        list_rows(
+            pool,
+            "unit_beds",
+            Some(&filters),
+            30_000,
+            0,
+            "created_at",
+            true
+        ),
+    )?;
 
     let hierarchy = build_property_hierarchy(property, floors, units, spaces, beds);
     Ok(Json(hierarchy))
@@ -233,6 +234,7 @@ async fn update_property(
         Some(updated.clone()),
     )
     .await;
+    invalidate_enrichment_cache(&state, &org_id).await;
     Ok(Json(updated))
 }
 
@@ -319,7 +321,7 @@ async fn list_units(
         false,
     )
     .await?;
-    let enriched = enrich_units(pool, rows, &org_id).await?;
+    let enriched = enrich_units(&state, pool, rows, &org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -567,6 +569,7 @@ async fn create_unit(
     )
     .await;
 
+    invalidate_enrichment_cache(&state, &payload.organization_id).await;
     Ok((axum::http::StatusCode::CREATED, Json(created)))
 }
 
@@ -580,7 +583,7 @@ async fn get_unit(
     let record = get_row(pool, "units", &path.unit_id, "id").await?;
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
-    let mut enriched = enrich_units(pool, vec![record], &org_id).await?;
+    let mut enriched = enrich_units(&state, pool, vec![record], &org_id).await?;
     let first = enriched.pop().unwrap_or_else(|| Value::Object(Map::new()));
     Ok(Json(first))
 }
@@ -618,6 +621,7 @@ async fn update_unit(
     )
     .await;
 
+    invalidate_enrichment_cache(&state, &org_id).await;
     Ok(Json(updated))
 }
 
@@ -1676,6 +1680,22 @@ fn normalize_uppercase_string(payload: &mut Map<String, Value>, key: &str) {
 
     if let Some(value) = value {
         payload.insert(key.to_string(), Value::String(value));
+    }
+}
+
+async fn invalidate_enrichment_cache(state: &AppState, org_id: &str) {
+    let prefix = format!("{org_id}:");
+    state.enrichment_cache.invalidate_prefix(&prefix).await;
+    if let Some(pool) = state.db_pool.as_ref() {
+        cache_invalidation::notify(
+            pool,
+            &cache_invalidation::InvalidationEvent {
+                cache: "enrichment".to_string(),
+                key: String::new(),
+                prefix,
+            },
+        )
+        .await;
     }
 }
 

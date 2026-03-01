@@ -12,24 +12,17 @@ import {
 import {
   fetchList,
   fetchNotificationRulesMetadata,
-  getApiBaseUrl,
   type NotificationRuleMetadataResponse,
 } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
 
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 export default async function NotificationSettingsPage({
   searchParams,
@@ -41,20 +34,10 @@ export default async function NotificationSettingsPage({
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to manage notification rules."
-              : "Selecciona una organización para gestionar reglas de notificación."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["notification rules", "reglas de notificación"]}
+      />
     );
   }
 
@@ -79,29 +62,7 @@ export default async function NotificationSettingsPage({
     if (isOrgMembershipError(message))
       return <OrgAccessChanged orgId={orgId} />;
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load notification rules."
-              : "No se pudieron cargar las reglas de notificación."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

@@ -10,6 +10,8 @@ export type PropertyHealthState = "stable" | "watch" | "critical";
 export type PropertyStatusFilter = "all" | "active" | "inactive";
 export type PropertyHealthFilter = "all" | PropertyHealthState;
 
+export type PropertyType = "ltr" | "str" | "mixed";
+
 export type PropertyPortfolioRow = {
   id: string;
   code: string;
@@ -27,6 +29,7 @@ export type PropertyPortfolioRow = {
   overdueCollectionCount: number;
   health: PropertyHealthState;
   assetValuePyg: number;
+  propertyType: PropertyType;
 };
 
 export type PropertyPortfolioSummary = {

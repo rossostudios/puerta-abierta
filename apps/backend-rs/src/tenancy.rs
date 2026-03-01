@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 use sqlx::{PgPool, Row};
 
-use crate::{auth::AuthenticatedUser, error::AppError, state::AppState};
+use crate::{auth::AuthenticatedUser, cache::org_key, error::AppError, state::AppState};
 
 fn db_pool(state: &AppState) -> Result<&PgPool, AppError> {
     state.db_pool.as_ref().ok_or_else(|| {
@@ -16,38 +16,37 @@ pub async fn get_org_membership(
     user_id: &str,
     org_id: &str,
 ) -> Result<Option<Value>, AppError> {
-    if let Some(cached) = state.org_membership_cache.get(user_id, org_id).await {
-        return Ok(cached);
-    }
+    let cache_key = org_key(org_id, user_id);
 
-    // Dedup concurrent membership lookups for the same user/org tuple.
-    let lock = state.org_membership_cache.key_lock(user_id, org_id).await;
-    let _guard = lock.lock().await;
-
-    if let Some(cached) = state.org_membership_cache.get(user_id, org_id).await {
-        return Ok(cached);
-    }
-
-    let pool = db_pool(state)?;
-    let row = sqlx::query(
-        "SELECT row_to_json(t) AS row
-         FROM organization_members t
-         WHERE organization_id = $1::uuid AND user_id = $2::uuid
-         LIMIT 1",
-    )
-    .bind(org_id)
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
-
-    let membership = row.and_then(|value| value.try_get::<Option<Value>, _>("row").ok().flatten());
-    state
+    // Use get_or_try_init for thundering-herd protection — moka deduplicates
+    // concurrent lookups for the same key automatically.
+    let value = state
         .org_membership_cache
-        .put(user_id, org_id, membership.clone())
-        .await;
+        .get_or_try_init(&cache_key, || async {
+            let pool = db_pool(state)?;
+            let row = sqlx::query(
+                "SELECT row_to_json(t) AS row
+                 FROM organization_members t
+                 WHERE organization_id = $1::uuid AND user_id = $2::uuid
+                 LIMIT 1",
+            )
+            .bind(org_id)
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
 
-    Ok(membership)
+            let membership =
+                row.and_then(|value| value.try_get::<Option<Value>, _>("row").ok().flatten());
+            Ok(membership.unwrap_or(Value::Null))
+        })
+        .await?;
+
+    if value.is_null() {
+        Ok(None)
+    } else {
+        Ok(Some(value))
+    }
 }
 
 pub async fn assert_org_member(
@@ -196,7 +195,10 @@ pub async fn ensure_org_membership(
     .execute(pool)
     .await
     .map_err(|error| AppError::from_database_error(&error, "Database request failed."))?;
-    state.org_membership_cache.invalidate(user_id, org_id).await;
+    state
+        .org_membership_cache
+        .invalidate(&org_key(org_id, user_id))
+        .await;
     Ok(())
 }
 

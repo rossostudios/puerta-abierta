@@ -2,20 +2,7 @@ import type { ExpenseRow } from "./types";
 
 export const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
-}
-
-export function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-export function asOptionalString(value: unknown): string | null {
-  const text = asString(value).trim();
-  return text ? text : null;
-}
+export { asNumber, asOptionalString, asString } from "@/lib/module-helpers";
 
 export function safeIsoDate(value: string): string {
   return ISO_DATE_RE.test(value) ? value : "";

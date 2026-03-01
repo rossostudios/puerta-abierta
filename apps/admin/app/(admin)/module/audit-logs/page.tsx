@@ -7,7 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -21,20 +22,10 @@ export default async function AuditLogsPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load audit logs."
-              : "Selecciona una organización para cargar registros de auditoría."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["audit logs", "registros de auditoría"]}
+      />
     );
   }
 
@@ -51,29 +42,7 @@ export default async function AuditLogsPage() {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load audit logs from the backend."
-              : "No se pudieron cargar registros de auditoría."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

@@ -1,6 +1,12 @@
 {
   "name": "casaora-admin",
   "private": true,
+  "imports": {
+    "#server-auth": {
+      "react-server": "./lib/auth/server-access-token.ts",
+      "default": "./lib/auth/access-token-noop.ts"
+    }
+  },
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",

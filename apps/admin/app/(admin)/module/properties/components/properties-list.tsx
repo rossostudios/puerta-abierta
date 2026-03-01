@@ -80,18 +80,9 @@ export function PropertiesList({
         >
           {rows.map((row) => (
             <PropertyCard
-              address={row.address || row.city}
-              code={row.code}
-              id={row.id}
+              agentContext={propertyAgentStatusMap?.get(row.id)}
               key={row.id}
-              name={row.name}
-              occupancyRate={row.occupancyRate}
-              openTaskCount={row.openTaskCount}
-              overdueCollectionCount={row.overdueCollectionCount}
-              revenueMtdPyg={row.revenueMtdPyg}
-              status={row.status}
-              unitCount={row.unitCount}
-              urgentTaskCount={row.urgentTaskCount}
+              row={row}
             />
           ))}
         </div>

@@ -1,5 +1,3 @@
-use std::sync::Mutex;
-
 use serde_json::{json, Map, Value};
 
 use crate::{
@@ -8,10 +6,6 @@ use crate::{
     services::ai_agent::{run_ai_agent_chat, AgentConversationMessage, RunAiAgentChatParams},
     state::AppState,
 };
-
-/// Cached approval rate: (multiplier, timestamp_secs)
-static APPROVAL_RATE_CACHE: Mutex<Option<(f64, u64)>> = Mutex::new(None);
-const CACHE_TTL_SECS: u64 = 3600; // 1 hour
 
 const GUEST_CONCIERGE_SLUG: &str = "guest-concierge";
 const LOW_CONFIDENCE_THRESHOLD: f64 = 0.8;
@@ -310,7 +304,7 @@ pub async fn generate_ai_reply(
         .to_string();
 
     // Compute confidence based on reply content, tool usage, and historical approval rate
-    let confidence = compute_confidence(pool, &reply, &result).await;
+    let confidence = compute_confidence(state, pool, &reply, &result).await;
 
     Some((reply, confidence))
 }
@@ -479,7 +473,12 @@ async fn load_conversation_history(
 /// - Knowledge base match: +0.2
 /// - Response length (substantive replies): +0.1
 /// - Historical approval rate: multiplier of 0.5 + 0.5 * approval_rate
-async fn compute_confidence(pool: &sqlx::PgPool, reply: &str, result: &Map<String, Value>) -> f64 {
+async fn compute_confidence(
+    state: &AppState,
+    pool: &sqlx::PgPool,
+    reply: &str,
+    result: &Map<String, Value>,
+) -> f64 {
     let lower = reply.to_lowercase();
 
     let forward_phrases = [
@@ -555,7 +554,7 @@ async fn compute_confidence(pool: &sqlx::PgPool, reply: &str, result: &Map<Strin
     // over the last 30 days for the guest-concierge agent.
     // approval_rate = approved / (approved + rejected); if no data, defaults to 1.0.
     // Multiplier: 0.5 + 0.5 * approval_rate
-    let approval_multiplier = get_approval_rate_multiplier(pool).await;
+    let approval_multiplier = get_approval_rate_multiplier(state, pool).await;
     score *= approval_multiplier;
 
     score.clamp(0.0, 1.0)
@@ -563,18 +562,12 @@ async fn compute_confidence(pool: &sqlx::PgPool, reply: &str, result: &Map<Strin
 
 /// Query the 30-day approval rate for the guest-concierge agent.
 /// Returns a multiplier in [0.5, 1.0]: at 100% approval → 1.0, at 50% → 0.75, at 0% → 0.5.
-async fn get_approval_rate_multiplier(pool: &sqlx::PgPool) -> f64 {
-    // Check cache first (1-hour TTL)
-    let now_secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+async fn get_approval_rate_multiplier(state: &AppState, pool: &sqlx::PgPool) -> f64 {
+    let cache_key = "approval_rate_multiplier:guest-concierge";
 
-    if let Ok(guard) = APPROVAL_RATE_CACHE.lock() {
-        if let Some((cached_rate, cached_at)) = *guard {
-            if now_secs.saturating_sub(cached_at) < CACHE_TTL_SECS {
-                return cached_rate;
-            }
+    if let Some(cached) = state.agent_config_cache.get(cache_key).await {
+        if let Some(rate) = cached.as_f64() {
+            return rate;
         }
     }
 
@@ -613,10 +606,10 @@ async fn get_approval_rate_multiplier(pool: &sqlx::PgPool) -> f64 {
         0.5 + 0.5 * approval_rate
     };
 
-    // Update cache
-    if let Ok(mut guard) = APPROVAL_RATE_CACHE.lock() {
-        *guard = Some((multiplier, now_secs));
-    }
+    state
+        .agent_config_cache
+        .insert(cache_key.to_string(), json!(multiplier))
+        .await;
 
     multiplier
 }

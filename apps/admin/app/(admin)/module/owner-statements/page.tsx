@@ -12,10 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { cn } from "@/lib/utils";
 
 const StatementsManager = dynamic(() =>
@@ -25,14 +27,6 @@ const StatementsManager = dynamic(() =>
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 export default async function OwnerStatementsModulePage({
   searchParams,
@@ -46,22 +40,7 @@ export default async function OwnerStatementsModulePage({
   const errorLabel = error ? safeDecode(error) : "";
 
   if (!orgId) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load payout statements."
-              : "Selecciona una organización para cargar liquidaciones."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <NoOrgCard isEn={isEn} resource={["payout statements", "liquidaciones"]} />;
   }
 
   let statements: Record<string, unknown>[] = [];
@@ -83,29 +62,7 @@ export default async function OwnerStatementsModulePage({
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load payout statements from the backend."
-              : "No se pudieron cargar liquidaciones."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

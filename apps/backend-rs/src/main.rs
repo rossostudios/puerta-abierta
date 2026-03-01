@@ -2,6 +2,8 @@
 #![recursion_limit = "512"]
 
 mod auth;
+mod cache;
+mod cache_invalidation;
 mod config;
 mod db;
 mod error;
@@ -96,6 +98,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let sched_state = state.clone();
         tokio::spawn(services::scheduler::run_background_scheduler(sched_state));
         tracing::info!("Background scheduler enabled");
+    }
+
+    if state.db_pool.is_some() {
+        let invalidation_state = state.clone();
+        tokio::spawn(cache_invalidation::spawn_listener(invalidation_state));
     }
 
     tracing::info!(

@@ -1,35 +1,25 @@
 "use client";
 
+import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { SectionLabel } from "@/components/agent/briefing/helpers";
 import { normalizeAgents } from "@/components/agent/chat-thread-types";
-import { DataImportSheet } from "@/components/import/data-import-sheet";
-import { PortfolioSidebar } from "@/components/properties/portfolio-sidebar";
+import { PropertyCard } from "@/components/properties/property-card";
+import { Icon } from "@/components/ui/icon";
 import type { AgentDefinition } from "@/lib/api";
-import { filterPropertyPortfolioRows } from "@/lib/features/properties/analytics";
 import type {
-  PropertyHealthFilter,
   PropertyRecord,
   PropertyRelationRow,
-  PropertyStatusFilter,
-  PropertyViewMode,
 } from "@/lib/features/properties/types";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useActiveLocale, useDictionary } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
-import { AiInsightsBanner } from "./components/ai-insights-banner";
-import { CreatePropertySheet } from "./components/create-property-sheet";
+import { PortfolioChips } from "./components/portfolio-chips";
+import { PortfolioMetricsBar } from "./components/portfolio-metrics-bar";
 import { PropertiesFeedback } from "./components/properties-feedback";
-import { PropertiesFilterBar } from "./components/properties-filter-bar";
-import { PropertiesList } from "./components/properties-list";
-import { PropertiesPageHeader } from "./components/properties-page-header";
 import { usePropertyAgentStatus } from "./hooks/use-property-agent-status";
 import { usePropertyPortfolio } from "./hooks/use-property-portfolio";
-
-type PropertiesPageDictionary = {
-  title: string;
-  description: string;
-};
 
 type PropertiesManagerProps = {
   orgId: string;
@@ -38,7 +28,7 @@ type PropertiesManagerProps = {
   leases: PropertyRelationRow[];
   tasks: PropertyRelationRow[];
   collections: PropertyRelationRow[];
-  dictionary?: PropertiesPageDictionary;
+  dictionary?: { title: string; description: string };
   error?: string;
   success?: string;
 };
@@ -50,74 +40,24 @@ export function PropertiesManager({
   leases,
   tasks,
   collections,
-  dictionary: pageDict,
   error: errorLabel,
   success: successMessage,
 }: PropertiesManagerProps) {
-  const { properties: dict, common } = useDictionary();
+  const { common } = useDictionary();
   const locale = useActiveLocale();
   const isEn = locale === "en-US";
   const formatLocale = isEn ? "en-US" : "es-PY";
 
-  const [open, setOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<PropertyViewMode>("grid");
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<PropertyStatusFilter>("all");
-  const [healthFilter, setHealthFilter] = useState<PropertyHealthFilter>("all");
-  const isWide = useMediaQuery("(min-width: 1440px)");
-  const _isMedium = useMediaQuery("(min-width: 1280px)");
-  const [userSidebarPref, setUserSidebarPref] = useState<boolean>(false);
-  const isSidebarOpen = userSidebarPref;
+  const { rows, summary } = usePropertyPortfolio({
+    locale,
+    properties,
+    units,
+    leases,
+    tasks,
+    collections,
+  });
 
-  const previousSidebarRef = useRef(isSidebarOpen);
-
-  const handleViewModeChange = useCallback(
-    (next: PropertyViewMode) => {
-      if (next === "map") {
-        previousSidebarRef.current = isSidebarOpen;
-        setUserSidebarPref(false);
-      } else if (viewMode === "map") {
-        setUserSidebarPref(previousSidebarRef.current);
-      }
-      setViewMode(next);
-    },
-    [isSidebarOpen, viewMode]
-  );
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "p") {
-        event.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setOpen(true);
-      const url = new URL(window.location.href);
-      url.searchParams.delete("new");
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
-  }, []);
-
-  const { rows, summary, recentActivity, notifications } = usePropertyPortfolio(
-    {
-      locale,
-      properties,
-      units,
-      leases,
-      tasks,
-      collections,
-    }
-  );
-
-  // Agent status for AI column
+  // Agent status
   const agentsQuery = useQuery<AgentDefinition[], Error>({
     queryKey: ["agents-property-status", orgId],
     queryFn: async () => {
@@ -145,140 +85,196 @@ export function PropertiesManager({
       : "offline";
 
   const propertyIds = useMemo(() => rows.map((r) => r.id), [rows]);
-  const { propertyAgentStatusMap, approvals } = usePropertyAgentStatus({
+  const { propertyAgentStatusMap } = usePropertyAgentStatus({
     orgId,
     propertyIds,
     agentOnline: agentStatus === "active",
   });
 
-  const filteredRows = useMemo(
-    () =>
-      filterPropertyPortfolioRows({
-        rows,
-        query,
-        statusFilter,
-        healthFilter,
-      }),
-    [healthFilter, query, rows, statusFilter]
-  );
-
-  const title = pageDict?.title || dict.title;
-  const description = pageDict?.description || dict.description;
+  const attentionCount =
+    summary.totalOpenTasks + summary.totalOverdueCollections;
 
   return (
-    <div className="flex w-full bg-background">
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="mx-auto max-w-7xl space-y-6">
-          <PropertiesPageHeader
-            description={description}
-            importLabel={isEn ? "Import" : "Importar"}
-            newPropertyLabel={dict.newProperty}
-            onOpenCreate={() => setOpen(true)}
-            onOpenImport={() => setImportOpen(true)}
-            recordCount={filteredRows.length}
-            recordsLabel={
-              filteredRows.length === 1
-                ? isEn ? "Property" : "Propiedad"
-                : isEn ? "Properties" : "Propiedades"
-            }
-            title={title}
-          />
+    <div className="mx-auto flex min-h-[calc(100vh-7rem)] max-w-5xl flex-col px-4 py-8 sm:px-6">
+      <div className="space-y-8">
+        {/* STOA overview */}
+        <PortfolioOverview
+          attentionCount={attentionCount}
+          isEn={isEn}
+          propertyCount={rows.length}
+          unitCount={summary.totalUnits}
+        />
 
-          <AiInsightsBanner
-            isEn={isEn}
-            orgId={orgId}
-            propertyCount={filteredRows.length}
-          />
+        {/* Metric Cards */}
+        <PortfolioMetricsBar
+          formatLocale={formatLocale}
+          isEn={isEn}
+          summary={summary}
+        />
 
-          <PropertiesFeedback
-            error={errorLabel ?? ""}
-            errorLabel={common.error}
-            success={successMessage ?? ""}
-            successLabel={common.success}
-          />
+        {/* Feedback toasts */}
+        <PropertiesFeedback
+          error={errorLabel ?? ""}
+          errorLabel={common.error}
+          success={successMessage ?? ""}
+          successLabel={common.success}
+        />
 
-          <PropertiesFilterBar
-            healthFilter={healthFilter}
-            isEn={isEn}
-            isSidebarOpen={isSidebarOpen}
-            onHealthFilterChange={setHealthFilter}
-            onQueryChange={setQuery}
-            onStatusFilterChange={setStatusFilter}
-            onToggleSidebar={() => setUserSidebarPref((prev) => !prev)}
-            onViewModeChange={handleViewModeChange}
-            query={query}
-            statusFilter={statusFilter}
-            viewMode={viewMode}
-          />
+        {/* Section label */}
+        <SectionLabel>
+          {isEn ? "YOUR PROPERTIES" : "TUS PROPIEDADES"}
+        </SectionLabel>
 
-          <PropertiesList
-            agentStatus={agentStatus}
-            isSidebarOpen={isSidebarOpen}
-            locale={locale}
-            propertyAgentStatusMap={propertyAgentStatusMap}
-            rows={filteredRows}
-            summary={summary}
-            viewMode={viewMode}
-          />
-        </div>
+        {/* Property cards grid */}
+        {rows.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rows.map((row) => (
+              <PropertyCard
+                agentContext={propertyAgentStatusMap.get(row.id)}
+                key={row.id}
+                row={row}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center text-muted-foreground/60 text-sm">
+            {isEn
+              ? "No properties yet. Ask the agent to add your first property."
+              : "Sin propiedades. Pide al agente que agregue tu primera propiedad."}
+          </div>
+        )}
       </div>
 
-      <aside
-        className={cn(
-          "shrink-0 transition-all duration-300 ease-in-out",
-          isSidebarOpen
-            ? isWide
-              ? "w-[376px]"
-              : "w-[336px]"
-            : "w-0 overflow-hidden"
-        )}
-      >
-        <div
-          className={cn(
-            "sticky top-0 max-h-[calc(100dvh-8rem)] overflow-y-auto py-6",
-            isWide ? "px-5" : "px-4"
-          )}
-        >
-          <PortfolioSidebar
-            agentOnline={agentStatus === "active"}
-            approvals={approvals}
-            avgRentPyg={summary.averageRentPyg}
-            formatLocale={formatLocale}
-            isEn={isEn}
-            notifications={notifications}
-            occupancyRate={summary.averageOccupancy}
-            orgId={orgId}
-            propertyRows={rows}
-            recentActivity={recentActivity}
-            totalOverdueCollections={summary.totalOverdueCollections}
-            totalRevenueMtdPyg={summary.totalRevenueMtdPyg}
-            totalVacantUnits={summary.totalVacantUnits}
-            totalValuePyg={summary.totalAssetValuePyg}
-            vacancyCostPyg={summary.vacancyCostPyg}
-          />
-        </div>
-      </aside>
-
-      <CreatePropertySheet
-        cancelLabel={common.cancel}
-        codeLabel={dict.code}
-        createLabel={common.create}
-        description={dict.description}
-        isEn={isEn}
-        nameLabel={dict.name}
-        onOpenChange={setOpen}
-        open={open}
-        orgId={orgId}
-        title={dict.newProperty}
-      />
-
-      <DataImportSheet
-        isEn={isEn}
-        mode="properties"
-        onOpenChange={setImportOpen}
-        open={importOpen}
-        orgId={orgId}
-      />
+      {/* Push chat to bottom */}
+      <div className="mt-auto space-y-4 pt-12">
+        <PropertyChatInput isEn={isEn} />
+        <PortfolioChips isEn={isEn} />
+      </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* PortfolioOverview — one-line STOA summary (no greeting)            */
+/* ------------------------------------------------------------------ */
+
+function PortfolioOverview({
+  propertyCount,
+  unitCount,
+  attentionCount,
+  isEn,
+}: {
+  propertyCount: number;
+  unitCount: number;
+  attentionCount: number;
+  isEn: boolean;
+}) {
+  const overview = isEn
+    ? buildOverviewEn(propertyCount, unitCount, attentionCount)
+    : buildOverviewEs(propertyCount, unitCount, attentionCount);
+
+  return (
+    <div className="space-y-1">
+      <p className="font-semibold text-foreground text-sm">Alex</p>
+      <p className="text-muted-foreground text-sm leading-relaxed">{overview}</p>
+    </div>
+  );
+}
+
+function buildOverviewEn(props: number, units: number, attention: number) {
+  if (props === 0) return "No properties yet. Ask me to add your first one.";
+  const parts: string[] = [
+    `Here\u2019s your portfolio \u2014 `,
+  ];
+  parts.push(
+    `**${props} ${props === 1 ? "property" : "properties"}**, **${units} ${units === 1 ? "unit" : "units"}**.`
+  );
+  if (attention > 0) {
+    parts.push(
+      ` ${attention} ${attention === 1 ? "needs" : "need"} attention.`
+    );
+  }
+  parts.push(" Tap any property to expand.");
+  return formatBold(parts.join(""));
+}
+
+function buildOverviewEs(props: number, units: number, attention: number) {
+  if (props === 0) return "Sin propiedades a\u00fan. P\u00eddeme agregar la primera.";
+  const parts: string[] = [
+    `Tu portafolio \u2014 `,
+  ];
+  parts.push(
+    `**${props} ${props === 1 ? "propiedad" : "propiedades"}**, **${units} ${units === 1 ? "unidad" : "unidades"}**.`
+  );
+  if (attention > 0) {
+    parts.push(
+      ` ${attention} ${attention === 1 ? "requiere" : "requieren"} atenci\u00f3n.`
+    );
+  }
+  parts.push(" Toca cualquier propiedad para expandir.");
+  return formatBold(parts.join(""));
+}
+
+/** Render **bold** markers as <strong> inline */
+function formatBold(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return (
+    <>
+      {parts.map((segment, i) =>
+        i % 2 === 1 ? (
+          <strong key={i} className="font-semibold text-foreground">
+            {segment}
+          </strong>
+        ) : (
+          segment
+        )
+      )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* PropertyChatInput — pill-shaped input that navigates to /app/agents */
+/* ------------------------------------------------------------------ */
+
+function PropertyChatInput({ isEn }: { isEn: boolean }) {
+  const router = useRouter();
+  const [value, setValue] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    router.push(`/app/agents?prompt=${encodeURIComponent(trimmed)}`);
+  };
+
+  return (
+    <form className="relative" onSubmit={handleSubmit}>
+      <input
+        className={cn(
+          "h-12 w-full rounded-full border border-border/50 bg-background pr-12 pl-5 text-sm",
+          "placeholder:text-muted-foreground/40",
+          "focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20",
+          "transition-colors"
+        )}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={
+          isEn ? "Ask about your properties..." : "Pregunta sobre tus propiedades..."
+        }
+        type="text"
+        value={value}
+      />
+      <button
+        className={cn(
+          "absolute top-1/2 right-1.5 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full",
+          "bg-foreground text-background transition-opacity",
+          value.trim() ? "opacity-100" : "opacity-30"
+        )}
+        disabled={!value.trim()}
+        type="submit"
+      >
+        <Icon icon={ArrowRight01Icon} size={16} />
+      </button>
+    </form>
   );
 }

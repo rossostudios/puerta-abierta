@@ -13,9 +13,9 @@ import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
 
 import { AgentAnalytics } from "./agent-analytics";
-import { AgentDashboard } from "./agent-dashboard";
 import { AgentHealth } from "./agent-health";
 import { AgentTraces } from "./agent-traces";
+import { CommandCenter } from "./command-center";
 
 type PageProps = {
   searchParams: Promise<Record<string, string>>;
@@ -96,7 +96,7 @@ export default async function AgentDashboardPage(_props: PageProps) {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="font-bold text-2xl text-foreground tracking-tight">
-            {isEn ? "Agent Dashboard" : "Panel de Agentes"}
+            {isEn ? "AI Command Center" : "Centro de Comando IA"}
           </h1>
           <p className="font-medium text-muted-foreground text-sm">
             {isEn
@@ -106,7 +106,7 @@ export default async function AgentDashboardPage(_props: PageProps) {
         </div>
       </header>
 
-      <AgentDashboard initialStats={stats} locale={locale} orgId={orgId} />
+      <CommandCenter initialStats={stats} locale={locale} orgId={orgId} />
 
       <Card>
         <CardHeader className="space-y-1">

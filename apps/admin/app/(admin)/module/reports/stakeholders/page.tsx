@@ -18,6 +18,7 @@ import {
   type KpiDashboard,
   type OperationsSummary,
 } from "@/lib/api";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
 import { getActiveOrgId } from "@/lib/org";
@@ -76,20 +77,10 @@ export default async function StakeholderReportPage({
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load stakeholder reporting."
-              : "Selecciona una organización para cargar el reporte para stakeholders."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["stakeholder reporting", "el reporte para stakeholders"]}
+      />
     );
   }
 

@@ -52,7 +52,7 @@ async fn list_expenses(
     let pool = db_pool(&state)?;
 
     let rows = list_expense_rows(pool, &query).await?;
-    let enriched = enrich_expenses(pool, rows, &query.org_id).await?;
+    let enriched = enrich_expenses(&state, pool, rows, &query.org_id).await?;
     Ok(Json(json!({ "data": enriched })))
 }
 
@@ -156,7 +156,8 @@ async fn create_expense(
     )
     .await;
 
-    let mut enriched = enrich_expenses(pool, vec![created], &payload.organization_id).await?;
+    let mut enriched =
+        enrich_expenses(&state, pool, vec![created], &payload.organization_id).await?;
     Ok((
         axum::http::StatusCode::CREATED,
         Json(enriched.pop().unwrap_or_else(|| Value::Object(Map::new()))),
@@ -175,7 +176,7 @@ async fn get_expense(
     let org_id = value_str(&record, "organization_id");
     assert_org_member(&state, &user_id, &org_id).await?;
 
-    let mut enriched = enrich_expenses(pool, vec![record], &org_id).await?;
+    let mut enriched = enrich_expenses(&state, pool, vec![record], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))
@@ -265,7 +266,7 @@ async fn update_expense(
     )
     .await;
 
-    let mut enriched = enrich_expenses(pool, vec![updated], &org_id).await?;
+    let mut enriched = enrich_expenses(&state, pool, vec![updated], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))
@@ -338,7 +339,7 @@ async fn approve_expense(
     )
     .await;
 
-    let mut enriched = enrich_expenses(pool, vec![updated], &org_id).await?;
+    let mut enriched = enrich_expenses(&state, pool, vec![updated], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))
@@ -382,7 +383,7 @@ async fn reject_expense(
     )
     .await;
 
-    let mut enriched = enrich_expenses(pool, vec![updated], &org_id).await?;
+    let mut enriched = enrich_expenses(&state, pool, vec![updated], &org_id).await?;
     Ok(Json(
         enriched.pop().unwrap_or_else(|| Value::Object(Map::new())),
     ))

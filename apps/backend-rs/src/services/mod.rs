@@ -10,10 +10,6 @@ pub mod alerting;
 pub mod analytics;
 pub mod anomaly_detection;
 pub mod audit;
-#[allow(dead_code)]
-pub mod background_check;
-#[allow(dead_code)]
-pub mod bank_feed;
 pub mod collection_cycle;
 pub mod cron;
 pub mod dynamic_pricing;

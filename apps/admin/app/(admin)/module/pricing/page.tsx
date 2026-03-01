@@ -8,10 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { fetchList, getApiBaseUrl } from "@/lib/api";
+import { fetchList } from "@/lib/api";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { safeDecode } from "@/lib/module-helpers";
 import { getActiveOrgId } from "@/lib/org";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 
 import { MarketCalibration } from "./market-calibration";
 import { PricingHero } from "./pricing-hero";
@@ -21,14 +23,6 @@ import { PricingStrategy } from "./pricing-strategy";
 type PageProps = {
   searchParams: Promise<{ success?: string; error?: string }>;
 };
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
 
 export default async function PricingModulePage({ searchParams }: PageProps) {
   const locale = await getActiveLocale();
@@ -41,22 +35,7 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
   const errorLabel = error ? safeDecode(error) : "";
 
   if (!orgId) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load pricing intelligence."
-              : "Selecciona una organización para cargar inteligencia de precios."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <NoOrgCard isEn={isEn} resource={["pricing intelligence", "inteligencia de precios"]} />;
   }
 
   let templates: Record<string, unknown>[] = [];
@@ -77,29 +56,7 @@ export default async function PricingModulePage({ searchParams }: PageProps) {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load pricing data from backend."
-              : "No se pudieron cargar datos de precios desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

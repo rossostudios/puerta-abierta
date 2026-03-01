@@ -26,11 +26,9 @@ require_bin() {
 require_bin "${AWS_BIN}"
 require_bin jq
 
+account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 if [[ -z "${STATE_BUCKET}" ]]; then
-  account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
   STATE_BUCKET="${NAME_PREFIX}-terraform-state-${account_id}"
-else
-  account_id="$(aws_cmd sts get-caller-identity --query Account --output text)"
 fi
 
 bucket_exists() {

@@ -1,3 +1,5 @@
+import { getServerAccessToken } from "#server-auth";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
 const DEFAULT_API_TIMEOUT_MS = 15_000;
@@ -182,25 +184,8 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
   return url.toString();
 }
 
-type ServerTokenHelper = {
-  getServerAccessToken: () => Promise<string | null>;
-};
-
-let pendingServerTokenHelper: Promise<ServerTokenHelper> | null = null;
-
-async function loadServerTokenHelper() {
-  if (pendingServerTokenHelper) return pendingServerTokenHelper;
-  const promise = import("@/lib/auth/server-access-token");
-  pendingServerTokenHelper = promise;
-  promise.catch(() => {
-    pendingServerTokenHelper = null;
-  });
-  return promise;
-}
-
 async function getAccessToken(): Promise<string | null> {
   try {
-    const { getServerAccessToken } = await loadServerTokenHelper();
     return await getServerAccessToken();
   } catch {
     return null;

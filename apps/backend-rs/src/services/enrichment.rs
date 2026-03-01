@@ -2,41 +2,122 @@ use chrono::DateTime;
 use serde_json::{json, Map, Value};
 use sqlx::PgPool;
 
-use crate::{error::AppResult, repository::table_service::list_rows};
+use crate::{
+    cache::org_key, error::AppResult, repository::table_service::list_rows, state::AppState,
+};
 
 const AUTO_TURNOVER_TASK_TYPES: &[&str] = &["check_in", "check_out", "cleaning", "inspection"];
 
-pub async fn enrich_units(pool: &PgPool, units: Vec<Value>, org_id: &str) -> AppResult<Vec<Value>> {
+// ---------------------------------------------------------------------------
+// Cached enrichment helpers — property/unit name maps change rarely, so we
+// cache the full per-org map (typically <200 entries per org).
+// ---------------------------------------------------------------------------
+
+/// Generic helper: fetch an org-scoped map from cache, or compute it from DB.
+async fn cached_org_map(
+    state: &AppState,
+    pool: &PgPool,
+    org_id: &str,
+    discriminator: &str,
+    table: &str,
+    mapper: fn(&[Value]) -> std::collections::HashMap<String, String>,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    let cache_key = org_key(org_id, discriminator);
+    let value = state
+        .enrichment_cache
+        .get_or_try_init(&cache_key, || async {
+            let mut filters = Map::new();
+            filters.insert(
+                "organization_id".to_string(),
+                Value::String(org_id.to_string()),
+            );
+            let rows = list_rows(pool, table, Some(&filters), 1000, 0, "created_at", false)
+                .await?;
+            let map = mapper(&rows);
+            Ok(serde_json::to_value(&map).unwrap_or_default())
+        })
+        .await?;
+
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
+pub async fn cached_property_names(
+    state: &AppState,
+    pool: &PgPool,
+    org_id: &str,
+) -> AppResult<std::collections::HashMap<String, String>> {
+    cached_org_map(state, pool, org_id, "property_names", "properties", |rows| {
+        map_by_id_string_field(rows, "name")
+    })
+    .await
+}
+
+/// Fetch both unit name and unit→property maps from a single DB query.
+/// Avoids the duplicate units fetch that occurred when cached_unit_names and
+/// cached_unit_property_map each independently queried the `units` table.
+pub async fn cached_unit_maps(
+    state: &AppState,
+    pool: &PgPool,
+    org_id: &str,
+) -> AppResult<(
+    std::collections::HashMap<String, String>,
+    std::collections::HashMap<String, String>,
+)> {
+    let cache_key = org_key(org_id, "unit_maps");
+    let value = state
+        .enrichment_cache
+        .get_or_try_init(&cache_key, || async {
+            let mut filters = Map::new();
+            filters.insert(
+                "organization_id".to_string(),
+                Value::String(org_id.to_string()),
+            );
+            let units = list_rows(pool, "units", Some(&filters), 1000, 0, "created_at", false)
+                .await?;
+            let names = map_by_id_string_field(&units, "name");
+            let property_map = map_unit_property(&units);
+            Ok(serde_json::json!({ "names": names, "property_map": property_map }))
+        })
+        .await?;
+
+    let names: std::collections::HashMap<String, String> =
+        serde_json::from_value(value.get("names").cloned().unwrap_or_default())
+            .unwrap_or_default();
+    let property_map: std::collections::HashMap<String, String> =
+        serde_json::from_value(value.get("property_map").cloned().unwrap_or_default())
+            .unwrap_or_default();
+    Ok((names, property_map))
+}
+
+/// Convenience: fetch all three enrichment maps (unit names, unit→property, property names).
+async fn cached_enrichment_maps(
+    state: &AppState,
+    pool: &PgPool,
+    org_id: &str,
+) -> AppResult<(
+    std::collections::HashMap<String, String>,
+    std::collections::HashMap<String, String>,
+    std::collections::HashMap<String, String>,
+)> {
+    let ((unit_name, unit_property), property_name) = tokio::try_join!(
+        cached_unit_maps(state, pool, org_id),
+        cached_property_names(state, pool, org_id),
+    )?;
+    Ok((unit_name, unit_property, property_name))
+}
+
+pub async fn enrich_units(
+    state: &AppState,
+    pool: &PgPool,
+    units: Vec<Value>,
+    org_id: &str,
+) -> AppResult<Vec<Value>> {
     let property_ids = extract_ids(&units, "property_id");
     if property_ids.is_empty() {
         return Ok(units);
     }
 
-    let mut filters = Map::new();
-    filters.insert(
-        "organization_id".to_string(),
-        Value::String(org_id.to_string()),
-    );
-    filters.insert(
-        "id".to_string(),
-        Value::Array(
-            property_ids
-                .iter()
-                .map(|id| Value::String(id.clone()))
-                .collect(),
-        ),
-    );
-    let properties = list_rows(
-        pool,
-        "properties",
-        Some(&filters),
-        5000,
-        0,
-        "created_at",
-        false,
-    )
-    .await?;
-    let property_names = map_by_id_string_field(&properties, "name");
+    let property_names = cached_property_names(state, pool, org_id).await?;
 
     let mut enriched = Vec::with_capacity(units.len());
     for mut row in units {
@@ -56,74 +137,18 @@ pub async fn enrich_units(pool: &PgPool, units: Vec<Value>, org_id: &str) -> App
 }
 
 pub async fn enrich_integrations(
+    state: &AppState,
     pool: &PgPool,
     integrations: Vec<Value>,
     org_id: &str,
 ) -> AppResult<Vec<Value>> {
     let unit_ids = extract_ids(&integrations, "unit_id");
 
-    let mut unit_name: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut unit_property: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-
-    if !unit_ids.is_empty() {
-        let mut filters = Map::new();
-        filters.insert(
-            "organization_id".to_string(),
-            Value::String(org_id.to_string()),
-        );
-        filters.insert(
-            "id".to_string(),
-            Value::Array(
-                unit_ids
-                    .iter()
-                    .map(|id| Value::String(id.clone()))
-                    .collect(),
-            ),
-        );
-        let units = list_rows(pool, "units", Some(&filters), 5000, 0, "created_at", false).await?;
-        unit_name = map_by_id_string_field(&units, "name");
-        for unit in units {
-            if let Some(obj) = unit.as_object() {
-                let unit_id = value_string(obj.get("id")).unwrap_or_default();
-                let property_id = value_string(obj.get("property_id")).unwrap_or_default();
-                if !unit_id.is_empty() && !property_id.is_empty() {
-                    unit_property.insert(unit_id.to_string(), property_id.to_string());
-                }
-            }
-        }
-    }
-
-    let property_ids: std::collections::HashSet<String> = unit_property.values().cloned().collect();
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !property_ids.is_empty() {
-        let mut filters = Map::new();
-        filters.insert(
-            "organization_id".to_string(),
-            Value::String(org_id.to_string()),
-        );
-        filters.insert(
-            "id".to_string(),
-            Value::Array(
-                property_ids
-                    .iter()
-                    .map(|id| Value::String(id.clone()))
-                    .collect(),
-            ),
-        );
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filters),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
+    let (unit_name, unit_property, property_name) = if !unit_ids.is_empty() {
+        cached_enrichment_maps(state, pool, org_id).await?
+    } else {
+        Default::default()
+    };
 
     let mut enriched = Vec::with_capacity(integrations.len());
     for mut integration in integrations {
@@ -149,6 +174,7 @@ pub async fn enrich_integrations(
 }
 
 pub async fn enrich_reservations(
+    state: &AppState,
     pool: &PgPool,
     reservations: Vec<Value>,
     org_id: &str,
@@ -157,50 +183,18 @@ pub async fn enrich_reservations(
     let guest_ids = extract_ids(&reservations, "guest_id");
     let integration_ids = extract_ids(&reservations, "integration_id");
 
-    let mut unit_name: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut unit_property: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !unit_ids.is_empty() {
-        let units = list_rows(
-            pool,
-            "units",
-            Some(&filter_org_ids(
-                org_id,
-                unit_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        unit_name = map_by_id_string_field(&units, "name");
-        unit_property = map_unit_property(&units);
-    }
+    // Fetch cached unit/property name maps
+    let (unit_name, unit_property, property_name) = if !unit_ids.is_empty() {
+        cached_enrichment_maps(state, pool, org_id).await?
+    } else {
+        Default::default()
+    };
 
-    let property_ids: std::collections::HashSet<String> = unit_property.values().cloned().collect();
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !property_ids.is_empty() {
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filter_org_ids(
-                org_id,
-                property_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
-
-    let mut guest_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !guest_ids.is_empty() {
+    // Fetch guests, integrations, and listings in parallel (not cacheable — per-request)
+    let guest_fut = async {
+        if guest_ids.is_empty() {
+            return Ok((std::collections::HashMap::new(),));
+        }
         let guests = list_rows(
             pool,
             "guests",
@@ -214,14 +208,16 @@ pub async fn enrich_reservations(
             false,
         )
         .await?;
-        guest_name = map_by_id_string_field(&guests, "full_name");
-    }
+        Ok::<_, crate::error::AppError>((map_by_id_string_field(&guests, "full_name"),))
+    };
 
-    let mut integration_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    let mut integration_kind: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !integration_ids.is_empty() {
+    let integration_fut = async {
+        if integration_ids.is_empty() {
+            return Ok((
+                std::collections::HashMap::new(),
+                std::collections::HashMap::new(),
+            ));
+        }
         let integrations = list_rows(
             pool,
             "integrations",
@@ -235,14 +231,16 @@ pub async fn enrich_reservations(
             false,
         )
         .await?;
-        integration_name = map_by_id_string_field(&integrations, "public_name");
-        integration_kind = map_by_id_string_field(&integrations, "channel_name");
-    }
+        Ok::<_, crate::error::AppError>((
+            map_by_id_string_field(&integrations, "public_name"),
+            map_by_id_string_field(&integrations, "channel_name"),
+        ))
+    };
 
-    // Lookup published listings by unit_id to inject listing_public_slug
-    let mut listing_slug_by_unit: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !unit_ids.is_empty() {
+    let listing_fut = async {
+        if unit_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
         let mut listing_filters = Map::new();
         listing_filters.insert(
             "organization_id".to_string(),
@@ -258,7 +256,7 @@ pub async fn enrich_reservations(
                     .collect(),
             ),
         );
-        if let Ok(listings) = list_rows(
+        let listings = list_rows(
             pool,
             "listings",
             Some(&listing_filters),
@@ -268,18 +266,23 @@ pub async fn enrich_reservations(
             false,
         )
         .await
-        {
-            for listing in &listings {
-                if let Some(obj) = listing.as_object() {
-                    let uid = value_string(obj.get("unit_id")).unwrap_or_default();
-                    let slug = value_string(obj.get("public_slug")).unwrap_or_default();
-                    if !uid.is_empty() && !slug.is_empty() {
-                        listing_slug_by_unit.entry(uid).or_insert(slug);
-                    }
+        .unwrap_or_default();
+
+        let mut slug_map = std::collections::HashMap::new();
+        for listing in &listings {
+            if let Some(obj) = listing.as_object() {
+                let uid = value_string(obj.get("unit_id")).unwrap_or_default();
+                let slug = value_string(obj.get("public_slug")).unwrap_or_default();
+                if !uid.is_empty() && !slug.is_empty() {
+                    slug_map.entry(uid).or_insert(slug);
                 }
             }
         }
-    }
+        Ok::<_, crate::error::AppError>(slug_map)
+    };
+
+    let ((guest_name,), (integration_name, integration_kind), listing_slug_by_unit) =
+        tokio::try_join!(guest_fut, integration_fut, listing_fut)?;
 
     let reservation_ids = extract_ids(&reservations, "id");
     let reservation_lookup = reservations
@@ -416,6 +419,7 @@ pub async fn enrich_reservations(
 }
 
 pub async fn enrich_calendar_blocks(
+    state: &AppState,
     pool: &PgPool,
     blocks: Vec<Value>,
     org_id: &str,
@@ -425,42 +429,8 @@ pub async fn enrich_calendar_blocks(
         return Ok(blocks);
     }
 
-    let units = list_rows(
-        pool,
-        "units",
-        Some(&filter_org_ids(
-            org_id,
-            unit_ids.iter().cloned().collect::<Vec<_>>(),
-        )),
-        5000,
-        0,
-        "created_at",
-        false,
-    )
-    .await?;
-
-    let unit_name = map_by_id_string_field(&units, "name");
-    let unit_property = map_unit_property(&units);
-
-    let property_ids: std::collections::HashSet<String> = unit_property.values().cloned().collect();
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !property_ids.is_empty() {
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filter_org_ids(
-                org_id,
-                property_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
+    let (unit_name, unit_property, property_name) =
+        cached_enrichment_maps(state, pool, org_id).await?;
 
     let mut enriched = Vec::with_capacity(blocks.len());
     for mut block in blocks {
@@ -488,32 +458,18 @@ pub async fn enrich_calendar_blocks(
     Ok(enriched)
 }
 
-pub async fn enrich_tasks(pool: &PgPool, tasks: Vec<Value>, org_id: &str) -> AppResult<Vec<Value>> {
-    let property_ids = extract_ids(&tasks, "property_id");
-    let unit_ids = extract_ids(&tasks, "unit_id");
+pub async fn enrich_tasks(
+    state: &AppState,
+    pool: &PgPool,
+    tasks: Vec<Value>,
+    org_id: &str,
+) -> AppResult<Vec<Value>> {
     let task_ids = extract_ids(&tasks, "id");
     let reservation_ids = extract_ids(&tasks, "reservation_id");
 
-    let mut unit_name: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut unit_property: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !unit_ids.is_empty() {
-        let units = list_rows(
-            pool,
-            "units",
-            Some(&filter_org_ids(
-                org_id,
-                unit_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        unit_name = map_by_id_string_field(&units, "name");
-        unit_property = map_unit_property(&units);
-    }
+    // Use cached name maps
+    let (unit_name, unit_property, property_name) =
+        cached_enrichment_maps(state, pool, org_id).await?;
 
     let mut checklist_counts: std::collections::HashMap<String, ChecklistCounts> =
         std::collections::HashMap::new();
@@ -579,30 +535,6 @@ pub async fn enrich_tasks(pool: &PgPool, tasks: Vec<Value>, org_id: &str) -> App
         }
     }
 
-    let mut all_property_ids = property_ids;
-    for property_id in unit_property.values() {
-        all_property_ids.insert(property_id.to_string());
-    }
-
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !all_property_ids.is_empty() {
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filter_org_ids(
-                org_id,
-                all_property_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
-
     let mut enriched = Vec::with_capacity(tasks.len());
     for mut task in tasks {
         if let Some(obj) = task.as_object_mut() {
@@ -666,57 +598,13 @@ pub async fn enrich_tasks(pool: &PgPool, tasks: Vec<Value>, org_id: &str) -> App
 }
 
 pub async fn enrich_expenses(
+    state: &AppState,
     pool: &PgPool,
     expenses: Vec<Value>,
     org_id: &str,
 ) -> AppResult<Vec<Value>> {
-    let property_ids = extract_ids(&expenses, "property_id");
-    let unit_ids = extract_ids(&expenses, "unit_id");
-
-    let mut unit_name: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut unit_property: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !unit_ids.is_empty() {
-        let units = list_rows(
-            pool,
-            "units",
-            Some(&filter_org_ids(
-                org_id,
-                unit_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        unit_name = map_by_id_string_field(&units, "name");
-        unit_property = map_unit_property(&units);
-    }
-
-    let mut all_property_ids = property_ids;
-    for property_id in unit_property.values() {
-        all_property_ids.insert(property_id.to_string());
-    }
-
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !all_property_ids.is_empty() {
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filter_org_ids(
-                org_id,
-                all_property_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
+    let (unit_name, unit_property, property_name) =
+        cached_enrichment_maps(state, pool, org_id).await?;
 
     let mut enriched = Vec::with_capacity(expenses.len());
     for mut expense in expenses {
@@ -754,58 +642,13 @@ pub async fn enrich_expenses(
 }
 
 pub async fn enrich_owner_statements(
+    state: &AppState,
     pool: &PgPool,
     statements: Vec<Value>,
     org_id: &str,
 ) -> AppResult<Vec<Value>> {
-    let property_ids = extract_ids(&statements, "property_id");
-    let unit_ids = extract_ids(&statements, "unit_id");
-
-    let mut unit_name: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut unit_property: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !unit_ids.is_empty() {
-        let units = list_rows(
-            pool,
-            "units",
-            Some(&filter_org_ids(
-                org_id,
-                unit_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        unit_name = map_by_id_string_field(&units, "name");
-        unit_property = map_unit_property(&units);
-    }
-
-    let all_property_ids: std::collections::HashSet<String> = property_ids
-        .iter()
-        .cloned()
-        .chain(unit_property.values().cloned())
-        .collect();
-
-    let mut property_name: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-    if !all_property_ids.is_empty() {
-        let properties = list_rows(
-            pool,
-            "properties",
-            Some(&filter_org_ids(
-                org_id,
-                all_property_ids.iter().cloned().collect::<Vec<_>>(),
-            )),
-            5000,
-            0,
-            "created_at",
-            false,
-        )
-        .await?;
-        property_name = map_by_id_string_field(&properties, "name");
-    }
+    let (unit_name, unit_property, property_name) =
+        cached_enrichment_maps(state, pool, org_id).await?;
 
     let mut enriched = Vec::with_capacity(statements.len());
     for mut statement in statements {

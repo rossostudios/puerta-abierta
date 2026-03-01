@@ -1,7 +1,6 @@
 import { ChatThread } from "@/components/agent/chat-thread";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getActiveLocale } from "@/lib/i18n/server";
+import { NoOrgCard } from "@/lib/page-helpers";
 import { getActiveOrgId } from "@/lib/org";
 
 type PageProps = {
@@ -16,27 +15,10 @@ export default async function ChatDetailPage({ params }: PageProps) {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Alert variant="warning">
-            <AlertTitle>
-              {isEn ? "Select an organization" : "Selecciona una organización"}
-            </AlertTitle>
-            <AlertDescription>
-              {isEn
-                ? "The chat thread cannot be loaded without an active organization."
-                : "No se puede cargar el hilo sin una organización activa."}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["the chat thread", "el hilo de chat"]}
+      />
     );
   }
 

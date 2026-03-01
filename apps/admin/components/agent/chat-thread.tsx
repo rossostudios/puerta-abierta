@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StructuredContent } from "@/components/agent/action-card";
 import { AutonomyIndicator } from "@/components/agent/autonomy-indicator";
 import { ChatEmptyState } from "@/components/agent/chat-empty-state";
+import { MorningBriefing } from "@/components/agent/briefing";
 import { ChatHeader } from "@/components/agent/chat-header";
 import { ChatInputBar } from "@/components/agent/chat-input-bar";
 import {
@@ -119,6 +120,8 @@ export function ChatThread({
   mode = "full",
   freshKey,
   firstName,
+  dashboardStats,
+  initialPrompt,
 }: {
   orgId: string;
   locale: Locale;
@@ -127,6 +130,8 @@ export function ChatThread({
   mode?: "full" | "embedded" | "hero";
   freshKey?: string;
   firstName?: string;
+  dashboardStats?: Record<string, unknown>;
+  initialPrompt?: string;
 }) {
   const isEn = locale === "en-US";
   const isEmbedded = mode === "embedded";
@@ -158,6 +163,12 @@ export function ChatThread({
   const [feedbackConfirmedIds, setFeedbackConfirmedIds] = useState<Set<string>>(
     new Set()
   );
+
+  // Pre-fill draft from initialPrompt (one-time on mount)
+  useEffect(() => {
+    if (initialPrompt) setDraft(initialPrompt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const activeChatIdRef = useRef<string | undefined>(chatId);
   const pendingSendRef = useRef<{
@@ -1117,7 +1128,11 @@ export function ChatThread({
         <ConversationContent
           className={cn(
             "mx-auto flex flex-col space-y-5 p-4 sm:p-6",
-            isHero ? "max-w-2xl" : isEmbedded ? "max-w-4xl" : "max-w-3xl"
+            isHero
+              ? "max-w-2xl"
+              : isEmbedded
+                ? "max-w-4xl"
+                : "max-w-3xl"
           )}
         >
           {/* Error — only real errors, no agent/model banners */}
@@ -1142,21 +1157,33 @@ export function ChatThread({
               </div>
             ))
           ) : displayMessages.length === 0 ? (
-            <ChatEmptyState
-              agentDescription={selectedAgent?.description}
-              agentName={selectedAgent?.name}
-              contextualSuggestions={
-                contextualSuggestionsQuery.data?.map((s) => s.text) ?? []
-              }
-              dailySummary={dailySummaryQuery.data}
-              disabled={isSending}
-              firstName={isHero ? firstName : undefined}
-              isEn={isEn}
-              onSendPrompt={(prompt) => {
-                handleSend(prompt).catch(() => undefined);
-              }}
-              quickPrompts={quickPrompts}
-            />
+            isHero && dashboardStats ? (
+              <MorningBriefing
+                disabled={isSending}
+                firstName={firstName}
+                locale={locale}
+                onSend={(msg) => {
+                  handleSend(msg).catch(() => undefined);
+                }}
+                stats={dashboardStats as unknown as import("@/components/agent/briefing/helpers").Stats}
+              />
+            ) : (
+              <ChatEmptyState
+                agentDescription={selectedAgent?.description}
+                agentName={selectedAgent?.name}
+                contextualSuggestions={
+                  contextualSuggestionsQuery.data?.map((s) => s.text) ?? []
+                }
+                dailySummary={dailySummaryQuery.data}
+                disabled={isSending}
+                firstName={isHero ? firstName : undefined}
+                isEn={isEn}
+                onSendPrompt={(prompt) => {
+                  handleSend(prompt).catch(() => undefined);
+                }}
+                quickPrompts={quickPrompts}
+              />
+            )
           ) : (
             displayMessages.map((msg) => {
               const feedbackMsg =

@@ -19,8 +19,8 @@ import {
   fetchList,
   fetchOrganizations,
   fetchOwnerSummary,
-  getApiBaseUrl,
 } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -88,34 +88,7 @@ export default async function ModulePage({
       rows = (await fetchOrganizations(100)) as Record<string, unknown>[];
     } catch (err) {
       const message = errorMessage(err);
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-            </CardTitle>
-            <CardDescription>
-              {isEn
-                ? "Could not load module data from the backend."
-                : "No se pudieron cargar los datos del módulo desde el backend."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-muted-foreground text-sm">
-            <p>
-              {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-              <code className="rounded bg-muted px-1 py-0.5">
-                {getApiBaseUrl()}
-              </code>
-            </p>
-            <p className="break-words">{message}</p>
-            <p>
-              {isEn
-                ? "Make sure the backend is running (`cd apps/backend-rs && cargo run`)"
-                : "Asegúrate de que el backend esté ejecutándose (`cd apps/backend-rs && cargo run`)"}
-            </p>
-          </CardContent>
-        </Card>
-      );
+      return <ApiErrorCard isEn={isEn} message={message} />;
     }
 
     return (
@@ -150,50 +123,14 @@ export default async function ModulePage({
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select your organization to load module records."
-              : "Selecciona una organización para cargar los registros del módulo."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-muted-foreground text-sm">
-          {isEn ? (
-            <>
-              Pick an organization from the top bar, or create one in{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          ) : (
-            <>
-              Selecciona una organización desde la barra superior o crea una en{" "}
-              <code className="rounded bg-muted px-1 py-0.5">Onboarding</code>.
-            </>
-          )}
-        </CardContent>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["module records", "los registros del módulo"]}
+      />
     );
   }
 
   if (moduleDef.kind === "report") {
-    const reportApiTitle = isEn
-      ? "API connection failed"
-      : "Fallo de conexión a la API";
-    const reportApiDesc = isEn
-      ? "Could not load report data from the backend."
-      : "No se pudieron cargar los datos del informe desde el backend.";
-    const reportBackendLabel = isEn
-      ? "Backend base URL"
-      : "URL base del backend";
-    const reportBackendHint = isEn
-      ? "Make sure the backend is running (`cd apps/backend-rs && cargo run`)"
-      : "Asegúrate de que el backend esté ejecutándose (`cd apps/backend-rs && cargo run`)";
-
     let report: Record<string, unknown>;
     try {
       report = await fetchOwnerSummary(moduleDef.endpoint, orgId);
@@ -204,24 +141,7 @@ export default async function ModulePage({
       } else {
         message = String(err);
       }
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>{reportApiTitle}</CardTitle>
-            <CardDescription>{reportApiDesc}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-muted-foreground text-sm">
-            <p>
-              {reportBackendLabel}:{" "}
-              <code className="rounded bg-muted px-1 py-0.5">
-                {getApiBaseUrl()}
-              </code>
-            </p>
-            <p className="break-words">{message}</p>
-            <p>{reportBackendHint}</p>
-          </CardContent>
-        </Card>
-      );
+      return <ApiErrorCard isEn={isEn} message={message} />;
     }
     const reportRows = Object.entries(report).map(([key, value]) => ({
       metric: humanizeKey(key),
@@ -281,16 +201,6 @@ export default async function ModulePage({
   }
 
   let rows: Record<string, unknown>[] = [];
-  const modApiTitle = isEn
-    ? "API connection failed"
-    : "Fallo de conexión a la API";
-  const modApiDesc = isEn
-    ? "Could not load module data from the backend."
-    : "No se pudieron cargar los datos del módulo desde el backend.";
-  const modBackendLabel = isEn ? "Backend base URL" : "URL base del backend";
-  const modBackendHint = isEn
-    ? "Make sure the backend is running (`cd apps/backend-rs && cargo run`)"
-    : "Asegúrate de que el backend esté ejecutándose (`cd apps/backend-rs && cargo run`)";
 
   const extraQuery = await buildExtraQuery(searchParams);
 
@@ -306,24 +216,7 @@ export default async function ModulePage({
     if (isOrgMembershipError(message)) {
       return <OrgAccessChanged orgId={orgId} />;
     }
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{modApiTitle}</CardTitle>
-          <CardDescription>{modApiDesc}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {modBackendLabel}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-          <p>{modBackendHint}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   return (

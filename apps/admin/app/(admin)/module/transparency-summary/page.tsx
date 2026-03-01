@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -13,7 +12,8 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableCard } from "@/components/ui/table-card";
-import { fetchOwnerSummary, getApiBaseUrl } from "@/lib/api";
+import { fetchOwnerSummary } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -39,20 +39,10 @@ export default async function TransparencySummaryModulePage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load transparency KPIs."
-              : "Selecciona una organización para cargar KPIs de transparencia."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["transparency KPIs", "KPIs de transparencia"]}
+      />
     );
   }
 
@@ -65,29 +55,7 @@ export default async function TransparencySummaryModulePage() {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load transparency summary from backend."
-              : "No se pudo cargar el resumen de transparencia desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   const transparentListingsPct =

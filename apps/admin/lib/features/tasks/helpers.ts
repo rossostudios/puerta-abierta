@@ -38,20 +38,7 @@ export type TaskRow = {
   checklist_required_remaining?: number | null;
 };
 
-export function asString(value: unknown): string {
-  return typeof value === "string" ? value : value ? String(value) : "";
-}
-
-export function asNumber(value: unknown): number {
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-export function asOptionalString(value: unknown): string | null {
-  const text = asString(value).trim();
-  return text ? text : null;
-}
+export { asNumber, asOptionalString, asString } from "@/lib/module-helpers";
 
 export function asBoolean(value: unknown): boolean {
   if (typeof value === "boolean") return value;

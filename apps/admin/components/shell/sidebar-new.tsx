@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { SHORTCUT_BY_HREF } from "@/lib/hotkeys/config";
 import type { Locale } from "@/lib/i18n";
+import { EASING } from "@/lib/module-helpers";
 import { cn } from "@/lib/utils";
 import { SidebarChatTab } from "./sidebar-chat-tab";
 import { APPLE_DEVICE_REGEX, PRIMARY_TABS } from "./sidebar-constants";
@@ -33,8 +34,6 @@ import type {
 import { resolvePrimaryTab } from "./sidebar-utils";
 
 export type { MemberRole, ViewportMode } from "./sidebar-types";
-
-const EASING = [0.22, 1, 0.36, 1] as const;
 
 function SidebarContent({
   locale,

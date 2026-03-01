@@ -71,8 +71,5 @@ Rollback steps:
 
 ## Notes
 
-- Prefer one change at a time:
-  - Backend cutover first
-  - Frontend cutover second
-  - Auth/database migrations later
+- Prefer one change at a time (e.g. backend cutover first, then frontend)
 - Keep Cloudflare and application-level request IDs for incident tracing

@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -15,7 +14,8 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableCard } from "@/components/ui/table-card";
-import { fetchOwnerSummary, getApiBaseUrl } from "@/lib/api";
+import { fetchOwnerSummary } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency, humanizeKey } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -35,20 +35,10 @@ export default async function OwnerSummaryReportPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load owner summary metrics."
-              : "Selecciona una organización para cargar métricas de resumen del propietario."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["owner summary metrics", "métricas de resumen del propietario"]}
+      />
     );
   }
 
@@ -61,29 +51,7 @@ export default async function OwnerSummaryReportPage() {
       return <OrgAccessChanged orgId={orgId} />;
     }
 
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Could not load owner summary from backend."
-              : "No se pudo cargar el resumen del propietario desde el backend."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-2 text-muted-foreground text-sm">
-          <p>
-            {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-            <code className="rounded bg-muted px-1 py-0.5">
-              {getApiBaseUrl()}
-            </code>
-          </p>
-          <p className="break-words">{message}</p>
-        </CardContent>
-      </Card>
-    );
+    return <ApiErrorCard isEn={isEn} message={message} />;
   }
 
   const reportRows = Object.entries(report).map(([key, value]) => ({

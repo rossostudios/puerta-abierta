@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Icon } from "@/components/ui/icon";
 import { StatCard } from "@/components/ui/stat-card";
-import { fetchOwnerSummary, getApiBaseUrl } from "@/lib/api";
+import { fetchOwnerSummary } from "@/lib/api";
+import { ApiErrorCard, NoOrgCard } from "@/lib/page-helpers";
 import { errorMessage, isOrgMembershipError } from "@/lib/errors";
 import { formatCurrency } from "@/lib/format";
 import { getActiveLocale } from "@/lib/i18n/server";
@@ -104,20 +105,10 @@ export default async function ReportsHubPage() {
 
   if (!orgId) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {isEn
-              ? "Missing organization context"
-              : "Falta contexto de organización"}
-          </CardTitle>
-          <CardDescription>
-            {isEn
-              ? "Select an organization to load reporting modules."
-              : "Selecciona una organización para cargar los módulos de reportes."}
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <NoOrgCard
+        isEn={isEn}
+        resource={["reporting modules", "los módulos de reportes"]}
+      />
     );
   }
 
@@ -160,27 +151,7 @@ export default async function ReportsHubPage() {
       </Card>
 
       {summaryError ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {isEn ? "API connection failed" : "Fallo de conexión a la API"}
-            </CardTitle>
-            <CardDescription>
-              {isEn
-                ? "Could not load owner summary snapshot."
-                : "No se pudo cargar el snapshot del resumen del propietario."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-muted-foreground text-sm">
-            <p>
-              {isEn ? "Backend base URL" : "URL base del backend"}:{" "}
-              <code className="rounded bg-muted px-1 py-0.5">
-                {getApiBaseUrl()}
-              </code>
-            </p>
-            <p className="break-words">{summaryError}</p>
-          </CardContent>
-        </Card>
+        <ApiErrorCard isEn={isEn} message={summaryError} />
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard
