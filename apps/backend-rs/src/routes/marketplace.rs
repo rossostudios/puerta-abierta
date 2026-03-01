@@ -544,23 +544,18 @@ async fn list_public_listings(
     ensure_marketplace_public_enabled(&state)?;
     let cache_key = public_listings_cache_key(&query);
 
-    let key_lock = state.public_listings_cache.key_lock(&cache_key).await;
-    let _guard = key_lock.lock().await;
-    if let Some(cached) = state.public_listings_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
-
-    let pool = db_pool(&state)?;
-    let rows = list_public_listing_rows(pool, &query).await?;
-    let shaped = rows
-        .iter()
-        .map(|row| public_shape(&state, row))
-        .collect::<Vec<_>>();
-    let response = json!({ "data": shaped });
-    state
+    let response = state
         .public_listings_cache
-        .put(cache_key, response.clone())
-        .await;
+        .get_or_try_init(&cache_key, || async {
+            let pool = db_pool(&state)?;
+            let rows = list_public_listing_rows(pool, &query).await?;
+            let shaped = rows
+                .iter()
+                .map(|row| public_shape(&state, row))
+                .collect::<Vec<_>>();
+            Ok(json!({ "data": shaped }))
+        })
+        .await?;
 
     Ok(Json(response))
 }
