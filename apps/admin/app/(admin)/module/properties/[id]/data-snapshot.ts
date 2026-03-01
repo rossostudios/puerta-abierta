@@ -84,13 +84,13 @@ export async function loadPropertyRelationSnapshot(params: {
       accessToken,
       baseUrl,
       path: "/reservations",
-      query: { org_id: orgId, limit: 800 },
+      query: { org_id: orgId, property_id: propertyId, limit: 200 },
     }),
     fetchScopedRows({
       accessToken,
       baseUrl,
       path: "/listings",
-      query: { org_id: orgId, limit: 400 },
+      query: { org_id: orgId, property_id: propertyId, limit: 200 },
     }),
     fetchScopedRows({
       accessToken,
@@ -112,12 +112,8 @@ export async function loadPropertyRelationSnapshot(params: {
   const ownerStatements = ownerStatementRows ?? [];
   const leases = leaseRows ?? [];
 
-  const reservations = (reservationRows ?? []).filter(
-    (row) => asString(row.property_id) === propertyId
-  );
-  const listings = (listingRows ?? []).filter(
-    (row) => asString(row.property_id) === propertyId
-  );
+  const reservations = reservationRows ?? [];
+  const listings = listingRows ?? [];
 
   const listingIds = new Set(
     listings

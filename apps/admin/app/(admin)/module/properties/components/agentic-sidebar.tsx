@@ -17,7 +17,6 @@ import { Icon } from "@/components/ui/icon";
 import type { AgentApproval } from "@/lib/api";
 import type {
   PropertyActivityItem,
-  PropertyNotificationItem,
   PropertyPortfolioRow,
 } from "@/lib/features/properties/types";
 import { formatCompactCurrency, formatRelativeTime } from "@/lib/format";
@@ -34,7 +33,6 @@ type AgenticSidebarProps = {
   totalVacantUnits: number;
   vacancyCostPyg: number;
   recentActivity: PropertyActivityItem[];
-  notifications: PropertyNotificationItem[];
   approvals: AgentApproval[];
   propertyRows: PropertyPortfolioRow[];
   isEn: boolean;
@@ -138,7 +136,6 @@ export function AgenticSidebar({
   totalVacantUnits,
   vacancyCostPyg,
   recentActivity,
-  notifications: _notifications,
   approvals,
   propertyRows,
   isEn,

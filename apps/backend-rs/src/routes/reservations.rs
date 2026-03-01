@@ -24,8 +24,6 @@ use chrono::{Datelike, NaiveDate, NaiveTime, TimeZone, Timelike, Utc};
 use chrono_tz::Tz;
 use serde_json::{json, Map, Value};
 
-#[allow(dead_code)]
-const ACTIVE_BOOKING_STATUSES: &[&str] = &["pending", "confirmed", "checked_in"];
 const DEFAULT_ORG_TIMEZONE: &str = "America/Asuncion";
 const AUTO_TURNOVER_TASK_TYPES: &[&str] = &["check_in", "check_out", "cleaning", "inspection"];
 
@@ -156,6 +154,9 @@ async fn list_reservations(
         "organization_id".to_string(),
         Value::String(query.org_id.clone()),
     );
+    if let Some(property_id) = non_empty_opt(query.property_id.as_deref()) {
+        filters.insert("property_id".to_string(), Value::String(property_id));
+    }
     if let Some(unit_id) = non_empty_opt(query.unit_id.as_deref()) {
         filters.insert("unit_id".to_string(), Value::String(unit_id));
     }

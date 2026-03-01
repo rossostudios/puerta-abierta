@@ -120,6 +120,9 @@ async fn list_listings(
     if let Some(integration_id) = non_empty_opt(query.integration_id.as_deref()) {
         filters.insert("integration_id".to_string(), Value::String(integration_id));
     }
+    if let Some(property_id) = non_empty_opt(query.property_id.as_deref()) {
+        filters.insert("property_id".to_string(), Value::String(property_id));
+    }
     if let Some(unit_id) = non_empty_opt(query.unit_id.as_deref()) {
         filters.insert("unit_id".to_string(), Value::String(unit_id));
     }
@@ -540,20 +543,15 @@ async fn list_public_listings(
 ) -> AppResult<Json<Value>> {
     ensure_marketplace_public_enabled(&state)?;
     let cache_key = public_listings_cache_key(&query);
-    if let Some(cached) = state.public_listings_cache.get(&cache_key).await {
-        return Ok(Json(cached));
-    }
 
     let key_lock = state.public_listings_cache.key_lock(&cache_key).await;
     let _guard = key_lock.lock().await;
-
     if let Some(cached) = state.public_listings_cache.get(&cache_key).await {
         return Ok(Json(cached));
     }
 
     let pool = db_pool(&state)?;
     let rows = list_public_listing_rows(pool, &query).await?;
-
     let shaped = rows
         .iter()
         .map(|row| public_shape(&state, row))
@@ -563,6 +561,7 @@ async fn list_public_listings(
         .public_listings_cache
         .put(cache_key, response.clone())
         .await;
+
     Ok(Json(response))
 }
 

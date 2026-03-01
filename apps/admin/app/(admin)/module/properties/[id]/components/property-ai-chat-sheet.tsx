@@ -34,7 +34,7 @@ export function PropertyAiChatSheet({
   open,
   onOpenChange,
   orgId,
-  propertyId: _propertyId,
+  propertyId,
   propertyName,
   propertyCode,
   propertyAddress,
@@ -48,6 +48,7 @@ export function PropertyAiChatSheet({
   const [error, setError] = useState<string | null>(null);
   const activeChatIdRef = useRef<string | null>(null);
   const isFirstMessageRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   // Reset chat state when sheet closes
   useEffect(() => {
@@ -78,6 +79,8 @@ export function PropertyAiChatSheet({
       body: JSON.stringify({
         org_id: orgId,
         agent_slug: "guest-concierge",
+        title: `Property: ${propertyName}`,
+        metadata: { property_id: propertyId },
       }),
     });
     const payload = (await res.json()) as { id?: string; error?: string };
@@ -118,6 +121,8 @@ export function PropertyAiChatSheet({
 
       try {
         const chatId = await ensureChatId();
+        const controller = new AbortController();
+        abortRef.current = controller;
 
         const res = await fetch(
           `/api/agent/chats/${encodeURIComponent(chatId)}/messages/stream?org_id=${encodeURIComponent(orgId)}`,
@@ -128,6 +133,7 @@ export function PropertyAiChatSheet({
               Accept: "text/event-stream",
             },
             body: JSON.stringify({ message: messageToSend, org_id: orgId }),
+            signal: controller.signal,
           }
         );
 
@@ -206,8 +212,10 @@ export function PropertyAiChatSheet({
           );
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        abortRef.current = null;
         setIsSending(false);
       }
     },
@@ -221,6 +229,22 @@ export function PropertyAiChatSheet({
       /* ignore */
     }
   }, []);
+
+  const handleRetry = useCallback(
+    (assistantMessageId: string) => {
+      const idx = messages.findIndex((m) => m.id === assistantMessageId);
+      if (idx < 1) return;
+      const preceding = messages[idx - 1];
+      if (preceding.role !== "user") return;
+      setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
+      // If retrying the first exchange, re-arm the context prefix
+      if (idx === 1) {
+        isFirstMessageRef.current = true;
+      }
+      handleSend(preceding.content).catch(() => undefined);
+    },
+    [messages, handleSend]
+  );
 
   return (
     <Sheet
@@ -268,11 +292,11 @@ export function PropertyAiChatSheet({
                 key={msg.id}
                 message={msg}
                 onCopy={handleCopy}
-                onEdit={() => {
-                  /* noop */
+                onEdit={(_id, content) => {
+                  setDraft(content);
                 }}
-                onRetry={() => {
-                  /* noop */
+                onRetry={(id) => {
+                  handleRetry(id);
                 }}
               />
             ))}
@@ -315,29 +339,21 @@ export function PropertyAiChatSheet({
         <div className="border-border/40 border-t px-2 py-2">
           <ChatInputBar
             agentName={isEn ? "AI Assistant" : "Asistente IA"}
-            attachments={[]}
-            attachmentsReady
             draft={draft}
             editingSourceId={null}
             isEmbedded
             isEn={isEn}
             isListening={false}
             isSending={isSending}
-            onAddFiles={() => {
-              /* noop */
-            }}
             onCancelEdit={() => {
               /* noop */
             }}
             onDraftChange={setDraft}
-            onRemoveAttachment={() => {
-              /* noop */
-            }}
             onSend={(value) => {
               handleSend(value).catch(() => undefined);
             }}
             onStop={() => {
-              /* noop */
+              abortRef.current?.abort();
             }}
             onToggleVoice={() => {
               /* noop */

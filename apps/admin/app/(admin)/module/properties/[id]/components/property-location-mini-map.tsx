@@ -63,27 +63,3 @@ export function PropertyLocationMiniMap({
     </div>
   );
 }
-
-function _ExpandedMap({ city, token }: { city: string; token: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!(containerRef.current && token)) return;
-
-    mapboxgl.accessToken = token;
-    const center = cityToCoordinates(city);
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/light-v11",
-      center: [center.lng, center.lat],
-      zoom: 14,
-      attributionControl: false,
-    });
-
-    new mapboxgl.Marker().setLngLat([center.lng, center.lat]).addTo(map);
-
-    return () => map.remove();
-  }, [token, city]);
-
-  return <div className="h-full w-full bg-muted/20" ref={containerRef} />;
-}
