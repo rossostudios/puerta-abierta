@@ -1,7 +1,10 @@
 import { getServerAccessToken } from "#server-auth";
+import {
+  hasConfiguredServerApiBaseUrl,
+  SERVER_API_BASE_URL,
+} from "@/lib/server-api-base";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+const API_BASE_URL = SERVER_API_BASE_URL;
 const DEFAULT_API_TIMEOUT_MS = 15_000;
 
 const parsedApiTimeoutMs = Number(
@@ -12,12 +15,9 @@ const API_TIMEOUT_MS =
     ? parsedApiTimeoutMs
     : DEFAULT_API_TIMEOUT_MS;
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !process.env.NEXT_PUBLIC_API_BASE_URL
-) {
+if (process.env.NODE_ENV === "production" && !hasConfiguredServerApiBaseUrl()) {
   throw new Error(
-    "Missing NEXT_PUBLIC_API_BASE_URL in production. Set it in your deployment environment."
+    "Missing API base URL in production. Set INTERNAL_API_BASE_URL (preferred), API_BASE_URL, or NEXT_PUBLIC_API_BASE_URL."
   );
 }
 
@@ -143,6 +143,30 @@ export type WorkflowRuleMetadataResponse = {
   config_schema_hints?: Record<string, unknown>;
 };
 
+// ── Concurrency guard — limits parallel SSR requests to avoid request storms ──
+const MAX_CONCURRENT_REQUESTS = 8;
+let activeRequests = 0;
+const requestQueue: Array<() => void> = [];
+
+function acquireSlot(): Promise<void> {
+  if (activeRequests < MAX_CONCURRENT_REQUESTS) {
+    activeRequests++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    requestQueue.push(() => {
+      activeRequests++;
+      resolve();
+    });
+  });
+}
+
+function releaseSlot(): void {
+  activeRequests--;
+  const next = requestQueue.shift();
+  if (next) next();
+}
+
 const LIST_LIMIT_CAPS: Record<string, number> = {
   "/applications": 250,
   "/integration-events": 200,
@@ -193,11 +217,113 @@ async function getAccessToken(): Promise<string | null> {
 }
 
 const TRANSIENT_STATUS_CODES = new Set([502, 503, 504]);
+const RATE_LIMIT_STATUS_CODE = 429;
 const RETRY_DELAY_MS = 1000;
 const RETRY_JITTER_MS = 400;
+const MAX_GET_RETRIES = 2;
+const RATE_LIMIT_FALLBACK_DELAY_MS = 1500;
+const RATE_LIMIT_MAX_WAIT_MS = 30_000;
+const RATE_LIMIT_WAIT_SECONDS_RE = /wait\s+for\s+(\d+)\s*s/i;
+const RATE_LIMIT_WAIT_MILLISECONDS_RE = /wait\s+for\s+(\d+)\s*ms/i;
 const PUBLIC_CACHE_REVALIDATE_SECONDS = 120;
 const FX_CACHE_REVALIDATE_SECONDS = 900;
+const rateLimitCooldownByPath = new Map<string, number>();
+
+function toRateLimitPathKey(path: string): string {
+  return path.split("?")[0] ?? path;
+}
+
+async function waitForRateLimitCooldown(path: string): Promise<void> {
+  const key = toRateLimitPathKey(path);
+  const until = rateLimitCooldownByPath.get(key) ?? 0;
+  const now = Date.now();
+  if (until <= now) return;
+  await sleep(until - now);
+}
+
+function rememberRateLimitCooldown(path: string, delayMs: number): void {
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  const clamped = Math.min(delayMs, RATE_LIMIT_MAX_WAIT_MS);
+  const key = toRateLimitPathKey(path);
+  const until = Date.now() + clamped;
+  const existing = rateLimitCooldownByPath.get(key) ?? 0;
+  rateLimitCooldownByPath.set(key, Math.max(existing, until));
+}
+
+function clearRateLimitCooldown(path: string): void {
+  rateLimitCooldownByPath.delete(toRateLimitPathKey(path));
+}
+
+function parseRetryAfterMs(value: string | null): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const seconds = Number.parseInt(trimmed, 10);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, RATE_LIMIT_MAX_WAIT_MS);
+  }
+
+  const targetTime = Date.parse(trimmed);
+  if (!Number.isFinite(targetTime)) return null;
+  return Math.min(Math.max(0, targetTime - Date.now()), RATE_LIMIT_MAX_WAIT_MS);
+}
+
+function parseBodyRateLimitMs(bodyText: string): number | null {
+  const secondMatch = bodyText.match(RATE_LIMIT_WAIT_SECONDS_RE);
+  if (secondMatch) {
+    const seconds = Number.parseInt(secondMatch[1], 10);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1000, RATE_LIMIT_MAX_WAIT_MS);
+    }
+  }
+
+  const msMatch = bodyText.match(RATE_LIMIT_WAIT_MILLISECONDS_RE);
+  if (msMatch) {
+    const milliseconds = Number.parseInt(msMatch[1], 10);
+    if (Number.isFinite(milliseconds) && milliseconds >= 0) {
+      return Math.min(milliseconds, RATE_LIMIT_MAX_WAIT_MS);
+    }
+  }
+
+  return null;
+}
+
+async function getRateLimitDelayMs(response: Response): Promise<number> {
+  const fromRetryAfter = parseRetryAfterMs(response.headers.get("retry-after"));
+  if (fromRetryAfter !== null) return fromRetryAfter;
+
+  const fromRateLimitAfter = parseRetryAfterMs(
+    response.headers.get("x-ratelimit-after")
+  );
+  if (fromRateLimitAfter !== null) return fromRateLimitAfter;
+
+  try {
+    const bodyText = await response.clone().text();
+    const fromBody = parseBodyRateLimitMs(bodyText);
+    if (fromBody !== null) return fromBody;
+  } catch {
+    // Body parsing is best-effort.
+  }
+
+  return RATE_LIMIT_FALLBACK_DELAY_MS;
+}
+
 async function doFetch(
+  path: string,
+  url: string,
+  init?: NextRequestInit,
+  options?: { includeAuth?: boolean }
+): Promise<Response> {
+  await acquireSlot();
+  try {
+    return await doFetchInner(path, url, init, options);
+  } finally {
+    releaseSlot();
+  }
+}
+
+async function doFetchInner(
   path: string,
   url: string,
   init?: NextRequestInit,
@@ -249,12 +375,43 @@ async function requestJson<T>(
   const url = buildUrl(path, query);
   const method = (init?.method ?? "GET").toUpperCase();
 
-  let response = await doFetch(path, url, init, options);
+  let attempt = 0;
+  let response: Response;
+  while (true) {
+    if (method === "GET") {
+      await waitForRateLimitCooldown(path);
+    }
 
-  // Retry once on transient errors for safe (GET) requests
-  if (method === "GET" && TRANSIENT_STATUS_CODES.has(response.status)) {
-    await sleepWithJitter(RETRY_DELAY_MS, RETRY_JITTER_MS);
     response = await doFetch(path, url, init, options);
+
+    if (method !== "GET") {
+      break;
+    }
+
+    if (response.status === RATE_LIMIT_STATUS_CODE) {
+      const delayMs = await getRateLimitDelayMs(response);
+      rememberRateLimitCooldown(path, delayMs);
+      if (attempt >= MAX_GET_RETRIES) {
+        break;
+      }
+      attempt += 1;
+      await sleepWithJitter(delayMs, RETRY_JITTER_MS);
+      continue;
+    }
+
+    if (TRANSIENT_STATUS_CODES.has(response.status)) {
+      if (attempt >= MAX_GET_RETRIES) {
+        break;
+      }
+      attempt += 1;
+      await sleepWithJitter(RETRY_DELAY_MS, RETRY_JITTER_MS);
+      continue;
+    }
+
+    if (response.ok) {
+      clearRateLimitCooldown(path);
+    }
+    break;
   }
 
   if (!response.ok) {
@@ -268,7 +425,10 @@ async function requestJson<T>(
 
     let detailMessage = detailsText;
     let errorCode = "";
-    let retryableFlag = false;
+    let retryableFlag =
+      response.status === RATE_LIMIT_STATUS_CODE ||
+      TRANSIENT_STATUS_CODES.has(response.status) ||
+      response.headers.get("retry-after") !== null;
     if (detailsText) {
       try {
         const parsed = JSON.parse(detailsText) as {
@@ -316,7 +476,11 @@ async function requestJson<T>(
 
 function sleepWithJitter(baseMs: number, jitterMs: number): Promise<void> {
   const jitter = Math.floor(Math.random() * Math.max(0, jitterMs));
-  return new Promise((resolve) => setTimeout(resolve, baseMs + jitter));
+  return sleep(baseMs + jitter);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function fetchJson<T>(

@@ -17,6 +17,8 @@ ECS_SG_NAME="${ECS_SG_NAME:-${NAME_PREFIX}-ecs-sg}"
 ALB_NAME="${ALB_NAME:-${NAME_PREFIX}-alb}"
 
 SMOKE_BASE_URL="${SMOKE_BASE_URL:-https://api.casaora.co}"
+BACKEND_PORT="${BACKEND_PORT:-8000}"
+CLOUD_MAP_SERVICE_ARN="${CLOUD_MAP_SERVICE_ARN:-}"
 
 SECRET_PREFIX="${SECRET_PREFIX:-casaora/backend}"
 SECRET_DATABASE_URL_NAME="${SECRET_DATABASE_URL_NAME:-${SECRET_PREFIX}/DATABASE_URL}"
@@ -275,6 +277,14 @@ aws_cmd ecs update-service \
   --service "${SERVICE_NAME}" \
   --task-definition "${taskdef_arn}" \
   --force-new-deployment >/dev/null
+
+if [[ -n "${CLOUD_MAP_SERVICE_ARN}" ]]; then
+  echo "==> Ensuring Cloud Map service registry on ${SERVICE_NAME}"
+  aws_cmd ecs update-service \
+    --cluster "${CLUSTER_NAME}" \
+    --service "${SERVICE_NAME}" \
+    --service-registries "registryArn=${CLOUD_MAP_SERVICE_ARN},containerName=${CONTAINER_NAME},containerPort=${BACKEND_PORT}" >/dev/null
+fi
 
 if ! wait_for_ecs_stability; then
   echo "ECS deployment did not stabilize after ${ECS_STABILITY_WAIT_ATTEMPTS} wait attempt(s)." >&2

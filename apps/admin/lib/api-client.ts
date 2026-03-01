@@ -75,6 +75,7 @@ import { getClerkClientAccessToken } from "@/lib/auth/client-access-token";
 
 const AUTHED_API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/v1";
+const BACKEND_PROXY_PATH_PREFIX = "/api/backend";
 const CLIENT_TOKEN_SKEW_MS = 30_000;
 
 let cachedClientToken: { token: string | null; expiresAt: number } | null =
@@ -121,7 +122,7 @@ export async function authedFetch<T>(
     },
   };
   const res = await fetchWithTransientRetry(
-    `${AUTHED_API_BASE}${path}`,
+    buildAuthedFetchUrl(path),
     requestInit
   );
 
@@ -148,7 +149,28 @@ export async function authedFetch<T>(
   return res.json() as Promise<T>;
 }
 
+function buildAuthedFetchUrl(path: string): string {
+  if (ABSOLUTE_HTTP_URL_RE.test(path)) {
+    return path;
+  }
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (typeof window !== "undefined") {
+    return `${BACKEND_PROXY_PATH_PREFIX}${normalizedPath}`;
+  }
+  return `${AUTHED_API_BASE}${normalizedPath}`;
+}
+
 const TRANSIENT_STATUS_CODES = new Set([502, 503, 504]);
+const RATE_LIMIT_STATUS_CODE = 429;
+const MAX_GET_RETRIES = 2;
+const TRANSIENT_RETRY_BASE_MS = 250;
+const TRANSIENT_RETRY_JITTER_MS = 500;
+const RATE_LIMIT_FALLBACK_DELAY_MS = 1500;
+const RATE_LIMIT_MAX_WAIT_MS = 30_000;
+const RATE_LIMIT_WAIT_SECONDS_RE = /wait\s+for\s+(\d+)\s*s/i;
+const RATE_LIMIT_WAIT_MILLISECONDS_RE = /wait\s+for\s+(\d+)\s*ms/i;
+const ABSOLUTE_HTTP_URL_RE = /^https?:\/\//i;
+const rateLimitCooldownByPath = new Map<string, number>();
 
 type ParsedApiError = {
   message?: string;
@@ -157,20 +179,146 @@ type ParsedApiError = {
   requestId?: string;
 };
 
+function resolvePathKey(input: RequestInfo | URL): string {
+  const value =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  try {
+    const base =
+      typeof window === "undefined"
+        ? "http://localhost"
+        : window.location.origin;
+    return new URL(value, base).pathname;
+  } catch {
+    return value;
+  }
+}
+
+async function waitForRateLimitCooldown(pathKey: string): Promise<void> {
+  const until = rateLimitCooldownByPath.get(pathKey) ?? 0;
+  const now = Date.now();
+  if (until <= now) return;
+  await sleep(until - now);
+}
+
+function rememberRateLimitCooldown(pathKey: string, delayMs: number): void {
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  const clamped = Math.min(delayMs, RATE_LIMIT_MAX_WAIT_MS);
+  const until = Date.now() + clamped;
+  const existing = rateLimitCooldownByPath.get(pathKey) ?? 0;
+  rateLimitCooldownByPath.set(pathKey, Math.max(existing, until));
+}
+
+function clearRateLimitCooldown(pathKey: string): void {
+  rateLimitCooldownByPath.delete(pathKey);
+}
+
+function parseRetryAfterMs(value: string | null): number | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const seconds = Number.parseInt(trimmed, 10);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(seconds * 1000, RATE_LIMIT_MAX_WAIT_MS);
+  }
+
+  const targetTime = Date.parse(trimmed);
+  if (!Number.isFinite(targetTime)) return null;
+  return Math.min(Math.max(0, targetTime - Date.now()), RATE_LIMIT_MAX_WAIT_MS);
+}
+
+function parseBodyRateLimitMs(bodyText: string): number | null {
+  const secondMatch = bodyText.match(RATE_LIMIT_WAIT_SECONDS_RE);
+  if (secondMatch) {
+    const seconds = Number.parseInt(secondMatch[1], 10);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return Math.min(seconds * 1000, RATE_LIMIT_MAX_WAIT_MS);
+    }
+  }
+
+  const msMatch = bodyText.match(RATE_LIMIT_WAIT_MILLISECONDS_RE);
+  if (msMatch) {
+    const milliseconds = Number.parseInt(msMatch[1], 10);
+    if (Number.isFinite(milliseconds) && milliseconds >= 0) {
+      return Math.min(milliseconds, RATE_LIMIT_MAX_WAIT_MS);
+    }
+  }
+
+  return null;
+}
+
+async function getRateLimitDelayMs(response: Response): Promise<number> {
+  const fromRetryAfter = parseRetryAfterMs(response.headers.get("retry-after"));
+  if (fromRetryAfter !== null) return fromRetryAfter;
+
+  const fromRateLimitAfter = parseRetryAfterMs(
+    response.headers.get("x-ratelimit-after")
+  );
+  if (fromRateLimitAfter !== null) return fromRateLimitAfter;
+
+  try {
+    const bodyText = await response.clone().text();
+    const fromBody = parseBodyRateLimitMs(bodyText);
+    if (fromBody !== null) return fromBody;
+  } catch {
+    // Body parsing is best-effort.
+  }
+
+  return RATE_LIMIT_FALLBACK_DELAY_MS;
+}
+
 async function fetchWithTransientRetry(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
   const method = (init?.method ?? "GET").toUpperCase();
-  let response = await fetch(input, init);
+  const pathKey = resolvePathKey(input);
+  let attempt = 0;
 
-  if (method !== "GET" || !TRANSIENT_STATUS_CODES.has(response.status)) {
+  while (true) {
+    if (method === "GET") {
+      await waitForRateLimitCooldown(pathKey);
+    }
+
+    const response = await fetch(input, init);
+    if (method !== "GET") {
+      return response;
+    }
+
+    if (response.status === RATE_LIMIT_STATUS_CODE) {
+      const delayMs = await getRateLimitDelayMs(response);
+      rememberRateLimitCooldown(pathKey, delayMs);
+      if (attempt >= MAX_GET_RETRIES) {
+        return response;
+      }
+      attempt += 1;
+      await sleep(
+        delayMs + Math.floor(Math.random() * TRANSIENT_RETRY_JITTER_MS)
+      );
+      continue;
+    }
+
+    if (TRANSIENT_STATUS_CODES.has(response.status)) {
+      if (attempt >= MAX_GET_RETRIES) {
+        return response;
+      }
+      attempt += 1;
+      await sleep(
+        TRANSIENT_RETRY_BASE_MS +
+          Math.floor(Math.random() * TRANSIENT_RETRY_JITTER_MS)
+      );
+      continue;
+    }
+
+    if (response.ok) {
+      clearRateLimitCooldown(pathKey);
+    }
     return response;
   }
-
-  await sleep(250 + Math.floor(Math.random() * 500));
-  response = await fetch(input, init);
-  return response;
 }
 
 async function parseApiErrorResponse(
@@ -189,7 +337,9 @@ async function parseApiErrorResponse(
   let message = rawText.trim() || `Request failed (${response.status})`;
   let code: string | undefined;
   let retryable: boolean | undefined =
-    TRANSIENT_STATUS_CODES.has(response.status) || retryAfter !== null;
+    response.status === RATE_LIMIT_STATUS_CODE ||
+    TRANSIENT_STATUS_CODES.has(response.status) ||
+    retryAfter !== null;
 
   if (rawText) {
     try {

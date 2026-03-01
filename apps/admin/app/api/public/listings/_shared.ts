@@ -1,5 +1,6 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/v1";
+import { SERVER_API_BASE_URL } from "@/lib/server-api-base";
+
+const API_BASE_URL = SERVER_API_BASE_URL;
 
 function formatBackendError(text: string): string {
   if (!text) return "";

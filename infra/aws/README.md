@@ -69,9 +69,16 @@ Backend (ECS task secrets/env):
 
 Frontend (admin task secrets/env):
 
+- `INTERNAL_API_BASE_URL` (preferred for server-side admin calls, e.g. `http://backend.casaora.internal:8000/v1`)
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - `CLERK_SECRET_KEY`
+
+Cloud Map (optional but recommended):
+
+- Private namespace: `casaora.internal`
+- Backend service DNS: `backend.casaora.internal`
+- Attach `cloud_map_backend_service_arn` output to ECS backend service via `--service-registries`
 
 ## Health Checks
 

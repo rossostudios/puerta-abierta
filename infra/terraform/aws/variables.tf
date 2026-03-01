@@ -100,6 +100,30 @@ variable "web_port" {
   default = 3001
 }
 
+variable "enable_cloud_map" {
+  type        = bool
+  description = "Manage Cloud Map private DNS namespace + backend service discovery record"
+  default     = true
+}
+
+variable "cloud_map_namespace_name" {
+  type        = string
+  description = "Private DNS namespace for ECS service discovery"
+  default     = "casaora.internal"
+}
+
+variable "cloud_map_backend_service_name" {
+  type        = string
+  description = "Cloud Map service name used by backend ECS tasks"
+  default     = "backend"
+}
+
+variable "cloud_map_dns_ttl_seconds" {
+  type        = number
+  description = "TTL for Cloud Map backend DNS records"
+  default     = 30
+}
+
 variable "rds_instance_identifier" {
   type    = string
   default = "casaora-prod-postgres"

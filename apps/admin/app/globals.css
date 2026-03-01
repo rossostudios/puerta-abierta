@@ -296,50 +296,22 @@
   --agentic-cyan: oklch(0.72 0.1 220);
   --agentic-cyan-bg: color-mix(in srgb, var(--color-mauve-900) 82%, oklch(0.45 0.08 220));
   --agentic-cyan-border: color-mix(in srgb, var(--color-mauve-700) 60%, oklch(0.5 0.08 220));
-  --status-success-bg: color-mix(
-    in srgb,
-    var(--color-mauve-900) 80%,
-    var(--color-mauve-800)
-  );
-  --status-success-border: color-mix(
-    in srgb,
-    var(--color-mauve-700) 62%,
-    var(--color-mauve-800)
-  );
-  --status-success-fg: var(--color-mauve-200);
-  --status-warning-bg: color-mix(
-    in srgb,
-    var(--color-mauve-900) 80%,
-    var(--color-mauve-800)
-  );
-  --status-warning-border: color-mix(
-    in srgb,
-    var(--color-mauve-700) 62%,
-    var(--color-mauve-800)
-  );
-  --status-warning-fg: var(--color-mauve-200);
-  --status-danger-bg: color-mix(
-    in srgb,
-    var(--color-mauve-900) 80%,
-    var(--color-mauve-800)
-  );
-  --status-danger-border: color-mix(
-    in srgb,
-    var(--color-mauve-700) 62%,
-    var(--color-mauve-800)
-  );
-  --status-danger-fg: var(--color-mauve-200);
-  --status-info-bg: color-mix(
-    in srgb,
-    var(--color-mauve-900) 80%,
-    var(--color-mauve-800)
-  );
-  --status-info-border: color-mix(
-    in srgb,
-    var(--color-mauve-700) 62%,
-    var(--color-mauve-800)
-  );
-  --status-info-fg: var(--color-mauve-200);
+  /* Shared dark status tone base (all four use identical values) */
+  --status-dark-bg: color-mix(in srgb, var(--color-mauve-900) 80%, var(--color-mauve-800));
+  --status-dark-border: color-mix(in srgb, var(--color-mauve-700) 62%, var(--color-mauve-800));
+  --status-dark-fg: var(--color-mauve-200);
+  --status-success-bg: var(--status-dark-bg);
+  --status-success-border: var(--status-dark-border);
+  --status-success-fg: var(--status-dark-fg);
+  --status-warning-bg: var(--status-dark-bg);
+  --status-warning-border: var(--status-dark-border);
+  --status-warning-fg: var(--status-dark-fg);
+  --status-danger-bg: var(--status-dark-bg);
+  --status-danger-border: var(--status-dark-border);
+  --status-danger-fg: var(--status-dark-fg);
+  --status-info-bg: var(--status-dark-bg);
+  --status-info-border: var(--status-dark-border);
+  --status-info-fg: var(--status-dark-fg);
 }
 
 @theme inline {
@@ -413,6 +385,12 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-width: none;
+  }
+
+  ::-webkit-scrollbar {
+    display: none;
   }
 
   body {
@@ -420,6 +398,9 @@
     letter-spacing: normal;
     background-image: none;
     background-attachment: initial;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   [data-base-ui-root] {
@@ -538,6 +519,35 @@
 
   .pa-admin-shell-root [data-shell-mode] {
     isolation: isolate;
+  }
+
+  .dark body {
+    background-image: none;
+  }
+
+  /* ── Branded Text Selection ── */
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
+    color: var(--foreground);
+  }
+
+  .dark ::selection {
+    background: color-mix(in srgb, var(--primary) 36%, transparent);
+    color: var(--foreground);
+  }
+
+  /* ── Autofill Override ── */
+  input:-webkit-autofill,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--card) inset;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  /* ── Smooth Focus Ring ── */
+  :focus-visible {
+    transition: box-shadow 0.15s ease, outline 0.15s ease;
   }
 }
 
@@ -895,24 +905,8 @@
       transparent 100%
     );
   }
-}
 
-/* Hide all scrollbars globally (still scrollable via wheel/trackpad) */
-* {
-  scrollbar-width: none;
-}
-
-::-webkit-scrollbar {
-  display: none;
-}
-
-@layer base {
-  .dark body {
-    background-image: none;
-  }
-}
-
-@layer utilities {
+  /* ── Brand Gradients ── */
   .bg-casaora-gradient {
     background: linear-gradient(
       135deg,
@@ -975,6 +969,24 @@
       0 0 0 0.5px rgba(255, 255, 255, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.2);
   }
+
+  /* ── Animation Utilities ── */
+  .attention-glow {
+    box-shadow: 0 0 6px 0 var(--agentic-rose-gold-border),
+      0 0 0 0.5px var(--agentic-rose-gold-border);
+  }
+
+  .gentle-pulse {
+    animation: gentlePulse 2.5s ease-in-out infinite;
+  }
+
+  .ai-sparkle {
+    animation: sparkleShimmer 2s ease-in-out infinite;
+  }
+
+  .ai-sparkle-fast {
+    animation: sparkleShimmer 1.2s ease-in-out infinite;
+  }
 }
 
 @keyframes gentlePulse {
@@ -985,15 +997,6 @@
   50% {
     opacity: 0.6;
   }
-}
-
-.attention-glow {
-  box-shadow: 0 0 6px 0 var(--agentic-rose-gold-border),
-    0 0 0 0.5px var(--agentic-rose-gold-border);
-}
-
-.gentle-pulse {
-  animation: gentlePulse 2.5s ease-in-out infinite;
 }
 
 @keyframes fadeInUp {
@@ -1058,14 +1061,6 @@
     opacity: 1;
     transform: scale(1.15);
   }
-}
-
-.ai-sparkle {
-  animation: sparkleShimmer 2s ease-in-out infinite;
-}
-
-.ai-sparkle-fast {
-  animation: sparkleShimmer 1.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1174,15 +1169,6 @@
     background: rgba(20, 20, 20, 0.95) !important;
   }
 
-  .glass-panel {
-    background: rgba(255, 255, 255, 0.95) !important;
-    -webkit-backdrop-filter: blur(8px) saturate(1.1) !important;
-    backdrop-filter: blur(8px) saturate(1.1) !important;
-  }
-
-  .dark .glass-panel {
-    background: rgba(20, 20, 20, 0.95) !important;
-  }
 }
 
 /* ── Accessibility: High Contrast ── */
