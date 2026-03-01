@@ -106,7 +106,7 @@ export function PropertiesManager({
     }
   }, []);
 
-  const { rows, summary, recentActivity, notifications } = usePropertyPortfolio(
+  const { rows, summary, recentActivity } = usePropertyPortfolio(
     {
       locale,
       properties,
@@ -245,7 +245,6 @@ export function PropertiesManager({
             avgRentPyg={summary.averageRentPyg}
             formatLocale={formatLocale}
             isEn={isEn}
-            notifications={notifications}
             occupancyRate={summary.averageOccupancy}
             orgId={orgId}
             propertyRows={rows}

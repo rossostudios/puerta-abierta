@@ -237,6 +237,10 @@ export function PropertyAiChatSheet({
       const preceding = messages[idx - 1];
       if (preceding.role !== "user") return;
       setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
+      // If retrying the first exchange, re-arm the context prefix
+      if (idx === 1) {
+        isFirstMessageRef.current = true;
+      }
       handleSend(preceding.content).catch(() => undefined);
     },
     [messages, handleSend]

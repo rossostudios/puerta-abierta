@@ -20,8 +20,9 @@ import type {
   PropertyPortfolioRow,
 } from "@/lib/features/properties/types";
 import { formatCompactCurrency, formatRelativeTime } from "@/lib/format";
-import { EASING } from "@/lib/module-helpers";
 import { cn } from "@/lib/utils";
+
+const EASING = [0.22, 1, 0.36, 1] as const;
 
 type AgenticSidebarProps = {
   totalValuePyg: number;
