@@ -272,4 +272,3 @@ fn value_str(value: Option<&Value>) -> Option<&str> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
 }
-

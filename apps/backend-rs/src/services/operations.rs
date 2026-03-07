@@ -91,9 +91,7 @@ async fn fetch_overview_summary(
         sla_risk: row.try_get::<i64, _>("sla_risk").unwrap_or(0),
         unassigned: row.try_get::<i64, _>("unassigned").unwrap_or(0),
         turnovers_today: row.try_get::<i64, _>("turnovers_today").unwrap_or(0),
-        maintenance_emergency: row
-            .try_get::<i64, _>("maintenance_emergency")
-            .unwrap_or(0),
+        maintenance_emergency: row.try_get::<i64, _>("maintenance_emergency").unwrap_or(0),
     })
 }
 
@@ -564,10 +562,7 @@ fn push_overview_outer_filters(
                 .push(".assignee_user_id IS NULL");
         }
         Some("turnovers") => {
-            builder
-                .push(" AND ")
-                .push(alias)
-                .push(".kind = 'turnover'");
+            builder.push(" AND ").push(alias).push(".kind = 'turnover'");
         }
         Some("maintenance_emergency") => {
             builder
@@ -583,12 +578,10 @@ fn push_overview_outer_filters(
 
 fn push_overview_sort(builder: &mut QueryBuilder<'_, Postgres>, sort: Option<&str>) {
     match non_empty_opt(sort).as_deref() {
-        Some("due_asc") => builder.push(
-            " ORDER BY t.due_at ASC NULLS LAST, t.created_at DESC NULLS LAST, t.id ASC",
-        ),
-        Some("created_desc") => builder.push(
-            " ORDER BY t.created_at DESC NULLS LAST, t.due_at ASC NULLS LAST, t.id ASC",
-        ),
+        Some("due_asc") => builder
+            .push(" ORDER BY t.due_at ASC NULLS LAST, t.created_at DESC NULLS LAST, t.id ASC"),
+        Some("created_desc") => builder
+            .push(" ORDER BY t.created_at DESC NULLS LAST, t.due_at ASC NULLS LAST, t.id ASC"),
         Some("sla_desc") => builder.push(
             " ORDER BY
                 CASE t.sla_state
@@ -719,7 +712,6 @@ fn parse_uuid(value: &str, field: &str) -> AppResult<uuid::Uuid> {
         ))
     })
 }
-
 
 fn value_opt_str(row: &Value, key: &str) -> Option<String> {
     let value = value_str(row, key);

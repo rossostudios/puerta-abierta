@@ -908,7 +908,6 @@ fn parse_optional_uuid(value: Option<&str>, field: &str) -> AppResult<Option<Uui
     }
 }
 
-
 fn parse_millis(value: Option<&str>) -> i64 {
     value
         .and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok())
@@ -1007,7 +1006,6 @@ fn set_lookup_field(
     );
 }
 
-
 fn value_opt_str(row: &Value, key: &str) -> Option<String> {
     let value = value_str(row, key);
     if value.is_empty() {
@@ -1031,7 +1029,6 @@ fn value_f64(row: &Value, key: &str) -> f64 {
         })
         .unwrap_or(0.0)
 }
-
 
 #[allow(dead_code)]
 async fn get_lease_row(pool: &sqlx::PgPool, lease_id: &str) -> AppResult<Value> {

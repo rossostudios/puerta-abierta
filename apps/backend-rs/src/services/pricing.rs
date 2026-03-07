@@ -223,7 +223,6 @@ fn non_negative_f64(value: Option<f64>) -> f64 {
     value.unwrap_or(0.0).max(0.0)
 }
 
-
 fn to_title_case(value: &str) -> String {
     value
         .split_whitespace()

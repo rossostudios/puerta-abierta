@@ -402,10 +402,7 @@ impl LlmClient {
         for (index, model_name) in resolved.models.iter().enumerate() {
             let mut payload = Map::new();
             payload.insert("model".to_string(), Value::String(model_name.to_string()));
-            payload.insert(
-                "max_tokens".to_string(),
-                Value::from(2048_u32),
-            );
+            payload.insert("max_tokens".to_string(), Value::from(2048_u32));
             payload.insert("temperature".to_string(), Value::from(temperature));
             payload.insert(
                 "messages".to_string(),
@@ -854,10 +851,9 @@ fn anthropic_body_to_chat_completion_like(parsed: Value) -> Value {
                     .map(str::trim)
                     .filter(|value| !value.is_empty())
                     .unwrap_or("tool");
-                let arguments = serde_json::to_string(
-                    &obj.get("input").cloned().unwrap_or_else(|| json!({})),
-                )
-                .unwrap_or_else(|_| "{}".to_string());
+                let arguments =
+                    serde_json::to_string(&obj.get("input").cloned().unwrap_or_else(|| json!({})))
+                        .unwrap_or_else(|_| "{}".to_string());
                 tool_calls.push(json!({
                     "id": id,
                     "type": "function",

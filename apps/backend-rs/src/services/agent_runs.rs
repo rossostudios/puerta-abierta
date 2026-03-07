@@ -174,10 +174,7 @@ pub async fn list_run_events(
         .collect())
 }
 
-pub async fn create_run(
-    state: &AppState,
-    params: CreateAgentRunParams,
-) -> AppResult<Value> {
+pub async fn create_run(state: &AppState, params: CreateAgentRunParams) -> AppResult<Value> {
     let prepared = begin_run(state, &params).await?;
 
     let execution = match params.mode {
@@ -189,7 +186,7 @@ pub async fn create_run(
                 &prepared.runtime_ids,
                 prepared.preferred_model.as_deref(),
             )
-                .await
+            .await
         }
         AgentRunMode::Autonomous => {
             execute_autonomous_run(
@@ -387,14 +384,7 @@ pub async fn complete_run_from_result(
         .filter(|value| !value.is_empty())
         .unwrap_or("");
     if !reply.is_empty() {
-        insert_run_event(
-            pool,
-            org_id,
-            run_id,
-            "text_delta",
-            json!({ "text": reply }),
-        )
-        .await;
+        insert_run_event(pool, org_id, run_id, "text_delta", json!({ "text": reply })).await;
     }
 
     let trace = load_trace_for_run(pool, run_id).await?;
@@ -416,14 +406,7 @@ pub async fn complete_run_from_result(
         "waiting_for_approval"
     };
 
-    insert_run_event(
-        pool,
-        org_id,
-        run_id,
-        "status",
-        json!({ "status": status }),
-    )
-    .await;
+    insert_run_event(pool, org_id, run_id, "status", json!({ "status": status })).await;
 
     let model_used = result
         .get("model_used")
@@ -431,7 +414,12 @@ pub async fn complete_run_from_result(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(ToOwned::to_owned)
-        .or_else(|| trace.get("model_used").and_then(Value::as_str).map(ToOwned::to_owned));
+        .or_else(|| {
+            trace
+                .get("model_used")
+                .and_then(Value::as_str)
+                .map(ToOwned::to_owned)
+        });
     let provider = trace
         .get("provider")
         .and_then(Value::as_str)
@@ -535,9 +523,7 @@ pub async fn mark_run_failed(
     .bind(org_id)
     .execute(pool)
     .await
-    .map_err(|error| {
-        AppError::from_database_error(&error, "Failed to update failed agent run.")
-    })?;
+    .map_err(|error| AppError::from_database_error(&error, "Failed to update failed agent run."))?;
 
     get_run(state, org_id, run_id).await
 }
@@ -683,7 +669,9 @@ pub async fn approve_run(
         .bind(org_id)
         .execute(pool)
         .await
-        .map_err(|error| AppError::from_database_error(&error, "Failed to finalize approved action."))?;
+        .map_err(|error| {
+            AppError::from_database_error(&error, "Failed to finalize approved action.")
+        })?;
 
         insert_run_event(
             pool,
@@ -758,9 +746,7 @@ pub async fn reconcile_run_after_approval_review(
     .bind(run_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| {
-        AppError::from_database_error(&error, "Failed to load run approval state.")
-    })?;
+    .map_err(|error| AppError::from_database_error(&error, "Failed to load run approval state."))?;
 
     if pending_count > 0 {
         return get_run(state, org_id, run_id).await;
@@ -789,9 +775,7 @@ pub async fn reconcile_run_after_approval_review(
     .bind(run_id)
     .fetch_one(pool)
     .await
-    .map_err(|error| {
-        AppError::from_database_error(&error, "Failed to summarize run approvals.")
-    })?;
+    .map_err(|error| AppError::from_database_error(&error, "Failed to summarize run approvals."))?;
 
     let executed_count = approval_summary
         .try_get::<i32, _>("executed_count")
@@ -837,7 +821,14 @@ pub async fn reconcile_run_after_approval_review(
         )
     })?;
 
-    insert_run_event(pool, org_id, run_id, "status", json!({ "status": next_status })).await;
+    insert_run_event(
+        pool,
+        org_id,
+        run_id,
+        "status",
+        json!({ "status": next_status }),
+    )
+    .await;
 
     get_run(state, org_id, run_id).await
 }
@@ -1001,7 +992,9 @@ async fn get_agent_runtime_row(
     .bind(agent_slug)
     .fetch_optional(pool)
     .await
-    .map_err(|error| AppError::from_database_error(&error, "Failed to load agent configuration."))?;
+    .map_err(|error| {
+        AppError::from_database_error(&error, "Failed to load agent configuration.")
+    })?;
 
     row.and_then(|value| value.try_get::<Option<Value>, _>("row").ok().flatten())
         .ok_or_else(|| AppError::NotFound("AI agent was not found.".to_string()))
@@ -1076,8 +1069,7 @@ fn wrap_message_with_context(task: &str, context: &Value) -> String {
         return trimmed.to_string();
     }
 
-    let context_json =
-        serde_json::to_string(context).unwrap_or_else(|_| "{}".to_string());
+    let context_json = serde_json::to_string(context).unwrap_or_else(|_| "{}".to_string());
     format!("[CasaoraContext]\n{context_json}\n[/CasaoraContext]\n{trimmed}")
 }
 
@@ -1178,7 +1170,11 @@ fn model_provider_from_model(model: Option<&str>) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
-fn estimate_cost_usd(model: Option<&str>, prompt_tokens: u64, completion_tokens: u64) -> Option<f64> {
+fn estimate_cost_usd(
+    model: Option<&str>,
+    prompt_tokens: u64,
+    completion_tokens: u64,
+) -> Option<f64> {
     let (input_rate, output_rate) = match model.unwrap_or_default() {
         "openai:gpt-5.2" => (1.75_f64, 14.0_f64),
         "openai:gpt-5-mini" => (0.25_f64, 2.0_f64),

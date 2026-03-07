@@ -604,7 +604,6 @@ fn map_sqlx_error(error: sqlx::Error) -> AppError {
     AppError::from_database_error(&error, "Database operation failed.")
 }
 
-
 // ---------------------------------------------------------------------------
 // Expo Push Notifications
 // ---------------------------------------------------------------------------

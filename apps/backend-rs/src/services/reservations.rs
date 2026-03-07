@@ -90,7 +90,10 @@ pub async fn build_reservation_detail_overview(
         list_rows(
             pool,
             "calendar_blocks",
-            Some(&json_map(&[("unit_id", Value::String(unit_id_value.clone()))])),
+            Some(&json_map(&[(
+                "unit_id",
+                Value::String(unit_id_value.clone()),
+            )])),
             200,
             0,
             "starts_on",
@@ -105,7 +108,10 @@ pub async fn build_reservation_detail_overview(
         list_rows(
             pool,
             "reservations",
-            Some(&json_map(&[("unit_id", Value::String(unit_id_value.clone()))])),
+            Some(&json_map(&[(
+                "unit_id",
+                Value::String(unit_id_value.clone()),
+            )])),
             300,
             0,
             "check_in_date",
@@ -236,9 +242,7 @@ pub async fn build_reservation_detail_overview(
         }
     }
 
-    blocked_periods.sort_by(|left, right| {
-        value_str(left, "from").cmp(&value_str(right, "from"))
-    });
+    blocked_periods.sort_by(|left, right| value_str(left, "from").cmp(&value_str(right, "from")));
 
     Ok(json!({
         "reservation": {
@@ -511,7 +515,11 @@ fn push_overview_base_select(
             .push(")");
     }
 
-    push_date_window_filters(builder, query.from_date.as_deref(), query.to_date.as_deref())?;
+    push_date_window_filters(
+        builder,
+        query.from_date.as_deref(),
+        query.to_date.as_deref(),
+    )?;
 
     Ok(())
 }
@@ -563,13 +571,12 @@ fn push_overview_outer_filters(
     }
 }
 
-fn push_overview_sort(
-    builder: &mut QueryBuilder<'_, Postgres>,
-    sort: Option<&str>,
-) {
+fn push_overview_sort(builder: &mut QueryBuilder<'_, Postgres>, sort: Option<&str>) {
     match non_empty_opt(sort).as_deref() {
         Some("check_out_asc") => builder.push(" ORDER BY t.check_out_date ASC, t.id ASC"),
-        Some("guest_asc") => builder.push(" ORDER BY lower(COALESCE(t.guest_name, '')) ASC, t.check_in_date ASC"),
+        Some("guest_asc") => {
+            builder.push(" ORDER BY lower(COALESCE(t.guest_name, '')) ASC, t.check_in_date ASC")
+        }
         Some("total_desc") => builder.push(" ORDER BY t.total_amount DESC, t.check_in_date ASC"),
         Some("status_asc") => builder.push(" ORDER BY lower(t.status) ASC, t.check_in_date ASC"),
         _ => builder.push(" ORDER BY t.check_in_date ASC, t.id ASC"),
@@ -762,27 +769,17 @@ fn push_date_window_filters(
     }
 
     if let Some(from) = parsed_from {
-        builder
-            .push(" AND r.check_out_date >= ")
-            .push_bind(from);
+        builder.push(" AND r.check_out_date >= ").push_bind(from);
     }
     if let Some(to) = parsed_to {
-        builder
-            .push(" AND r.check_in_date <= ")
-            .push_bind(to);
+        builder.push(" AND r.check_in_date <= ").push_bind(to);
     }
     Ok(())
 }
 
-fn overlaps_window(
-    row: &Value,
-    from_date: Option<&str>,
-    to_date: Option<&str>,
-) -> bool {
-    let row_from = value_opt_str(row, "check_in_date")
-        .or_else(|| value_opt_str(row, "starts_on"));
-    let row_to = value_opt_str(row, "check_out_date")
-        .or_else(|| value_opt_str(row, "ends_on"));
+fn overlaps_window(row: &Value, from_date: Option<&str>, to_date: Option<&str>) -> bool {
+    let row_from = value_opt_str(row, "check_in_date").or_else(|| value_opt_str(row, "starts_on"));
+    let row_to = value_opt_str(row, "check_out_date").or_else(|| value_opt_str(row, "ends_on"));
 
     let Some(row_from) = row_from else {
         return false;
@@ -816,11 +813,9 @@ fn parse_uuid(value: &str, field: &str) -> AppResult<uuid::Uuid> {
 }
 
 fn parse_date(value: &str, field: &str) -> AppResult<NaiveDate> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| {
-        AppError::BadRequest(format!("Invalid {field}. Expected YYYY-MM-DD."))
-    })
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| AppError::BadRequest(format!("Invalid {field}. Expected YYYY-MM-DD.")))
 }
-
 
 fn value_opt_str(row: &Value, key: &str) -> Option<String> {
     row.as_object()
@@ -859,7 +854,6 @@ fn value_bool(row: &Value, key: &str) -> bool {
         .and_then(Value::as_bool)
         .unwrap_or(false)
 }
-
 
 fn map_db_error(error: sqlx::Error) -> AppError {
     tracing::error!(error = %error, "Reservation overview query failed");

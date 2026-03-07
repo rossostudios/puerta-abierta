@@ -173,10 +173,7 @@ impl AppConfig {
                 "ANTHROPIC_API_BASE_URL",
                 "https://api.anthropic.com/v1",
             ),
-            anthropic_primary_model: env_or(
-                "ANTHROPIC_PRIMARY_MODEL",
-                "claude-sonnet-4-6",
-            ),
+            anthropic_primary_model: env_or("ANTHROPIC_PRIMARY_MODEL", "claude-sonnet-4-6"),
             anthropic_fallback_models: parse_csv(&env_or("ANTHROPIC_FALLBACK_MODELS", "")),
             ai_agent_use_responses_api,
             ai_agent_max_tool_steps: env_parse_or("AI_AGENT_MAX_TOOL_STEPS", 6),

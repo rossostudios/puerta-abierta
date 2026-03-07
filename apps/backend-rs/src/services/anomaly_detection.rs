@@ -380,7 +380,6 @@ async fn insert_alert_if_new(
     row.and_then(|item| item.try_get::<Option<Value>, _>("row").ok().flatten())
 }
 
-
 fn number_from_value(value: Option<&Value>) -> f64 {
     match value {
         Some(Value::Number(number)) => number.as_f64().unwrap_or(0.0),

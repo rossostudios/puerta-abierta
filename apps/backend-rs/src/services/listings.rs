@@ -989,7 +989,6 @@ fn parse_uuid(value: &str, field: &str) -> AppResult<uuid::Uuid> {
         .map_err(|_| AppError::BadRequest(format!("Invalid {field} format.")))
 }
 
-
 fn value_null_or_string(row: &Value, key: &str) -> Value {
     row.as_object()
         .and_then(|obj| obj.get(key))
@@ -1022,7 +1021,6 @@ fn value_f64(row: &Value, key: &str) -> f64 {
         .unwrap_or(0.0)
 }
 
-
 fn bool_value(value: Option<&Value>) -> bool {
     match value {
         Some(Value::Bool(flag)) => *flag,
@@ -1044,7 +1042,6 @@ fn missing_or_blank(row: &Value, key: &str) -> bool {
         })
         .unwrap_or(true)
 }
-
 
 fn map_db_error(error: sqlx::Error) -> AppError {
     tracing::error!(db_error = %error, "Listings query failed");

@@ -1818,7 +1818,6 @@ fn val_str(row: &Value, key: &str) -> String {
         .unwrap_or_default()
 }
 
-
 fn truncate_reason(reason: &str) -> String {
     reason.chars().take(1_000).collect()
 }

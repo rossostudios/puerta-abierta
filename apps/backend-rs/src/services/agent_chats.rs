@@ -374,16 +374,15 @@ pub async fn send_chat_message(
             .as_ref()
             .and_then(|override_row| override_row.allow_mutations_default)
             .unwrap_or(true);
-    let effective_preferred_model =
-        preferred_model
-            .as_deref()
-            .map(ToOwned::to_owned)
-            .or_else(|| {
-                runtime_override
-                    .as_ref()
-                    .and_then(|override_row| override_row.model_override.clone())
-            })
-            .or_else(|| agent_model_policy_default(&agent));
+    let effective_preferred_model = preferred_model
+        .as_deref()
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            runtime_override
+                .as_ref()
+                .and_then(|override_row| override_row.model_override.clone())
+        })
+        .or_else(|| agent_model_policy_default(&agent));
     let max_steps_override = runtime_override
         .as_ref()
         .and_then(|override_row| override_row.max_steps_override)
@@ -625,16 +624,15 @@ pub async fn send_chat_message_streaming(
             .as_ref()
             .and_then(|override_row| override_row.allow_mutations_default)
             .unwrap_or(true);
-    let effective_preferred_model =
-        preferred_model
-            .as_deref()
-            .map(ToOwned::to_owned)
-            .or_else(|| {
-                runtime_override
-                    .as_ref()
-                    .and_then(|override_row| override_row.model_override.clone())
-            })
-            .or_else(|| agent_model_policy_default(&agent));
+    let effective_preferred_model = preferred_model
+        .as_deref()
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            runtime_override
+                .as_ref()
+                .and_then(|override_row| override_row.model_override.clone())
+        })
+        .or_else(|| agent_model_policy_default(&agent));
     let max_steps_override = runtime_override
         .as_ref()
         .and_then(|override_row| override_row.max_steps_override)
