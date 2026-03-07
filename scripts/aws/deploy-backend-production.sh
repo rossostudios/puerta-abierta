@@ -53,6 +53,22 @@ require_bin() {
   }
 }
 
+resolve_alb_dns() {
+  aws_cmd elbv2 describe-load-balancers \
+    --names "${ALB_NAME}" \
+    --query 'LoadBalancers[0].DNSName' \
+    --output text 2>/dev/null || true
+}
+
+run_smoke_request() {
+  local base_url="$1"
+  local path="$2"
+  local output_file="$3"
+  shift 3
+
+  curl -sS -o "${output_file}" -w '%{http_code}' "$@" "${base_url}${path}"
+}
+
 resolve_existing_secret_ref() {
   local env_var_name="$1"
   local secret_name="$2"
@@ -311,8 +327,22 @@ fi
 echo "==> Smoke tests via ${SMOKE_BASE_URL}"
 tmp_live_body="$(mktemp)"
 tmp_ready_body="$(mktemp)"
-live_status="$(curl -sS -o "${tmp_live_body}" -w '%{http_code}' "${SMOKE_BASE_URL}/v1/live")"
-ready_status="$(curl -sS -o "${tmp_ready_body}" -w '%{http_code}' "${SMOKE_BASE_URL}/v1/ready")"
+live_status="$(run_smoke_request "${SMOKE_BASE_URL}" "/v1/live" "${tmp_live_body}")"
+ready_status="$(run_smoke_request "${SMOKE_BASE_URL}" "/v1/ready" "${tmp_ready_body}")"
+
+smoke_base_url_used="${SMOKE_BASE_URL}"
+smoke_path_mode="public"
+
+if [[ "${ready_status}" != "200" ]]; then
+  alb_dns="$(resolve_alb_dns)"
+  if [[ -n "${alb_dns}" && "${alb_dns}" != "None" ]]; then
+    echo "==> Public smoke checks failed; retrying against ALB origin ${alb_dns}" >&2
+    smoke_base_url_used="https://${alb_dns}"
+    smoke_path_mode="alb_origin"
+    live_status="$(run_smoke_request "${smoke_base_url_used}" "/v1/live" "${tmp_live_body}" -k)"
+    ready_status="$(run_smoke_request "${smoke_base_url_used}" "/v1/ready" "${tmp_ready_body}" -k)"
+  fi
+fi
 
 echo "/v1/live -> ${live_status}"
 echo "/v1/ready -> ${ready_status}"
@@ -323,7 +353,8 @@ jq -n \
   --arg service "${SERVICE_NAME}" \
   --arg task_definition_arn "${taskdef_arn}" \
   --arg image_uri "${image_uri}" \
-  --arg smoke_base_url "${SMOKE_BASE_URL}" \
+  --arg smoke_base_url "${smoke_base_url_used}" \
+  --arg smoke_path_mode "${smoke_path_mode}" \
   --arg live_status "${live_status}" \
   --arg ready_status "${ready_status}" \
   --arg live_body "$(cat "${tmp_live_body}")" \
@@ -334,6 +365,7 @@ jq -n \
     task_definition_arn: $task_definition_arn,
     image_uri: $image_uri,
     smoke_base_url: $smoke_base_url,
+    smoke_path_mode: $smoke_path_mode,
     smoke: {
       live: { status: ($live_status | tonumber), body: ($live_body | fromjson?) },
       ready: { status: ($ready_status | tonumber), body: ($ready_body | fromjson?) }
