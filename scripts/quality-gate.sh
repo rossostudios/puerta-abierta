@@ -42,4 +42,4 @@ if [[ -d "${ROOT_DIR}/apps/backend-rs" ]]; then
   )
 fi
 
-echo "==> Quality gate passed"
+echo "==> Quality gate passed (${MODE})"
