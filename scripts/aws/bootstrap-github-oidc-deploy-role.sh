@@ -12,6 +12,7 @@ INLINE_POLICY_NAME="${GITHUB_OIDC_INLINE_POLICY_NAME:-CasaoraGitHubActionsEcsDep
 
 BACKEND_ECR_REPOSITORY="${BACKEND_ECR_REPOSITORY:-casaora-backend}"
 ADMIN_ECR_REPOSITORY="${ADMIN_ECR_REPOSITORY:-casaora-admin}"
+WEB_ECR_REPOSITORY="${WEB_ECR_REPOSITORY:-casaora-web}"
 ECS_CLUSTER_NAME="${ECS_CLUSTER_NAME:-casaora-prod}"
 
 # GitHub Actions OIDC provider thumbprint commonly used in AWS examples.
@@ -40,6 +41,7 @@ echo "Account: ${ACCOUNT_ID}"
 
 BACKEND_REPO_ARN="arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/${BACKEND_ECR_REPOSITORY}"
 ADMIN_REPO_ARN="arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/${ADMIN_ECR_REPOSITORY}"
+WEB_REPO_ARN="arn:aws:ecr:${REGION}:${ACCOUNT_ID}:repository/${WEB_ECR_REPOSITORY}"
 
 echo "==> Ensuring GitHub OIDC provider exists"
 OIDC_PROVIDER_ARN="$(
@@ -141,8 +143,17 @@ cat > "${POLICY_FILE}" <<EOF
       ],
       "Resource": [
         "${BACKEND_REPO_ARN}",
-        "${ADMIN_REPO_ARN}"
+        "${ADMIN_REPO_ARN}",
+        "${WEB_REPO_ARN}"
       ]
+    },
+    {
+      "Sid": "Elbv2Describe",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DescribeLoadBalancers"
+      ],
+      "Resource": "*"
     },
     {
       "Sid": "EcsDeploy",

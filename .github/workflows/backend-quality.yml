@@ -1,6 +1,7 @@
 name: Backend Quality Gate
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "apps/backend-rs/**"
