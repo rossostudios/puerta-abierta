@@ -29,6 +29,7 @@ jobs:
               - 'packages/marketplace-shared/**'
             web:
               - 'apps/web/**'
+              - 'packages/shared-api/**'
               - 'packages/marketplace-shared/**'
 
   deploy-backend:
