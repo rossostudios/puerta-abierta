@@ -10,7 +10,7 @@ COPY apps/web/package.json apps/web/package-lock.json ./
 COPY packages/shared-api /repo/packages/shared-api
 COPY packages/marketplace-shared /repo/packages/marketplace-shared
 
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 FROM node:22-bookworm-slim AS build
 
