@@ -2,15 +2,15 @@
 # Build with repo root as context:
 #   docker build -f apps/admin/Dockerfile .
 
-FROM oven/bun:1-slim AS deps
+FROM node:22-bookworm-slim AS deps
 
 WORKDIR /repo/apps/admin
 
-COPY apps/admin/package.json apps/admin/bun.lock ./
+COPY apps/admin/package.json apps/admin/package-lock.json ./
 COPY packages/shared-api /repo/packages/shared-api
 COPY packages/marketplace-shared /repo/packages/marketplace-shared
 
-RUN bun install --frozen-lockfile
+RUN npm ci
 
 FROM node:22-bookworm-slim AS build
 

@@ -1,0 +1,56 @@
+name: Auto Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      admin: ${{ steps.filter.outputs.admin }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend-rs/**'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/shared-api/**'
+              - 'packages/marketplace-shared/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/marketplace-shared/**'
+
+  deploy-backend:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend == 'true'
+    uses: ./.github/workflows/aws-ecs-deploy.yml
+    with:
+      app: backend
+    secrets: inherit
+
+  deploy-admin:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.admin == 'true'
+    uses: ./.github/workflows/aws-ecs-deploy.yml
+    with:
+      app: admin
+    secrets: inherit
+
+  deploy-web:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true'
+    uses: ./.github/workflows/aws-ecs-deploy.yml
+    with:
+      app: web
+    secrets: inherit

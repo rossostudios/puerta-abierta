@@ -1,0 +1,66 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: casaora
+      POSTGRES_PASSWORD: casaora_local
+      POSTGRES_DB: casaora
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casaora"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: apps/backend-rs
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env.docker
+    environment:
+      DATABASE_URL: postgres://casaora:casaora_local@db:5432/casaora
+      HOST: 0.0.0.0
+      PORT: "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/v1
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_CLERK_DOMAIN: ${CLERK_DOMAIN:-clerk.casaora.co}
+        NEXT_PUBLIC_CLERK_JS_URL: ${CLERK_JS_URL:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000/v1
+        NEXT_PUBLIC_SITE_URL: http://localhost:3001
+        NEXT_PUBLIC_ADMIN_URL: http://localhost:3000
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_CLERK_DOMAIN: ${CLERK_DOMAIN:-clerk.casaora.co}
+        NEXT_PUBLIC_CLERK_JS_URL: ${CLERK_JS_URL:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

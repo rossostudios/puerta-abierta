@@ -36,6 +36,13 @@
         { "name": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "valueFrom": "REPLACE_ME_CLERK_PUBLISHABLE_SECRET_ARN" },
         { "name": "CLERK_SECRET_KEY", "valueFrom": "REPLACE_ME_CLERK_SECRET_ARN" }
       ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))\""],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 30
+      },
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

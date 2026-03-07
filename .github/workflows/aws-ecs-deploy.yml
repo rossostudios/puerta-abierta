@@ -44,6 +44,35 @@ on:
           - ubuntu-24.04-arm
           - ubuntu-latest
         default: ubuntu-24.04-arm
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+      deploy_service:
+        required: false
+        type: boolean
+        default: true
+      wait_for_service_stability:
+        required: false
+        type: boolean
+        default: true
+      run_smoke_tests:
+        required: false
+        type: boolean
+        default: true
+      enable_registry_cache:
+        required: false
+        type: boolean
+        default: true
+      backend_image_tag:
+        required: false
+        type: string
+        default: ""
+      runner_label:
+        required: false
+        type: string
+        default: ubuntu-24.04-arm
 
 permissions:
   id-token: write
