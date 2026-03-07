@@ -5,10 +5,6 @@ name: Backend Quality Gate
 on:
   workflow_dispatch:
   pull_request:
-    paths:
-      - "apps/backend-rs/**"
-      - "scripts/quality-gate.sh"
-      - ".github/workflows/backend-quality.yml"
   push:
     branches: [main]
     paths:
@@ -21,7 +17,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'apps/backend-rs/**'
+              - 'scripts/quality-gate.sh'
+              - '.github/workflows/backend-quality.yml'
+
   backend-quality:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
