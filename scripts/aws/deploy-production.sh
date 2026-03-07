@@ -494,6 +494,16 @@ if ! wait_for_ecs_stability; then
   exit 2
 fi
 
+# Detect ECS auto-rollback: service may report "stable" after reverting to old task def
+active_taskdef="$(aws_cmd ecs describe-services --cluster "${CLUSTER_NAME}" --services "${SERVICE_NAME}" \
+  --query 'services[0].taskDefinition' --output text 2>/dev/null || true)"
+if [[ -n "${active_taskdef}" && "${active_taskdef}" != "${taskdef_arn}" ]]; then
+  echo "ECS auto-rolled back to ${active_taskdef} (expected ${taskdef_arn})." >&2
+  echo "The new task likely failed container health checks. Check CloudWatch logs for details." >&2
+  print_ecs_diagnostics
+  exit 2
+fi
+
 # ── Smoke tests ──────────────────────────────────────────────────
 
 if [[ "${RUN_SMOKE_TESTS}" != "true" ]]; then
